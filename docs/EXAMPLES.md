@@ -6,6 +6,9 @@ This document provides example natural language queries you can use with the pgE
 
 - [Basic Data Queries](#basic-data-queries)
 - [Schema Discovery](#schema-discovery)
+- [Configuration Management](#configuration-management)
+  - [Viewing Configuration](#viewing-configuration)
+  - [Modifying Configuration](#modifying-configuration)
 - [Multi-Database Queries](#multi-database-queries)
   - [Temporary Connection (Single Query)](#temporary-connection-single-query)
   - [Setting Default Database](#setting-default-database)
@@ -60,6 +63,121 @@ Use these queries to understand your database structure:
 - "What tables reference the users table?"
 - "Show me foreign key relationships"
 - "Which tables are related to orders?"
+
+## Configuration Management
+
+The pgEdge MCP server provides access to PostgreSQL configuration parameters through the `pg://settings` resource and the `set_pg_configuration` tool.
+
+### Viewing Configuration
+
+Access the `pg://settings` resource to view all PostgreSQL configuration parameters:
+
+**Resource Access:**
+- "Show me the pg://settings resource"
+- "Read the PostgreSQL settings resource"
+- "Display server configuration from pg://settings"
+
+**Example Questions About Configuration:**
+- "What is the current value of max_connections?"
+- "Show me all memory-related configuration parameters"
+- "Which settings require a restart to take effect?"
+- "What are the default values for connection settings?"
+- "Show me all configuration parameters that have been changed from defaults"
+
+**The resource returns:**
+- Current value
+- Default value
+- Reset value (value after next reload)
+- Whether a restart is pending
+- Parameter description
+- Valid range (for numeric parameters)
+- Valid options (for enum parameters)
+- Configuration context (when it can be changed)
+
+### Modifying Configuration
+
+Use the `set_pg_configuration` tool to modify PostgreSQL server configuration:
+
+**Setting Values:**
+```
+"Set max_connections to 200"
+"Change work_mem to 16MB"
+"Set shared_buffers to 2GB"
+"Modify maintenance_work_mem to 512MB"
+```
+
+**Resetting to Defaults:**
+```
+"Reset max_connections to default"
+"Set work_mem back to default value"
+"Restore default value for shared_buffers"
+```
+
+**Configuration Examples by Category:**
+
+#### Connection Settings
+```
+"Set max_connections to 300"
+"Change superuser_reserved_connections to 5"
+"Set tcp_keepalives_idle to 600"
+```
+
+#### Memory Settings
+```
+"Set shared_buffers to 4GB"
+"Change work_mem to 32MB"
+"Set maintenance_work_mem to 1GB"
+"Modify effective_cache_size to 16GB"
+```
+
+#### Write-Ahead Log
+```
+"Set wal_level to replica"
+"Change max_wal_size to 2GB"
+"Set checkpoint_timeout to 15min"
+```
+
+#### Query Planning
+```
+"Set random_page_cost to 1.1"
+"Change effective_io_concurrency to 200"
+"Set default_statistics_target to 200"
+```
+
+#### Logging
+```
+"Set log_min_duration_statement to 1000"  (log queries > 1 second)
+"Change log_statement to 'all'"
+"Set log_line_prefix to '%t [%p]: '"
+```
+
+#### Autovacuum
+```
+"Set autovacuum_naptime to 30s"
+"Change autovacuum_vacuum_scale_factor to 0.1"
+"Set autovacuum_max_workers to 4"
+```
+
+**Important Notes:**
+
+1. **Restart Requirements**: Some parameters require a PostgreSQL restart to take effect:
+   - Connection settings (max_connections, shared_buffers)
+   - Most memory settings
+   - WAL-related settings
+   - The tool will warn you when a restart is required
+
+2. **Permissions**: You need superuser privileges to use ALTER SYSTEM SET
+
+3. **Persistence**: Changes are written to `postgresql.auto.conf` and persist across restarts
+
+4. **Reload**: The tool automatically calls `pg_reload_conf()` for parameters that don't require restart
+
+**Verification:**
+After changing a setting, you can verify it:
+```
+"Show me the current value of max_connections"
+"Check if max_connections has a pending restart"
+```
 
 ## Multi-Database Queries
 

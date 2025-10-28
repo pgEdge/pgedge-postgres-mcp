@@ -80,3 +80,23 @@ type ContentItem struct {
 	Type string `json:"type"`
 	Text string `json:"text"`
 }
+
+// Resource represents an MCP resource definition
+type Resource struct {
+	URI         string `json:"uri"`
+	Name        string `json:"name"`
+	Description string `json:"description,omitempty"`
+	MimeType    string `json:"mimeType,omitempty"`
+}
+
+// ResourceReadParams represents parameters for reading a resource
+type ResourceReadParams struct {
+	URI string `json:"uri"`
+}
+
+// ResourceContent represents the content of a resource
+type ResourceContent struct {
+	URI      string        `json:"uri"`
+	MimeType string        `json:"mimeType,omitempty"`
+	Contents []ContentItem `json:"contents"`
+}

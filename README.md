@@ -11,10 +11,15 @@ A Model Context Protocol (MCP) server written in Go that enables natural languag
   - Nullability constraints
   - Comments from pg_description (table and column descriptions)
   - Schema information
+- **Multi-Database Support**: Query multiple PostgreSQL databases dynamically by specifying connection strings in queries
+- **Configuration Management**: View and modify PostgreSQL server configuration parameters
 - **MCP Protocol**: Implements the Model Context Protocol for stdio communication
-- **Two MCP Tools**:
+- **Three MCP Tools**:
   - `query_database`: Execute natural language queries and get results
   - `get_schema_info`: Retrieve detailed database schema information
+  - `set_pg_configuration`: Modify PostgreSQL server configuration parameters
+- **MCP Resource**:
+  - `pg://settings`: View all PostgreSQL configuration parameters with current and default values
 
 ## Documentation
 
@@ -299,6 +304,75 @@ public.users (TABLE)
     ...
 ```
 
+#### set_pg_configuration
+
+Sets PostgreSQL server configuration parameters using ALTER SYSTEM SET. Changes persist across server restarts. Some parameters require a restart to take effect.
+
+**Input**:
+```json
+{
+  "parameter": "max_connections",
+  "value": "200"
+}
+```
+
+Use "DEFAULT" as the value to reset to default:
+```json
+{
+  "parameter": "work_mem",
+  "value": "DEFAULT"
+}
+```
+
+**Output**:
+```
+Configuration parameter 'max_connections' updated successfully.
+
+Parameter: max_connections
+Description: Sets the maximum number of concurrent connections
+Type: integer
+Context: postmaster
+
+Previous value: 100
+New value: 200
+
+⚠️  WARNING: This parameter requires a server restart to take effect.
+The change has been saved to postgresql.auto.conf but will not be active until the server is restarted.
+
+SQL executed: ALTER SYSTEM SET max_connections = '200'
+```
+
+### Available Resources
+
+Resources provide read-only access to database information and configuration.
+
+#### pg://settings
+
+Returns PostgreSQL server configuration parameters including current values, default values, pending changes, and descriptions.
+
+**Access**: Read the resource to view all PostgreSQL configuration settings from pg_settings.
+
+**Output**: JSON array with detailed information about each configuration parameter:
+```json
+[
+  {
+    "name": "max_connections",
+    "current_value": "100",
+    "category": "Connections and Authentication / Connection Settings",
+    "description": "Sets the maximum number of concurrent connections.",
+    "context": "postmaster",
+    "type": "integer",
+    "source": "configuration file",
+    "min_value": "1",
+    "max_value": "262143",
+    "default_value": "100",
+    "reset_value": "100",
+    "pending_restart": false
+  },
+  ...
+]
+```
+
 ## Security Considerations
 
 1. **Database Credentials**: Store connection strings securely
@@ -317,7 +391,14 @@ public.users (TABLE)
    - Consider implementing query validation/sandboxing
    - Monitor for suspicious queries
 
-4. **Network Security**:
+4. **Configuration Management**: The `set_pg_configuration` tool modifies server settings
+   - Requires PostgreSQL superuser privileges
+   - Changes persist across server restarts via `postgresql.auto.conf`
+   - Test configuration changes in development before applying to production
+   - Some parameters require a server restart to take effect
+   - Keep backups of configuration files before making changes
+
+5. **Network Security**:
    - Use SSL/TLS for PostgreSQL connections when possible
    - Restrict database access to trusted networks
 

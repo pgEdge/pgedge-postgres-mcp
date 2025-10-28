@@ -19,9 +19,16 @@ type ToolProvider interface {
 	Execute(name string, args map[string]interface{}) (ToolResponse, error)
 }
 
+// ResourceProvider is an interface for listing and reading resources
+type ResourceProvider interface {
+	List() []Resource
+	Read(uri string) (ResourceContent, error)
+}
+
 // Server handles MCP protocol communication
 type Server struct {
-	tools ToolProvider
+	tools     ToolProvider
+	resources ResourceProvider
 }
 
 // NewServer creates a new MCP server
@@ -29,6 +36,11 @@ func NewServer(tools ToolProvider) *Server {
 	return &Server{
 		tools: tools,
 	}
+}
+
+// SetResourceProvider sets the resource provider for the server
+func (s *Server) SetResourceProvider(resources ResourceProvider) {
+	s.resources = resources
 }
 
 // Run starts the stdio server loop
@@ -68,6 +80,10 @@ func (s *Server) handleRequest(req JSONRPCRequest) {
 		s.handleToolsList(req)
 	case "tools/call":
 		s.handleToolCall(req)
+	case "resources/list":
+		s.handleResourcesList(req)
+	case "resources/read":
+		s.handleResourceRead(req)
 	default:
 		if req.ID != nil {
 			sendError(req.ID, -32601, "Method not found", nil)
@@ -89,11 +105,18 @@ func (s *Server) handleInitialize(req JSONRPCRequest) {
 		protocolVersion = ProtocolVersion
 	}
 
+	capabilities := map[string]interface{}{
+		"tools": map[string]interface{}{},
+	}
+
+	// Add resources capability if resource provider is set
+	if s.resources != nil {
+		capabilities["resources"] = map[string]interface{}{}
+	}
+
 	result := InitializeResult{
 		ProtocolVersion: protocolVersion,
-		Capabilities: map[string]interface{}{
-			"tools": map[string]interface{}{},
-		},
+		Capabilities:    capabilities,
 		ServerInfo: Implementation{
 			Name:    ServerName,
 			Version: ServerVersion,
@@ -128,6 +151,43 @@ func (s *Server) handleToolCall(req JSONRPCRequest) {
 	}
 
 	sendResponse(req.ID, response)
+}
+
+func (s *Server) handleResourcesList(req JSONRPCRequest) {
+	if s.resources == nil {
+		sendError(req.ID, -32601, "Resources not supported", nil)
+		return
+	}
+
+	resources := s.resources.List()
+
+	result := map[string]interface{}{
+		"resources": resources,
+	}
+
+	sendResponse(req.ID, result)
+}
+
+func (s *Server) handleResourceRead(req JSONRPCRequest) {
+	if s.resources == nil {
+		sendError(req.ID, -32601, "Resources not supported", nil)
+		return
+	}
+
+	paramsBytes, _ := json.Marshal(req.Params)
+	var params ResourceReadParams
+	if err := json.Unmarshal(paramsBytes, &params); err != nil {
+		sendError(req.ID, -32602, "Invalid params", err.Error())
+		return
+	}
+
+	content, err := s.resources.Read(params.URI)
+	if err != nil {
+		sendError(req.ID, -32603, "Resource read error", err.Error())
+		return
+	}
+
+	sendResponse(req.ID, content)
 }
 
 func sendResponse(id interface{}, result interface{}) {
