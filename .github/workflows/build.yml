@@ -30,8 +30,8 @@ jobs:
     - name: Download dependencies
       run: go mod download
 
-    - name: Create cmd directory
-      run: mkdir -p cmd
+    - name: Create bin directory
+      run: mkdir -p bin
 
     - name: Build
       run: go build -v -o bin/pgedge-mcp ./cmd/pgedge-mcp
