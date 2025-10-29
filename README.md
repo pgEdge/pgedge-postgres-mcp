@@ -321,10 +321,6 @@ Includes multiple jobs:
 - Uses golangci-lint for code quality checks
 - Configuration in `.golangci.yml`
 
-**Security**
-- Runs Gosec security scanner
-- Uploads results to GitHub Security
-
 ### Status Badges
 
 Add these badges to track CI/CD status:

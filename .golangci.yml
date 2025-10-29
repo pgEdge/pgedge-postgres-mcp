@@ -41,10 +41,6 @@ linters:
     - gocyclo
     - dupl
     - gocritic
-  disable:
-    - deadcode
-    - varcheck
-    - structcheck
 
 issues:
   exclude-rules:
