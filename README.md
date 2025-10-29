@@ -1,5 +1,8 @@
 # pgEdge MCP Server
 
+[![Build](https://github.com/pgEdge/pgedge-postgres-mcp/workflows/Build/badge.svg)](https://github.com/pgEdge/pgedge-postgres-mcp/actions/workflows/build.yml)
+[![Tests](https://github.com/pgEdge/pgedge-postgres-mcp/workflows/Tests/badge.svg)](https://github.com/pgEdge/pgedge-postgres-mcp/actions/workflows/test.yml)
+
 A Model Context Protocol (MCP) server written in Go that enables natural language queries against PostgreSQL databases. The server uses Claude AI to translate natural language questions into SQL queries by analyzing database metadata including table names, view names, column names, data types, and comments from pg_description.
 
 > 🚧 WARNING
@@ -556,12 +559,10 @@ tail -f ~/Library/Logs/Claude/mcp*.log
 
 ## License
 
-[Add your license here]
+This software is released under [The PostgreSQL License](LICENSE).
 
-## Contributing
-
-[Add contribution guidelines here]
+Copyright (c) 2025, pgEdge, Inc.
 
 ## Support
 
-For issues, questions, or contributions, please [add contact/issue tracker information].
+For issues, questions, or contributions, please use the [GitHub issue tracker](https://github.com/pgEdge/pgedge-postgres-mcp/issues).
