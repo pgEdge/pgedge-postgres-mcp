@@ -270,7 +270,7 @@ TEST_ANTHROPIC_API_KEY="your-key" \
 
 The integration tests automatically build the binary if it doesn't exist and handle server lifecycle management. Tests include retry logic to account for asynchronous metadata loading.
 
-**Note:** The `QueryPostgreSQLVersion` test requires a valid Anthropic API key set in the `TEST_ANTHROPIC_API_KEY` environment variable, as it tests the full end-to-end flow including LLM natural language to SQL conversion. If the API key is not provided, this test will be skipped.
+**Note:** The `QueryPostgreSQLVersion` test requires a valid Anthropic API key set in the `TEST_ANTHROPIC_API_KEY` environment variable, as it tests the full end-to-end flow including LLM natural language to SQL conversion. If the API key is not provided, this test will be skipped. The test works with any PostgreSQL version (9.x, 10+, development versions, beta versions, etc.) without hardcoding version numbers.
 
 ### Testing with MCP Inspector
 

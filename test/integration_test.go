@@ -671,12 +671,49 @@ func testQueryPostgreSQLVersion(t *testing.T, server *MCPServer, apiKey string) 
 		t.Error("Response should contain 'Results'")
 	}
 
-	// Should contain version information (PostgreSQL version format is typically like "PostgreSQL 14.5" or just numbers)
-	hasVersionInfo := strings.Contains(strings.ToLower(text), "postgresql") ||
-		strings.Contains(text, "version") ||
-		// Look for version-like patterns (numbers with dots)
-		(strings.Contains(text, ".") && (strings.Contains(text, "14") || strings.Contains(text, "15") ||
-			strings.Contains(text, "16") || strings.Contains(text, "17") || strings.Contains(text, "13")))
+	// Should contain version information
+	// PostgreSQL version format is typically like "PostgreSQL 14.5" or "14.5" or just version numbers
+	// We'll look for common patterns:
+	// 1. The word "postgresql" or "version"
+	// 2. Version-like patterns: numbers with dots (e.g., "14.5", "15.2", "16.1")
+	// 3. Two or more digits (version numbers are typically multi-digit)
+
+	textLower := strings.ToLower(text)
+
+	// Pattern 1: Contains "postgresql" or "version"
+	hasVersionKeyword := strings.Contains(textLower, "postgresql") ||
+		strings.Contains(textLower, "version")
+
+	// Pattern 2: Contains version-like number pattern (e.g., "14.5", "15.2")
+	// Use a simple check for digits followed by dot followed by digits
+	hasVersionPattern := false
+	for i := 0; i < len(text)-2; i++ {
+		if text[i] >= '0' && text[i] <= '9' {
+			if text[i+1] == '.' {
+				if i+2 < len(text) && text[i+2] >= '0' && text[i+2] <= '9' {
+					hasVersionPattern = true
+					break
+				}
+			}
+		}
+	}
+
+	// Pattern 3: Contains 2+ consecutive digits (version number)
+	hasMultiDigit := false
+	digitCount := 0
+	for _, char := range text {
+		if char >= '0' && char <= '9' {
+			digitCount++
+			if digitCount >= 2 {
+				hasMultiDigit = true
+				break
+			}
+		} else {
+			digitCount = 0
+		}
+	}
+
+	hasVersionInfo := hasVersionKeyword || hasVersionPattern || hasMultiDigit
 
 	if !hasVersionInfo {
 		t.Errorf("Response should contain PostgreSQL version information. Got: %s", text)
