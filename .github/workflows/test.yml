@@ -81,6 +81,11 @@ jobs:
     - name: Download dependencies
       run: go mod download
 
+    - name: Build binary
+      run: |
+        mkdir -p bin
+        go build -v -o bin/pgedge-mcp ./cmd/pgedge-mcp
+
     - name: Wait for PostgreSQL
       run: |
         until pg_isready -h localhost -p 5432 -U postgres; do
