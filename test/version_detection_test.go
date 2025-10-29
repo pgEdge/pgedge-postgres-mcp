@@ -19,10 +19,10 @@ import (
 // This ensures the test will work with any PostgreSQL version without hardcoding version numbers
 func TestVersionDetectionPatterns(t *testing.T) {
 	tests := []struct {
-		name           string
-		responseText   string
-		shouldDetect   bool
-		description    string
+		name         string
+		responseText string
+		shouldDetect bool
+		description  string
 	}{
 		{
 			name:         "PostgreSQL 17.0",

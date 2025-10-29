@@ -485,7 +485,7 @@ func testReadPgSettingsResource(t *testing.T, server *MCPServer) {
 
 func testCallGetSchemaInfo(t *testing.T, server *MCPServer) {
 	params := map[string]interface{}{
-		"name": "get_schema_info",
+		"name":      "get_schema_info",
 		"arguments": map[string]interface{}{
 			// No schema_name specified, should return all
 		},

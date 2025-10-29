@@ -219,7 +219,11 @@ func sendResponse(id, result interface{}) {
 		Result:  result,
 	}
 
-	data, _ := json.Marshal(resp)
+	data, err := json.Marshal(resp)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "ERROR: Failed to marshal response: %v\n", err)
+		return
+	}
 	fmt.Println(string(data))
 	os.Stdout.Sync()
 }
@@ -235,7 +239,11 @@ func sendError(id interface{}, code int, message string, data interface{}) {
 		},
 	}
 
-	respData, _ := json.Marshal(resp)
+	respData, err := json.Marshal(resp)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "ERROR: Failed to marshal error response: %v\n", err)
+		return
+	}
 	fmt.Println(string(respData))
 	os.Stdout.Sync()
 }

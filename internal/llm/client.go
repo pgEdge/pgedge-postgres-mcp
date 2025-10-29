@@ -226,8 +226,7 @@ func cleanSQL(input string) string {
 			upperLine := strings.ToUpper(line)
 
 			// If line looks like explanatory text (after SQL started), stop
-			if !isSQLStart && (
-				strings.HasPrefix(upperLine, "THIS ") ||
+			if !isSQLStart && (strings.HasPrefix(upperLine, "THIS ") ||
 				strings.HasPrefix(upperLine, "THE ") ||
 				strings.HasPrefix(upperLine, "WILL ") ||
 				strings.HasPrefix(upperLine, "RETURNS ") ||

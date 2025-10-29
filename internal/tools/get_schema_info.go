@@ -35,7 +35,10 @@ func GetSchemaInfoTool(dbClient *database.Client) Tool {
 			},
 		},
 		Handler: func(args map[string]interface{}) (mcp.ToolResponse, error) {
-			schemaName, _ := args["schema_name"].(string)
+			schemaName, ok := args["schema_name"].(string)
+			if !ok {
+				schemaName = "" // Default to empty string (all schemas)
+			}
 
 			// Check if metadata is loaded
 			if !dbClient.IsMetadataLoaded() {
