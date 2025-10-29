@@ -3,7 +3,7 @@
  * pgEdge Postgres MCP Server
  *
  * Copyright (c) 2025, pgEdge, Inc.
- * This software is released under The PostgreSQL Licence
+ * This software is released under The PostgreSQL License
  *
  *-------------------------------------------------------------------------
  */
@@ -53,7 +53,7 @@ func (c *Client) IsConfigured() bool {
 }
 
 // ConvertNLToSQL converts a natural language query to SQL using Claude
-func (c *Client) ConvertNLToSQL(nlQuery string, schemaContext string) (string, error) {
+func (c *Client) ConvertNLToSQL(nlQuery, schemaContext string) (string, error) {
 	if !c.IsConfigured() {
 		return "", fmt.Errorf("ANTHROPIC_API_KEY not set")
 	}

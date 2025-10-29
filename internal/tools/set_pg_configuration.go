@@ -3,7 +3,7 @@
  * pgEdge Postgres MCP Server
  *
  * Copyright (c) 2025, pgEdge, Inc.
- * This software is released under The PostgreSQL Licence
+ * This software is released under The PostgreSQL License
  *
  *-------------------------------------------------------------------------
  */
@@ -140,7 +140,7 @@ func SetPGConfigurationTool(dbClient *database.Client) Tool {
 
 			// Construct ALTER SYSTEM SET command
 			var sqlCommand string
-			if strings.ToUpper(value) == "DEFAULT" {
+			if strings.EqualFold(value, "DEFAULT") {
 				sqlCommand = fmt.Sprintf("ALTER SYSTEM SET %s = DEFAULT", parameter)
 			} else {
 				// Quote the value appropriately

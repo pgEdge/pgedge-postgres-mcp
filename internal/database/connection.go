@@ -3,7 +3,7 @@
  * pgEdge Postgres MCP Server
  *
  * Copyright (c) 2025, pgEdge, Inc.
- * This software is released under The PostgreSQL Licence
+ * This software is released under The PostgreSQL License
  *
  *-------------------------------------------------------------------------
  */
@@ -29,10 +29,10 @@ type ConnectionInfo struct {
 
 // Client manages multiple PostgreSQL connections and metadata
 type Client struct {
-	connections      map[string]*ConnectionInfo // keyed by connection string
-	defaultConnStr   string                     // current default connection string
-	initialConnStr   string                     // original connection string from env
-	mu               sync.RWMutex
+	connections    map[string]*ConnectionInfo // keyed by connection string
+	defaultConnStr string                     // current default connection string
+	initialConnStr string                     // original connection string from env
+	mu             sync.RWMutex
 }
 
 // NewClient creates a new database client

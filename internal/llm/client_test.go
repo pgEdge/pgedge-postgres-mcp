@@ -3,7 +3,7 @@
  * pgEdge Postgres MCP Server
  *
  * Copyright (c) 2025, pgEdge, Inc.
- * This software is released under The PostgreSQL Licence
+ * This software is released under The PostgreSQL License
  *
  *-------------------------------------------------------------------------
  */
@@ -145,7 +145,7 @@ func TestConvertNLToSQL_Success(t *testing.T) {
 
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(response)
+		_ = json.NewEncoder(w).Encode(response)
 	}))
 	defer server.Close()
 
@@ -222,7 +222,7 @@ func TestConvertNLToSQL_CleanupSQL(t *testing.T) {
 
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(http.StatusOK)
-				json.NewEncoder(w).Encode(response)
+				_ = json.NewEncoder(w).Encode(response)
 			}))
 			defer server.Close()
 
@@ -249,7 +249,7 @@ func TestConvertNLToSQL_APIError(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte(`{"error": {"type": "invalid_request_error", "message": "Invalid request"}}`))
+		_, _ = w.Write([]byte(`{"error": {"type": "invalid_request_error", "message": "Invalid request"}}`))
 	}))
 	defer server.Close()
 
@@ -280,7 +280,7 @@ func TestConvertNLToSQL_EmptyResponse(t *testing.T) {
 
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(response)
+		_ = json.NewEncoder(w).Encode(response)
 	}))
 	defer server.Close()
 
@@ -473,7 +473,7 @@ func TestConvertNLToSQL_WithCleanSQL(t *testing.T) {
 
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(http.StatusOK)
-				json.NewEncoder(w).Encode(response)
+				_ = json.NewEncoder(w).Encode(response)
 			}))
 			defer server.Close()
 
@@ -512,7 +512,7 @@ func TestConvertNLToSQL_NoValidSQL(t *testing.T) {
 
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(response)
+		_ = json.NewEncoder(w).Encode(response)
 	}))
 	defer server.Close()
 

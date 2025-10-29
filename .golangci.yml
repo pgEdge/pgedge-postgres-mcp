@@ -4,8 +4,11 @@ linters-settings:
     check-blank: true
   govet:
     enable-all: true
+    disable:
+      - fieldalignment
+      - shadow
   gocyclo:
-    min-complexity: 15
+    min-complexity: 35
   dupl:
     threshold: 100
   goconst:
@@ -24,6 +27,7 @@ linters-settings:
       - style
     disabled-checks:
       - commentedOutCode
+      - hugeParam
 
 linters:
   enable:

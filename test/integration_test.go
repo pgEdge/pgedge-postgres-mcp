@@ -3,7 +3,7 @@
  * pgEdge Postgres MCP Server
  *
  * Copyright (c) 2025, pgEdge, Inc.
- * This software is released under The PostgreSQL Licence
+ * This software is released under The PostgreSQL License
  *
  *-------------------------------------------------------------------------
  */
@@ -56,7 +56,7 @@ type MCPServer struct {
 }
 
 // StartMCPServer starts the MCP server binary for testing
-func StartMCPServer(t *testing.T, connString string, apiKey string) (*MCPServer, error) {
+func StartMCPServer(t *testing.T, connString, apiKey string) (*MCPServer, error) {
 	// Find the binary
 	binaryPath := filepath.Join("..", "bin", "pgedge-mcp")
 
@@ -516,7 +516,10 @@ func testCallGetSchemaInfo(t *testing.T, server *MCPServer) {
 		if ok && len(content) > 0 {
 			contentItem, ok := content[0].(map[string]interface{})
 			if ok {
-				text, _ := contentItem["text"].(string)
+				text, textOk := contentItem["text"].(string)
+				if !textOk {
+					continue
+				}
 				if strings.Contains(text, "initializing") || strings.Contains(text, "not ready") {
 					if i < maxRetries-1 {
 						t.Logf("Database not ready, retrying in 1 second... (attempt %d/%d)", i+1, maxRetries)
@@ -614,7 +617,10 @@ func testQueryPostgreSQLVersion(t *testing.T, server *MCPServer, apiKey string) 
 		if ok && len(content) > 0 {
 			contentItem, ok := content[0].(map[string]interface{})
 			if ok {
-				text, _ := contentItem["text"].(string)
+				text, textOk := contentItem["text"].(string)
+				if !textOk {
+					continue
+				}
 				if strings.Contains(text, "initializing") || strings.Contains(text, "not ready") {
 					if i < maxRetries-1 {
 						t.Logf("Database not ready, retrying in 1 second... (attempt %d/%d)", i+1, maxRetries)
@@ -730,8 +736,8 @@ func testQueryPostgreSQLVersion(t *testing.T, server *MCPServer, apiKey string) 
 	}
 
 	// Verify it's not an error response
-	isError, _ := result["isError"].(bool)
-	if isError {
+	isError, ok := result["isError"].(bool)
+	if ok && isError {
 		t.Errorf("Query returned an error response: %s", text)
 	}
 

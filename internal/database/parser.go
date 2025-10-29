@@ -3,7 +3,7 @@
  * pgEdge Postgres MCP Server
  *
  * Copyright (c) 2025, pgEdge, Inc.
- * This software is released under The PostgreSQL Licence
+ * This software is released under The PostgreSQL License
  *
  *-------------------------------------------------------------------------
  */
@@ -37,8 +37,8 @@ func ParseQueryForConnection(query string) *QueryContext {
 
 	// Pattern: "set default database to postgres://..."
 	if strings.Contains(lowerQuery, "set default") ||
-	   strings.Contains(lowerQuery, "use database") ||
-	   strings.Contains(lowerQuery, "switch to") {
+		strings.Contains(lowerQuery, "use database") ||
+		strings.Contains(lowerQuery, "switch to") {
 		ctx.SetAsDefault = true
 
 		// Extract the connection string

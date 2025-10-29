@@ -3,7 +3,7 @@
  * pgEdge Postgres MCP Server
  *
  * Copyright (c) 2025, pgEdge, Inc.
- * This software is released under The PostgreSQL Licence
+ * This software is released under The PostgreSQL License
  *
  *-------------------------------------------------------------------------
  */
@@ -102,7 +102,11 @@ func (s *Server) handleRequest(req JSONRPCRequest) {
 }
 
 func (s *Server) handleInitialize(req JSONRPCRequest) {
-	paramsBytes, _ := json.Marshal(req.Params)
+	paramsBytes, err := json.Marshal(req.Params)
+	if err != nil {
+		sendError(req.ID, -32602, "Invalid params", err.Error())
+		return
+	}
 	var params InitializeParams
 	if err := json.Unmarshal(paramsBytes, &params); err != nil {
 		sendError(req.ID, -32602, "Invalid params", err.Error())
@@ -147,7 +151,11 @@ func (s *Server) handleToolsList(req JSONRPCRequest) {
 }
 
 func (s *Server) handleToolCall(req JSONRPCRequest) {
-	paramsBytes, _ := json.Marshal(req.Params)
+	paramsBytes, err := json.Marshal(req.Params)
+	if err != nil {
+		sendError(req.ID, -32602, "Invalid params", err.Error())
+		return
+	}
 	var params ToolCallParams
 	if err := json.Unmarshal(paramsBytes, &params); err != nil {
 		sendError(req.ID, -32602, "Invalid params", err.Error())
@@ -184,7 +192,11 @@ func (s *Server) handleResourceRead(req JSONRPCRequest) {
 		return
 	}
 
-	paramsBytes, _ := json.Marshal(req.Params)
+	paramsBytes, err := json.Marshal(req.Params)
+	if err != nil {
+		sendError(req.ID, -32602, "Invalid params", err.Error())
+		return
+	}
 	var params ResourceReadParams
 	if err := json.Unmarshal(paramsBytes, &params); err != nil {
 		sendError(req.ID, -32602, "Invalid params", err.Error())
@@ -200,7 +212,7 @@ func (s *Server) handleResourceRead(req JSONRPCRequest) {
 	sendResponse(req.ID, content)
 }
 
-func sendResponse(id interface{}, result interface{}) {
+func sendResponse(id, result interface{}) {
 	resp := JSONRPCResponse{
 		JSONRPC: "2.0",
 		ID:      id,
