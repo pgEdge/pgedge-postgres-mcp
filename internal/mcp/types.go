@@ -110,3 +110,13 @@ type ResourceContent struct {
 	MimeType string        `json:"mimeType,omitempty"`
 	Contents []ContentItem `json:"contents"`
 }
+
+// ToolsListResult represents the result of tools/list request
+type ToolsListResult struct {
+	Tools []Tool `json:"tools"`
+}
+
+// ResourcesListResult represents the result of resources/list request
+type ResourcesListResult struct {
+	Resources []Resource `json:"resources"`
+}

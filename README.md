@@ -229,6 +229,146 @@ export ANTHROPIC_API_KEY="sk-ant-your-key"
 
 The server will read JSON-RPC messages from stdin and write responses to stdout.
 
+### Running as HTTP/HTTPS Server
+
+The server supports two transport modes:
+
+1. **stdio mode (default)**: JSON-RPC over standard input/output - used by Claude Desktop
+2. **HTTP/HTTPS mode**: JSON-RPC over HTTP - for direct API access
+
+#### Command Line Options
+
+```bash
+./bin/pgedge-postgres-mcp [options]
+
+Options:
+  -http              Enable HTTP transport mode (default: stdio)
+  -addr string       HTTP server address (default ":8080")
+  -https             Enable HTTPS (requires -http)
+  -cert string       Path to TLS certificate file
+  -key string        Path to TLS key file
+  -chain string      Path to TLS certificate chain file (optional)
+```
+
+**Note**: TLS options (`-https`, `-cert`, `-key`, `-chain`) require the `-http` flag.
+
+#### HTTP Mode
+
+Run the server in HTTP mode for direct API access:
+
+```bash
+# Set environment variables
+export POSTGRES_CONNECTION_STRING="postgres://localhost/mydb?sslmode=disable"
+export ANTHROPIC_API_KEY="sk-ant-your-key"
+
+# Start HTTP server on port 8080
+./bin/pgedge-postgres-mcp -http
+
+# Or specify a custom address
+./bin/pgedge-postgres-mcp -http -addr ":3000"
+```
+
+The server provides two endpoints:
+
+- **POST /mcp/v1**: JSON-RPC 2.0 endpoint for MCP requests
+- **GET /health**: Health check endpoint
+
+Example using curl:
+
+```bash
+# Health check
+curl http://localhost:8080/health
+
+# Initialize connection
+curl -X POST http://localhost:8080/mcp/v1 \
+  -H "Content-Type: application/json" \
+  -d '{
+    "jsonrpc": "2.0",
+    "id": 1,
+    "method": "initialize",
+    "params": {
+      "protocolVersion": "2024-11-05",
+      "capabilities": {},
+      "clientInfo": {
+        "name": "test-client",
+        "version": "1.0.0"
+      }
+    }
+  }'
+
+# List available tools
+curl -X POST http://localhost:8080/mcp/v1 \
+  -H "Content-Type: application/json" \
+  -d '{
+    "jsonrpc": "2.0",
+    "id": 2,
+    "method": "tools/list",
+    "params": {}
+  }'
+```
+
+#### HTTPS Mode
+
+For production deployments, use HTTPS with TLS certificates:
+
+```bash
+# Generate self-signed certificate for testing
+openssl req -x509 -newkey rsa:4096 -keyout server.key -out server.crt \
+  -days 365 -nodes -subj "/CN=localhost"
+
+# Start HTTPS server
+./bin/pgedge-postgres-mcp -http -https \
+  -cert server.crt \
+  -key server.key
+```
+
+For production, use certificates from a trusted Certificate Authority (CA):
+
+```bash
+# With CA-signed certificates
+./bin/pgedge-postgres-mcp -http -https \
+  -cert /path/to/server.crt \
+  -key /path/to/server.key \
+  -chain /path/to/ca-chain.crt
+```
+
+**Certificate Requirements:**
+- Minimum TLS version: 1.2
+- Certificate and key must be PEM-encoded
+- Chain file is optional but recommended for CA-signed certificates
+- If paths are not specified, server looks in the same directory as the binary
+
+Example HTTPS request:
+
+```bash
+# With self-signed certificate (testing only)
+curl -k https://localhost:8080/health
+
+# With trusted certificate
+curl https://yourdomain.com:8080/health
+```
+
+#### Security Considerations for HTTP/HTTPS Mode
+
+1. **Always use HTTPS in production**
+   - HTTP mode sends data in plaintext
+   - HTTPS encrypts all communication including API keys and database results
+
+2. **Protect your TLS private keys**
+   - Store keys with restricted file permissions (chmod 600)
+   - Never commit keys to version control
+   - Rotate certificates before expiration
+
+3. **Network access control**
+   - Use firewall rules to restrict access
+   - Consider running behind a reverse proxy (nginx, HAProxy)
+   - Implement rate limiting and authentication at the proxy level
+
+4. **Database connection security**
+   - Use SSL for PostgreSQL connections
+   - Use connection strings with minimal required privileges
+   - Consider using connection pooling for production workloads
+
 ### Testing
 
 The project includes comprehensive testing at multiple levels:

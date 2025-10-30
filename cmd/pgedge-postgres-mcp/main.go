@@ -11,8 +11,10 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"pgedge-postgres-mcp/internal/database"
 	"pgedge-postgres-mcp/internal/llm"
@@ -22,6 +24,64 @@ import (
 )
 
 func main() {
+	// Command line flags
+	httpMode := flag.Bool("http", false, "Enable HTTP transport mode (default: stdio)")
+	httpAddr := flag.String("addr", ":8080", "HTTP server address (requires -http)")
+	httpsMode := flag.Bool("https", false, "Enable HTTPS (requires -http)")
+	certFile := flag.String("cert", "", "Path to TLS certificate file (requires -http and -https, default: ./server.crt)")
+	keyFile := flag.String("key", "", "Path to TLS key file (requires -http and -https, default: ./server.key)")
+	chainFile := flag.String("chain", "", "Path to TLS certificate chain file (optional, requires -http and -https)")
+
+	flag.Parse()
+
+	// Validate flags
+	if !*httpMode && (*httpsMode || *certFile != "" || *keyFile != "" || *chainFile != "") {
+		fmt.Fprintf(os.Stderr, "ERROR: TLS options (-https, -cert, -key, -chain) require -http flag\n")
+		flag.Usage()
+		os.Exit(1)
+	}
+
+	if *httpMode && *httpsMode {
+		// Set default certificate paths if not provided
+		if *certFile == "" {
+			execPath, err := os.Executable()
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "ERROR: Failed to get executable path: %v\n", err)
+				os.Exit(1)
+			}
+			execDir := filepath.Dir(execPath)
+			*certFile = filepath.Join(execDir, "server.crt")
+		}
+
+		if *keyFile == "" {
+			execPath, err := os.Executable()
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "ERROR: Failed to get executable path: %v\n", err)
+				os.Exit(1)
+			}
+			execDir := filepath.Dir(execPath)
+			*keyFile = filepath.Join(execDir, "server.key")
+		}
+
+		// Verify certificate and key files exist
+		if _, err := os.Stat(*certFile); err != nil {
+			fmt.Fprintf(os.Stderr, "ERROR: Certificate file not found: %s\n", *certFile)
+			os.Exit(1)
+		}
+		if _, err := os.Stat(*keyFile); err != nil {
+			fmt.Fprintf(os.Stderr, "ERROR: Key file not found: %s\n", *keyFile)
+			os.Exit(1)
+		}
+
+		// Verify chain file if provided
+		if *chainFile != "" {
+			if _, err := os.Stat(*chainFile); err != nil {
+				fmt.Fprintf(os.Stderr, "ERROR: Chain file not found: %s\n", *chainFile)
+				os.Exit(1)
+			}
+		}
+	}
+
 	// Create clients
 	dbClient := database.NewClient()
 	llmClient := llm.NewClient()
@@ -74,7 +134,35 @@ func main() {
 	server := mcp.NewServer(toolRegistry)
 	server.SetResourceProvider(resourceRegistry)
 
-	if err := server.Run(); err != nil {
+	var err error
+	if *httpMode {
+		// HTTP/HTTPS mode
+		config := &mcp.HTTPConfig{
+			Addr:      *httpAddr,
+			TLSEnable: *httpsMode,
+			CertFile:  *certFile,
+			KeyFile:   *keyFile,
+			ChainFile: *chainFile,
+		}
+
+		if *httpsMode {
+			fmt.Fprintf(os.Stderr, "Starting MCP server in HTTPS mode on %s\n", *httpAddr)
+			fmt.Fprintf(os.Stderr, "Certificate: %s\n", *certFile)
+			fmt.Fprintf(os.Stderr, "Key: %s\n", *keyFile)
+			if *chainFile != "" {
+				fmt.Fprintf(os.Stderr, "Chain: %s\n", *chainFile)
+			}
+		} else {
+			fmt.Fprintf(os.Stderr, "Starting MCP server in HTTP mode on %s\n", *httpAddr)
+		}
+
+		err = server.RunHTTP(config)
+	} else {
+		// Default stdio mode
+		err = server.Run()
+	}
+
+	if err != nil {
 		fmt.Fprintf(os.Stderr, "ERROR: %v\n", err)
 		os.Exit(1)
 	}
