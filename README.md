@@ -26,8 +26,9 @@ A Model Context Protocol (MCP) server written in Go that enables natural languag
   - `query_database`: Execute natural language queries and get results
   - `get_schema_info`: Retrieve detailed database schema information
   - `set_pg_configuration`: Modify PostgreSQL server configuration parameters
-- **MCP Resource**:
+- **MCP Resources**:
   - `pg://settings`: View all PostgreSQL configuration parameters with current and default values
+  - `pg://system_info`: View PostgreSQL version, operating system, and build architecture information
 
 ## Documentation
 
@@ -270,7 +271,7 @@ TEST_ANTHROPIC_API_KEY="your-key" \
 - MCP protocol initialize handshake
 - tools/list - Listing all available tools
 - resources/list - Listing all available resources
-- resources/read - Reading the pg://settings resource
+- resources/read - Reading the pg://settings and pg://system_info resources
 - tools/call - Calling the get_schema_info tool
 - query_database - Natural language query "What is the PostgreSQL version?" (requires TEST_ANTHROPIC_API_KEY)
 - JSON-RPC request/response format validation
@@ -482,6 +483,40 @@ Returns PostgreSQL server configuration parameters including current values, def
   ...
 ]
 ```
+
+#### pg://system_info
+
+Returns PostgreSQL version, operating system, and build architecture information. Provides a quick and efficient way to check server version and platform details without executing natural language queries.
+
+**Access**: Read the resource to view PostgreSQL system information.
+
+**Output**: JSON object with detailed system information:
+```json
+{
+  "postgresql_version": "15.4",
+  "version_number": "150004",
+  "full_version": "PostgreSQL 15.4 on x86_64-pc-linux-gnu, compiled by gcc (GCC) 11.2.0, 64-bit",
+  "operating_system": "linux",
+  "architecture": "x86_64-pc-linux-gnu",
+  "compiler": "gcc (GCC) 11.2.0",
+  "bit_version": "64-bit"
+}
+```
+
+**Fields:**
+- `postgresql_version`: Short version string (e.g., "15.4")
+- `version_number`: Numeric version identifier (e.g., "150004")
+- `full_version`: Complete version string from PostgreSQL version() function
+- `operating_system`: Operating system (e.g., "linux", "darwin", "mingw32")
+- `architecture`: Full architecture string (e.g., "x86_64-pc-linux-gnu", "aarch64-apple-darwin")
+- `compiler`: Compiler used to build PostgreSQL (e.g., "gcc (GCC) 11.2.0")
+- `bit_version`: Architecture bit version (e.g., "64-bit", "32-bit")
+
+**Use Cases:**
+- Quickly check PostgreSQL version without natural language queries
+- Verify server platform and architecture
+- Audit server build information
+- Troubleshoot compatibility issues
 
 ## Security Considerations
 

@@ -50,6 +50,7 @@ func main() {
 	// Register resources
 	resourceRegistry := resources.NewRegistry()
 	resourceRegistry.Register("pg://settings", resources.PGSettingsResource(dbClient))
+	resourceRegistry.Register("pg://system_info", resources.PGSystemInfoResource(dbClient))
 
 	// Start MCP server
 	server := mcp.NewServer(toolRegistry)
