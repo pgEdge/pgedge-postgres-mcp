@@ -25,17 +25,17 @@ func ReadResourceTool(resourceProvider ResourceReader) Tool {
 	return Tool{
 		Definition: mcp.Tool{
 			Name:        "read_resource",
-			Description: "Read the contents of an MCP resource by its URI. Resources provide read-only access to PostgreSQL system information. Available resources can be listed, and include pg://system_info (PostgreSQL version and platform information) and pg://settings (server configuration parameters).",
+			Description: "Read the contents of an MCP resource by its URI. Resources provide read-only access to PostgreSQL system information and statistics. Available resources include: System Info (pg://system_info, pg://settings), Activity (pg://stat/activity), Database Stats (pg://stat/database), Table Stats (pg://stat/user_tables), Index Stats (pg://stat/user_indexes), Replication (pg://stat/replication), Background Writer (pg://stat/bgwriter), and WAL Stats (pg://stat/wal). Use list=true to see all resources with full descriptions.",
 			InputSchema: mcp.InputSchema{
 				Type: "object",
 				Properties: map[string]interface{}{
 					"uri": map[string]interface{}{
 						"type":        "string",
-						"description": "The URI of the resource to read (e.g., 'pg://system_info' or 'pg://settings')",
+						"description": "The URI of the resource to read. Examples: 'pg://system_info', 'pg://settings', 'pg://stat/activity', 'pg://stat/database', 'pg://stat/user_tables', 'pg://stat/user_indexes', 'pg://stat/replication', 'pg://stat/bgwriter', 'pg://stat/wal'",
 					},
 					"list": map[string]interface{}{
 						"type":        "boolean",
-						"description": "Optional: if true, list all available resources instead of reading a specific one",
+						"description": "Optional: if true, list all available resources with their full descriptions instead of reading a specific one",
 					},
 				},
 				Required: []string{},

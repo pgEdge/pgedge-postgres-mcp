@@ -375,14 +375,21 @@ func testListResources(t *testing.T, server *MCPServer) {
 		t.Fatal("resources array not found in result")
 	}
 
-	if len(resources) < 2 {
-		t.Errorf("Expected at least 2 resources, got %d", len(resources))
+	if len(resources) < 9 {
+		t.Errorf("Expected at least 9 resources, got %d", len(resources))
 	}
 
 	// Verify expected resources exist
 	expectedResources := map[string]bool{
-		"pg://settings":     false,
-		"pg://system_info":  false,
+		"pg://settings":            false,
+		"pg://system_info":         false,
+		"pg://stat/activity":       false,
+		"pg://stat/database":       false,
+		"pg://stat/user_tables":    false,
+		"pg://stat/user_indexes":   false,
+		"pg://stat/replication":    false,
+		"pg://stat/bgwriter":       false,
+		"pg://stat/wal":            false,
 	}
 
 	for _, resource := range resources {

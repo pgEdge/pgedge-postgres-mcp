@@ -26,10 +26,19 @@ A Model Context Protocol (MCP) server written in Go that enables natural languag
   - `query_database`: Execute natural language queries and get results
   - `get_schema_info`: Retrieve detailed database schema information
   - `set_pg_configuration`: Modify PostgreSQL server configuration parameters
-  - `read_resource`: Read MCP resources by URI (provides access to pg://settings and pg://system_info)
-- **MCP Resources**:
-  - `pg://settings`: PostgreSQL configuration parameters with current and default values
-  - `pg://system_info`: PostgreSQL version, operating system, and build architecture information
+  - `read_resource`: Read MCP resources by URI (provides access to system info and statistics)
+- **MCP Resources** (9 total):
+  - **System Information**:
+    - `pg://settings`: PostgreSQL configuration parameters with current and default values
+    - `pg://system_info`: PostgreSQL version, operating system, and build architecture information
+  - **Statistics** (compatible with PostgreSQL 14+):
+    - `pg://stat/activity`: Current connections and active queries
+    - `pg://stat/database`: Database-wide statistics including transactions, cache hits, and tuple operations
+    - `pg://stat/user_tables`: Per-table statistics including scans, tuple operations, and vacuum/analyze activity
+    - `pg://stat/user_indexes`: Index usage statistics for identifying unused indexes
+    - `pg://stat/replication`: Replication status and lag monitoring
+    - `pg://stat/bgwriter`: Background writer and checkpoint statistics with tuning recommendations
+    - `pg://stat/wal`: WAL generation and sync statistics (PostgreSQL 14+ only)
 
 ## Documentation
 

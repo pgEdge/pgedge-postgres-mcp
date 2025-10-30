@@ -43,8 +43,19 @@ func main() {
 
 	// Register resources first (so they can be used by tools)
 	resourceRegistry := resources.NewRegistry()
+
+	// System information resources
 	resourceRegistry.Register("pg://settings", resources.PGSettingsResource(dbClient))
 	resourceRegistry.Register("pg://system_info", resources.PGSystemInfoResource(dbClient))
+
+	// Statistics resources
+	resourceRegistry.Register("pg://stat/activity", resources.PGStatActivityResource(dbClient))
+	resourceRegistry.Register("pg://stat/database", resources.PGStatDatabaseResource(dbClient))
+	resourceRegistry.Register("pg://stat/user_tables", resources.PGStatUserTablesResource(dbClient))
+	resourceRegistry.Register("pg://stat/user_indexes", resources.PGStatUserIndexesResource(dbClient))
+	resourceRegistry.Register("pg://stat/replication", resources.PGStatReplicationResource(dbClient))
+	resourceRegistry.Register("pg://stat/bgwriter", resources.PGStatBgwriterResource(dbClient))
+	resourceRegistry.Register("pg://stat/wal", resources.PGStatWALResource(dbClient))
 
 	// Register tools
 	toolRegistry := tools.NewRegistry()
