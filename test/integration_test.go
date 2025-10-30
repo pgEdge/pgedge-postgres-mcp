@@ -321,16 +321,17 @@ func testListTools(t *testing.T, server *MCPServer) {
 		t.Fatal("tools array not found in result")
 	}
 
-	if len(tools) < 4 {
-		t.Errorf("Expected at least 4 tools, got %d", len(tools))
+	if len(tools) < 5 {
+		t.Errorf("Expected at least 5 tools, got %d", len(tools))
 	}
 
 	// Verify expected tools exist
 	expectedTools := map[string]bool{
-		"query_database":       false,
-		"get_schema_info":      false,
-		"set_pg_configuration": false,
-		"read_resource":        false,
+		"query_database":            false,
+		"get_schema_info":           false,
+		"set_pg_configuration":      false,
+		"recommend_pg_configuration": false,
+		"read_resource":             false,
 	}
 
 	for _, tool := range tools {

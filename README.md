@@ -20,9 +20,9 @@ A Model Context Protocol (MCP) server written in Go that enables natural languag
   - Comments from pg_description (table and column descriptions)
   - Schema information
 - **Multi-Database Support**: Query multiple PostgreSQL databases dynamically by specifying connection strings in queries
-- **Configuration Management**: View and modify PostgreSQL server configuration parameters
+- **Configuration Management**: View, modify, and get baseline configuration recommendations for NEW PostgreSQL installations
 - **MCP Protocol**: Implements the Model Context Protocol for stdio communication
-- **Four MCP Tools**: Execute queries, retrieve schema, modify configuration, and read resources
+- **Five MCP Tools**: Execute queries, retrieve schema, modify configuration, get configuration recommendations, and read resources
   - See **[Tools Documentation](docs/TOOLS.md)** for detailed information
 - **Nine MCP Resources**: System information and PostgreSQL statistics (pg_stat_* views)
   - See **[Resources Documentation](docs/RESOURCES.md)** for detailed information
@@ -265,12 +265,12 @@ For detailed information about CI/CD workflows and configuration, see **[Testing
 
 This server implements the Model Context Protocol version `2024-11-05` with support for:
 
-- **Tools**: Four callable functions for database interaction and configuration
+- **Tools**: Five callable functions for database interaction and configuration
 - **Resources**: Nine read-only resources for system information and statistics
 - **Prompts**: Custom prompts for common database tasks
 
 For detailed documentation:
-- **[Tools Documentation](docs/TOOLS.md)** - Complete reference for all four MCP tools
+- **[Tools Documentation](docs/TOOLS.md)** - Complete reference for all five MCP tools
 - **[Resources Documentation](docs/RESOURCES.md)** - Complete reference for all nine MCP resources
 
 ## Security Considerations
