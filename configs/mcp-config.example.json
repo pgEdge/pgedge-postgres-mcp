@@ -1,7 +1,7 @@
 {
   "mcpServers": {
     "pgedge": {
-      "command": "/absolute/path/to/pgedge-mcp/bin/pgedge-mcp",
+      "command": "/absolute/path/to/pgedge-postgres-mcp/bin/pgedge-postgres-mcp",
       "env": {
         "POSTGRES_CONNECTION_STRING": "postgres://username:password@localhost:5432/database_name?sslmode=disable",
         "ANTHROPIC_API_KEY": "sk-ant-your-api-key-here",

@@ -1,9 +1,9 @@
 .PHONY: build clean test run install help
 
 # Binary name and output directory
-BINARY_NAME=pgedge-mcp
+BINARY_NAME=pgedge-postgres-mcp
 BIN_DIR=bin
-CMD_DIR=cmd/pgedge-mcp
+CMD_DIR=cmd/pgedge-postgres-mcp
 
 # Build variables
 GO=go

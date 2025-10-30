@@ -12,7 +12,7 @@
 
 **Check the logs for these errors:**
 ```
-[pgedge-mcp] ERROR: Failed to connect to database: ...
+[pgedge-postgres-mcp] ERROR: Failed to connect to database: ...
 ```
 
 **Solutions:**
@@ -74,7 +74,7 @@ macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`
 {
   "mcpServers": {
     "pgedge": {
-      "command": "/absolute/path/to/pgedge-mcp",
+      "command": "/absolute/path/to/pgedge-postgres-mcp",
       "env": {
         "POSTGRES_CONNECTION_STRING": "postgres://user:pass@localhost:5432/db?sslmode=disable",
         "ANTHROPIC_API_KEY": "sk-ant-your-key-here"
@@ -93,7 +93,7 @@ macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`
 
 **Check the logs for:**
 ```
-[pgedge-mcp] ERROR: Failed to load database metadata: ...
+[pgedge-postgres-mcp] ERROR: Failed to load database metadata: ...
 ```
 
 **Solutions:**
@@ -138,7 +138,7 @@ If your database is empty (no user tables), the server will still start but won'
    {
      "mcpServers": {
        "pgedge": {
-         "command": "/full/path/to/pgedge-mcp",
+         "command": "/full/path/to/pgedge-postgres-mcp",
          "env": {
            "POSTGRES_CONNECTION_STRING": "...",
            "ANTHROPIC_API_KEY": "..."
@@ -156,7 +156,7 @@ If your database is empty (no user tables), the server will still start but won'
    ```bash
    export POSTGRES_CONNECTION_STRING="..."
    export ANTHROPIC_API_KEY="..."
-   echo '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}' | ./pgedge-mcp
+   echo '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}' | ./pgedge-postgres-mcp
    ```
 
 ## Natural Language Queries Not Working
@@ -221,11 +221,11 @@ tail -f ~/Library/Logs/Claude/mcp*.log
 All server output goes to stderr, which appears in the Claude Desktop logs with `[pgedge]` prefix.
 
 Look for:
-- `[pgedge-mcp] Starting server...` - Server startup
-- `[pgedge-mcp] Database connected successfully` - DB connected
-- `[pgedge-mcp] Loaded metadata for X tables/views` - Metadata loaded
-- `[pgedge-mcp] Starting stdio server loop...` - Ready for requests
-- `[pgedge-mcp] ERROR:` - Error messages
+- `[pgedge-postgres-mcp] Starting server...` - Server startup
+- `[pgedge-postgres-mcp] Database connected successfully` - DB connected
+- `[pgedge-postgres-mcp] Loaded metadata for X tables/views` - Metadata loaded
+- `[pgedge-postgres-mcp] Starting stdio server loop...` - Ready for requests
+- `[pgedge-postgres-mcp] ERROR:` - Error messages
 
 ## SQL Generation Issues
 
@@ -281,7 +281,7 @@ make clean
 make build
 # or
 go clean
-go build -o pgedge-mcp
+go build -o pgedge-postgres-mcp
 ```
 
 ## Testing the Server
@@ -298,10 +298,10 @@ export POSTGRES_CONNECTION_STRING="postgres://localhost/mydb?sslmode=disable"
 export ANTHROPIC_API_KEY="sk-ant-..."
 
 # Test initialize
-echo '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test","version":"1.0"}}}' | ./pgedge-mcp
+echo '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test","version":"1.0"}}}' | ./pgedge-postgres-mcp
 
 # Test tools list (in another terminal, or after initialize response)
-echo '{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}' | ./pgedge-mcp
+echo '{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}' | ./pgedge-postgres-mcp
 ```
 
 ## Common Error Messages

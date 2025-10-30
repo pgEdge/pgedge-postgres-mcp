@@ -92,7 +92,7 @@ jobs:
     - name: Build binary
       run: |
         mkdir -p bin
-        go build -v -o bin/pgedge-mcp ./cmd/pgedge-mcp
+        go build -v -o bin/pgedge-postgres-mcp ./cmd/pgedge-postgres-mcp
 
     - name: Wait for PostgreSQL
       run: |

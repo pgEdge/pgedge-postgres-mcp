@@ -13,7 +13,7 @@ package resources
 import (
 	"testing"
 
-	"pgedge-mcp/internal/mcp"
+	"pgedge-postgres-mcp/internal/mcp"
 )
 
 func TestNewRegistry(t *testing.T) {

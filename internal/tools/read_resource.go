@@ -11,7 +11,7 @@
 package tools
 
 import (
-	"pgedge-mcp/internal/mcp"
+	"pgedge-postgres-mcp/internal/mcp"
 )
 
 // ResourceReader is an interface for reading resources

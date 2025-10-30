@@ -14,11 +14,11 @@ import (
 	"fmt"
 	"os"
 
-	"pgedge-mcp/internal/database"
-	"pgedge-mcp/internal/llm"
-	"pgedge-mcp/internal/mcp"
-	"pgedge-mcp/internal/resources"
-	"pgedge-mcp/internal/tools"
+	"pgedge-postgres-mcp/internal/database"
+	"pgedge-postgres-mcp/internal/llm"
+	"pgedge-postgres-mcp/internal/mcp"
+	"pgedge-postgres-mcp/internal/resources"
+	"pgedge-postgres-mcp/internal/tools"
 )
 
 func main() {

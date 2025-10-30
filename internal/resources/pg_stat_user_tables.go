@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"pgedge-mcp/internal/database"
-	"pgedge-mcp/internal/mcp"
+	"pgedge-postgres-mcp/internal/database"
+	"pgedge-postgres-mcp/internal/mcp"
 )
 
 // PGStatUserTablesResource provides table access statistics

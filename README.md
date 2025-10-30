@@ -51,16 +51,16 @@ For additional documentation, please see:
 1. Clone the repository:
 ```bash
 git clone <repository-url>
-cd pgedge-mcp
+cd pgedge-postgres-mcp
 ```
 
 2. Build the binary:
 ```bash
 make build
-# Or: go build -o bin/pgedge-mcp ./cmd/pgedge-mcp
+# Or: go build -o bin/pgedge-postgres-mcp ./cmd/pgedge-postgres-mcp
 ```
 
-3. The binary will be created as `bin/pgedge-mcp`.
+3. The binary will be created as `bin/pgedge-postgres-mcp`.
 
 ## Configuration
 
@@ -93,7 +93,7 @@ To use this MCP server with Claude Desktop, add it to your MCP configuration fil
 {
   "mcpServers": {
     "pgedge": {
-      "command": "/absolute/path/to/pgedge-mcp/bin/pgedge-mcp",
+      "command": "/absolute/path/to/pgedge-postgres-mcp/bin/pgedge-postgres-mcp",
       "env": {
         "POSTGRES_CONNECTION_STRING": "postgres://username:password@localhost:5432/database_name?sslmode=disable",
         "ANTHROPIC_API_KEY": "sk-ant-your-api-key-here",
@@ -104,7 +104,7 @@ To use this MCP server with Claude Desktop, add it to your MCP configuration fil
 }
 ```
 
-Replace `/absolute/path/to/pgedge-mcp` with the full path to your project directory.
+Replace `/absolute/path/to/pgedge-postgres-mcp` with the full path to your project directory.
 
 ## Usage
 
@@ -198,8 +198,8 @@ These comments help Claude understand your data model and generate more accurate
 ### Project Structure
 
 ```
-pgedge-mcp/
-├── cmd/pgedge-mcp/          # Application entry point
+pgedge-postgres-mcp/
+├── cmd/pgedge-postgres-mcp/          # Application entry point
 ├── internal/                # Private packages
 │   ├── database/            # PostgreSQL integration
 │   ├── llm/                 # Claude API client
@@ -222,7 +222,7 @@ export POSTGRES_CONNECTION_STRING="postgres://localhost/mydb?sslmode=disable"
 export ANTHROPIC_API_KEY="sk-ant-your-key"
 
 # Run the server
-./bin/pgedge-mcp
+./bin/pgedge-postgres-mcp
 ```
 
 The server will read JSON-RPC messages from stdin and write responses to stdout.
@@ -252,7 +252,7 @@ For detailed information about testing, including integration tests, CI/CD workf
 You can test the server using the MCP Inspector tool:
 
 ```bash
-npx @modelcontextprotocol/inspector /path/to/bin/pgedge-mcp
+npx @modelcontextprotocol/inspector /path/to/bin/pgedge-postgres-mcp
 ```
 
 ## CI/CD

@@ -14,8 +14,8 @@ import (
 	"fmt"
 	"strings"
 
-	"pgedge-mcp/internal/database"
-	"pgedge-mcp/internal/mcp"
+	"pgedge-postgres-mcp/internal/database"
+	"pgedge-postgres-mcp/internal/mcp"
 )
 
 // GetSchemaInfoTool creates the get_schema_info tool

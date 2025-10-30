@@ -5,7 +5,7 @@ import (
 	"math"
 	"strings"
 
-	"pgedge-mcp/internal/mcp"
+	"pgedge-postgres-mcp/internal/mcp"
 )
 
 // RecommendPGConfigurationTool creates a tool that recommends PostgreSQL configuration

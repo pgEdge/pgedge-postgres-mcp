@@ -14,7 +14,7 @@ import (
 	"strings"
 	"testing"
 
-	"pgedge-mcp/internal/database"
+	"pgedge-postgres-mcp/internal/database"
 )
 
 func TestGenerateSchemaContext(t *testing.T) {

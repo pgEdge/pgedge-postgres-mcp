@@ -16,9 +16,9 @@ import (
 	"fmt"
 	"strings"
 
-	"pgedge-mcp/internal/database"
-	"pgedge-mcp/internal/llm"
-	"pgedge-mcp/internal/mcp"
+	"pgedge-postgres-mcp/internal/database"
+	"pgedge-postgres-mcp/internal/llm"
+	"pgedge-postgres-mcp/internal/mcp"
 )
 
 // QueryDatabaseTool creates the query_database tool

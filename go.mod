@@ -1,4 +1,4 @@
-module pgedge-mcp
+module pgedge-postgres-mcp
 
 go 1.23.0
 

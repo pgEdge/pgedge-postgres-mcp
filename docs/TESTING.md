@@ -112,7 +112,7 @@ These tests ensure that MCP clients like Claude Desktop can properly discover an
 You can test the server interactively using the MCP Inspector tool:
 
 ```bash
-npx @modelcontextprotocol/inspector /path/to/bin/pgedge-mcp
+npx @modelcontextprotocol/inspector /path/to/bin/pgedge-postgres-mcp
 ```
 
 The inspector provides a web interface for:

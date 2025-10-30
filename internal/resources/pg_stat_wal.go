@@ -17,8 +17,8 @@ import (
 	"strconv"
 	"strings"
 
-	"pgedge-mcp/internal/database"
-	"pgedge-mcp/internal/mcp"
+	"pgedge-postgres-mcp/internal/database"
+	"pgedge-postgres-mcp/internal/mcp"
 )
 
 // getPostgreSQLMajorVersion extracts the major version number from the database

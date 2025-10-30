@@ -3,9 +3,9 @@
 ## Directory Structure
 
 ```
-pgedge-mcp/
+pgedge-postgres-mcp/
 ├── cmd/
-│   └── pgedge-mcp/           # Application entry point
+│   └── pgedge-postgres-mcp/           # Application entry point
 │       └── main.go           # Main function, initializes and wires components
 │
 ├── internal/                 # Private application code
@@ -44,7 +44,7 @@ pgedge-mcp/
 
 ## Component Overview
 
-### cmd/pgedge-mcp
+### cmd/pgedge-postgres-mcp
 - **Purpose**: Application entry point
 - **Responsibilities**:
   - Initialize database client
@@ -137,7 +137,7 @@ To add a new MCP tool:
    // internal/tools/my_new_tool.go
    package tools
 
-   import "pgedge-mcp/internal/mcp"
+   import "pgedge-postgres-mcp/internal/mcp"
 
    func MyNewTool(/* dependencies */) Tool {
        return Tool{
@@ -167,7 +167,7 @@ To add a new MCP tool:
    }
    ```
 
-2. **Register tool** in `cmd/pgedge-mcp/main.go`:
+2. **Register tool** in `cmd/pgedge-postgres-mcp/main.go`:
    ```go
    registry.Register("my_new_tool", tools.MyNewTool(dbClient, llmClient))
    ```
@@ -208,7 +208,7 @@ Configure in Claude Desktop's MCP config file:
 {
   "mcpServers": {
     "pgedge": {
-      "command": "/path/to/bin/pgedge-mcp",
+      "command": "/path/to/bin/pgedge-postgres-mcp",
       "env": {
         "POSTGRES_CONNECTION_STRING": "...",
         "ANTHROPIC_API_KEY": "..."
@@ -241,10 +241,10 @@ export POSTGRES_CONNECTION_STRING="..."
 export ANTHROPIC_API_KEY="..."
 
 # Run server
-./bin/pgedge-mcp
+./bin/pgedge-postgres-mcp
 
 # Send test request
-echo '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test","version":"1.0"}}}' | ./bin/pgedge-mcp
+echo '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test","version":"1.0"}}}' | ./bin/pgedge-postgres-mcp
 ```
 
 ## Dependencies
