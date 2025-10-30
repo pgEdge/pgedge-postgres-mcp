@@ -22,29 +22,19 @@ A Model Context Protocol (MCP) server written in Go that enables natural languag
 - **Multi-Database Support**: Query multiple PostgreSQL databases dynamically by specifying connection strings in queries
 - **Configuration Management**: View and modify PostgreSQL server configuration parameters
 - **MCP Protocol**: Implements the Model Context Protocol for stdio communication
-- **Four MCP Tools**:
-  - `query_database`: Execute natural language queries and get results
-  - `get_schema_info`: Retrieve detailed database schema information
-  - `set_pg_configuration`: Modify PostgreSQL server configuration parameters
-  - `read_resource`: Read MCP resources by URI (provides access to system info and statistics)
-- **MCP Resources** (9 total):
-  - **System Information**:
-    - `pg://settings`: PostgreSQL configuration parameters with current and default values
-    - `pg://system_info`: PostgreSQL version, operating system, and build architecture information
-  - **Statistics** (compatible with PostgreSQL 14+):
-    - `pg://stat/activity`: Current connections and active queries
-    - `pg://stat/database`: Database-wide statistics including transactions, cache hits, and tuple operations
-    - `pg://stat/user_tables`: Per-table statistics including scans, tuple operations, and vacuum/analyze activity
-    - `pg://stat/user_indexes`: Index usage statistics for identifying unused indexes
-    - `pg://stat/replication`: Replication status and lag monitoring
-    - `pg://stat/bgwriter`: Background writer and checkpoint statistics with tuning recommendations
-    - `pg://stat/wal`: WAL generation and sync statistics (PostgreSQL 14+ only)
+- **Four MCP Tools**: Execute queries, retrieve schema, modify configuration, and read resources
+  - See **[Tools Documentation](docs/TOOLS.md)** for detailed information
+- **Nine MCP Resources**: System information and PostgreSQL statistics (pg_stat_* views)
+  - See **[Resources Documentation](docs/RESOURCES.md)** for detailed information
 
 ## Documentation
 
 For additional documentation, please see:
 
 - **[Query Examples](docs/EXAMPLES.md)** - Comprehensive collection of example queries including basic data queries, schema discovery, multi-database queries, and advanced usage patterns
+- **[Tools Documentation](docs/TOOLS.md)** - Detailed information about all four MCP tools and how to use them
+- **[Resources Documentation](docs/RESOURCES.md)** - Complete reference for all nine MCP resources including system info and statistics
+- **[Testing Guide](docs/TESTING.md)** - Information about unit tests, integration tests, linting, and CI/CD
 - **[Architecture Guide](docs/ARCHITECTURE.md)** - Detailed information about the project structure, components, data flow, and how to extend the server with new tools, resources, and prompts
 - **[Troubleshooting Guide](docs/TROUBLESHOOTING.md)** - Comprehensive troubleshooting steps for common issues, connection problems, and debugging techniques
 
@@ -123,11 +113,9 @@ Replace `/absolute/path/to/pgedge-mcp` with the full path to your project direct
 1. Configure the server in your Claude Desktop config (see above)
 2. Restart Claude Desktop
 3. The server will automatically start when needed
-4. Available tools will appear in Claude's interface:
-   - `query_database`: Ask questions about your data
-   - `get_schema_info`: View database schema
-   - `read_resource`: Access system information and configuration
-   - `set_pg_configuration`: Modify server settings
+4. Use natural language to interact with your database
+
+For detailed information about available tools, see **[Tools Documentation](docs/TOOLS.md)**.
 
 ### Query Examples
 
@@ -144,9 +132,9 @@ Once configured, you can ask Claude natural language questions about your data:
 - "Describe the customers table"
 
 **System Information:**
-- "Show me the output from pg://system_info" (PostgreSQL version and platform)
-- "Read the pg://settings resource" (server configuration parameters)
-- "What version of PostgreSQL am I running?"
+- "Show me the output from pg://system_info"
+- "Read the pg://settings resource"
+- "What are the current database statistics?"
 
 **Multi-Database Queries:**
 - "Show users at postgres://localhost:5433/other_db" (temporary connection)
@@ -239,84 +227,25 @@ export ANTHROPIC_API_KEY="sk-ant-your-key"
 
 The server will read JSON-RPC messages from stdin and write responses to stdout.
 
-### Running Tests
+### Testing
 
-The project includes a comprehensive unit test suite covering all major components:
-
-```bash
-# Run all tests
-go test ./...
-
-# Run tests with verbose output
-go test -v ./...
-
-# Run tests with coverage report
-go test -cover ./...
-
-# Generate detailed coverage report
-go test -coverprofile=coverage.out ./...
-go tool cover -html=coverage.out
-```
-
-**Integrated Linting:**
-
-The test suite automatically runs `golangci-lint` if it's installed on your system:
+The project includes comprehensive testing at multiple levels:
 
 ```bash
-# Install golangci-lint (if not already installed)
-go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
-
-# Run tests (including lint checks)
+# Run all tests (unit + integration + linting)
 go test ./...
+
+# Run with verbose output and coverage
+go test -v -cover ./...
 ```
-
-The lint test (`TestLint` in `lint_test.go`) will:
-- Run automatically as part of `go test`
-- Skip gracefully if golangci-lint is not installed
-- Skip gracefully if there are configuration issues
-- Report lint errors as test failures
-
-This ensures code quality checks run alongside your tests without requiring separate commands.
 
 **Test Coverage:**
-- `internal/database`: Parser functions, connection management
-- `internal/llm`: LLM client with HTTP mocking
-- `internal/tools`: Tool registry and helper functions
-- `internal/resources`: Resource registry
-- `test`: Integration tests for the compiled MCP server binary
+- Unit tests for all major components
+- Integration tests for the compiled MCP server binary
+- Automated linting with golangci-lint
+- MCP protocol compliance tests
 
-The tests use mocking where appropriate to avoid requiring external dependencies (database connections, API keys) for unit tests.
-
-### Regression/Integration Tests
-
-The project includes integration tests that test the compiled MCP server binary end-to-end by communicating via the MCP protocol (JSON-RPC over stdio):
-
-```bash
-# Run integration tests
-cd test && go test -v
-
-# Set custom database connection for integration tests (optional)
-TEST_POSTGRES_CONNECTION_STRING="postgres://localhost/testdb?sslmode=disable" \
-  go test -v ./test
-
-# Run with custom API key (optional)
-TEST_ANTHROPIC_API_KEY="your-key" \
-  go test -v ./test
-```
-
-**What the Integration Tests Cover:**
-- MCP protocol initialize handshake
-- tools/list - Listing all available tools
-- resources/list - Listing all available resources
-- resources/read - Reading the pg://settings and pg://system_info resources
-- tools/call - Calling the get_schema_info tool
-- query_database - Natural language query "What is the PostgreSQL version?" (requires TEST_ANTHROPIC_API_KEY)
-- JSON-RPC request/response format validation
-- Server startup and graceful shutdown
-
-The integration tests automatically build the binary if it doesn't exist and handle server lifecycle management. Tests include retry logic to account for asynchronous metadata loading.
-
-**Note:** The `QueryPostgreSQLVersion` test requires a valid Anthropic API key set in the `TEST_ANTHROPIC_API_KEY` environment variable, as it tests the full end-to-end flow including LLM natural language to SQL conversion. If the API key is not provided, this test will be skipped. The test works with any PostgreSQL version (9.x, 10+, development versions, beta versions, etc.) without hardcoding version numbers.
+For detailed information about testing, including integration tests, CI/CD workflows, and troubleshooting, see **[Testing Guide](docs/TESTING.md)**.
 
 ### Testing with MCP Inspector
 
@@ -328,232 +257,21 @@ npx @modelcontextprotocol/inspector /path/to/bin/pgedge-mcp
 
 ## CI/CD
 
-The project uses GitHub Actions for continuous integration and deployment. Workflows are triggered on pushes and pull requests to the `main` and `develop` branches.
+The project uses GitHub Actions for continuous integration with automated build and test workflows. Tests run against multiple Go versions (1.21, 1.22, 1.23) and PostgreSQL versions (14, 15, 16, 17).
 
-### Workflows
-
-#### Build Workflow (`.github/workflows/build.yml`)
-
-- **Triggers**: Push and pull requests to main/develop branches
-- **Go Versions**: Tests against Go 1.21, 1.22, and 1.23
-- **Steps**:
-  - Checkout code
-  - Set up Go with caching
-  - Verify dependencies
-  - Build the binary
-  - Upload build artifacts (from Go 1.23)
-
-#### Test Workflow (`.github/workflows/test.yml`)
-
-Includes multiple jobs:
-
-**Unit Tests**
-- Runs on Go 1.21, 1.22, and 1.23
-- Executes all unit tests with race detection
-- Generates code coverage reports (HTML and text)
-- Uploads coverage artifacts for download
-
-**Integration Tests**
-- Runs on Go 1.23
-- Tests against PostgreSQL versions 14, 15, 16, and 17
-- Uses Docker containers for PostgreSQL services
-- Runs with and without Anthropic API key (if configured)
-
-**Lint**
-- Uses golangci-lint for code quality checks
-- Configuration in `.golangci.yml`
-
-### Secrets Configuration
-
-To enable all CI/CD features, configure these GitHub repository secrets:
-
-- `ANTHROPIC_API_KEY`: (Optional) For running integration tests with actual LLM queries
+For detailed information about CI/CD workflows and configuration, see **[Testing Guide](docs/TESTING.md)**.
 
 ## MCP Protocol Implementation
 
-This server implements the Model Context Protocol version `2024-11-05` with the following methods:
+This server implements the Model Context Protocol version `2024-11-05` with support for:
 
-- `initialize`: Server initialization and capability negotiation
-- `tools/list`: List available tools
-- `tools/call`: Execute a tool
+- **Tools**: Four callable functions for database interaction and configuration
+- **Resources**: Nine read-only resources for system information and statistics
+- **Prompts**: Custom prompts for common database tasks
 
-### Available Tools
-
-#### query_database
-
-Executes a natural language query against the PostgreSQL database. Supports dynamic connection strings to query different databases.
-
-**Input Examples**:
-
-Basic query:
-```json
-{
-  "query": "Show me all users created in the last week"
-}
-```
-
-Query with temporary connection:
-```json
-{
-  "query": "Show me table list at postgres://localhost:5433/other_db"
-}
-```
-
-Set new default connection:
-```json
-{
-  "query": "Set default database to postgres://localhost/analytics"
-}
-```
-
-**Output**:
-```
-Natural Language Query: Show me all users created in the last week
-
-Generated SQL:
-SELECT * FROM users WHERE created_at >= NOW() - INTERVAL '7 days' ORDER BY created_at DESC
-
-Results (15 rows):
-[
-  {
-    "id": 123,
-    "username": "john_doe",
-    "created_at": "2024-10-25T14:30:00Z",
-    ...
-  },
-  ...
-]
-```
-
-#### get_schema_info
-
-Retrieves database schema information.
-
-**Input** (optional):
-```json
-{
-  "schema_name": "public"
-}
-```
-
-**Output**:
-```
-Database Schema Information:
-============================
-
-public.users (TABLE)
-  Description: User accounts and authentication
-  Columns:
-    - id: bigint
-    - username: character varying(255)
-      Description: Unique username for login
-    - created_at: timestamp with time zone (nullable)
-      Description: Account creation timestamp
-    ...
-```
-
-#### set_pg_configuration
-
-Sets PostgreSQL server configuration parameters using ALTER SYSTEM SET. Changes persist across server restarts. Some parameters require a restart to take effect.
-
-**Input**:
-```json
-{
-  "parameter": "max_connections",
-  "value": "200"
-}
-```
-
-Use "DEFAULT" as the value to reset to default:
-```json
-{
-  "parameter": "work_mem",
-  "value": "DEFAULT"
-}
-```
-
-**Output**:
-```
-Configuration parameter 'max_connections' updated successfully.
-
-Parameter: max_connections
-Description: Sets the maximum number of concurrent connections
-Type: integer
-Context: postmaster
-
-Previous value: 100
-New value: 200
-
-⚠️  WARNING: This parameter requires a server restart to take effect.
-The change has been saved to postgresql.auto.conf but will not be active until the server is restarted.
-
-SQL executed: ALTER SYSTEM SET max_connections = '200'
-```
-
-### Available Resources
-
-Resources provide read-only access to database information and configuration.
-
-#### pg://settings
-
-Returns PostgreSQL server configuration parameters including current values, default values, pending changes, and descriptions.
-
-**Access**: Read the resource to view all PostgreSQL configuration settings from pg_settings.
-
-**Output**: JSON array with detailed information about each configuration parameter:
-```json
-[
-  {
-    "name": "max_connections",
-    "current_value": "100",
-    "category": "Connections and Authentication / Connection Settings",
-    "description": "Sets the maximum number of concurrent connections.",
-    "context": "postmaster",
-    "type": "integer",
-    "source": "configuration file",
-    "min_value": "1",
-    "max_value": "262143",
-    "default_value": "100",
-    "reset_value": "100",
-    "pending_restart": false
-  },
-  ...
-]
-```
-
-#### pg://system_info
-
-Returns PostgreSQL version, operating system, and build architecture information. Provides a quick and efficient way to check server version and platform details without executing natural language queries.
-
-**Access**: Read the resource to view PostgreSQL system information.
-
-**Output**: JSON object with detailed system information:
-```json
-{
-  "postgresql_version": "15.4",
-  "version_number": "150004",
-  "full_version": "PostgreSQL 15.4 on x86_64-pc-linux-gnu, compiled by gcc (GCC) 11.2.0, 64-bit",
-  "operating_system": "linux",
-  "architecture": "x86_64-pc-linux-gnu",
-  "compiler": "gcc (GCC) 11.2.0",
-  "bit_version": "64-bit"
-}
-```
-
-**Fields:**
-- `postgresql_version`: Short version string (e.g., "15.4")
-- `version_number`: Numeric version identifier (e.g., "150004")
-- `full_version`: Complete version string from PostgreSQL version() function
-- `operating_system`: Operating system (e.g., "linux", "darwin", "mingw32")
-- `architecture`: Full architecture string (e.g., "x86_64-pc-linux-gnu", "aarch64-apple-darwin")
-- `compiler`: Compiler used to build PostgreSQL (e.g., "gcc (GCC) 11.2.0")
-- `bit_version`: Architecture bit version (e.g., "64-bit", "32-bit")
-
-**Use Cases:**
-- Quickly check PostgreSQL version without natural language queries
-- Verify server platform and architecture
-- Audit server build information
-- Troubleshoot compatibility issues
+For detailed documentation:
+- **[Tools Documentation](docs/TOOLS.md)** - Complete reference for all four MCP tools
+- **[Resources Documentation](docs/RESOURCES.md)** - Complete reference for all nine MCP resources
 
 ## Security Considerations
 
