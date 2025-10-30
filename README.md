@@ -241,6 +241,26 @@ go test -coverprofile=coverage.out ./...
 go tool cover -html=coverage.out
 ```
 
+**Integrated Linting:**
+
+The test suite automatically runs `golangci-lint` if it's installed on your system:
+
+```bash
+# Install golangci-lint (if not already installed)
+go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+
+# Run tests (including lint checks)
+go test ./...
+```
+
+The lint test (`TestLint` in `lint_test.go`) will:
+- Run automatically as part of `go test`
+- Skip gracefully if golangci-lint is not installed
+- Skip gracefully if there are configuration issues
+- Report lint errors as test failures
+
+This ensures code quality checks run alongside your tests without requiring separate commands.
+
 **Test Coverage:**
 - `internal/database`: Parser functions, connection management
 - `internal/llm`: LLM client with HTTP mocking
