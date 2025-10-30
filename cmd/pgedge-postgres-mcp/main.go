@@ -63,6 +63,7 @@ func main() {
 	toolRegistry.Register("get_schema_info", tools.GetSchemaInfoTool(dbClient))
 	toolRegistry.Register("set_pg_configuration", tools.SetPGConfigurationTool(dbClient))
 	toolRegistry.Register("recommend_pg_configuration", tools.RecommendPGConfigurationTool())
+	toolRegistry.Register("analyze_bloat", tools.AnalyzeBloatTool(dbClient))
 	toolRegistry.Register("read_resource", tools.ReadResourceTool(resourceRegistry))
 
 	// Start MCP server

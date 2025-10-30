@@ -1,6 +1,6 @@
 # MCP Tools
 
-The pgEdge MCP Server provides four tools that enable natural language database interaction and configuration management.
+The pgEdge MCP Server provides six tools that enable natural language database interaction, configuration management, and maintenance analysis.
 
 ## Available Tools
 
@@ -305,6 +305,133 @@ here are the recommended baseline PostgreSQL configuration parameters:
 - Consider consulting a PostgreSQL DBA for production fine-tuning
 - Some parameters require a server restart to take effect
 - Recommendations based on PostgreSQL tuning best practices and industry-standard formulas
+
+### analyze_bloat
+
+Analyzes PostgreSQL tables and indexes for bloat, providing statistics and recommendations for vacuum and reindex operations. Uses `pg_stat_user_tables` and `pg_stat_user_indexes` to identify dead tuples, maintenance history, and index health.
+
+**Input Examples**:
+
+Analyze all tables with default 5% threshold:
+```json
+{}
+```
+
+Analyze tables with high bloat only (20% or more):
+```json
+{
+  "min_dead_tuple_percent": 20.0
+}
+```
+
+Analyze specific table:
+```json
+{
+  "schema_name": "public",
+  "table_name": "users"
+}
+```
+
+Full analysis with index details:
+```json
+{
+  "schema_name": "public",
+  "min_dead_tuple_percent": 0.0,
+  "include_indexes": true
+}
+```
+
+**Parameters**:
+- `schema_name` (optional): Filter to specific schema (default: all schemas)
+- `table_name` (optional): Filter to specific table (requires schema_name)
+- `min_dead_tuple_percent` (optional): Minimum dead tuple percentage to show (default: 5.0, range: 0-100)
+- `include_indexes` (optional): Include index bloat analysis (default: true)
+
+**Output**:
+```
+Table Bloat Analysis
+====================
+
+Schema: public
+Table: orders
+  Live tuples: 1,250,000
+  Dead tuples: 312,500 (20.00%)
+  Total size: 1.2 GB
+
+  Maintenance history:
+     - Last VACUUM: 2024-10-15 08:30:00 (15 days ago)
+     - Last ANALYZE: 2024-10-20 14:45:00 (10 days ago)
+     - Modifications since analyze: 45,678
+
+  Lifetime stats:
+     - Inserts: 1,500,000, Updates: 850,000, Deletes: 100,000
+     - Vacuums: 12 manual + 45 auto
+     - Analyzes: 8 manual + 32 auto
+
+  Recommendations:
+     - ⚠️  URGENT: Run VACUUM immediately - high dead tuple percentage
+     - Run ANALYZE to update query planner statistics
+
+Schema: public
+Table: user_sessions
+  Live tuples: 50,000
+  Dead tuples: 8,500 (14.54%)
+  Total size: 125 MB
+
+  Maintenance history:
+     - Last VACUUM: 2024-10-28 03:15:00 (2 days ago)
+     - Last ANALYZE: 2024-10-28 03:15:00 (2 days ago)
+     - Modifications since analyze: 2,341
+
+  Lifetime stats:
+     - Inserts: 125,000, Updates: 85,000, Deletes: 60,000
+     - Vacuums: 5 manual + 78 auto
+     - Analyzes: 3 manual + 52 auto
+
+  Recommendations:
+     - Run VACUUM soon to reclaim space
+
+Index Analysis for: public.orders
+==================================
+
+  idx_orders_customer (btree on customer_id)
+     Size: 256 MB | Scans: 12,450 | Tuples read: 8,500,000 | Fetched: 3,200,000
+
+  idx_orders_date (btree on order_date)
+     Size: 198 MB | Scans: 8,932 | Tuples read: 5,200,000 | Fetched: 2,100,000
+
+  idx_orders_status (btree on status)
+     ⚠️  Unused index - 0 scans | Size: 145 MB
+
+Summary: 3 tables analyzed
+```
+
+**Recommendations Thresholds**:
+- **>50% dead tuples**: Urgent VACUUM + consider VACUUM FULL during maintenance window
+- **>20% dead tuples**: Urgent VACUUM immediately
+- **>10% dead tuples**: Run VACUUM soon to reclaim space
+- **>5% dead tuples**: Schedule VACUUM during next maintenance window
+- **>1000 modifications since analyze**: Run ANALYZE to update query planner statistics
+- **Never vacuumed**: Consider running VACUUM
+- **Never analyzed**: Consider running ANALYZE
+- **>7 days since last vacuum with high write activity**: Consider running VACUUM
+- **>7 days since last analyze with modifications**: Consider running ANALYZE
+
+**Use Cases**:
+- Identifying tables requiring maintenance (VACUUM/ANALYZE)
+- Planning maintenance windows
+- Monitoring table bloat over time
+- Finding unused indexes that can be dropped
+- Understanding write activity patterns
+- Troubleshooting query performance issues related to bloat
+
+**Important Notes**:
+- Dead tuple percentage is calculated as: `dead_tuples / (live_tuples + dead_tuples) × 100`
+- VACUUM reclaims space within the table file
+- VACUUM FULL rewrites the entire table (requires exclusive lock and more time)
+- ANALYZE updates query planner statistics for better query optimization
+- Autovacuum typically handles maintenance automatically, but heavy write workloads may require manual intervention
+- Regular monitoring helps prevent excessive bloat and maintain query performance
 
 ### read_resource
 

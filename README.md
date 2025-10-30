@@ -21,8 +21,9 @@ A Model Context Protocol (MCP) server written in Go that enables natural languag
   - Schema information
 - **Multi-Database Support**: Query multiple PostgreSQL databases dynamically by specifying connection strings in queries
 - **Configuration Management**: View, modify, and get baseline configuration recommendations for NEW PostgreSQL installations
+- **Bloat Analysis**: Analyze tables and indexes for bloat to determine when vacuuming or reindexing is required
 - **MCP Protocol**: Implements the Model Context Protocol for stdio communication
-- **Five MCP Tools**: Execute queries, retrieve schema, modify configuration, get configuration recommendations, and read resources
+- **Six MCP Tools**: Execute queries, retrieve schema, modify configuration, get configuration recommendations, analyze bloat, and read resources
   - See **[Tools Documentation](docs/TOOLS.md)** for detailed information
 - **Nine MCP Resources**: System information and PostgreSQL statistics (pg_stat_* views)
   - See **[Resources Documentation](docs/RESOURCES.md)** for detailed information
@@ -32,7 +33,7 @@ A Model Context Protocol (MCP) server written in Go that enables natural languag
 For additional documentation, please see:
 
 - **[Query Examples](docs/EXAMPLES.md)** - Comprehensive collection of example queries including basic data queries, schema discovery, multi-database queries, and advanced usage patterns
-- **[Tools Documentation](docs/TOOLS.md)** - Detailed information about all four MCP tools and how to use them
+- **[Tools Documentation](docs/TOOLS.md)** - Detailed information about all six MCP tools and how to use them
 - **[Resources Documentation](docs/RESOURCES.md)** - Complete reference for all nine MCP resources including system info and statistics
 - **[Testing Guide](docs/TESTING.md)** - Information about unit tests, integration tests, linting, and CI/CD
 - **[Architecture Guide](docs/ARCHITECTURE.md)** - Detailed information about the project structure, components, data flow, and how to extend the server with new tools, resources, and prompts
@@ -265,12 +266,12 @@ For detailed information about CI/CD workflows and configuration, see **[Testing
 
 This server implements the Model Context Protocol version `2024-11-05` with support for:
 
-- **Tools**: Five callable functions for database interaction and configuration
+- **Tools**: Six callable functions for database interaction, configuration, and maintenance analysis
 - **Resources**: Nine read-only resources for system information and statistics
 - **Prompts**: Custom prompts for common database tasks
 
 For detailed documentation:
-- **[Tools Documentation](docs/TOOLS.md)** - Complete reference for all five MCP tools
+- **[Tools Documentation](docs/TOOLS.md)** - Complete reference for all six MCP tools
 - **[Resources Documentation](docs/RESOURCES.md)** - Complete reference for all nine MCP resources
 
 ## Security Considerations
