@@ -1,6 +1,5 @@
 # Binaries
 bin/
-pgedge-mcp
 *.exe
 *.dll
 *.so

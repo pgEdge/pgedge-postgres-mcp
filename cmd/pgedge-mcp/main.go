@@ -41,16 +41,17 @@ func main() {
 		fmt.Fprintf(os.Stderr, "Database ready: %d tables/views loaded\n", len(dbClient.GetMetadata()))
 	}()
 
+	// Register resources first (so they can be used by tools)
+	resourceRegistry := resources.NewRegistry()
+	resourceRegistry.Register("pg://settings", resources.PGSettingsResource(dbClient))
+	resourceRegistry.Register("pg://system_info", resources.PGSystemInfoResource(dbClient))
+
 	// Register tools
 	toolRegistry := tools.NewRegistry()
 	toolRegistry.Register("query_database", tools.QueryDatabaseTool(dbClient, llmClient))
 	toolRegistry.Register("get_schema_info", tools.GetSchemaInfoTool(dbClient))
 	toolRegistry.Register("set_pg_configuration", tools.SetPGConfigurationTool(dbClient))
-
-	// Register resources
-	resourceRegistry := resources.NewRegistry()
-	resourceRegistry.Register("pg://settings", resources.PGSettingsResource(dbClient))
-	resourceRegistry.Register("pg://system_info", resources.PGSystemInfoResource(dbClient))
+	toolRegistry.Register("read_resource", tools.ReadResourceTool(resourceRegistry))
 
 	// Start MCP server
 	server := mcp.NewServer(toolRegistry)

@@ -22,13 +22,14 @@ A Model Context Protocol (MCP) server written in Go that enables natural languag
 - **Multi-Database Support**: Query multiple PostgreSQL databases dynamically by specifying connection strings in queries
 - **Configuration Management**: View and modify PostgreSQL server configuration parameters
 - **MCP Protocol**: Implements the Model Context Protocol for stdio communication
-- **Three MCP Tools**:
+- **Four MCP Tools**:
   - `query_database`: Execute natural language queries and get results
   - `get_schema_info`: Retrieve detailed database schema information
   - `set_pg_configuration`: Modify PostgreSQL server configuration parameters
+  - `read_resource`: Read MCP resources by URI (provides access to pg://settings and pg://system_info)
 - **MCP Resources**:
-  - `pg://settings`: View all PostgreSQL configuration parameters with current and default values
-  - `pg://system_info`: View PostgreSQL version, operating system, and build architecture information
+  - `pg://settings`: PostgreSQL configuration parameters with current and default values
+  - `pg://system_info`: PostgreSQL version, operating system, and build architecture information
 
 ## Documentation
 
@@ -116,6 +117,8 @@ Replace `/absolute/path/to/pgedge-mcp` with the full path to your project direct
 4. Available tools will appear in Claude's interface:
    - `query_database`: Ask questions about your data
    - `get_schema_info`: View database schema
+   - `read_resource`: Access system information and configuration
+   - `set_pg_configuration`: Modify server settings
 
 ### Query Examples
 
@@ -130,6 +133,11 @@ Once configured, you can ask Claude natural language questions about your data:
 - "Show me the database schema"
 - "What tables are available?"
 - "Describe the customers table"
+
+**System Information:**
+- "Show me the output from pg://system_info" (PostgreSQL version and platform)
+- "Read the pg://settings resource" (server configuration parameters)
+- "What version of PostgreSQL am I running?"
 
 **Multi-Database Queries:**
 - "Show users at postgres://localhost:5433/other_db" (temporary connection)

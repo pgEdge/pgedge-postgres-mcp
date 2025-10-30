@@ -321,8 +321,8 @@ func testListTools(t *testing.T, server *MCPServer) {
 		t.Fatal("tools array not found in result")
 	}
 
-	if len(tools) < 3 {
-		t.Errorf("Expected at least 3 tools, got %d", len(tools))
+	if len(tools) < 4 {
+		t.Errorf("Expected at least 4 tools, got %d", len(tools))
 	}
 
 	// Verify expected tools exist
@@ -330,6 +330,7 @@ func testListTools(t *testing.T, server *MCPServer) {
 		"query_database":       false,
 		"get_schema_info":      false,
 		"set_pg_configuration": false,
+		"read_resource":        false,
 	}
 
 	for _, tool := range tools {
@@ -374,25 +375,32 @@ func testListResources(t *testing.T, server *MCPServer) {
 		t.Fatal("resources array not found in result")
 	}
 
-	if len(resources) < 1 {
-		t.Errorf("Expected at least 1 resource, got %d", len(resources))
+	if len(resources) < 2 {
+		t.Errorf("Expected at least 2 resources, got %d", len(resources))
 	}
 
-	// Verify pg://settings resource exists
-	foundPgSettings := false
+	// Verify expected resources exist
+	expectedResources := map[string]bool{
+		"pg://settings":     false,
+		"pg://system_info":  false,
+	}
+
 	for _, resource := range resources {
 		resMap, ok := resource.(map[string]interface{})
 		if !ok {
 			continue
 		}
-		if uri, ok := resMap["uri"].(string); ok && uri == "pg://settings" {
-			foundPgSettings = true
-			break
+		if uri, ok := resMap["uri"].(string); ok {
+			if _, exists := expectedResources[uri]; exists {
+				expectedResources[uri] = true
+			}
 		}
 	}
 
-	if !foundPgSettings {
-		t.Error("Expected resource 'pg://settings' not found")
+	for resourceURI, found := range expectedResources {
+		if !found {
+			t.Errorf("Expected resource '%s' not found", resourceURI)
+		}
 	}
 
 	t.Log("ListResources test passed")
