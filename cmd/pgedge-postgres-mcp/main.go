@@ -14,8 +14,8 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"path/filepath"
 
+	"pgedge-postgres-mcp/internal/config"
 	"pgedge-postgres-mcp/internal/database"
 	"pgedge-postgres-mcp/internal/llm"
 	"pgedge-postgres-mcp/internal/mcp"
@@ -24,59 +24,123 @@ import (
 )
 
 func main() {
+	// Get executable path for default config location
+	execPath, err := os.Executable()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "ERROR: Failed to get executable path: %v\n", err)
+		os.Exit(1)
+	}
+	defaultConfigPath := config.GetDefaultConfigPath(execPath)
+
 	// Command line flags
+	configFile := flag.String("config", defaultConfigPath, "Path to configuration file")
+	dbConnString := flag.String("db", "", "PostgreSQL connection string (overrides config file)")
+	apiKey := flag.String("api-key", "", "Anthropic API key (overrides config file)")
+	model := flag.String("model", "", "Anthropic model to use (overrides config file)")
 	httpMode := flag.Bool("http", false, "Enable HTTP transport mode (default: stdio)")
-	httpAddr := flag.String("addr", ":8080", "HTTP server address (requires -http)")
+	httpAddr := flag.String("addr", "", "HTTP server address")
 	httpsMode := flag.Bool("https", false, "Enable HTTPS (requires -http)")
-	certFile := flag.String("cert", "", "Path to TLS certificate file (requires -http and -https, default: ./server.crt)")
-	keyFile := flag.String("key", "", "Path to TLS key file (requires -http and -https, default: ./server.key)")
-	chainFile := flag.String("chain", "", "Path to TLS certificate chain file (optional, requires -http and -https)")
+	certFile := flag.String("cert", "", "Path to TLS certificate file")
+	keyFile := flag.String("key", "", "Path to TLS key file")
+	chainFile := flag.String("chain", "", "Path to TLS certificate chain file (optional)")
 
 	flag.Parse()
 
-	// Validate flags
+	// Track which flags were explicitly set
+	cliFlags := config.CLIFlags{}
+	flag.Visit(func(f *flag.Flag) {
+		switch f.Name {
+		case "config":
+			cliFlags.ConfigFileSet = true
+			cliFlags.ConfigFile = *configFile
+		case "db":
+			cliFlags.ConnectionStringSet = true
+			cliFlags.ConnectionString = *dbConnString
+		case "api-key":
+			cliFlags.APIKeySet = true
+			cliFlags.APIKey = *apiKey
+		case "model":
+			cliFlags.ModelSet = true
+			cliFlags.Model = *model
+		case "http":
+			cliFlags.HTTPEnabledSet = true
+			cliFlags.HTTPEnabled = *httpMode
+		case "addr":
+			cliFlags.HTTPAddrSet = true
+			cliFlags.HTTPAddr = *httpAddr
+		case "https":
+			cliFlags.TLSEnabledSet = true
+			cliFlags.TLSEnabled = *httpsMode
+		case "cert":
+			cliFlags.TLSCertSet = true
+			cliFlags.TLSCertFile = *certFile
+		case "key":
+			cliFlags.TLSKeySet = true
+			cliFlags.TLSKeyFile = *keyFile
+		case "chain":
+			cliFlags.TLSChainSet = true
+			cliFlags.TLSChainFile = *chainFile
+		}
+	})
+
+	// Validate basic flag dependencies before loading full config
 	if !*httpMode && (*httpsMode || *certFile != "" || *keyFile != "" || *chainFile != "") {
 		fmt.Fprintf(os.Stderr, "ERROR: TLS options (-https, -cert, -key, -chain) require -http flag\n")
 		flag.Usage()
 		os.Exit(1)
 	}
 
-	if *httpMode && *httpsMode {
-		// Set default certificate paths if not provided
-		if *certFile == "" {
-			execPath, err := os.Executable()
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "ERROR: Failed to get executable path: %v\n", err)
-				os.Exit(1)
-			}
-			execDir := filepath.Dir(execPath)
-			*certFile = filepath.Join(execDir, "server.crt")
+	// Determine which config file to load
+	configPath := *configFile
+	if !cliFlags.ConfigFileSet {
+		// Check if default config exists
+		if config.ConfigFileExists(defaultConfigPath) {
+			configPath = defaultConfigPath
+		} else {
+			// No config file, rely on env vars and CLI flags
+			configPath = ""
 		}
+	}
 
-		if *keyFile == "" {
-			execPath, err := os.Executable()
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "ERROR: Failed to get executable path: %v\n", err)
-				os.Exit(1)
-			}
-			execDir := filepath.Dir(execPath)
-			*keyFile = filepath.Join(execDir, "server.key")
-		}
+	// Load configuration
+	cfg, err := config.LoadConfig(configPath, cliFlags)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "ERROR: %v\n", err)
+		os.Exit(1)
+	}
 
-		// Verify certificate and key files exist
-		if _, err := os.Stat(*certFile); err != nil {
-			fmt.Fprintf(os.Stderr, "ERROR: Certificate file not found: %s\n", *certFile)
+	// Set environment variables for clients that read them directly
+	// This ensures backward compatibility
+	if err := os.Setenv("POSTGRES_CONNECTION_STRING", cfg.Database.ConnectionString); err != nil {
+		fmt.Fprintf(os.Stderr, "ERROR: Failed to set environment variable: %v\n", err)
+		os.Exit(1)
+	}
+	if cfg.Anthropic.APIKey != "" {
+		if err := os.Setenv("ANTHROPIC_API_KEY", cfg.Anthropic.APIKey); err != nil {
+			fmt.Fprintf(os.Stderr, "ERROR: Failed to set environment variable: %v\n", err)
 			os.Exit(1)
 		}
-		if _, err := os.Stat(*keyFile); err != nil {
-			fmt.Fprintf(os.Stderr, "ERROR: Key file not found: %s\n", *keyFile)
+	}
+	if cfg.Anthropic.Model != "" {
+		if err := os.Setenv("ANTHROPIC_MODEL", cfg.Anthropic.Model); err != nil {
+			fmt.Fprintf(os.Stderr, "ERROR: Failed to set environment variable: %v\n", err)
 			os.Exit(1)
 		}
+	}
 
-		// Verify chain file if provided
-		if *chainFile != "" {
-			if _, err := os.Stat(*chainFile); err != nil {
-				fmt.Fprintf(os.Stderr, "ERROR: Chain file not found: %s\n", *chainFile)
+	// Verify TLS files exist if HTTPS is enabled
+	if cfg.HTTP.TLS.Enabled {
+		if _, err := os.Stat(cfg.HTTP.TLS.CertFile); err != nil {
+			fmt.Fprintf(os.Stderr, "ERROR: Certificate file not found: %s\n", cfg.HTTP.TLS.CertFile)
+			os.Exit(1)
+		}
+		if _, err := os.Stat(cfg.HTTP.TLS.KeyFile); err != nil {
+			fmt.Fprintf(os.Stderr, "ERROR: Key file not found: %s\n", cfg.HTTP.TLS.KeyFile)
+			os.Exit(1)
+		}
+		if cfg.HTTP.TLS.ChainFile != "" {
+			if _, err := os.Stat(cfg.HTTP.TLS.ChainFile); err != nil {
+				fmt.Fprintf(os.Stderr, "ERROR: Chain file not found: %s\n", cfg.HTTP.TLS.ChainFile)
 				os.Exit(1)
 			}
 		}
@@ -134,29 +198,28 @@ func main() {
 	server := mcp.NewServer(toolRegistry)
 	server.SetResourceProvider(resourceRegistry)
 
-	var err error
-	if *httpMode {
+	if cfg.HTTP.Enabled {
 		// HTTP/HTTPS mode
-		config := &mcp.HTTPConfig{
-			Addr:      *httpAddr,
-			TLSEnable: *httpsMode,
-			CertFile:  *certFile,
-			KeyFile:   *keyFile,
-			ChainFile: *chainFile,
+		httpConfig := &mcp.HTTPConfig{
+			Addr:      cfg.HTTP.Address,
+			TLSEnable: cfg.HTTP.TLS.Enabled,
+			CertFile:  cfg.HTTP.TLS.CertFile,
+			KeyFile:   cfg.HTTP.TLS.KeyFile,
+			ChainFile: cfg.HTTP.TLS.ChainFile,
 		}
 
-		if *httpsMode {
-			fmt.Fprintf(os.Stderr, "Starting MCP server in HTTPS mode on %s\n", *httpAddr)
-			fmt.Fprintf(os.Stderr, "Certificate: %s\n", *certFile)
-			fmt.Fprintf(os.Stderr, "Key: %s\n", *keyFile)
-			if *chainFile != "" {
-				fmt.Fprintf(os.Stderr, "Chain: %s\n", *chainFile)
+		if cfg.HTTP.TLS.Enabled {
+			fmt.Fprintf(os.Stderr, "Starting MCP server in HTTPS mode on %s\n", cfg.HTTP.Address)
+			fmt.Fprintf(os.Stderr, "Certificate: %s\n", cfg.HTTP.TLS.CertFile)
+			fmt.Fprintf(os.Stderr, "Key: %s\n", cfg.HTTP.TLS.KeyFile)
+			if cfg.HTTP.TLS.ChainFile != "" {
+				fmt.Fprintf(os.Stderr, "Chain: %s\n", cfg.HTTP.TLS.ChainFile)
 			}
 		} else {
-			fmt.Fprintf(os.Stderr, "Starting MCP server in HTTP mode on %s\n", *httpAddr)
+			fmt.Fprintf(os.Stderr, "Starting MCP server in HTTP mode on %s\n", cfg.HTTP.Address)
 		}
 
-		err = server.RunHTTP(config)
+		err = server.RunHTTP(httpConfig)
 	} else {
 		// Default stdio mode
 		err = server.Run()

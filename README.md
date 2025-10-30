@@ -66,9 +66,80 @@ make build
 
 ## Configuration
 
+The server supports multiple configuration methods with the following priority (highest to lowest):
+1. **Command line flags** (highest priority)
+2. **Environment variables**
+3. **Configuration file**
+4. **Hard-coded defaults** (lowest priority)
+
+### Configuration File
+
+The server can read configuration from a YAML file, making it easier to manage settings without environment variables.
+
+**Default Location**: `pgedge-postgres-mcp.yaml` in the same directory as the binary
+
+**Custom Location**: Use the `-config` flag to specify a different path
+
+**Example Configuration**:
+```yaml
+database:
+  connection_string: "postgres://localhost/postgres?sslmode=disable"
+
+anthropic:
+  api_key: "sk-ant-your-api-key-here"
+  model: "claude-sonnet-4-5"
+
+http:
+  enabled: false
+  address: ":8080"
+  tls:
+    enabled: false
+    cert_file: "./server.crt"
+    key_file: "./server.key"
+    chain_file: ""
+```
+
+A complete example configuration file is available at [configs/pgedge-postgres-mcp.yaml.example](configs/pgedge-postgres-mcp.yaml.example).
+
+**Creating a Configuration File**:
+```bash
+# Copy the example to the binary directory
+cp configs/pgedge-postgres-mcp.yaml.example bin/pgedge-postgres-mcp.yaml
+
+# Edit with your settings
+vim bin/pgedge-postgres-mcp.yaml
+
+# Run the server (automatically loads config from default location)
+./bin/pgedge-postgres-mcp
+```
+
+### Command Line Flags
+
+All configuration options can be overridden via command line flags:
+
+- `-config` - Path to configuration file (default: same directory as binary)
+- `-db` - PostgreSQL connection string
+- `-api-key` - Anthropic API key
+- `-model` - Claude model to use
+- `-http` - Enable HTTP transport mode
+- `-addr` - HTTP server address
+- `-https` - Enable HTTPS (requires -http)
+- `-cert` - Path to TLS certificate file
+- `-key` - Path to TLS key file
+- `-chain` - Path to TLS certificate chain file
+
+Example:
+```bash
+./bin/pgedge-postgres-mcp \
+  -db "postgres://localhost/mydb" \
+  -api-key "sk-ant-..." \
+  -http \
+  -addr ":9090"
+```
+
 ### Environment Variables
 
-The server requires the following environment variables:
+The server also supports environment variables for configuration:
 
 - `POSTGRES_CONNECTION_STRING` (required): PostgreSQL connection string
   - Format: `postgres://username:password@host:port/database?sslmode=disable`
