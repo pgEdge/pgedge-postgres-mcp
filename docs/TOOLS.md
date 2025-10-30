@@ -1,6 +1,6 @@
 # MCP Tools
 
-The pgEdge MCP Server provides six tools that enable natural language database interaction, configuration management, and maintenance analysis.
+The pgEdge MCP Server provides ten tools that enable natural language database interaction, configuration management, maintenance analysis, and configuration file access.
 
 ## Available Tools
 
@@ -432,6 +432,271 @@ Summary: 3 tables analyzed
 - ANALYZE updates query planner statistics for better query optimization
 - Autovacuum typically handles maintenance automatically, but heavy write workloads may require manual intervention
 - Regular monitoring helps prevent excessive bloat and maintain query performance
+
+### read_server_log
+
+Read the PostgreSQL server log file to diagnose issues, monitor activity, and investigate errors. Returns the most recent log entries.
+
+**Input Examples**:
+
+Read last 100 lines (default):
+```json
+{}
+```
+
+Read last 500 lines:
+```json
+{
+  "lines": 500
+}
+```
+
+Read last 50 lines for quick check:
+```json
+{
+  "lines": 50
+}
+```
+
+**Parameters**:
+- `lines` (optional): Number of lines to read from the end of the log file (default: 100, max: 10000)
+
+**Output**:
+```
+PostgreSQL Server Log
+=====================
+
+Log Directory: log
+Current Log File: postgresql-2025-01-15_120000.log
+Showing last ~100 lines:
+
+--- Log Contents ---
+
+2025-01-15 12:30:15.123 UTC [1234] LOG:  database system is ready to accept connections
+2025-01-15 12:30:20.456 UTC [1235] ERROR:  relation "nonexistent_table" does not exist at character 15
+2025-01-15 12:30:20.456 UTC [1235] STATEMENT:  SELECT * FROM nonexistent_table;
+2025-01-15 12:31:00.789 UTC [1236] LOG:  checkpoint starting: time
+2025-01-15 12:31:05.123 UTC [1236] LOG:  checkpoint complete: wrote 42 buffers (0.3%)
+```
+
+**Use Cases**:
+- Troubleshooting connection issues
+- Investigating query errors
+- Monitoring slow queries
+- Tracking checkpoint activity
+- Auditing database operations
+- Identifying performance bottlenecks
+
+**Requirements**:
+- Requires `pg_monitor` role or superuser privileges
+- Logging must be enabled (`logging_collector = on`)
+- Log files must be accessible in the PostgreSQL `log_directory`
+
+**Important Notes**:
+- Output limited to prevent overwhelming responses with large log files
+- Log format depends on `log_line_prefix` configuration
+- Use `lines` parameter to control output size
+- For detailed analysis, consider using external log analysis tools
+
+### read_postgresql_conf
+
+Read the contents of postgresql.conf and any files included via `include`, `include_if_exists`, or `include_dir` directives. Useful for understanding current configuration and troubleshooting configuration issues.
+
+**Input Examples**:
+
+Read all configuration files:
+```json
+{}
+```
+
+**Parameters**: None
+
+**Output**:
+```
+PostgreSQL Configuration Files
+==============================
+
+Main Configuration File: /var/lib/postgresql/data/postgresql.conf
+
+--- postgresql.conf ---
+
+# PostgreSQL configuration file
+# -----------------------------
+
+# CONNECTIONS AND AUTHENTICATION
+max_connections = 200          # Increased for high load
+shared_buffers = 4GB           # 25% of RAM
+
+# WRITE AHEAD LOG
+wal_level = replica
+max_wal_size = 4GB
+min_wal_size = 1GB
+
+# QUERY TUNING
+effective_cache_size = 12GB    # 75% of RAM
+work_mem = 64MB
+
+# Include additional configuration
+include = '/etc/postgresql/custom.conf'
+
+
+Found 1 included file(s):
+
+--- Included File 1: /etc/postgresql/custom.conf ---
+
+# Custom configuration overrides
+shared_preload_libraries = 'pg_stat_statements'
+track_io_timing = on
+```
+
+**Use Cases**:
+- Reviewing current configuration settings
+- Comparing configurations across servers
+- Troubleshooting configuration issues
+- Documenting server setup
+- Planning configuration changes
+- Understanding include directive hierarchy
+
+**Requirements**:
+- Requires `pg_read_server_files` role or superuser privileges
+- Configuration files must be readable by PostgreSQL user
+
+**Important Notes**:
+- Shows raw configuration file contents including comments
+- Does not show computed values or defaults (use `pg_settings` resource for that)
+- Include directives are parsed and included files are displayed
+- `include_dir` directive files are noted but not automatically expanded
+- Use `set_pg_configuration` tool to modify settings
+- Some settings require server restart to take effect
+
+### read_pg_hba_conf
+
+Read the contents of pg_hba.conf (Host-Based Authentication configuration file). This file controls client authentication and connection permissions, specifying which users can connect from which hosts using which authentication methods.
+
+**Input Examples**:
+
+Read pg_hba.conf:
+```json
+{}
+```
+
+**Parameters**: None
+
+**Output**:
+```
+PostgreSQL Host-Based Authentication Configuration
+==================================================
+
+File: /var/lib/postgresql/data/pg_hba.conf
+
+--- Contents ---
+
+# PostgreSQL Client Authentication Configuration
+# TYPE  DATABASE        USER            ADDRESS                 METHOD
+
+# "local" is for Unix domain socket connections only
+local   all             all                                     peer
+
+# IPv4 local connections:
+host    all             all             127.0.0.1/32            scram-sha-256
+
+# IPv6 local connections:
+host    all             all             ::1/128                 scram-sha-256
+
+# Allow replication connections from localhost
+local   replication     all                                     peer
+host    replication     all             127.0.0.1/32            scram-sha-256
+
+# Allow connections from application servers
+host    myapp_db        myapp_user      10.0.1.0/24            scram-sha-256
+
+# Allow SSL connections from remote network
+hostssl all             all             192.168.1.0/24          scram-sha-256
+```
+
+**Use Cases**:
+- Troubleshooting connection authentication issues
+- Reviewing security policies
+- Documenting access control rules
+- Planning authentication changes
+- Auditing database access permissions
+- Understanding connection requirements
+
+**Requirements**:
+- Requires `pg_read_server_files` role or superuser privileges
+- File must be readable by PostgreSQL user
+
+**Important Notes**:
+- Shows raw file contents including comments
+- Changes to pg_hba.conf require `pg_reload_conf()` or server reload
+- Rules are processed in order (first match wins)
+- Common authentication methods: `trust`, `peer`, `password`, `scram-sha-256`, `md5`, `cert`, `ldap`
+- Connection type keywords: `local` (Unix socket), `host` (TCP/IP), `hostssl` (SSL only), `hostnossl` (non-SSL only)
+- Testing connections: Use `psql` with `-h` (host) and `-U` (user) options
+- Security: Avoid `trust` authentication in production environments
+
+### read_pg_ident_conf
+
+Read the contents of pg_ident.conf (User Name Mapping configuration file). This file maps external authentication system usernames (like OS users or SSL certificate names) to PostgreSQL database usernames.
+
+**Input Examples**:
+
+Read pg_ident.conf:
+```json
+{}
+```
+
+**Parameters**: None
+
+**Output**:
+```
+PostgreSQL User Name Mapping Configuration
+==================================================
+
+File: /var/lib/postgresql/data/pg_ident.conf
+
+--- Contents ---
+
+# PostgreSQL User Name Maps
+# MAPNAME       SYSTEM-USERNAME         PG-USERNAME
+
+# Map OS users to database users
+osusers         john                    john_db
+osusers         jane                    jane_db
+osusers         admin                   postgres
+
+# Map SSL certificate names to database users
+sslcert         CN=app.example.com      app_user
+sslcert         CN=backup.example.com   backup_user
+
+# Map Kerberos principals to database users
+krbusers        user@EXAMPLE.COM        db_user
+```
+
+**Use Cases**:
+- Understanding external to internal user mapping
+- Troubleshooting authentication issues with peer, ident, or cert methods
+- Reviewing security mappings
+- Documenting authentication setup
+- Planning authentication system changes
+- Auditing user access patterns
+
+**Requirements**:
+- Requires `pg_read_server_files` role or superuser privileges
+- File must be readable by PostgreSQL user
+
+**Important Notes**:
+- Shows raw file contents including comments
+- Changes to pg_ident.conf require `pg_reload_conf()` or server reload
+- Used in conjunction with pg_hba.conf `map=` option
+- Format: `MAPNAME  SYSTEM-USERNAME  PG-USERNAME`
+- Common use cases:
+  - Mapping OS usernames with `peer` authentication
+  - Mapping SSL certificate CNs with `cert` authentication
+  - Mapping Kerberos principals with `gssapi` authentication
+- Multiple mappings can share the same MAPNAME
+- Regular expressions not supported (use explicit mappings)
+- Referenced in pg_hba.conf using `map=mapname` option
 
 ### read_resource
 

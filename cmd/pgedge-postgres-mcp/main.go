@@ -64,6 +64,10 @@ func main() {
 	toolRegistry.Register("set_pg_configuration", tools.SetPGConfigurationTool(dbClient))
 	toolRegistry.Register("recommend_pg_configuration", tools.RecommendPGConfigurationTool())
 	toolRegistry.Register("analyze_bloat", tools.AnalyzeBloatTool(dbClient))
+	toolRegistry.Register("read_server_log", tools.ReadServerLogTool(dbClient))
+	toolRegistry.Register("read_postgresql_conf", tools.ReadPostgresqlConfTool(dbClient))
+	toolRegistry.Register("read_pg_hba_conf", tools.ReadPgHbaConfTool(dbClient))
+	toolRegistry.Register("read_pg_ident_conf", tools.ReadPgIdentConfTool(dbClient))
 	toolRegistry.Register("read_resource", tools.ReadResourceTool(resourceRegistry))
 
 	// Start MCP server
