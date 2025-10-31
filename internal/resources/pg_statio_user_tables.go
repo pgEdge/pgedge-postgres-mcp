@@ -38,7 +38,7 @@ func PGStatIOUserTablesResource(dbClient *database.Client) Resource {
 					toast_blks_read, toast_blks_hit,
 					tidx_blks_read, tidx_blks_hit
 				FROM pg_statio_user_tables
-				ORDER BY (heap_blks_read + idx_blks_read + toast_blks_read + tidx_blks_read) DESC
+				ORDER BY (heap_blks_read + idx_blks_read + COALESCE(toast_blks_read, 0) + COALESCE(tidx_blks_read, 0)) DESC
 				LIMIT %d`, DefaultQueryLimit)
 
 			processor := func(rows pgx.Rows) (interface{}, error) {
@@ -48,8 +48,8 @@ func PGStatIOUserTablesResource(dbClient *database.Client) Resource {
 					var schemaname, relname string
 					var heapBlksRead, heapBlksHit int64
 					var idxBlksRead, idxBlksHit int64
-					var toastBlksRead, toastBlksHit int64
-					var tidxBlksRead, tidxBlksHit int64
+					var toastBlksRead, toastBlksHit *int64 // Nullable - NULL when no TOAST table
+					var tidxBlksRead, tidxBlksHit *int64   // Nullable - NULL when no TOAST index
 
 					if err := rows.Scan(&schemaname, &relname,
 						&heapBlksRead, &heapBlksHit,
@@ -63,8 +63,6 @@ func PGStatIOUserTablesResource(dbClient *database.Client) Resource {
 					// Calculate cache hit ratios
 					totalHeapBlks := heapBlksRead + heapBlksHit
 					totalIdxBlks := idxBlksRead + idxBlksHit
-					totalToastBlks := toastBlksRead + toastBlksHit
-					totalTidxBlks := tidxBlksRead + tidxBlksHit
 
 					var heapHitRatio, idxHitRatio, toastHitRatio, tidxHitRatio *float64
 
@@ -76,13 +74,22 @@ func PGStatIOUserTablesResource(dbClient *database.Client) Resource {
 						ratio := float64(idxBlksHit) / float64(totalIdxBlks) * 100
 						idxHitRatio = &ratio
 					}
-					if totalToastBlks > 0 {
-						ratio := float64(toastBlksHit) / float64(totalToastBlks) * 100
-						toastHitRatio = &ratio
+
+					// Handle nullable TOAST columns
+					if toastBlksRead != nil && toastBlksHit != nil {
+						totalToastBlks := *toastBlksRead + *toastBlksHit
+						if totalToastBlks > 0 {
+							ratio := float64(*toastBlksHit) / float64(totalToastBlks) * 100
+							toastHitRatio = &ratio
+						}
 					}
-					if totalTidxBlks > 0 {
-						ratio := float64(tidxBlksHit) / float64(totalTidxBlks) * 100
-						tidxHitRatio = &ratio
+
+					if tidxBlksRead != nil && tidxBlksHit != nil {
+						totalTidxBlks := *tidxBlksRead + *tidxBlksHit
+						if totalTidxBlks > 0 {
+							ratio := float64(*tidxBlksHit) / float64(totalTidxBlks) * 100
+							tidxHitRatio = &ratio
+						}
 					}
 
 					tables = append(tables, map[string]interface{}{

@@ -119,6 +119,104 @@ Tests verify that:
 
 ## Integration Testing (Optional)
 
+### PostgreSQL Resource Integration Tests
+
+Comprehensive integration tests for all 12 MCP resources are available in `internal/resources/integration_test.go`. These tests verify:
+
+- **Version Compatibility**: Tests against PostgreSQL 14-17
+- **Query Execution**: All resources execute successfully
+- **NULL Handling**: TOAST columns handle NULL values correctly
+- **Response Structure**: All resources return consistent JSON structure
+- **Schema Changes**: Version-specific behavior (e.g., pg_stat_bgwriter vs pg_stat_checkpointer)
+
+#### Running Resource Integration Tests
+
+```bash
+# 1. Set up PostgreSQL connection
+export POSTGRES_CONNECTION_STRING="postgres://user:pass@localhost/dbname"
+
+# 2. Run all integration tests
+go test ./internal/resources -v -run "Integration"
+
+# 3. Run specific compatibility tests
+go test ./internal/resources -v -run "TestVersionAwareResources_Compatibility"
+
+# 4. Test NULL handling
+go test ./internal/resources -v -run "TestNullHandling_TOAST"
+
+# 5. Test response structure
+go test ./internal/resources -v -run "TestResourceResponseStructure"
+```
+
+#### Testing Against Multiple PostgreSQL Versions
+
+To ensure compatibility across versions:
+
+```bash
+# PostgreSQL 14
+docker run -d -p 5432:5432 -e POSTGRES_PASSWORD=test postgres:14
+export POSTGRES_CONNECTION_STRING="postgres://postgres:test@localhost/postgres"
+go test ./internal/resources -v -run "Integration"
+
+# PostgreSQL 15
+docker run -d -p 5432:5432 -e POSTGRES_PASSWORD=test postgres:15
+export POSTGRES_CONNECTION_STRING="postgres://postgres:test@localhost/postgres"
+go test ./internal/resources -v -run "Integration"
+
+# PostgreSQL 16
+docker run -d -p 5432:5432 -e POSTGRES_PASSWORD=test postgres:16
+export POSTGRES_CONNECTION_STRING="postgres://postgres:test@localhost/postgres"
+go test ./internal/resources -v -run "Integration"
+
+# PostgreSQL 17
+docker run -d -p 5432:5432 -e POSTGRES_PASSWORD=test postgres:17
+export POSTGRES_CONNECTION_STRING="postgres://postgres:test@localhost/postgres"
+go test ./internal/resources -v -run "Integration"
+```
+
+#### What's Tested
+
+The integration test suite covers:
+
+1. **All 12 Resources**:
+   - pg://settings
+   - pg://system_info
+   - pg://stat/activity
+   - pg://stat/database
+   - pg://stat/user_tables
+   - pg://stat/user_indexes
+   - pg://stat/replication
+   - pg://stat/bgwriter (with PG17 compatibility)
+   - pg://stat/wal (PG14+ only)
+   - pg://statio/user_tables (with NULL handling)
+   - pg://statio/user_indexes
+   - pg://statio/user_sequences
+
+2. **Version-Specific Behavior**:
+   - PostgreSQL 17: pg_stat_checkpointer split from pg_stat_bgwriter
+   - PostgreSQL 14+: pg_stat_wal availability
+   - Older versions: Graceful degradation
+
+3. **Edge Cases**:
+   - Tables without TOAST (NULL values)
+   - Empty result sets
+   - Missing or unavailable views
+
+#### Expected Output
+
+```
+=== RUN   TestAllResources_Integration
+Testing against PostgreSQL version 17
+=== RUN   TestAllResources_Integration/pg://settings
+    integration_test.go:XX: ✓ pg://settings: Successfully executed and returned valid JSON
+=== RUN   TestAllResources_Integration/pg://stat/bgwriter
+    integration_test.go:XX: ✓ pg://stat/bgwriter: Successfully executed and returned valid JSON
+...
+PASS
+```
+
+### LLM Provider Integration Tests
+
 For testing with actual Ollama models (not run in CI):
 
 ```bash
