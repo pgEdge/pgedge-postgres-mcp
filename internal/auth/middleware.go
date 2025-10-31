@@ -24,6 +24,9 @@ type contextKey string
 const (
 	// TokenHashContextKey is the context key for storing the authenticated token hash
 	TokenHashContextKey contextKey = "token_hash"
+
+	// HealthCheckPath is the path for the health check endpoint (bypasses authentication)
+	HealthCheckPath = "/health"
 )
 
 // GetTokenHashFromContext retrieves the token hash from the request context
@@ -46,7 +49,7 @@ func AuthMiddleware(tokenStore *TokenStore, enabled bool) func(http.Handler) htt
 			}
 
 			// Skip authentication for health check endpoint
-			if r.URL.Path == "/health" {
+			if r.URL.Path == HealthCheckPath {
 				next.ServeHTTP(w, r)
 				return
 			}
@@ -70,8 +73,10 @@ func AuthMiddleware(tokenStore *TokenStore, enabled bool) func(http.Handler) htt
 			// Validate token
 			valid, err := tokenStore.ValidateToken(token)
 			if err != nil {
+				// Log detailed error for debugging
 				_, _ = fmt.Fprintf(os.Stderr, "Token validation error: %v\n", err)
-				http.Error(w, fmt.Sprintf("Invalid token: %v", err), http.StatusUnauthorized)
+				// Return generic error to client (don't leak internal details)
+				http.Error(w, "Invalid token", http.StatusUnauthorized)
 				return
 			}
 

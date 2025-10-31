@@ -20,49 +20,54 @@ import (
 	"strings"
 )
 
-// Client handles interactions with Claude API
+// Client handles interactions with LLM APIs (Anthropic or Ollama)
 type Client struct {
-	apiKey  string
-	baseURL string
-	model   string
+	provider string // "anthropic" or "ollama"
+	apiKey   string // Only for Anthropic
+	baseURL  string
+	model    string
 }
 
-// NewClient creates a new LLM client
-func NewClient() *Client {
-	apiKey := os.Getenv("ANTHROPIC_API_KEY")
-	model := os.Getenv("ANTHROPIC_MODEL")
-	if model == "" {
-		// ============================================================================
-		// IMPORTANT: User explicitly requested "claude-sonnet-4-5"
-		// DO NOT CHANGE THIS MODEL NAME without explicit user request
-		// This is the correct model ID for Claude Sonnet 4.5
-		// ============================================================================
-		model = "claude-sonnet-4-5"
-	}
-
-	baseURL := os.Getenv("ANTHROPIC_BASE_URL")
-	if baseURL == "" {
-		baseURL = "https://api.anthropic.com/v1"
-	}
-
+// NewClient creates a new LLM client with the specified provider
+func NewClient(provider, apiKey, baseURL, model string) *Client {
 	return &Client{
-		apiKey:  apiKey,
-		baseURL: baseURL,
-		model:   model,
+		provider: provider,
+		apiKey:   apiKey,
+		baseURL:  baseURL,
+		model:    model,
 	}
 }
 
-// IsConfigured returns whether the client has an API key configured
+// IsConfigured returns whether the client is properly configured
 func (c *Client) IsConfigured() bool {
-	return c.apiKey != ""
+	switch c.provider {
+	case "anthropic":
+		return c.apiKey != ""
+	case "ollama":
+		return c.baseURL != "" && c.model != ""
+	default:
+		return false
+	}
 }
 
-// ConvertNLToSQL converts a natural language query to SQL using Claude
+// ConvertNLToSQL converts a natural language query to SQL using the configured LLM
 func (c *Client) ConvertNLToSQL(nlQuery, schemaContext string) (string, error) {
 	if !c.IsConfigured() {
-		return "", fmt.Errorf("ANTHROPIC_API_KEY not set")
+		return "", fmt.Errorf("LLM client not configured")
 	}
 
+	switch c.provider {
+	case "anthropic":
+		return c.convertWithAnthropic(nlQuery, schemaContext)
+	case "ollama":
+		return c.convertWithOllama(nlQuery, schemaContext)
+	default:
+		return "", fmt.Errorf("unsupported LLM provider: %s", c.provider)
+	}
+}
+
+// convertWithAnthropic uses Anthropic's Claude API
+func (c *Client) convertWithAnthropic(nlQuery, schemaContext string) (string, error) {
 	prompt := fmt.Sprintf(`You are a PostgreSQL expert. Given the following database schema and a natural language query, generate a SQL query that answers the question.
 
 Database Schema:
@@ -138,6 +143,91 @@ SQL Query:`, schemaContext, nlQuery)
 	}
 
 	sqlQuery := strings.TrimSpace(claudeResp.Content[0].Text)
+
+	// Clean and sanitize the SQL query
+	sqlQuery = cleanSQL(sqlQuery)
+	if sqlQuery == "" {
+		return "", fmt.Errorf("no valid SQL found in response")
+	}
+
+	return sqlQuery, nil
+}
+
+// convertWithOllama uses Ollama's OpenAI-compatible API
+func (c *Client) convertWithOllama(nlQuery, schemaContext string) (string, error) {
+	prompt := fmt.Sprintf(`You are a PostgreSQL expert. Given the following database schema and a natural language query, generate a SQL query that answers the question.
+
+Database Schema:
+%s
+
+Natural Language Query: %s
+
+Requirements:
+1. Generate ONLY the SQL query, no explanations or markdown formatting
+2. Use proper PostgreSQL syntax
+3. Consider the column descriptions and table relationships
+4. Use appropriate JOINs when needed
+5. Include proper WHERE clauses, GROUP BY, ORDER BY as needed
+6. Use meaningful column aliases
+7. Make the query efficient and optimized
+8. Do NOT include semicolons at the end
+9. Return ONLY the SQL query text, nothing else
+
+SQL Query:`, schemaContext, nlQuery)
+
+	reqBody := ollamaRequest{
+		Model: c.model,
+		Messages: []ollamaMessage{
+			{
+				Role:    "user",
+				Content: prompt,
+			},
+		},
+		Stream: false,
+	}
+
+	jsonData, err := json.Marshal(reqBody)
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal request: %w", err)
+	}
+
+	req, err := http.NewRequest("POST", c.baseURL+"/v1/chat/completions", bytes.NewBuffer(jsonData))
+	if err != nil {
+		return "", fmt.Errorf("failed to create request: %w", err)
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("failed to send request: %w", err)
+	}
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			fmt.Fprintf(os.Stderr, "WARNING: Failed to close HTTP response body: %v\n", err)
+		}
+	}()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", fmt.Errorf("failed to read response: %w", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("API returned status %d: %s", resp.StatusCode, string(body))
+	}
+
+	var ollamaResp ollamaResponse
+	if err := json.Unmarshal(body, &ollamaResp); err != nil {
+		return "", fmt.Errorf("failed to unmarshal response: %w", err)
+	}
+
+	if len(ollamaResp.Choices) == 0 {
+		return "", fmt.Errorf("no choices in response")
+	}
+
+	sqlQuery := strings.TrimSpace(ollamaResp.Choices[0].Message.Content)
 
 	// Clean and sanitize the SQL query
 	sqlQuery = cleanSQL(sqlQuery)
@@ -289,4 +379,30 @@ type claudeResponse struct {
 type claudeContentBlock struct {
 	Type string `json:"type"`
 	Text string `json:"text"`
+}
+
+// Internal types for Ollama API (OpenAI-compatible)
+type ollamaRequest struct {
+	Model    string          `json:"model"`
+	Messages []ollamaMessage `json:"messages"`
+	Stream   bool            `json:"stream"`
+}
+
+type ollamaMessage struct {
+	Role    string `json:"role"`
+	Content string `json:"content"`
+}
+
+type ollamaResponse struct {
+	ID      string         `json:"id"`
+	Object  string         `json:"object"`
+	Created int64          `json:"created"`
+	Model   string         `json:"model"`
+	Choices []ollamaChoice `json:"choices"`
+}
+
+type ollamaChoice struct {
+	Index        int           `json:"index"`
+	Message      ollamaMessage `json:"message"`
+	FinishReason string        `json:"finish_reason"`
 }

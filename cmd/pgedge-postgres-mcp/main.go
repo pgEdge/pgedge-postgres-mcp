@@ -11,6 +11,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"os"
@@ -25,6 +26,12 @@ import (
 	"pgedge-postgres-mcp/internal/tools"
 )
 
+const (
+	serverName    = "pgEdge PostgreSQL MCP Server"
+	serverCompany = "pgEdge, Inc."
+	serverVersion = "1.0.0"
+)
+
 func main() {
 	// Get executable path for default config location
 	execPath, err := os.Executable()
@@ -37,8 +44,11 @@ func main() {
 	// Command line flags
 	configFile := flag.String("config", defaultConfigPath, "Path to configuration file")
 	dbConnString := flag.String("db", "", "PostgreSQL connection string (overrides config file)")
+	llmProvider := flag.String("llm-provider", "", "LLM provider: 'anthropic' or 'ollama' (overrides config file)")
 	apiKey := flag.String("api-key", "", "Anthropic API key (overrides config file)")
 	model := flag.String("model", "", "Anthropic model to use (overrides config file)")
+	ollamaURL := flag.String("ollama-url", "", "Ollama API base URL (overrides config file)")
+	ollamaModel := flag.String("ollama-model", "", "Ollama model name (overrides config file)")
 	httpMode := flag.Bool("http", false, "Enable HTTP transport mode (default: stdio)")
 	httpAddr := flag.String("addr", "", "HTTP server address")
 	tlsMode := flag.Bool("tls", false, "Enable TLS/HTTPS (requires -http)")
@@ -115,12 +125,21 @@ func main() {
 		case "db":
 			cliFlags.ConnectionStringSet = true
 			cliFlags.ConnectionString = *dbConnString
+		case "llm-provider":
+			cliFlags.LLMProviderSet = true
+			cliFlags.LLMProvider = *llmProvider
 		case "api-key":
 			cliFlags.APIKeySet = true
 			cliFlags.APIKey = *apiKey
 		case "model":
 			cliFlags.ModelSet = true
 			cliFlags.Model = *model
+		case "ollama-url":
+			cliFlags.OllamaBaseURLSet = true
+			cliFlags.OllamaBaseURL = *ollamaURL
+		case "ollama-model":
+			cliFlags.OllamaModelSet = true
+			cliFlags.OllamaModel = *ollamaModel
 		case "http":
 			cliFlags.HTTPEnabledSet = true
 			cliFlags.HTTPEnabled = *httpMode
@@ -179,23 +198,10 @@ func main() {
 		cfg.HTTP.Auth.TokenFile = auth.GetDefaultTokenPath(execPath)
 	}
 
-	// Set environment variables for clients that read them directly
-	// This ensures backward compatibility
+	// Set environment variables for database connection
 	if err := os.Setenv("POSTGRES_CONNECTION_STRING", cfg.Database.ConnectionString); err != nil {
 		fmt.Fprintf(os.Stderr, "ERROR: Failed to set environment variable: %v\n", err)
 		os.Exit(1)
-	}
-	if cfg.Anthropic.APIKey != "" {
-		if err := os.Setenv("ANTHROPIC_API_KEY", cfg.Anthropic.APIKey); err != nil {
-			fmt.Fprintf(os.Stderr, "ERROR: Failed to set environment variable: %v\n", err)
-			os.Exit(1)
-		}
-	}
-	if cfg.Anthropic.Model != "" {
-		if err := os.Setenv("ANTHROPIC_MODEL", cfg.Anthropic.Model); err != nil {
-			fmt.Fprintf(os.Stderr, "ERROR: Failed to set environment variable: %v\n", err)
-			os.Exit(1)
-		}
 	}
 
 	// Verify TLS files exist if HTTPS is enabled
@@ -235,8 +241,21 @@ func main() {
 		fmt.Fprintf(os.Stderr, "Loaded %d API token(s) from %s\n", len(tokenStore.Tokens), cfg.HTTP.Auth.TokenFile)
 	}
 
-	// Create LLM client (shared across all modes)
-	llmClient := llm.NewClient()
+	// Create LLM client with provider configuration
+	var llmClient *llm.Client
+	switch cfg.LLM.Provider {
+	case "anthropic":
+		llmClient = llm.NewClient("anthropic", cfg.Anthropic.APIKey, "https://api.anthropic.com/v1", cfg.Anthropic.Model)
+	case "ollama":
+		llmClient = llm.NewClient("ollama", "", cfg.Ollama.BaseURL, cfg.Ollama.Model)
+	default:
+		fmt.Fprintf(os.Stderr, "ERROR: Invalid LLM provider: %s\n", cfg.LLM.Provider)
+		os.Exit(1)
+	}
+
+	// Create a cancellable context for graceful shutdown of background goroutines
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel() // Ensure background goroutines are stopped on exit
 
 	// Register resources first (so they can be used by tools)
 	resourceRegistry := resources.NewRegistry()
@@ -262,16 +281,22 @@ func main() {
 		go func() {
 			ticker := time.NewTicker(5 * time.Minute)
 			defer ticker.Stop()
-			for range ticker.C {
-				if removed, hashes := tokenStore.CleanupExpiredTokens(); removed > 0 {
-					fmt.Fprintf(os.Stderr, "Removed %d expired token(s)\n", removed)
-					// Clean up database connections for expired tokens
-					if err := clientManager.RemoveClients(hashes); err != nil {
-						fmt.Fprintf(os.Stderr, "WARNING: Failed to cleanup connections: %v\n", err)
-					}
-					// Save the cleaned store
-					if err := auth.SaveTokenStore(cfg.HTTP.Auth.TokenFile, tokenStore); err != nil {
-						fmt.Fprintf(os.Stderr, "WARNING: Failed to save cleaned token file: %v\n", err)
+			for {
+				select {
+				case <-ctx.Done():
+					// Context cancelled, stop cleanup goroutine
+					return
+				case <-ticker.C:
+					if removed, hashes := tokenStore.CleanupExpiredTokens(); removed > 0 {
+						fmt.Fprintf(os.Stderr, "Removed %d expired token(s)\n", removed)
+						// Clean up database connections for expired tokens
+						if err := clientManager.RemoveClients(hashes); err != nil {
+							fmt.Fprintf(os.Stderr, "WARNING: Failed to cleanup connections: %v\n", err)
+						}
+						// Save the cleaned store
+						if err := auth.SaveTokenStore(cfg.HTTP.Auth.TokenFile, tokenStore); err != nil {
+							fmt.Fprintf(os.Stderr, "WARNING: Failed to save cleaned token file: %v\n", err)
+						}
 					}
 				}
 			}
@@ -296,19 +321,20 @@ func main() {
 		}()
 
 		// Set up resources with fallback client
-		resourceRegistry.Register(resources.URISettings, resources.PGSettingsResource(fallbackClient))
-		resourceRegistry.Register(resources.URISystemInfo, resources.PGSystemInfoResource(fallbackClient))
-		resourceRegistry.Register(resources.URIStatActivity, resources.PGStatActivityResource(fallbackClient))
-		resourceRegistry.Register(resources.URIStatDatabase, resources.PGStatDatabaseResource(fallbackClient))
-		resourceRegistry.Register(resources.URIStatUserTables, resources.PGStatUserTablesResource(fallbackClient))
-		resourceRegistry.Register(resources.URIStatUserIndexes, resources.PGStatUserIndexesResource(fallbackClient))
-		resourceRegistry.Register(resources.URIStatReplication, resources.PGStatReplicationResource(fallbackClient))
-		resourceRegistry.Register(resources.URIStatBgwriter, resources.PGStatBgwriterResource(fallbackClient))
-		resourceRegistry.Register(resources.URIStatWAL, resources.PGStatWALResource(fallbackClient))
+		registerResources(resourceRegistry, fallbackClient)
+
+		// Prepare server info
+		serverInfo := tools.ServerInfo{
+			Name:     serverName,
+			Company:  serverCompany,
+			Version:  serverVersion,
+			Provider: cfg.LLM.Provider,
+			Model:    getModelName(cfg),
+		}
 
 		// Use context-aware provider for per-token connection isolation
-		contextAwareProvider := tools.NewContextAwareProvider(clientManager, llmClient, resourceRegistry, true, fallbackClient)
-		if err := contextAwareProvider.RegisterTools(nil); err != nil {
+		contextAwareProvider := tools.NewContextAwareProvider(clientManager, llmClient, resourceRegistry, true, fallbackClient, serverInfo)
+		if err := contextAwareProvider.RegisterTools(ctx); err != nil {
 			fmt.Fprintf(os.Stderr, "ERROR: Failed to register tools: %v\n", err)
 			os.Exit(1)
 		}
@@ -337,15 +363,7 @@ func main() {
 		}()
 
 		// Set up resources with shared client
-		resourceRegistry.Register(resources.URISettings, resources.PGSettingsResource(dbClient))
-		resourceRegistry.Register(resources.URISystemInfo, resources.PGSystemInfoResource(dbClient))
-		resourceRegistry.Register(resources.URIStatActivity, resources.PGStatActivityResource(dbClient))
-		resourceRegistry.Register(resources.URIStatDatabase, resources.PGStatDatabaseResource(dbClient))
-		resourceRegistry.Register(resources.URIStatUserTables, resources.PGStatUserTablesResource(dbClient))
-		resourceRegistry.Register(resources.URIStatUserIndexes, resources.PGStatUserIndexesResource(dbClient))
-		resourceRegistry.Register(resources.URIStatReplication, resources.PGStatReplicationResource(dbClient))
-		resourceRegistry.Register(resources.URIStatBgwriter, resources.PGStatBgwriterResource(dbClient))
-		resourceRegistry.Register(resources.URIStatWAL, resources.PGStatWALResource(dbClient))
+		registerResources(resourceRegistry, dbClient)
 
 		// Register tools with shared client
 		toolRegistry := tools.NewRegistry()
@@ -355,6 +373,16 @@ func main() {
 		toolRegistry.Register("recommend_pg_configuration", tools.RecommendPGConfigurationTool())
 		toolRegistry.Register("analyze_bloat", tools.AnalyzeBloatTool(dbClient))
 		toolRegistry.Register("read_server_log", tools.ReadServerLogTool(dbClient))
+
+		// Register server info tool
+		serverInfo := tools.ServerInfo{
+			Name:     serverName,
+			Company:  serverCompany,
+			Version:  serverVersion,
+			Provider: cfg.LLM.Provider,
+			Model:    getModelName(cfg),
+		}
+		toolRegistry.Register("server_info", tools.ServerInfoTool(serverInfo))
 		toolRegistry.Register("read_postgresql_conf", tools.ReadPostgresqlConfTool(dbClient))
 		toolRegistry.Register("read_pg_hba_conf", tools.ReadPgHbaConfTool(dbClient))
 		toolRegistry.Register("read_pg_ident_conf", tools.ReadPgIdentConfTool(dbClient))
@@ -411,4 +439,29 @@ func main() {
 			fmt.Fprintf(os.Stderr, "WARNING: Error closing database connections: %v\n", err)
 		}
 	}
+}
+
+// getModelName returns the model name based on the LLM provider
+func getModelName(cfg *config.Config) string {
+	switch cfg.LLM.Provider {
+	case "anthropic":
+		return cfg.Anthropic.Model
+	case "ollama":
+		return cfg.Ollama.Model
+	default:
+		return "unknown"
+	}
+}
+
+// registerResources registers all PostgreSQL resources with the given registry and client
+func registerResources(registry *resources.Registry, client *database.Client) {
+	registry.Register(resources.URISettings, resources.PGSettingsResource(client))
+	registry.Register(resources.URISystemInfo, resources.PGSystemInfoResource(client))
+	registry.Register(resources.URIStatActivity, resources.PGStatActivityResource(client))
+	registry.Register(resources.URIStatDatabase, resources.PGStatDatabaseResource(client))
+	registry.Register(resources.URIStatUserTables, resources.PGStatUserTablesResource(client))
+	registry.Register(resources.URIStatUserIndexes, resources.PGStatUserIndexesResource(client))
+	registry.Register(resources.URIStatReplication, resources.PGStatReplicationResource(client))
+	registry.Register(resources.URIStatBgwriter, resources.PGStatBgwriterResource(client))
+	registry.Register(resources.URIStatWAL, resources.PGStatWALResource(client))
 }

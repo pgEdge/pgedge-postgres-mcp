@@ -23,8 +23,14 @@ type Config struct {
 	// Database configuration
 	Database DatabaseConfig `yaml:"database"`
 
-	// Anthropic API configuration
+	// LLM provider configuration
+	LLM LLMConfig `yaml:"llm"`
+
+	// Anthropic API configuration (deprecated, use LLM.Provider)
 	Anthropic AnthropicConfig `yaml:"anthropic"`
+
+	// Ollama configuration
+	Ollama OllamaConfig `yaml:"ollama"`
 
 	// HTTP server configuration
 	HTTP HTTPConfig `yaml:"http"`
@@ -35,10 +41,21 @@ type DatabaseConfig struct {
 	ConnectionString string `yaml:"connection_string"`
 }
 
+// LLMConfig holds LLM provider selection
+type LLMConfig struct {
+	Provider string `yaml:"provider"` // "anthropic" or "ollama"
+}
+
 // AnthropicConfig holds Anthropic API settings
 type AnthropicConfig struct {
 	APIKey string `yaml:"api_key"`
 	Model  string `yaml:"model"`
+}
+
+// OllamaConfig holds Ollama settings
+type OllamaConfig struct {
+	BaseURL string `yaml:"base_url"` // Ollama API URL (e.g., http://localhost:11434)
+	Model   string `yaml:"model"`    // Model name (e.g., qwen2.5-coder:32b)
 }
 
 // HTTPConfig holds HTTP/HTTPS server settings
@@ -110,11 +127,21 @@ type CLIFlags struct {
 	ConnectionString    string
 	ConnectionStringSet bool
 
+	// LLM provider flags
+	LLMProvider    string
+	LLMProviderSet bool
+
 	// Anthropic flags
 	APIKey    string
 	APIKeySet bool
 	Model     string
 	ModelSet  bool
+
+	// Ollama flags
+	OllamaBaseURL    string
+	OllamaBaseURLSet bool
+	OllamaModel      string
+	OllamaModelSet   bool
 
 	// HTTP flags
 	HTTPEnabled    bool
@@ -145,9 +172,16 @@ func defaultConfig() *Config {
 		Database: DatabaseConfig{
 			ConnectionString: "",
 		},
+		LLM: LLMConfig{
+			Provider: "anthropic", // Default to Anthropic
+		},
 		Anthropic: AnthropicConfig{
 			APIKey: "",
 			Model:  "claude-sonnet-4-5",
+		},
+		Ollama: OllamaConfig{
+			BaseURL: "http://localhost:11434",
+			Model:   "",
 		},
 		HTTP: HTTPConfig{
 			Enabled: false,
@@ -188,12 +222,25 @@ func mergeConfig(dest, src *Config) {
 		dest.Database.ConnectionString = src.Database.ConnectionString
 	}
 
+	// LLM
+	if src.LLM.Provider != "" {
+		dest.LLM.Provider = src.LLM.Provider
+	}
+
 	// Anthropic
 	if src.Anthropic.APIKey != "" {
 		dest.Anthropic.APIKey = src.Anthropic.APIKey
 	}
 	if src.Anthropic.Model != "" {
 		dest.Anthropic.Model = src.Anthropic.Model
+	}
+
+	// Ollama
+	if src.Ollama.BaseURL != "" {
+		dest.Ollama.BaseURL = src.Ollama.BaseURL
+	}
+	if src.Ollama.Model != "" {
+		dest.Ollama.Model = src.Ollama.Model
 	}
 
 	// HTTP
@@ -232,12 +279,24 @@ func applyEnvironmentVariables(cfg *Config) {
 		cfg.Database.ConnectionString = val
 	}
 
+	if val := os.Getenv("LLM_PROVIDER"); val != "" {
+		cfg.LLM.Provider = val
+	}
+
 	if val := os.Getenv("ANTHROPIC_API_KEY"); val != "" {
 		cfg.Anthropic.APIKey = val
 	}
 
 	if val := os.Getenv("ANTHROPIC_MODEL"); val != "" {
 		cfg.Anthropic.Model = val
+	}
+
+	if val := os.Getenv("OLLAMA_BASE_URL"); val != "" {
+		cfg.Ollama.BaseURL = val
+	}
+
+	if val := os.Getenv("OLLAMA_MODEL"); val != "" {
+		cfg.Ollama.Model = val
 	}
 }
 
@@ -248,12 +307,25 @@ func applyCLIFlags(cfg *Config, flags CLIFlags) {
 		cfg.Database.ConnectionString = flags.ConnectionString
 	}
 
+	// LLM Provider
+	if flags.LLMProviderSet {
+		cfg.LLM.Provider = flags.LLMProvider
+	}
+
 	// Anthropic
 	if flags.APIKeySet {
 		cfg.Anthropic.APIKey = flags.APIKey
 	}
 	if flags.ModelSet {
 		cfg.Anthropic.Model = flags.Model
+	}
+
+	// Ollama
+	if flags.OllamaBaseURLSet {
+		cfg.Ollama.BaseURL = flags.OllamaBaseURL
+	}
+	if flags.OllamaModelSet {
+		cfg.Ollama.Model = flags.OllamaModel
 	}
 
 	// HTTP
@@ -292,6 +364,26 @@ func validateConfig(cfg *Config) error {
 	// Database connection string is required
 	if cfg.Database.ConnectionString == "" {
 		return fmt.Errorf("database connection string is required (set via -db flag, POSTGRES_CONNECTION_STRING env var, or config file)")
+	}
+
+	// Validate LLM provider configuration
+	switch cfg.LLM.Provider {
+	case "anthropic":
+		if cfg.Anthropic.APIKey == "" {
+			return fmt.Errorf("anthropic API key is required when using anthropic provider (set via -api-key, ANTHROPIC_API_KEY, or config file)")
+		}
+		if cfg.Anthropic.Model == "" {
+			cfg.Anthropic.Model = "claude-sonnet-4-5" // Set default
+		}
+	case "ollama":
+		if cfg.Ollama.BaseURL == "" {
+			cfg.Ollama.BaseURL = "http://localhost:11434" // Set default
+		}
+		if cfg.Ollama.Model == "" {
+			return fmt.Errorf("ollama model is required when using ollama provider (set via -ollama-model, OLLAMA_MODEL, or config file)")
+		}
+	default:
+		return fmt.Errorf("invalid LLM provider %q (must be 'anthropic' or 'ollama')", cfg.LLM.Provider)
 	}
 
 	// TLS requires HTTP to be enabled

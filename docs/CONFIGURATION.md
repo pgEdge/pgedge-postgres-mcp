@@ -18,13 +18,25 @@ The server can read configuration from a YAML file, making it easier to manage s
 ### Example Configuration
 
 ```yaml
+# Database connection (required)
 database:
   connection_string: "postgres://localhost/postgres?sslmode=disable"
 
+# LLM Provider selection (required)
+llm:
+  provider: anthropic  # or "ollama"
+
+# Anthropic configuration (when provider is "anthropic")
 anthropic:
   api_key: "sk-ant-your-api-key-here"
   model: "claude-sonnet-4-5"
 
+# Ollama configuration (when provider is "ollama")
+ollama:
+  base_url: http://localhost:11434
+  model: qwen2.5-coder:32b
+
+# HTTP/HTTPS server (optional)
 http:
   enabled: false
   address: ":8080"
@@ -38,7 +50,7 @@ http:
     token_file: ""  # defaults to api-tokens.yaml
 ```
 
-A complete example configuration file is available at [configs/pgedge-postgres-mcp.yaml.example](../configs/pgedge-postgres-mcp.yaml.example).
+A complete example configuration file with detailed comments is available at [configs/pgedge-postgres-mcp.yaml.example](../configs/pgedge-postgres-mcp.yaml.example).
 
 ### Creating a Configuration File
 
@@ -61,8 +73,14 @@ All configuration options can be overridden via command line flags:
 
 - `-config` - Path to configuration file (default: same directory as binary)
 - `-db` - PostgreSQL connection string
-- `-api-key` - Anthropic API key
-- `-model` - Claude model to use
+
+### LLM Provider Options
+
+- `-llm-provider` - LLM provider to use: "anthropic" or "ollama"
+- `-api-key` - Anthropic API key (when using Anthropic)
+- `-model` - Anthropic model to use (default: "claude-sonnet-4-5")
+- `-ollama-url` - Ollama API base URL (default: "http://localhost:11434")
+- `-ollama-model` - Ollama model name (required when using Ollama)
 
 ### HTTP/HTTPS Options
 
@@ -87,19 +105,33 @@ See [Deployment Guide](DEPLOYMENT.md) for details on HTTP/HTTPS server setup.
 
 See [Authentication Guide](AUTHENTICATION.md) for details on API token management.
 
-### Example
+### Examples
 
+**Using Anthropic (cloud):**
 ```bash
 ./bin/pgedge-postgres-mcp \
   -db "postgres://localhost/mydb" \
+  -llm-provider anthropic \
   -api-key "sk-ant-..." \
   -http \
   -addr ":9090"
 ```
 
+**Using Ollama (local, free):**
+```bash
+# First, download the model (one-time setup)
+ollama pull qwen2.5-coder:32b
+
+# Then run the server
+./bin/pgedge-postgres-mcp \
+  -db "postgres://localhost/mydb" \
+  -llm-provider ollama \
+  -ollama-model qwen2.5-coder:32b
+```
+
 ## Environment Variables
 
-The server also supports environment variables for some configuration options:
+The server also supports environment variables for configuration options:
 
 ### Required Variables
 
@@ -107,21 +139,35 @@ The server also supports environment variables for some configuration options:
   - Format: `postgres://username:password@host:port/database?sslmode=disable`
   - Example: `postgres://myuser:mypass@localhost:5432/mydb?sslmode=disable`
 
-- **`ANTHROPIC_API_KEY`**: Your Anthropic API key (required for natural language queries)
-  - Get yours at: https://console.anthropic.com/
+### LLM Provider Variables
 
-### Optional Variables
+**For Anthropic:**
+- **`LLM_PROVIDER`**: Set to "anthropic" (default)
+- **`ANTHROPIC_API_KEY`**: Your Anthropic API key (get from https://console.anthropic.com/)
+- **`ANTHROPIC_MODEL`**: Claude model to use (default: "claude-sonnet-4-5")
 
-- **`ANTHROPIC_MODEL`**: Claude model to use
-  - Default: `claude-sonnet-4-5`
-  - Other options: `claude-haiku-4-5`, `claude-opus-4-1`
+**For Ollama:**
+- **`LLM_PROVIDER`**: Set to "ollama"
+- **`OLLAMA_BASE_URL`**: Ollama API URL (default: "http://localhost:11434")
+- **`OLLAMA_MODEL`**: Ollama model name (e.g., "qwen2.5-coder:32b")
 
-### Example
+### Examples
 
+**Anthropic (cloud):**
 ```bash
 export POSTGRES_CONNECTION_STRING="postgres://localhost/mydb?sslmode=disable"
+export LLM_PROVIDER="anthropic"
 export ANTHROPIC_API_KEY="sk-ant-your-api-key-here"
 export ANTHROPIC_MODEL="claude-sonnet-4-5"
+
+./bin/pgedge-postgres-mcp
+```
+
+**Ollama (local):**
+```bash
+export POSTGRES_CONNECTION_STRING="postgres://localhost/mydb?sslmode=disable"
+export LLM_PROVIDER="ollama"
+export OLLAMA_MODEL="qwen2.5-coder:32b"
 
 ./bin/pgedge-postgres-mcp
 ```
@@ -138,6 +184,7 @@ To use this MCP server with Claude Desktop, add it to your MCP configuration fil
 
 ### Configuration Format
 
+**Option 1: Using Anthropic (cloud, default):**
 ```json
 {
   "mcpServers": {
@@ -145,15 +192,36 @@ To use this MCP server with Claude Desktop, add it to your MCP configuration fil
       "command": "/absolute/path/to/pgedge-postgres-mcp/bin/pgedge-postgres-mcp",
       "env": {
         "POSTGRES_CONNECTION_STRING": "postgres://username:password@localhost:5432/database_name?sslmode=disable",
-        "ANTHROPIC_API_KEY": "sk-ant-your-api-key-here",
-        "ANTHROPIC_MODEL": "claude-sonnet-4-5"
+        "ANTHROPIC_API_KEY": "sk-ant-your-api-key-here"
       }
     }
   }
 }
 ```
 
-**Important**: Replace `/absolute/path/to/pgedge-postgres-mcp` with the full path to your project directory.
+**Option 2: Using Ollama (local, free):**
+```json
+{
+  "mcpServers": {
+    "pgedge": {
+      "command": "/absolute/path/to/pgedge-postgres-mcp/bin/pgedge-postgres-mcp",
+      "args": ["-llm-provider", "ollama", "-ollama-model", "qwen2.5-coder:32b"],
+      "env": {
+        "POSTGRES_CONNECTION_STRING": "postgres://username:password@localhost:5432/database_name?sslmode=disable"
+      }
+    }
+  }
+}
+```
+
+**Important Notes:**
+- Replace `/absolute/path/to/pgedge-postgres-mcp` with the full path to your project directory
+- For Ollama: Make sure to install Ollama and download the model first:
+  ```bash
+  # Install from https://ollama.ai/
+  ollama serve
+  ollama pull qwen2.5-coder:32b
+  ```
 
 ### Using a Configuration File with Claude Desktop
 

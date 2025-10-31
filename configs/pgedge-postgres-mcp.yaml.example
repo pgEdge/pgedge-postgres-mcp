@@ -9,7 +9,9 @@
 # Copy this file to pgedge-postgres-mcp.yaml and customize as needed.
 # By default, the server looks for config in the same directory as the binary.
 
-# Database Configuration
+# ============================================================================
+# DATABASE CONFIGURATION (Required)
+# ============================================================================
 database:
   # PostgreSQL connection string
   # Format: postgres://[user[:password]@][host][:port][/dbname][?params]
@@ -18,7 +20,21 @@ database:
   # Command line flag: -db
   connection_string: "postgres://localhost/postgres?sslmode=disable"
 
-# Anthropic AI Configuration
+# ============================================================================
+# LLM PROVIDER SELECTION (Required)
+# ============================================================================
+# Choose which LLM provider to use for natural language to SQL conversion
+llm:
+  # LLM provider: "anthropic" (cloud) or "ollama" (local)
+  # Default: anthropic
+  # Environment variable: LLM_PROVIDER
+  # Command line flag: -llm-provider
+  provider: anthropic  # Options: "anthropic" or "ollama"
+
+# ============================================================================
+# ANTHROPIC CONFIGURATION (Cloud-based, requires API key)
+# ============================================================================
+# Use this when llm.provider is "anthropic"
 anthropic:
   # Anthropic API key for Claude AI
   # Get yours at: https://console.anthropic.com/
@@ -28,12 +44,43 @@ anthropic:
 
   # Claude model to use
   # Options: claude-sonnet-4-5, claude-haiku-4-5, claude-opus-4-1
-  # Default: claude-sonnet-4-5
+  # Default: claude-sonnet-4-5 (best for SQL)
   # Environment variable: ANTHROPIC_MODEL
   # Command line flag: -model
   model: "claude-sonnet-4-5"
 
-# HTTP/HTTPS Server Configuration
+# ============================================================================
+# OLLAMA CONFIGURATION (Local, free and open source)
+# ============================================================================
+# Use this when llm.provider is "ollama"
+# Setup instructions:
+# 1. Install Ollama from https://ollama.ai/
+# 2. Start Ollama: ollama serve
+# 3. Download model: ollama pull qwen2.5-coder:32b
+ollama:
+  # Ollama API base URL
+  # Default: http://localhost:11434
+  # Environment variable: OLLAMA_BASE_URL
+  # Command line flag: -ollama-url
+  base_url: http://localhost:11434
+
+  # Ollama model name (required when using Ollama)
+  # Recommended: qwen2.5-coder:32b (best quality for SQL)
+  # Environment variable: OLLAMA_MODEL
+  # Command line flag: -ollama-model
+  model: qwen2.5-coder:32b
+
+  # Alternative models (download with `ollama pull <model>`):
+  # - qwen2.5-coder:7b    (faster, smaller, good for simple queries)
+  # - qwen2.5-coder:32b   (best quality for SQL, recommended)
+  # - codellama:13b       (good balance)
+  # - codellama:34b       (high quality, slower)
+
+# ============================================================================
+# HTTP/HTTPS SERVER CONFIGURATION (Optional - only needed for API access)
+# ============================================================================
+# By default, the server runs in stdio mode for Claude Desktop.
+# Enable HTTP mode for direct API access or web integrations.
 http:
   # Enable HTTP transport mode
   # If false, server runs in stdio mode (for Claude Desktop)
@@ -47,7 +94,9 @@ http:
   # Command line flag: -addr
   address: ":8080"
 
+  # -------------------------
   # TLS/HTTPS Configuration
+  # -------------------------
   tls:
     # Enable HTTPS (requires http.enabled: true)
     # Default: false
@@ -69,7 +118,9 @@ http:
     # Command line flag: -chain
     chain_file: ""
 
-  # Authentication Configuration
+  # -------------------------
+  # Authentication
+  # -------------------------
   auth:
     # Enable API token authentication (requires http.enabled: true)
     # Default: true (authentication is enabled by default)
@@ -79,12 +130,40 @@ http:
     # Path to API token configuration file
     # Default: Same directory as binary (api-tokens.yaml)
     # Command line flag: -token-file
-    # Create tokens with: pgedge-postgres-mcp -add-token
     token_file: ""
 
-# Example configurations for different deployment scenarios:
+    # Token management commands (no database connection required):
+    # - Create token: ./pgedge-postgres-mcp -add-token
+    # - List tokens:  ./pgedge-postgres-mcp -list-tokens
+    # - Remove token: ./pgedge-postgres-mcp -remove-token <id>
 
-# Example 1: Local development with HTTP (no authentication - not recommended)
+# ============================================================================
+# EXAMPLE CONFIGURATIONS
+# ============================================================================
+
+# Example 1: Anthropic with stdio (Claude Desktop - default)
+# llm:
+#   provider: anthropic
+# anthropic:
+#   api_key: "sk-ant-your-key-here"
+#   model: claude-sonnet-4-5
+# http:
+#   enabled: false
+
+# Example 2: Ollama with stdio (Claude Desktop, local/free)
+# llm:
+#   provider: ollama
+# ollama:
+#   base_url: http://localhost:11434
+#   model: qwen2.5-coder:32b
+# http:
+#   enabled: false
+
+# Example 3: Local development with HTTP (no authentication - not recommended)
+# llm:
+#   provider: anthropic
+# anthropic:
+#   api_key: "sk-ant-your-key-here"
 # http:
 #   enabled: true
 #   address: "localhost:8080"
@@ -93,7 +172,11 @@ http:
 #   auth:
 #     enabled: false
 
-# Example 2: Local development with HTTP and authentication
+# Example 4: Local development with HTTP and authentication
+# llm:
+#   provider: anthropic
+# anthropic:
+#   api_key: "sk-ant-your-key-here"
 # http:
 #   enabled: true
 #   address: "localhost:8080"
@@ -103,7 +186,11 @@ http:
 #     enabled: true
 #     token_file: "./api-tokens.yaml"
 
-# Example 3: Production HTTPS deployment with authentication
+# Example 5: Production HTTPS deployment with authentication
+# llm:
+#   provider: anthropic
+# anthropic:
+#   api_key: "sk-ant-your-key-here"
 # http:
 #   enabled: true
 #   address: ":443"
@@ -116,7 +203,14 @@ http:
 #     enabled: true
 #     token_file: "/etc/pgedge-mcp/tokens.yaml"
 
-# Example 4: Claude Desktop mode (stdio, no HTTP)
+# Example 6: Ollama with HTTP server (no auth for internal network)
+# llm:
+#   provider: ollama
+# ollama:
+#   base_url: http://localhost:11434
+#   model: qwen2.5-coder:32b
 # http:
-#   enabled: false
-# (This is the default behavior when http.enabled is false)
+#   enabled: true
+#   address: ":8080"
+#   auth:
+#     enabled: false  # Only disable on trusted networks!

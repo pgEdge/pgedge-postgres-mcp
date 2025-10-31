@@ -1,8 +1,37 @@
 # MCP Tools
 
-The pgEdge MCP Server provides ten tools that enable natural language database interaction, configuration management, maintenance analysis, and configuration file access.
+The pgEdge MCP Server provides eleven tools that enable natural language database interaction, configuration management, maintenance analysis, configuration file access, and server information.
 
 ## Available Tools
+
+### server_info
+
+Get information about the MCP server itself, including server name, company, version, LLM provider, and model being used.
+
+**Input**: None (no parameters required)
+
+**Output**:
+```
+Server Information:
+===================
+
+Server Name:    pgEdge PostgreSQL MCP Server
+Company:        pgEdge, Inc.
+Version:        1.0.0
+
+LLM Provider:   anthropic
+LLM Model:      claude-sonnet-4-5
+
+Description:    An MCP (Model Context Protocol) server that enables AI assistants to interact with PostgreSQL databases through natural language queries and schema exploration.
+
+License:        PostgreSQL License
+Copyright:      © 2025, pgEdge, Inc.
+```
+
+**Use Cases**:
+- Check which LLM provider and model the server is configured to use
+- Verify server version for compatibility and troubleshooting
+- Get quick reference to server information during support requests
 
 ### query_database
 

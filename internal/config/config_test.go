@@ -356,10 +356,33 @@ func TestValidateConfig(t *testing.T) {
 		errMsg    string
 	}{
 		{
-			name: "valid config",
+			name: "valid config with anthropic",
 			cfg: &Config{
 				Database: DatabaseConfig{
 					ConnectionString: "postgres://localhost/testdb",
+				},
+				LLM: LLMConfig{
+					Provider: "anthropic",
+				},
+				Anthropic: AnthropicConfig{
+					APIKey: "test-api-key",
+					Model:  "claude-sonnet-4-5",
+				},
+			},
+			expectErr: false,
+		},
+		{
+			name: "valid config with ollama",
+			cfg: &Config{
+				Database: DatabaseConfig{
+					ConnectionString: "postgres://localhost/testdb",
+				},
+				LLM: LLMConfig{
+					Provider: "ollama",
+				},
+				Ollama: OllamaConfig{
+					BaseURL: "http://localhost:11434",
+					Model:   "qwen2.5-coder:32b",
 				},
 			},
 			expectErr: false,
@@ -370,15 +393,73 @@ func TestValidateConfig(t *testing.T) {
 				Database: DatabaseConfig{
 					ConnectionString: "",
 				},
+				LLM: LLMConfig{
+					Provider: "anthropic",
+				},
+				Anthropic: AnthropicConfig{
+					APIKey: "test-key",
+				},
 			},
 			expectErr: true,
 			errMsg:    "connection string is required",
+		},
+		{
+			name: "anthropic without api key",
+			cfg: &Config{
+				Database: DatabaseConfig{
+					ConnectionString: "postgres://localhost/testdb",
+				},
+				LLM: LLMConfig{
+					Provider: "anthropic",
+				},
+				Anthropic: AnthropicConfig{
+					APIKey: "",
+				},
+			},
+			expectErr: true,
+			errMsg:    "API key is required",
+		},
+		{
+			name: "ollama without model",
+			cfg: &Config{
+				Database: DatabaseConfig{
+					ConnectionString: "postgres://localhost/testdb",
+				},
+				LLM: LLMConfig{
+					Provider: "ollama",
+				},
+				Ollama: OllamaConfig{
+					BaseURL: "http://localhost:11434",
+					Model:   "",
+				},
+			},
+			expectErr: true,
+			errMsg:    "model is required",
+		},
+		{
+			name: "invalid provider",
+			cfg: &Config{
+				Database: DatabaseConfig{
+					ConnectionString: "postgres://localhost/testdb",
+				},
+				LLM: LLMConfig{
+					Provider: "invalid",
+				},
+			},
+			expectErr: true,
+			errMsg:    "invalid LLM provider",
 		},
 		{
 			name: "TLS without HTTP",
 			cfg: &Config{
 				Database: DatabaseConfig{
 					ConnectionString: "postgres://localhost/testdb",
+				},
+				LLM: LLMConfig{
+					Provider: "anthropic",
+				},
+				Anthropic: AnthropicConfig{
+					APIKey: "test-key",
 				},
 				HTTP: HTTPConfig{
 					Enabled: false,
@@ -395,6 +476,12 @@ func TestValidateConfig(t *testing.T) {
 			cfg: &Config{
 				Database: DatabaseConfig{
 					ConnectionString: "postgres://localhost/testdb",
+				},
+				LLM: LLMConfig{
+					Provider: "anthropic",
+				},
+				Anthropic: AnthropicConfig{
+					APIKey: "test-key",
 				},
 				HTTP: HTTPConfig{
 					Enabled: true,
@@ -413,6 +500,12 @@ func TestValidateConfig(t *testing.T) {
 			cfg: &Config{
 				Database: DatabaseConfig{
 					ConnectionString: "postgres://localhost/testdb",
+				},
+				LLM: LLMConfig{
+					Provider: "anthropic",
+				},
+				Anthropic: AnthropicConfig{
+					APIKey: "test-key",
 				},
 				HTTP: HTTPConfig{
 					Enabled: true,
@@ -478,13 +571,17 @@ func TestConfigFileExists(t *testing.T) {
 func TestLoadConfigWithoutFile(t *testing.T) {
 	// Save original env vars
 	originalConn := os.Getenv("POSTGRES_CONNECTION_STRING")
+	originalKey := os.Getenv("ANTHROPIC_API_KEY")
 
-	// Set required env var
+	// Set required env vars
 	if err := os.Setenv("POSTGRES_CONNECTION_STRING", "postgres://localhost/testdb"); err != nil {
 		t.Fatalf("Failed to set env var: %v", err)
 	}
+	if err := os.Setenv("ANTHROPIC_API_KEY", "test-api-key"); err != nil {
+		t.Fatalf("Failed to set env var: %v", err)
+	}
 
-	// Cleanup function to restore or unset env var
+	// Cleanup function to restore or unset env vars
 	defer func() {
 		if originalConn != "" {
 			if err := os.Setenv("POSTGRES_CONNECTION_STRING", originalConn); err != nil {
@@ -492,6 +589,15 @@ func TestLoadConfigWithoutFile(t *testing.T) {
 			}
 		} else {
 			if err := os.Unsetenv("POSTGRES_CONNECTION_STRING"); err != nil {
+				t.Logf("Warning: Failed to unset env var: %v", err)
+			}
+		}
+		if originalKey != "" {
+			if err := os.Setenv("ANTHROPIC_API_KEY", originalKey); err != nil {
+				t.Logf("Warning: Failed to restore env var: %v", err)
+			}
+		} else {
+			if err := os.Unsetenv("ANTHROPIC_API_KEY"); err != nil {
 				t.Logf("Warning: Failed to unset env var: %v", err)
 			}
 		}
@@ -509,9 +615,19 @@ func TestLoadConfigWithoutFile(t *testing.T) {
 		t.Errorf("Expected env connection string, got %s", cfg.Database.ConnectionString)
 	}
 
+	// Should use default provider
+	if cfg.LLM.Provider != "anthropic" {
+		t.Errorf("Expected default provider 'anthropic', got %s", cfg.LLM.Provider)
+	}
+
 	// Should use default model
 	if cfg.Anthropic.Model != "claude-sonnet-4-5" {
 		t.Errorf("Expected default model, got %s", cfg.Anthropic.Model)
+	}
+
+	// Should have API key from env
+	if cfg.Anthropic.APIKey != "test-api-key" {
+		t.Errorf("Expected API key from env, got %s", cfg.Anthropic.APIKey)
 	}
 }
 
@@ -554,7 +670,11 @@ func TestPartialConfigFile(t *testing.T) {
 	configContent := `
 database:
   connection_string: "postgres://localhost/partialdb"
-# anthropic section omitted
+llm:
+  provider: anthropic
+anthropic:
+  api_key: "test-key-from-file"
+  # model omitted, should use default
 http:
   enabled: true
   # address omitted, should use default
@@ -578,6 +698,16 @@ http:
 	// Should use default (not set in file)
 	if cfg.HTTP.Address != ":8080" {
 		t.Errorf("Expected default address, got %s", cfg.HTTP.Address)
+	}
+
+	// Should use default provider
+	if cfg.LLM.Provider != "anthropic" {
+		t.Errorf("Expected provider from file 'anthropic', got %s", cfg.LLM.Provider)
+	}
+
+	// Should use API key from file
+	if cfg.Anthropic.APIKey != "test-key-from-file" {
+		t.Errorf("Expected API key from file, got %s", cfg.Anthropic.APIKey)
 	}
 
 	// Should use default model

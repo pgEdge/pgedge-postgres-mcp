@@ -66,8 +66,14 @@ func (cm *ClientManager) GetClient(tokenHash string) (*Client, error) {
 	}
 
 	cm.clients[tokenHash] = client
-	fmt.Fprintf(os.Stderr, "Created new database connection for token hash: %s (total: %d)\n",
-		tokenHash[:12], len(cm.clients))
+
+	// Log with truncated hash for security (only if hash is long enough)
+	hashPreview := tokenHash
+	if len(tokenHash) > 12 {
+		hashPreview = tokenHash[:12]
+	}
+	fmt.Fprintf(os.Stderr, "Created new database connection for token hash: %s... (total: %d)\n",
+		hashPreview, len(cm.clients))
 
 	return client, nil
 }
@@ -89,8 +95,13 @@ func (cm *ClientManager) RemoveClient(tokenHash string) error {
 	// Remove from map
 	delete(cm.clients, tokenHash)
 
-	fmt.Fprintf(os.Stderr, "Removed database connection for token hash: %s (remaining: %d)\n",
-		tokenHash[:12], len(cm.clients))
+	// Log with truncated hash for security (only if hash is long enough)
+	hashPreview := tokenHash
+	if len(tokenHash) > 12 {
+		hashPreview = tokenHash[:12]
+	}
+	fmt.Fprintf(os.Stderr, "Removed database connection for token hash: %s... (remaining: %d)\n",
+		hashPreview, len(cm.clients))
 
 	return nil
 }

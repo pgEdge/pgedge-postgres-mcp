@@ -14,27 +14,18 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"strings"
 	"testing"
 )
 
 func TestNewClient(t *testing.T) {
-	// Save original env vars
-	originalAPIKey := os.Getenv("ANTHROPIC_API_KEY")
-	originalModel := os.Getenv("ANTHROPIC_MODEL")
-	defer func() {
-		_ = os.Setenv("ANTHROPIC_API_KEY", originalAPIKey)
-		_ = os.Setenv("ANTHROPIC_MODEL", originalModel)
-	}()
-
-	t.Run("default model when not set", func(t *testing.T) {
-		_ = os.Unsetenv("ANTHROPIC_MODEL")
-		_ = os.Setenv("ANTHROPIC_API_KEY", "test-key")
-
-		client := NewClient()
+	t.Run("anthropic provider", func(t *testing.T) {
+		client := NewClient("anthropic", "test-key", "https://api.anthropic.com/v1", "claude-sonnet-4-5")
 		if client == nil {
 			t.Fatal("NewClient() returned nil")
+		}
+		if client.provider != "anthropic" {
+			t.Errorf("provider = %q, want %q", client.provider, "anthropic")
 		}
 		if client.model != "claude-sonnet-4-5" {
 			t.Errorf("model = %q, want %q", client.model, "claude-sonnet-4-5")
@@ -47,20 +38,21 @@ func TestNewClient(t *testing.T) {
 		}
 	})
 
-	t.Run("custom model from env", func(t *testing.T) {
-		_ = os.Setenv("ANTHROPIC_MODEL", "claude-3-opus-20240229")
-		_ = os.Setenv("ANTHROPIC_API_KEY", "test-key-2")
-
-		client := NewClient()
-		if client.model != "claude-3-opus-20240229" {
-			t.Errorf("model = %q, want %q", client.model, "claude-3-opus-20240229")
+	t.Run("ollama provider", func(t *testing.T) {
+		client := NewClient("ollama", "", "http://localhost:11434", "qwen2.5-coder:32b")
+		if client.provider != "ollama" {
+			t.Errorf("provider = %q, want %q", client.provider, "ollama")
+		}
+		if client.model != "qwen2.5-coder:32b" {
+			t.Errorf("model = %q, want %q", client.model, "qwen2.5-coder:32b")
+		}
+		if client.baseURL != "http://localhost:11434" {
+			t.Errorf("baseURL = %q, want %q", client.baseURL, "http://localhost:11434")
 		}
 	})
 
 	t.Run("no api key", func(t *testing.T) {
-		_ = os.Unsetenv("ANTHROPIC_API_KEY")
-
-		client := NewClient()
+		client := NewClient("anthropic", "", "https://api.anthropic.com/v1", "claude-sonnet-4-5")
 		if client.apiKey != "" {
 			t.Errorf("apiKey = %q, want empty string", client.apiKey)
 		}
@@ -70,17 +62,48 @@ func TestNewClient(t *testing.T) {
 func TestIsConfigured(t *testing.T) {
 	tests := []struct {
 		name     string
+		provider string
 		apiKey   string
+		baseURL  string
+		model    string
 		expected bool
 	}{
 		{
-			name:     "with api key",
+			name:     "anthropic with api key",
+			provider: "anthropic",
 			apiKey:   "sk-ant-test-key",
 			expected: true,
 		},
 		{
-			name:     "without api key",
+			name:     "anthropic without api key",
+			provider: "anthropic",
 			apiKey:   "",
+			expected: false,
+		},
+		{
+			name:     "ollama with url and model",
+			provider: "ollama",
+			baseURL:  "http://localhost:11434",
+			model:    "qwen2.5-coder:32b",
+			expected: true,
+		},
+		{
+			name:     "ollama without model",
+			provider: "ollama",
+			baseURL:  "http://localhost:11434",
+			model:    "",
+			expected: false,
+		},
+		{
+			name:     "ollama without url",
+			provider: "ollama",
+			baseURL:  "",
+			model:    "qwen2.5-coder:32b",
+			expected: false,
+		},
+		{
+			name:     "invalid provider",
+			provider: "invalid",
 			expected: false,
 		},
 	}
@@ -88,7 +111,10 @@ func TestIsConfigured(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			client := &Client{
-				apiKey: tt.apiKey,
+				provider: tt.provider,
+				apiKey:   tt.apiKey,
+				baseURL:  tt.baseURL,
+				model:    tt.model,
 			}
 
 			result := client.IsConfigured()
@@ -100,17 +126,68 @@ func TestIsConfigured(t *testing.T) {
 }
 
 func TestConvertNLToSQL_NotConfigured(t *testing.T) {
-	client := &Client{
-		apiKey: "",
-	}
+	t.Run("anthropic not configured", func(t *testing.T) {
+		client := &Client{
+			provider: "anthropic",
+			apiKey:   "",
+		}
 
-	_, err := client.ConvertNLToSQL("show all users", "schema context")
-	if err == nil {
-		t.Error("ConvertNLToSQL() expected error when not configured, got nil")
-	}
-	if !strings.Contains(err.Error(), "ANTHROPIC_API_KEY not set") {
-		t.Errorf("ConvertNLToSQL() error = %v, want error containing 'ANTHROPIC_API_KEY not set'", err)
-	}
+		_, err := client.ConvertNLToSQL("show all users", "schema context")
+		if err == nil {
+			t.Error("ConvertNLToSQL() expected error when not configured, got nil")
+		}
+		if !strings.Contains(err.Error(), "not configured") {
+			t.Errorf("ConvertNLToSQL() error = %v, want error containing 'not configured'", err)
+		}
+	})
+
+	t.Run("ollama not configured - missing model", func(t *testing.T) {
+		client := &Client{
+			provider: "ollama",
+			baseURL:  "http://localhost:11434",
+			model:    "",
+		}
+
+		_, err := client.ConvertNLToSQL("show all users", "schema context")
+		if err == nil {
+			t.Error("ConvertNLToSQL() expected error when not configured, got nil")
+		}
+		if !strings.Contains(err.Error(), "not configured") {
+			t.Errorf("ConvertNLToSQL() error = %v, want error containing 'not configured'", err)
+		}
+	})
+
+	t.Run("ollama not configured - missing baseURL", func(t *testing.T) {
+		client := &Client{
+			provider: "ollama",
+			baseURL:  "",
+			model:    "qwen2.5-coder:32b",
+		}
+
+		_, err := client.ConvertNLToSQL("show all users", "schema context")
+		if err == nil {
+			t.Error("ConvertNLToSQL() expected error when not configured, got nil")
+		}
+		if !strings.Contains(err.Error(), "not configured") {
+			t.Errorf("ConvertNLToSQL() error = %v, want error containing 'not configured'", err)
+		}
+	})
+
+	t.Run("unsupported provider", func(t *testing.T) {
+		client := &Client{
+			provider: "unsupported",
+			apiKey:   "test-key",
+		}
+
+		_, err := client.ConvertNLToSQL("show all users", "schema context")
+		if err == nil {
+			t.Error("ConvertNLToSQL() expected error for unsupported provider, got nil")
+		}
+		// The error will be "not configured" because IsConfigured() returns false for unsupported providers
+		if !strings.Contains(err.Error(), "not configured") {
+			t.Errorf("ConvertNLToSQL() error = %v, want error containing 'not configured'", err)
+		}
+	})
 }
 
 func TestConvertNLToSQL_Success(t *testing.T) {
@@ -152,9 +229,10 @@ func TestConvertNLToSQL_Success(t *testing.T) {
 	defer server.Close()
 
 	client := &Client{
-		apiKey:  "test-api-key",
-		baseURL: server.URL,
-		model:   "claude-sonnet-4-5",
+		provider: "anthropic",
+		apiKey:   "test-api-key",
+		baseURL:  server.URL,
+		model:    "claude-sonnet-4-5",
 	}
 
 	result, err := client.ConvertNLToSQL("show active users", "public.users (TABLE)\n  Columns:\n    - id (integer)\n    - active (boolean)")
@@ -231,9 +309,10 @@ func TestConvertNLToSQL_CleanupSQL(t *testing.T) {
 			defer server.Close()
 
 			client := &Client{
-				apiKey:  "test-api-key",
-				baseURL: server.URL,
-				model:   "claude-sonnet-4-5",
+				provider: "anthropic",
+				apiKey:   "test-api-key",
+				baseURL:  server.URL,
+				model:    "claude-sonnet-4-5",
 			}
 
 			result, err := client.ConvertNLToSQL("test query", "schema")
@@ -260,9 +339,10 @@ func TestConvertNLToSQL_APIError(t *testing.T) {
 	defer server.Close()
 
 	client := &Client{
-		apiKey:  "test-api-key",
-		baseURL: server.URL,
-		model:   "claude-sonnet-4-5",
+		provider: "anthropic",
+		apiKey:   "test-api-key",
+		baseURL:  server.URL,
+		model:    "claude-sonnet-4-5",
 	}
 
 	_, err := client.ConvertNLToSQL("show users", "schema")
@@ -293,9 +373,10 @@ func TestConvertNLToSQL_EmptyResponse(t *testing.T) {
 	defer server.Close()
 
 	client := &Client{
-		apiKey:  "test-api-key",
-		baseURL: server.URL,
-		model:   "claude-sonnet-4-5",
+		provider: "anthropic",
+		apiKey:   "test-api-key",
+		baseURL:  server.URL,
+		model:    "claude-sonnet-4-5",
 	}
 
 	_, err := client.ConvertNLToSQL("show users", "schema")
@@ -488,9 +569,10 @@ func TestConvertNLToSQL_WithCleanSQL(t *testing.T) {
 			defer server.Close()
 
 			client := &Client{
-				apiKey:  "test-api-key",
-				baseURL: server.URL,
-				model:   "claude-sonnet-4-5",
+				provider: "anthropic",
+				apiKey:   "test-api-key",
+				baseURL:  server.URL,
+				model:    "claude-sonnet-4-5",
 			}
 
 			result, err := client.ConvertNLToSQL("test query", "schema")
@@ -529,9 +611,10 @@ func TestConvertNLToSQL_NoValidSQL(t *testing.T) {
 	defer server.Close()
 
 	client := &Client{
-		apiKey:  "test-api-key",
-		baseURL: server.URL,
-		model:   "claude-sonnet-4-5",
+		provider: "anthropic",
+		apiKey:   "test-api-key",
+		baseURL:  server.URL,
+		model:    "claude-sonnet-4-5",
 	}
 
 	_, err := client.ConvertNLToSQL("test query", "schema")
@@ -540,5 +623,315 @@ func TestConvertNLToSQL_NoValidSQL(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "no valid SQL found") {
 		t.Errorf("ConvertNLToSQL() error = %v, want error containing 'no valid SQL found'", err)
+	}
+}
+
+// ============================================================================
+// Ollama Provider Tests
+// ============================================================================
+
+func TestConvertNLToSQL_Ollama_Success(t *testing.T) {
+	// Create a mock Ollama HTTP server (OpenAI-compatible API)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Verify request method and headers
+		if r.Method != "POST" {
+			t.Errorf("Expected POST request, got %s", r.Method)
+		}
+		if r.Header.Get("Content-Type") != "application/json" {
+			t.Errorf("Expected Content-Type application/json, got %s", r.Header.Get("Content-Type"))
+		}
+
+		// Verify URL path (OpenAI-compatible endpoint)
+		if r.URL.Path != "/v1/chat/completions" {
+			t.Errorf("Expected path /v1/chat/completions, got %s", r.URL.Path)
+		}
+
+		// Mock Ollama response (OpenAI-compatible format)
+		response := ollamaResponse{
+			ID:      "chatcmpl-123",
+			Object:  "chat.completion",
+			Created: 1234567890,
+			Model:   "qwen2.5-coder:32b",
+			Choices: []ollamaChoice{
+				{
+					Index: 0,
+					Message: ollamaMessage{
+						Role:    "assistant",
+						Content: "SELECT * FROM users WHERE active = true",
+					},
+					FinishReason: "stop",
+				},
+			},
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		if err := json.NewEncoder(w).Encode(response); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
+	}))
+	defer server.Close()
+
+	client := &Client{
+		provider: "ollama",
+		baseURL:  server.URL,
+		model:    "qwen2.5-coder:32b",
+	}
+
+	result, err := client.ConvertNLToSQL("show active users", "public.users (TABLE)\n  Columns:\n    - id (integer)\n    - active (boolean)")
+	if err != nil {
+		t.Fatalf("ConvertNLToSQL() unexpected error: %v", err)
+	}
+
+	expected := "SELECT * FROM users WHERE active = true"
+	if result != expected {
+		t.Errorf("ConvertNLToSQL() = %q, want %q", result, expected)
+	}
+}
+
+func TestConvertNLToSQL_Ollama_APIError(t *testing.T) {
+	// Test Ollama API error response
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusBadRequest)
+		if _, err := w.Write([]byte(`{"error": "invalid request"}`)); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
+	}))
+	defer server.Close()
+
+	client := &Client{
+		provider: "ollama",
+		baseURL:  server.URL,
+		model:    "qwen2.5-coder:32b",
+	}
+
+	_, err := client.ConvertNLToSQL("show users", "schema")
+	if err == nil {
+		t.Error("ConvertNLToSQL() expected error for API error response, got nil")
+	}
+	if !strings.Contains(err.Error(), "API returned status 400") {
+		t.Errorf("ConvertNLToSQL() error = %v, want error containing 'API returned status 400'", err)
+	}
+}
+
+func TestConvertNLToSQL_Ollama_EmptyResponse(t *testing.T) {
+	// Test Ollama with empty choices array
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		response := ollamaResponse{
+			ID:      "chatcmpl-123",
+			Object:  "chat.completion",
+			Created: 1234567890,
+			Model:   "qwen2.5-coder:32b",
+			Choices: []ollamaChoice{}, // Empty choices
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		if err := json.NewEncoder(w).Encode(response); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
+	}))
+	defer server.Close()
+
+	client := &Client{
+		provider: "ollama",
+		baseURL:  server.URL,
+		model:    "qwen2.5-coder:32b",
+	}
+
+	_, err := client.ConvertNLToSQL("show users", "schema")
+	if err == nil {
+		t.Error("ConvertNLToSQL() expected error for empty response, got nil")
+	}
+	if !strings.Contains(err.Error(), "no choices in response") {
+		t.Errorf("ConvertNLToSQL() error = %v, want error containing 'no choices in response'", err)
+	}
+}
+
+func TestConvertNLToSQL_Ollama_SQLCleaning(t *testing.T) {
+	// Test that Ollama responses are properly cleaned
+	tests := []struct {
+		name         string
+		responseText string
+		expected     string
+	}{
+		{
+			name:         "clean SQL",
+			responseText: "SELECT * FROM users",
+			expected:     "SELECT * FROM users",
+		},
+		{
+			name:         "SQL with markdown",
+			responseText: "```sql\nSELECT * FROM users\n```",
+			expected:     "SELECT * FROM users",
+		},
+		{
+			name:         "SQL with backticks",
+			responseText: "```\nSELECT * FROM users\n```",
+			expected:     "SELECT * FROM users",
+		},
+		{
+			name:         "SQL with trailing semicolon",
+			responseText: "SELECT * FROM users;",
+			expected:     "SELECT * FROM users",
+		},
+		{
+			name:         "SQL with explanation",
+			responseText: "Here is the query:\n```sql\nSELECT * FROM users\n```\nThis gets all users.",
+			expected:     "SELECT * FROM users",
+		},
+		{
+			name:         "SQL with comments",
+			responseText: "-- Get all users\nSELECT * FROM users",
+			expected:     "SELECT * FROM users",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				response := ollamaResponse{
+					ID:      "chatcmpl-123",
+					Object:  "chat.completion",
+					Created: 1234567890,
+					Model:   "qwen2.5-coder:32b",
+					Choices: []ollamaChoice{
+						{
+							Index: 0,
+							Message: ollamaMessage{
+								Role:    "assistant",
+								Content: tt.responseText,
+							},
+							FinishReason: "stop",
+						},
+					},
+				}
+
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusOK)
+				if err := json.NewEncoder(w).Encode(response); err != nil {
+					http.Error(w, err.Error(), http.StatusInternalServerError)
+				}
+			}))
+			defer server.Close()
+
+			client := &Client{
+				provider: "ollama",
+				baseURL:  server.URL,
+				model:    "qwen2.5-coder:32b",
+			}
+
+			result, err := client.ConvertNLToSQL("test query", "schema")
+			if err != nil {
+				t.Fatalf("ConvertNLToSQL() unexpected error: %v", err)
+			}
+
+			if result != tt.expected {
+				t.Errorf("ConvertNLToSQL() = %q, want %q", result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestConvertNLToSQL_Ollama_NoValidSQL(t *testing.T) {
+	// Test that Ollama returns error when no valid SQL found
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		response := ollamaResponse{
+			ID:      "chatcmpl-123",
+			Object:  "chat.completion",
+			Created: 1234567890,
+			Model:   "qwen2.5-coder:32b",
+			Choices: []ollamaChoice{
+				{
+					Index: 0,
+					Message: ollamaMessage{
+						Role:    "assistant",
+						Content: "I cannot generate SQL for that query because the schema is insufficient.",
+					},
+					FinishReason: "stop",
+				},
+			},
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		if err := json.NewEncoder(w).Encode(response); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
+	}))
+	defer server.Close()
+
+	client := &Client{
+		provider: "ollama",
+		baseURL:  server.URL,
+		model:    "qwen2.5-coder:32b",
+	}
+
+	_, err := client.ConvertNLToSQL("test query", "schema")
+	if err == nil {
+		t.Error("ConvertNLToSQL() expected error when no valid SQL found, got nil")
+	}
+	if !strings.Contains(err.Error(), "no valid SQL found") {
+		t.Errorf("ConvertNLToSQL() error = %v, want error containing 'no valid SQL found'", err)
+	}
+}
+
+func TestConvertNLToSQL_Ollama_ComplexQuery(t *testing.T) {
+	// Test Ollama with a complex SQL query
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		response := ollamaResponse{
+			ID:      "chatcmpl-123",
+			Object:  "chat.completion",
+			Created: 1234567890,
+			Model:   "qwen2.5-coder:32b",
+			Choices: []ollamaChoice{
+				{
+					Index: 0,
+					Message: ollamaMessage{
+						Role: "assistant",
+						Content: `SELECT u.id, u.name, COUNT(o.id) as order_count
+FROM users u
+LEFT JOIN orders o ON u.id = o.user_id
+WHERE u.active = true
+GROUP BY u.id, u.name
+ORDER BY order_count DESC
+LIMIT 10`,
+					},
+					FinishReason: "stop",
+				},
+			},
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		if err := json.NewEncoder(w).Encode(response); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
+	}))
+	defer server.Close()
+
+	client := &Client{
+		provider: "ollama",
+		baseURL:  server.URL,
+		model:    "qwen2.5-coder:32b",
+	}
+
+	result, err := client.ConvertNLToSQL("show top 10 active users by order count", "schema")
+	if err != nil {
+		t.Fatalf("ConvertNLToSQL() unexpected error: %v", err)
+	}
+
+	// Verify the query contains expected keywords
+	if !strings.Contains(result, "SELECT") {
+		t.Error("Expected result to contain SELECT")
+	}
+	if !strings.Contains(result, "JOIN") {
+		t.Error("Expected result to contain JOIN")
+	}
+	if !strings.Contains(result, "GROUP BY") {
+		t.Error("Expected result to contain GROUP BY")
+	}
+	if !strings.Contains(result, "ORDER BY") {
+		t.Error("Expected result to contain ORDER BY")
 	}
 }

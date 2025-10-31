@@ -32,7 +32,7 @@ pgedge-postgres-mcp/
 │
 ├── configs/                  # Configuration examples
 │   ├── .env.example          # Environment variables
-│   └── mcp-config.example.json # MCP client configuration
+│   └── pgedge-postgres-mcp.yaml.example # Server configuration
 │
 ├── bin/                      # Compiled binaries (gitignored)
 │

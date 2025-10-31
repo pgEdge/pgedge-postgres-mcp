@@ -3,7 +3,7 @@
 [![Build](https://github.com/pgEdge/pgedge-postgres-mcp/workflows/Build/badge.svg)](https://github.com/pgEdge/pgedge-postgres-mcp/actions/workflows/build.yml)
 [![Tests](https://github.com/pgEdge/pgedge-postgres-mcp/workflows/Tests/badge.svg)](https://github.com/pgEdge/pgedge-postgres-mcp/actions/workflows/test.yml)
 
-A Model Context Protocol (MCP) server written in Go that enables natural language queries against PostgreSQL databases. The server uses Claude AI to translate natural language questions into SQL queries by analyzing database metadata including table names, view names, column names, data types, and comments from pg_description.
+A Model Context Protocol (MCP) server written in Go that enables natural language queries against PostgreSQL databases. The server uses AI (Anthropic Claude or Ollama) to translate natural language questions into SQL queries by analyzing database metadata including table names, view names, column names, data types, and comments from pg_description.
 
 > 🚧 WARNING
 >
@@ -11,7 +11,8 @@ A Model Context Protocol (MCP) server written in Go that enables natural languag
 
 ## Features
 
-- **Natural Language to SQL**: Convert plain English questions into SQL queries using Claude AI
+- **Dual LLM Provider Support**: Choose between Anthropic Claude (cloud) or Ollama (local, free) for natural language to SQL conversion
+- **Natural Language to SQL**: Convert plain English questions into SQL queries using AI
 - **Read-Only Protection**: All generated queries are executed in read-only transactions to prevent accidental or malicious data modifications
 - **Comprehensive Schema Analysis**: Extracts and utilizes table/view names, column information, data types, nullability, and pg_description comments
 - **Multi-Database Support**: Query multiple PostgreSQL databases dynamically by specifying connection strings in queries
@@ -20,7 +21,7 @@ A Model Context Protocol (MCP) server written in Go that enables natural languag
 - **Configuration File Access**: Read PostgreSQL configuration files (postgresql.conf, pg_hba.conf, pg_ident.conf) and server logs
 - **MCP Protocol**: Implements the Model Context Protocol with support for stdio and streaming HTTP/HTTPS (with or without TLS)
 - **API Token Authentication**: Built-in token authentication with expiration support for HTTP/HTTPS mode
-- **Ten MCP Tools**: Execute queries, retrieve schema, modify configuration, analyze bloat, and more - See **[Tools Documentation](docs/TOOLS.md)**
+- **Eleven MCP Tools**: Execute queries, retrieve schema, modify configuration, analyze bloat, get server info, and more - See **[Tools Documentation](docs/TOOLS.md)**
 - **Nine MCP Resources**: System information and PostgreSQL statistics (pg_stat_* views) - See **[Resources Documentation](docs/RESOURCES.md)**
 
 ## Quick Start
@@ -29,7 +30,65 @@ A Model Context Protocol (MCP) server written in Go that enables natural languag
 
 - Go 1.21 or higher
 - PostgreSQL database (any version that supports pg_description)
-- Anthropic API key (for Claude AI) - Get yours at https://console.anthropic.com/
+- **LLM Provider** (choose one):
+  - **Anthropic Claude**: API key required - Get yours at https://console.anthropic.com/
+  - **Ollama**: Free, runs locally - Install from https://ollama.ai/
+
+### LLM Provider Options
+
+The server supports two LLM providers for natural language to SQL conversion:
+
+#### Option 1: Anthropic Claude (Cloud)
+
+**Pros:**
+- State-of-the-art language models
+- No local compute requirements
+- Consistent performance
+
+**Cons:**
+- Requires API key and internet connection
+- Usage-based pricing
+
+**Setup:**
+```bash
+export ANTHROPIC_API_KEY="sk-ant-your-api-key-here"
+```
+
+#### Option 2: Ollama (Local)
+
+**Pros:**
+- Free and open source
+- Runs completely locally
+- No API key required
+- No internet required after model download
+
+**Cons:**
+- Requires local compute resources
+- Model quality varies
+
+**Setup:**
+```bash
+# Install Ollama
+# Visit https://ollama.ai/ for installation instructions
+
+# Start Ollama server
+ollama serve
+
+# Download a model (no database connection required for this step)
+# Recommended: qwen2.5-coder:32b for best SQL generation
+ollama pull qwen2.5-coder:32b
+
+# Alternative models:
+# ollama pull qwen2.5-coder:7b  # Faster, smaller
+# ollama pull codellama:13b
+# ollama pull codellama:34b
+
+# Run with Ollama (now database connection is required)
+export POSTGRES_CONNECTION_STRING="postgres://user:password@localhost/dbname"
+./bin/pgedge-postgres-mcp -llm-provider ollama -ollama-model qwen2.5-coder:32b
+```
+
+See [Configuration Guide](docs/CONFIGURATION.md) for more details on LLM provider configuration.
 
 ### Installation
 
@@ -53,6 +112,7 @@ Add to your MCP configuration file:
 **Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
 **Linux**: `~/.config/Claude/claude_desktop_config.json`
 
+**Option 1: Using Anthropic Claude (default)**
 ```json
 {
   "mcpServers": {
@@ -66,6 +126,26 @@ Add to your MCP configuration file:
   }
 }
 ```
+
+**Option 2: Using Ollama (local, free)**
+```json
+{
+  "mcpServers": {
+    "pgedge": {
+      "command": "/absolute/path/to/pgedge-postgres-mcp/bin/pgedge-postgres-mcp",
+      "args": ["-llm-provider", "ollama", "-ollama-model", "qwen2.5-coder:32b"],
+      "env": {
+        "POSTGRES_CONNECTION_STRING": "postgres://username:password@localhost:5432/database_name?sslmode=disable"
+      }
+    }
+  }
+}
+```
+
+**Note:** Before using Ollama, make sure to:
+1. Install Ollama from https://ollama.ai/
+2. Start Ollama: `ollama serve`
+3. Download the model: `ollama pull qwen2.5-coder:32b`
 
 **Important**: Use absolute paths, not relative paths.
 
