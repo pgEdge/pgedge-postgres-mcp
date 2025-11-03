@@ -31,6 +31,9 @@ type Config struct {
 
 	// HTTP server configuration
 	HTTP HTTPConfig `yaml:"http"`
+
+	// Preferences file path
+	PreferencesFile string `yaml:"preferences_file"`
 }
 
 // LLMConfig holds LLM provider selection
@@ -152,6 +155,10 @@ type CLIFlags struct {
 	AuthEnabledSet bool
 	AuthTokenFile  string
 	AuthTokenSet   bool
+
+	// Preferences flags
+	PreferencesFile    string
+	PreferencesFileSet bool
 }
 
 // defaultConfig returns configuration with hard-coded defaults
@@ -182,6 +189,7 @@ func defaultConfig() *Config {
 				TokenFile: "",   // Will be set to default path if not specified
 			},
 		},
+		PreferencesFile: "", // Will be set to default path if not specified
 	}
 }
 
@@ -251,6 +259,11 @@ func mergeConfig(dest, src *Config) {
 		dest.HTTP.Auth.Enabled = src.HTTP.Auth.Enabled
 		dest.HTTP.Auth.TokenFile = src.HTTP.Auth.TokenFile
 	}
+
+	// Preferences
+	if src.PreferencesFile != "" {
+		dest.PreferencesFile = src.PreferencesFile
+	}
 }
 
 // applyEnvironmentVariables overrides config with environment variables if they exist
@@ -273,6 +286,10 @@ func applyEnvironmentVariables(cfg *Config) {
 
 	if val := os.Getenv("OLLAMA_MODEL"); val != "" {
 		cfg.Ollama.Model = val
+	}
+
+	if val := os.Getenv("PREFERENCES_FILE"); val != "" {
+		cfg.PreferencesFile = val
 	}
 }
 
@@ -327,6 +344,11 @@ func applyCLIFlags(cfg *Config, flags CLIFlags) {
 	}
 	if flags.AuthTokenSet {
 		cfg.HTTP.Auth.TokenFile = flags.AuthTokenFile
+	}
+
+	// Preferences
+	if flags.PreferencesFileSet {
+		cfg.PreferencesFile = flags.PreferencesFile
 	}
 }
 
@@ -387,4 +409,25 @@ func GetDefaultConfigPath(binaryPath string) string {
 func ConfigFileExists(path string) bool {
 	_, err := os.Stat(path)
 	return err == nil
+}
+
+// SaveConfig saves the configuration to a YAML file
+func SaveConfig(path string, cfg *Config) error {
+	data, err := yaml.Marshal(cfg)
+	if err != nil {
+		return fmt.Errorf("failed to marshal config: %w", err)
+	}
+
+	// Create directory if it doesn't exist
+	dir := filepath.Dir(path)
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return fmt.Errorf("failed to create directory: %w", err)
+	}
+
+	// Write with appropriate permissions
+	if err := os.WriteFile(path, data, 0644); err != nil {
+		return fmt.Errorf("failed to write config file: %w", err)
+	}
+
+	return nil
 }

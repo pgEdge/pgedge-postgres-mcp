@@ -16,6 +16,7 @@ import (
 	"sync"
 
 	"pgedge-postgres-mcp/internal/auth"
+	"pgedge-postgres-mcp/internal/config"
 	"pgedge-postgres-mcp/internal/database"
 	"pgedge-postgres-mcp/internal/llm"
 	"pgedge-postgres-mcp/internal/mcp"
@@ -32,6 +33,8 @@ type ContextAwareProvider struct {
 	authEnabled    bool
 	fallbackClient *database.Client             // Used when auth is disabled
 	serverInfo     ServerInfo                   // Server metadata for server_info tool
+	connMgr        *ConnectionManager           // Manages saved database connections
+	preferencesPath string                      // Path to preferences file for persistence
 
 	// Cache of registries per client to avoid re-creating tools on every Execute()
 	mu             sync.RWMutex
@@ -39,7 +42,10 @@ type ContextAwareProvider struct {
 }
 
 // NewContextAwareProvider creates a new context-aware tool provider
-func NewContextAwareProvider(clientManager *database.ClientManager, llmClient *llm.Client, resourceReg *resources.ContextAwareRegistry, authEnabled bool, fallbackClient *database.Client, serverInfo ServerInfo) *ContextAwareProvider {
+func NewContextAwareProvider(clientManager *database.ClientManager, llmClient *llm.Client, resourceReg *resources.ContextAwareRegistry, authEnabled bool, fallbackClient *database.Client, serverInfo ServerInfo, tokenStore *auth.TokenStore, cfg *config.Config, prefs *config.Preferences, preferencesPath string) *ContextAwareProvider {
+	// Create connection manager
+	connMgr := NewConnectionManager(tokenStore, cfg, prefs, authEnabled)
+
 	provider := &ContextAwareProvider{
 		baseRegistry:     NewRegistry(),
 		clientManager:    clientManager,
@@ -48,6 +54,8 @@ func NewContextAwareProvider(clientManager *database.ClientManager, llmClient *l
 		authEnabled:      authEnabled,
 		fallbackClient:   fallbackClient,
 		serverInfo:       serverInfo,
+		connMgr:          connMgr,
+		preferencesPath:  preferencesPath,
 		clientRegistries: make(map[*database.Client]*Registry),
 	}
 
@@ -58,10 +66,16 @@ func NewContextAwareProvider(clientManager *database.ClientManager, llmClient *l
 	// Stateless tools
 	provider.baseRegistry.Register("recommend_pg_configuration", RecommendPGConfigurationTool())
 	provider.baseRegistry.Register("server_info", ServerInfoTool(serverInfo))
-	provider.baseRegistry.Register("set_database_connection", SetDatabaseConnectionTool(clientManager))
+	provider.baseRegistry.Register("set_database_connection", SetDatabaseConnectionTool(clientManager, connMgr, preferencesPath))
 	// Note: read_resource tool provides backward compatibility for resource access
 	// Resources are also accessible via the native MCP resources/read endpoint
 	provider.baseRegistry.Register("read_resource", ReadResourceTool(provider.createResourceAdapter()))
+
+	// Connection management tools
+	provider.baseRegistry.Register("add_database_connection", AddDatabaseConnectionTool(connMgr, preferencesPath))
+	provider.baseRegistry.Register("remove_database_connection", RemoveDatabaseConnectionTool(connMgr, preferencesPath))
+	provider.baseRegistry.Register("list_database_connections", ListDatabaseConnectionsTool(connMgr))
+	provider.baseRegistry.Register("edit_database_connection", EditDatabaseConnectionTool(connMgr, preferencesPath))
 
 	// Database-dependent tools (registered with nil client placeholders)
 	// These will use the actual client from ClientManager when Execute() is called
@@ -154,8 +168,14 @@ func (p *ContextAwareProvider) getOrCreateRegistryForClient(client *database.Cli
 	// Register stateless tools
 	registry.Register("recommend_pg_configuration", RecommendPGConfigurationTool())
 	registry.Register("server_info", ServerInfoTool(p.serverInfo))
-	registry.Register("set_database_connection", SetDatabaseConnectionTool(p.clientManager))
-	// Note: Resources are accessed via resources/read MCP endpoint, not via tools
+	registry.Register("set_database_connection", SetDatabaseConnectionTool(p.clientManager, p.connMgr, p.preferencesPath))
+	registry.Register("read_resource", ReadResourceTool(p.createResourceAdapter()))
+
+	// Connection management tools
+	registry.Register("add_database_connection", AddDatabaseConnectionTool(p.connMgr, p.preferencesPath))
+	registry.Register("remove_database_connection", RemoveDatabaseConnectionTool(p.connMgr, p.preferencesPath))
+	registry.Register("list_database_connections", ListDatabaseConnectionsTool(p.connMgr))
+	registry.Register("edit_database_connection", EditDatabaseConnectionTool(p.connMgr, p.preferencesPath))
 
 	// Register client-dependent tools
 	registry.Register("query_database", QueryDatabaseTool(client, p.llmClient))
@@ -182,6 +202,10 @@ func (p *ContextAwareProvider) Execute(ctx context.Context, name string, args ma
 		"read_resource":              true,
 		"server_info":                true,
 		"set_database_connection":    true,
+		"add_database_connection":    true,
+		"remove_database_connection": true,
+		"list_database_connections":  true,
+		"edit_database_connection":   true,
 	}
 
 	if statelessTools[name] {

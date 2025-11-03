@@ -44,9 +44,87 @@ http:
   auth:
     enabled: true
     token_file: ""  # defaults to api-tokens.yaml
+
+# User preferences file path (optional)
+preferences_file: ""  # defaults to pgedge-postgres-mcp-prefs.yaml
+
 ```
 
 A complete example configuration file with detailed comments is available at [pgedge-postgres-mcp.yaml.example](pgedge-postgres-mcp.yaml.example).
+
+## User Preferences File
+
+The server uses a separate preferences file for user-modifiable settings. This file is created automatically when you save your first database connection and is separate from the main configuration file for security reasons (the server should not modify its own configuration).
+
+**Default Location**: `pgedge-postgres-mcp-prefs.yaml` in the same directory as the binary
+
+**Configuration Priority** (highest to lowest):
+1. Command line flag: `-preferences-file /path/to/prefs.yaml`
+2. Environment variable: `PREFERENCES_FILE=/path/to/prefs.yaml`
+3. Configuration file: `preferences_file: /path/to/prefs.yaml`
+4. Default: `pgedge-postgres-mcp-prefs.yaml` (same directory as binary)
+
+### Saved Database Connections
+
+When authentication is **disabled**, database connections are stored globally in the preferences file:
+
+```yaml
+connections:
+  connections:
+    production:
+      alias: production
+      connection_string: "postgres://user:pass@prod-host:5432/mydb"
+      maintenance_db: "postgres"
+      description: "Production database"
+      created_at: 2025-01-15T10:00:00Z
+      last_used_at: 2025-01-15T14:30:00Z
+    staging:
+      alias: staging
+      connection_string: "postgres://user:pass@staging-host:5432/mydb"
+      maintenance_db: "postgres"
+      description: "Staging environment"
+      created_at: 2025-01-15T10:00:00Z
+```
+
+When authentication is **enabled**, connections are stored per-token in the API tokens file ([api-tokens.yaml](api-tokens.yaml)) instead.
+
+### Connection Management
+
+The server provides tools to manage saved database connections:
+
+- **`add_database_connection`** - Save a connection with an alias
+- **`remove_database_connection`** - Remove a saved connection
+- **`list_database_connections`** - List all saved connections
+- **`edit_database_connection`** - Update an existing connection
+- **`set_database_connection`** - Connect using an alias or connection string
+
+**When authentication is enabled:**
+- Connections are stored per-token in the API tokens file ([api-tokens.yaml](api-tokens.yaml))
+- Each user has their own isolated set of saved connections
+
+**When authentication is disabled:**
+- Connections are stored globally in the preferences file (`pgedge-postgres-mcp-prefs.yaml`)
+- All users share the same set of saved connections
+
+**Example workflow:**
+```
+# Add a connection with an alias
+add_database_connection(
+  alias="production",
+  connection_string="postgres://user:pass@host/db",
+  maintenance_db="postgres",
+  description="Production database"
+)
+
+# Later, connect using just the alias
+set_database_connection(connection_string="production")
+
+# List all saved connections
+list_database_connections()
+
+# Remove a connection
+remove_database_connection(alias="production")
+```
 
 ### Creating a Configuration File
 
@@ -68,6 +146,7 @@ All configuration options can be overridden via command line flags:
 ### General Options
 
 - `-config` - Path to configuration file (default: same directory as binary)
+- `-preferences-file` - Path to user preferences file (default: same directory as binary)
 
 ### LLM Provider Options
 
@@ -141,6 +220,10 @@ The server also supports environment variables for configuration options:
 - **`LLM_PROVIDER`**: Set to "ollama"
 - **`OLLAMA_BASE_URL`**: Ollama API URL (default: "http://localhost:11434")
 - **`OLLAMA_MODEL`**: Ollama model name (e.g., "qwen2.5-coder:32b")
+
+**Other Settings:**
+
+- **`PREFERENCES_FILE`**: Path to user preferences file (default: pgedge-postgres-mcp-prefs.yaml in binary directory)
 
 ### Examples
 

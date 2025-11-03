@@ -1,6 +1,6 @@
 # MCP Tools
 
-The pgEdge MCP Server provides eleven tools that enable natural language database interaction, configuration management, maintenance analysis, configuration file access, and server information.
+The pgEdge MCP Server provides sixteen tools that enable natural language database interaction, configuration management, connection management, maintenance analysis, configuration file access, and server information.
 
 ## Available Tools
 
@@ -797,3 +797,196 @@ Read a specific resource:
 - `pg://stat/wal` - WAL statistics (PostgreSQL 14+ only)
 
 See [resources.md](resources.md) for detailed information about each resource.
+## Connection Management Tools
+
+### add_database_connection
+
+Save a database connection with an alias for later use. Connections are persisted and available across sessions.
+
+**Input**:
+```json
+{
+  "alias": "production",
+  "connection_string": "postgres://user:pass@host:5432/database",
+  "maintenance_db": "postgres",
+  "description": "Production database server"
+}
+```
+
+**Parameters**:
+- `alias` (required): Friendly name for the connection (e.g., "production", "staging")
+- `connection_string` (required): PostgreSQL connection string
+- `maintenance_db` (optional, default: "postgres"): Initial database for connections, like pgAdmin
+- `description` (optional): Notes about this connection
+
+**Output**:
+```
+Successfully saved connection 'production'
+Connection string: postgres://user:****@host:5432/database
+Maintenance DB: postgres
+Description: Production database server
+```
+
+**Storage**:
+- **With authentication enabled**: Stored per-token in `api-tokens.yaml`
+- **With authentication disabled**: Stored globally in config file under `database.connections`
+
+### remove_database_connection
+
+Remove a saved database connection by its alias.
+
+**Input**:
+```json
+{
+  "alias": "staging"
+}
+```
+
+**Output**:
+```
+Successfully removed connection 'staging'
+```
+
+### list_database_connections
+
+List all saved database connections for the current user/session.
+
+**Input**: None (no parameters required)
+
+**Output**:
+```
+Saved Database Connections:
+============================
+
+Alias: production
+Connection: postgres://user:****@prod-host:5432/mydb
+Maintenance DB: postgres
+Description: Production database
+Created: 2025-01-15 10:00:00
+Last Used: 2025-01-15 14:30:00
+
+Alias: staging
+Connection: postgres://user:****@staging-host:5432/mydb
+Maintenance DB: postgres
+Description: Staging environment
+Created: 2025-01-15 10:05:00
+Last Used: Never
+
+Total: 2 saved connection(s)
+```
+
+**Note**: Connection strings are masked for security (passwords shown as `****`)
+
+### edit_database_connection
+
+Update an existing saved connection. You can update any or all fields.
+
+**Input**:
+```json
+{
+  "alias": "production",
+  "new_connection_string": "postgres://newuser:newpass@newhost:5432/newdb",
+  "new_maintenance_db": "template1",
+  "new_description": "Updated production server"
+}
+```
+
+**Parameters**:
+- `alias` (required): The alias of the connection to update
+- `new_connection_string` (optional): New connection string
+- `new_maintenance_db` (optional): New maintenance database
+- `new_description` (optional): New description
+
+**Output**:
+```
+Successfully updated connection 'production'
+Updated fields: connection_string, maintenance_db, description
+```
+
+### set_database_connection (Enhanced)
+
+Set the database connection for the current session. Now supports both connection strings and aliases.
+
+**Input with alias**:
+```json
+{
+  "connection_string": "production"
+}
+```
+
+**Input with full connection string**:
+```json
+{
+  "connection_string": "postgres://user:pass@host:5432/database"
+}
+```
+
+**Behavior**:
+- If the input looks like an alias (no `postgres://` or `postgresql://` prefix), it attempts to resolve it from saved connections
+- If the alias is found, it uses the saved connection string
+- If not found, it treats the input as a literal connection string
+- Successfully used aliases are marked with a "last used" timestamp
+
+**Output with alias**:
+```
+Successfully connected to database using alias 'production'
+Loaded metadata for 142 tables/views.
+```
+
+**Output with connection string**:
+```
+Successfully connected to database.
+Loaded metadata for 142 tables/views.
+```
+
+## Connection Management Workflow
+
+Here's a typical workflow for managing database connections:
+
+```
+1. Save connections with friendly names:
+   add_database_connection(
+     alias="prod",
+     connection_string="postgres://...",
+     description="Production DB"
+   )
+
+2. List saved connections:
+   list_database_connections()
+
+3. Connect using an alias:
+   set_database_connection(connection_string="prod")
+
+4. Work with the database:
+   query_database(query="Show me...")
+   get_schema_info()
+
+5. Update a connection if needed:
+   edit_database_connection(
+     alias="prod",
+     new_description="Production DB - Updated"
+   )
+
+6. Remove old connections:
+   remove_database_connection(alias="old_staging")
+```
+
+## Security Considerations
+
+- **Authentication Enabled (per-token connections)**:
+  - Each API token has its own isolated set of saved connections
+  - Users cannot see or access connections from other tokens
+  - Connections are stored in `api-tokens.yaml` with the token
+
+- **Authentication Disabled (global connections)**:
+  - All connections are stored in the config file
+  - All users share the same set of saved connections
+  - Suitable for single-user or trusted environments
+
+- **Connection String Security**:
+  - Connection strings are stored in plain text in YAML files
+  - Use appropriate file permissions (0600 for tokens, 0644 for config)
+  - Connection passwords are masked in tool outputs
+  - Never commit config files with real credentials to version control
+  - Consider using connection strings with IAM authentication instead of passwords
+

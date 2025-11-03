@@ -56,6 +56,7 @@ func main() {
 	chainFile := flag.String("chain", "", "Path to TLS certificate chain file (optional)")
 	noAuth := flag.Bool("no-auth", false, "Disable API token authentication in HTTP mode")
 	tokenFilePath := flag.String("token-file", "", "Path to API token file")
+	preferencesFilePath := flag.String("preferences-file", "", "Path to user preferences file (for saved connections when auth is disabled)")
 
 	// Token management commands
 	addTokenCmd := flag.Bool("add-token", false, "Add a new API token")
@@ -160,6 +161,9 @@ func main() {
 		case "token-file":
 			cliFlags.AuthTokenSet = true
 			cliFlags.AuthTokenFile = *tokenFilePath
+		case "preferences-file":
+			cliFlags.PreferencesFileSet = true
+			cliFlags.PreferencesFile = *preferencesFilePath
 		}
 	})
 
@@ -170,20 +174,21 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Determine which config file to load
+	// Determine which config file to load and save to
 	configPath := *configFile
 	if !cliFlags.ConfigFileSet {
-		// Check if default config exists
-		if config.ConfigFileExists(defaultConfigPath) {
-			configPath = defaultConfigPath
-		} else {
-			// No config file, rely on env vars and CLI flags
-			configPath = ""
-		}
+		// Use default config path (will be created if needed for saving connections)
+		configPath = defaultConfigPath
 	}
 
-	// Load configuration
-	cfg, err := config.LoadConfig(configPath, cliFlags)
+	// For loading, only attempt to load if file exists
+	configPathForLoad := ""
+	if config.ConfigFileExists(configPath) {
+		configPathForLoad = configPath
+	}
+
+	// Load configuration (empty path means no config file, will use env vars and defaults)
+	cfg, err := config.LoadConfig(configPathForLoad, cliFlags)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "ERROR: %v\n", err)
 		os.Exit(1)
@@ -194,6 +199,17 @@ func main() {
 		cfg.HTTP.Auth.TokenFile = auth.GetDefaultTokenPath(execPath)
 	}
 
+	// Set default preferences file path if not specified
+	if cfg.PreferencesFile == "" {
+		cfg.PreferencesFile = config.GetDefaultPreferencesPath(execPath)
+	}
+
+	// Load user preferences (for saved connections when auth is disabled)
+	prefs, err := config.LoadPreferences(cfg.PreferencesFile)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "ERROR: Failed to load preferences file: %v\n", err)
+		os.Exit(1)
+	}
 
 	// Verify TLS files exist if HTTPS is enabled
 	if cfg.HTTP.TLS.Enabled {
@@ -268,7 +284,7 @@ func main() {
 	contextAwareResourceProvider := resources.NewContextAwareRegistry(clientManager, authEnabled)
 
 	// Context-aware tool provider
-	contextAwareToolProvider := tools.NewContextAwareProvider(clientManager, llmClient, contextAwareResourceProvider, authEnabled, nil, serverInfo)
+	contextAwareToolProvider := tools.NewContextAwareProvider(clientManager, llmClient, contextAwareResourceProvider, authEnabled, nil, serverInfo, tokenStore, cfg, prefs, cfg.PreferencesFile)
 	if err := contextAwareToolProvider.RegisterTools(ctx); err != nil {
 		fmt.Fprintf(os.Stderr, "ERROR: Failed to register tools: %v\n", err)
 		os.Exit(1)

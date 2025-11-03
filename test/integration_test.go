@@ -364,8 +364,8 @@ func testListTools(t *testing.T, server *MCPServer) {
 	}
 
 	// After calling set_database_connection, all tools should be available
-	if len(tools) < 12 {
-		t.Errorf("Expected at least 12 tools after database connection, got %d", len(tools))
+	if len(tools) < 16 {
+		t.Errorf("Expected at least 16 tools after database connection, got %d", len(tools))
 	}
 
 	// Verify expected tools exist
@@ -382,6 +382,10 @@ func testListTools(t *testing.T, server *MCPServer) {
 		"server_info":                false,
 		"set_database_connection":    false,
 		"read_resource":              false,
+		"add_database_connection":    false,
+		"remove_database_connection": false,
+		"list_database_connections":  false,
+		"edit_database_connection":   false,
 	}
 
 	for _, tool := range tools {

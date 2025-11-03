@@ -25,10 +25,11 @@ import (
 
 // Token represents an API token with metadata
 type Token struct {
-	Hash       string     `yaml:"hash"`        // SHA256 hash of the token
-	ExpiresAt  *time.Time `yaml:"expires_at"`  // Expiry date (null for indefinite)
-	Annotation string     `yaml:"annotation"`  // User note/description
-	CreatedAt  time.Time  `yaml:"created_at"`  // When the token was created
+	Hash        string                    `yaml:"hash"`                  // SHA256 hash of the token
+	ExpiresAt   *time.Time                `yaml:"expires_at"`            // Expiry date (null for indefinite)
+	Annotation  string                    `yaml:"annotation"`            // User note/description
+	CreatedAt   time.Time                 `yaml:"created_at"`            // When the token was created
+	Connections *SavedConnectionStore     `yaml:"connections,omitempty"` // Saved database connections for this token
 }
 
 // TokenStore manages API tokens
@@ -225,4 +226,22 @@ func (s *TokenStore) CleanupExpiredTokens() (int, []string) {
 	}
 
 	return len(removedHashes), removedHashes
+}
+
+// GetOrCreateConnections returns the connections store for this token, creating it if it doesn't exist
+func (t *Token) GetOrCreateConnections() *SavedConnectionStore {
+	if t.Connections == nil {
+		t.Connections = NewSavedConnectionStore()
+	}
+	return t.Connections
+}
+
+// GetConnectionStore returns the connections store for a specific token
+func (s *TokenStore) GetConnectionStore(tokenHash string) (*SavedConnectionStore, error) {
+	for _, token := range s.Tokens {
+		if token.Hash == tokenHash {
+			return token.GetOrCreateConnections(), nil
+		}
+	}
+	return nil, fmt.Errorf("token not found")
 }

@@ -11,31 +11,34 @@
 package tools
 
 import (
+	"context"
 	"fmt"
+	"strings"
 
 	"pgedge-postgres-mcp/internal/database"
 	"pgedge-postgres-mcp/internal/mcp"
 )
 
 // SetDatabaseConnectionTool creates a tool for setting the database connection at runtime
-func SetDatabaseConnectionTool(clientManager *database.ClientManager) Tool {
+// Now supports both connection strings and aliases to saved connections
+func SetDatabaseConnectionTool(clientManager *database.ClientManager, connMgr *ConnectionManager, configPath string) Tool {
 	return Tool{
 		Definition: mcp.Tool{
 			Name:        "set_database_connection",
-			Description: "Set the PostgreSQL database connection string for this session. This must be called before using any database-dependent tools.",
+			Description: "Set the PostgreSQL database connection for this session. You can provide either a full connection string OR an alias to a saved connection. This must be called before using any database-dependent tools. Examples: 'production', 'postgres://user:pass@host/db'",
 			InputSchema: mcp.InputSchema{
 				Type: "object",
 				Properties: map[string]interface{}{
 					"connection_string": map[string]interface{}{
 						"type":        "string",
-						"description": "PostgreSQL connection string in the format: postgres://username:password@host:port/database?options",
+						"description": "PostgreSQL connection string OR alias to a saved connection. If using an alias, the saved connection will be retrieved and used. Format: postgres://username:password@host:port/database?options OR saved alias name (e.g., 'production', 'staging')",
 					},
 				},
 				Required: []string{"connection_string"},
 			},
 		},
 		Handler: func(args map[string]interface{}) (mcp.ToolResponse, error) {
-			connStr, ok := args["connection_string"].(string)
+			connStrOrAlias, ok := args["connection_string"].(string)
 			if !ok {
 				return mcp.ToolResponse{
 					Content: []mcp.ContentItem{
@@ -48,7 +51,7 @@ func SetDatabaseConnectionTool(clientManager *database.ClientManager) Tool {
 				}, nil
 			}
 
-			if connStr == "" {
+			if connStrOrAlias == "" {
 				return mcp.ToolResponse{
 					Content: []mcp.ContentItem{
 						{
@@ -58,6 +61,28 @@ func SetDatabaseConnectionTool(clientManager *database.ClientManager) Tool {
 					},
 					IsError: true,
 				}, nil
+			}
+
+			connStr := connStrOrAlias
+			alias := ""
+
+			// Check if this looks like an alias (no postgres:// prefix)
+			if !strings.HasPrefix(connStrOrAlias, "postgres://") && !strings.HasPrefix(connStrOrAlias, "postgresql://") {
+				// Try to resolve as alias
+				ctx := context.Background()
+				store, err := connMgr.GetConnectionStore(ctx)
+				if err == nil {
+					savedConn, err := store.Get(connStrOrAlias)
+					if err == nil {
+						// Found saved connection
+						connStr = savedConn.ConnectionString
+						alias = savedConn.Alias
+
+						// Mark as used
+						_ = store.MarkUsed(alias)
+						_ = connMgr.saveChanges(configPath)
+					}
+				}
 			}
 
 			// Create a new client with the provided connection string
