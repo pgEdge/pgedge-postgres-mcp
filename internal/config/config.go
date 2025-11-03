@@ -266,64 +266,51 @@ func mergeConfig(dest, src *Config) {
 	}
 }
 
+// setStringFromEnv sets a string config value from an environment variable if it exists
+func setStringFromEnv(dest *string, key string) {
+	if val := os.Getenv(key); val != "" {
+		*dest = val
+	}
+}
+
+// setBoolFromEnv sets a boolean config value from an environment variable if it exists
+// Accepts "true", "1", or "yes" as true values
+func setBoolFromEnv(dest *bool, key string) {
+	if val := os.Getenv(key); val != "" {
+		*dest = val == "true" || val == "1" || val == "yes"
+	}
+}
+
 // applyEnvironmentVariables overrides config with environment variables if they exist
 // All environment variables use the PGEDGE_ prefix to avoid collisions
 func applyEnvironmentVariables(cfg *Config) {
 	// LLM Provider
-	if val := os.Getenv("PGEDGE_LLM_PROVIDER"); val != "" {
-		cfg.LLM.Provider = val
-	}
+	setStringFromEnv(&cfg.LLM.Provider, "PGEDGE_LLM_PROVIDER")
 
 	// Anthropic
-	if val := os.Getenv("PGEDGE_ANTHROPIC_API_KEY"); val != "" {
-		cfg.Anthropic.APIKey = val
-	}
-	if val := os.Getenv("PGEDGE_ANTHROPIC_MODEL"); val != "" {
-		cfg.Anthropic.Model = val
-	}
+	setStringFromEnv(&cfg.Anthropic.APIKey, "PGEDGE_ANTHROPIC_API_KEY")
+	setStringFromEnv(&cfg.Anthropic.Model, "PGEDGE_ANTHROPIC_MODEL")
 
 	// Ollama
-	if val := os.Getenv("PGEDGE_OLLAMA_BASE_URL"); val != "" {
-		cfg.Ollama.BaseURL = val
-	}
-	if val := os.Getenv("PGEDGE_OLLAMA_MODEL"); val != "" {
-		cfg.Ollama.Model = val
-	}
+	setStringFromEnv(&cfg.Ollama.BaseURL, "PGEDGE_OLLAMA_BASE_URL")
+	setStringFromEnv(&cfg.Ollama.Model, "PGEDGE_OLLAMA_MODEL")
 
 	// HTTP
-	if val := os.Getenv("PGEDGE_HTTP_ENABLED"); val != "" {
-		cfg.HTTP.Enabled = val == "true" || val == "1" || val == "yes"
-	}
-	if val := os.Getenv("PGEDGE_HTTP_ADDRESS"); val != "" {
-		cfg.HTTP.Address = val
-	}
+	setBoolFromEnv(&cfg.HTTP.Enabled, "PGEDGE_HTTP_ENABLED")
+	setStringFromEnv(&cfg.HTTP.Address, "PGEDGE_HTTP_ADDRESS")
 
 	// TLS
-	if val := os.Getenv("PGEDGE_TLS_ENABLED"); val != "" {
-		cfg.HTTP.TLS.Enabled = val == "true" || val == "1" || val == "yes"
-	}
-	if val := os.Getenv("PGEDGE_TLS_CERT_FILE"); val != "" {
-		cfg.HTTP.TLS.CertFile = val
-	}
-	if val := os.Getenv("PGEDGE_TLS_KEY_FILE"); val != "" {
-		cfg.HTTP.TLS.KeyFile = val
-	}
-	if val := os.Getenv("PGEDGE_TLS_CHAIN_FILE"); val != "" {
-		cfg.HTTP.TLS.ChainFile = val
-	}
+	setBoolFromEnv(&cfg.HTTP.TLS.Enabled, "PGEDGE_TLS_ENABLED")
+	setStringFromEnv(&cfg.HTTP.TLS.CertFile, "PGEDGE_TLS_CERT_FILE")
+	setStringFromEnv(&cfg.HTTP.TLS.KeyFile, "PGEDGE_TLS_KEY_FILE")
+	setStringFromEnv(&cfg.HTTP.TLS.ChainFile, "PGEDGE_TLS_CHAIN_FILE")
 
 	// Auth
-	if val := os.Getenv("PGEDGE_AUTH_ENABLED"); val != "" {
-		cfg.HTTP.Auth.Enabled = val == "true" || val == "1" || val == "yes"
-	}
-	if val := os.Getenv("PGEDGE_AUTH_TOKEN_FILE"); val != "" {
-		cfg.HTTP.Auth.TokenFile = val
-	}
+	setBoolFromEnv(&cfg.HTTP.Auth.Enabled, "PGEDGE_AUTH_ENABLED")
+	setStringFromEnv(&cfg.HTTP.Auth.TokenFile, "PGEDGE_AUTH_TOKEN_FILE")
 
 	// Preferences
-	if val := os.Getenv("PGEDGE_PREFERENCES_FILE"); val != "" {
-		cfg.PreferencesFile = val
-	}
+	setStringFromEnv(&cfg.PreferencesFile, "PGEDGE_PREFERENCES_FILE")
 }
 
 // applyCLIFlags overrides config with CLI flags if they were explicitly set

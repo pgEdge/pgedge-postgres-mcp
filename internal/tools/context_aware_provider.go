@@ -41,6 +41,34 @@ type ContextAwareProvider struct {
 	clientRegistries map[*database.Client]*Registry
 }
 
+// registerStatelessTools registers all stateless tools (those that don't require a database client)
+func (p *ContextAwareProvider) registerStatelessTools(registry *Registry) {
+	registry.Register("recommend_pg_configuration", RecommendPGConfigurationTool())
+	registry.Register("server_info", ServerInfoTool(p.serverInfo))
+	registry.Register("set_database_connection", SetDatabaseConnectionTool(p.clientManager, p.connMgr, p.preferencesPath))
+	// Note: read_resource tool provides backward compatibility for resource access
+	// Resources are also accessible via the native MCP resources/read endpoint
+	registry.Register("read_resource", ReadResourceTool(p.createResourceAdapter()))
+
+	// Connection management tools
+	registry.Register("add_database_connection", AddDatabaseConnectionTool(p.connMgr, p.preferencesPath))
+	registry.Register("remove_database_connection", RemoveDatabaseConnectionTool(p.connMgr, p.preferencesPath))
+	registry.Register("list_database_connections", ListDatabaseConnectionsTool(p.connMgr))
+	registry.Register("edit_database_connection", EditDatabaseConnectionTool(p.connMgr, p.preferencesPath))
+}
+
+// registerDatabaseTools registers all database-dependent tools
+func (p *ContextAwareProvider) registerDatabaseTools(registry *Registry, client *database.Client) {
+	registry.Register("query_database", QueryDatabaseTool(client, p.llmClient))
+	registry.Register("get_schema_info", GetSchemaInfoTool(client))
+	registry.Register("set_pg_configuration", SetPGConfigurationTool(client))
+	registry.Register("analyze_bloat", AnalyzeBloatTool(client))
+	registry.Register("read_server_log", ReadServerLogTool(client))
+	registry.Register("read_postgresql_conf", ReadPostgresqlConfTool(client))
+	registry.Register("read_pg_hba_conf", ReadPgHbaConfTool(client))
+	registry.Register("read_pg_ident_conf", ReadPgIdentConfTool(client))
+}
+
 // NewContextAwareProvider creates a new context-aware tool provider
 func NewContextAwareProvider(clientManager *database.ClientManager, llmClient *llm.Client, resourceReg *resources.ContextAwareRegistry, authEnabled bool, fallbackClient *database.Client, serverInfo ServerInfo, tokenStore *auth.TokenStore, cfg *config.Config, prefs *config.Preferences, preferencesPath string) *ContextAwareProvider {
 	// Create connection manager
@@ -62,31 +90,8 @@ func NewContextAwareProvider(clientManager *database.ClientManager, llmClient *l
 	// Register ALL tools in base registry so they're always visible in tools/list
 	// Database-dependent tools will fail gracefully in Execute() if no connection exists
 	// This provides better UX - users can discover all tools even before connecting
-
-	// Stateless tools
-	provider.baseRegistry.Register("recommend_pg_configuration", RecommendPGConfigurationTool())
-	provider.baseRegistry.Register("server_info", ServerInfoTool(serverInfo))
-	provider.baseRegistry.Register("set_database_connection", SetDatabaseConnectionTool(clientManager, connMgr, preferencesPath))
-	// Note: read_resource tool provides backward compatibility for resource access
-	// Resources are also accessible via the native MCP resources/read endpoint
-	provider.baseRegistry.Register("read_resource", ReadResourceTool(provider.createResourceAdapter()))
-
-	// Connection management tools
-	provider.baseRegistry.Register("add_database_connection", AddDatabaseConnectionTool(connMgr, preferencesPath))
-	provider.baseRegistry.Register("remove_database_connection", RemoveDatabaseConnectionTool(connMgr, preferencesPath))
-	provider.baseRegistry.Register("list_database_connections", ListDatabaseConnectionsTool(connMgr))
-	provider.baseRegistry.Register("edit_database_connection", EditDatabaseConnectionTool(connMgr, preferencesPath))
-
-	// Database-dependent tools (registered with nil client placeholders)
-	// These will use the actual client from ClientManager when Execute() is called
-	provider.baseRegistry.Register("query_database", QueryDatabaseTool(nil, llmClient))
-	provider.baseRegistry.Register("get_schema_info", GetSchemaInfoTool(nil))
-	provider.baseRegistry.Register("set_pg_configuration", SetPGConfigurationTool(nil))
-	provider.baseRegistry.Register("analyze_bloat", AnalyzeBloatTool(nil))
-	provider.baseRegistry.Register("read_server_log", ReadServerLogTool(nil))
-	provider.baseRegistry.Register("read_postgresql_conf", ReadPostgresqlConfTool(nil))
-	provider.baseRegistry.Register("read_pg_hba_conf", ReadPgHbaConfTool(nil))
-	provider.baseRegistry.Register("read_pg_ident_conf", ReadPgIdentConfTool(nil))
+	provider.registerStatelessTools(provider.baseRegistry)
+	provider.registerDatabaseTools(provider.baseRegistry, nil) // nil client for base registry
 
 	return provider
 }
@@ -165,27 +170,9 @@ func (p *ContextAwareProvider) getOrCreateRegistryForClient(client *database.Cli
 	// Create new registry with all tools for this client
 	registry := NewRegistry()
 
-	// Register stateless tools
-	registry.Register("recommend_pg_configuration", RecommendPGConfigurationTool())
-	registry.Register("server_info", ServerInfoTool(p.serverInfo))
-	registry.Register("set_database_connection", SetDatabaseConnectionTool(p.clientManager, p.connMgr, p.preferencesPath))
-	registry.Register("read_resource", ReadResourceTool(p.createResourceAdapter()))
-
-	// Connection management tools
-	registry.Register("add_database_connection", AddDatabaseConnectionTool(p.connMgr, p.preferencesPath))
-	registry.Register("remove_database_connection", RemoveDatabaseConnectionTool(p.connMgr, p.preferencesPath))
-	registry.Register("list_database_connections", ListDatabaseConnectionsTool(p.connMgr))
-	registry.Register("edit_database_connection", EditDatabaseConnectionTool(p.connMgr, p.preferencesPath))
-
-	// Register client-dependent tools
-	registry.Register("query_database", QueryDatabaseTool(client, p.llmClient))
-	registry.Register("get_schema_info", GetSchemaInfoTool(client))
-	registry.Register("set_pg_configuration", SetPGConfigurationTool(client))
-	registry.Register("analyze_bloat", AnalyzeBloatTool(client))
-	registry.Register("read_server_log", ReadServerLogTool(client))
-	registry.Register("read_postgresql_conf", ReadPostgresqlConfTool(client))
-	registry.Register("read_pg_hba_conf", ReadPgHbaConfTool(client))
-	registry.Register("read_pg_ident_conf", ReadPgIdentConfTool(client))
+	// Register all tools using helper methods to avoid duplication
+	p.registerStatelessTools(registry)
+	p.registerDatabaseTools(registry, client)
 
 	// Cache for future use
 	p.clientRegistries[client] = registry
