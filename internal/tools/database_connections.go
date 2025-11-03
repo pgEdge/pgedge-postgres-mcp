@@ -226,7 +226,7 @@ func ListDatabaseConnectionsTool(connMgr *ConnectionManager) Tool {
 
 			for _, conn := range connections {
 				result.WriteString(fmt.Sprintf("Alias: %s\n", conn.Alias))
-				result.WriteString(fmt.Sprintf("Connection: %s\n", maskConnectionString(conn.ConnectionString)))
+				result.WriteString(fmt.Sprintf("Connection: %s\n", conn.ConnectionString))
 				result.WriteString(fmt.Sprintf("Maintenance DB: %s\n", conn.MaintenanceDB))
 				if conn.Description != "" {
 					result.WriteString(fmt.Sprintf("Description: %s\n", conn.Description))
@@ -351,23 +351,4 @@ func (cm *ConnectionManager) saveChanges(configPath string) error {
 	}
 
 	return config.SavePreferences(configPath, cm.preferences)
-}
-
-// maskConnectionString partially masks a connection string for display
-func maskConnectionString(connStr string) string {
-	// Simple masking - hide password in connection strings
-	// postgres://user:password@host:port/database -> postgres://user:***@host:port/database
-	if strings.Contains(connStr, "@") {
-		parts := strings.SplitN(connStr, "@", 2)
-		if len(parts) == 2 {
-			userPass := parts[0]
-			if strings.Contains(userPass, ":") {
-				userParts := strings.SplitN(userPass, ":", 2)
-				if len(userParts) == 2 {
-					return fmt.Sprintf("%s:***@%s", userParts[0], parts[1])
-				}
-			}
-		}
-	}
-	return connStr
 }
