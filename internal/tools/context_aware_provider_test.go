@@ -19,14 +19,13 @@ import (
 	"pgedge-postgres-mcp/internal/auth"
 	"pgedge-postgres-mcp/internal/database"
 	"pgedge-postgres-mcp/internal/llm"
-	"pgedge-postgres-mcp/internal/resources"
 )
 
 // TestNewContextAwareProvider tests provider creation
 func TestNewContextAwareProvider(t *testing.T) {
 	clientManager := database.NewClientManager()
 	llmClient := llm.NewClient("anthropic", "test-key", "https://api.anthropic.com/v1", "claude-sonnet-4-5")
-	resourceReg := resources.NewRegistry()
+	// nil no longer needed
 	fallbackClient := database.NewClient()
 	serverInfo := ServerInfo{
 		Name:     "Test Server",
@@ -36,7 +35,7 @@ func TestNewContextAwareProvider(t *testing.T) {
 		Model:    "claude-sonnet-4-5",
 	}
 
-	provider := NewContextAwareProvider(clientManager, llmClient, resourceReg, true, fallbackClient, serverInfo)
+	provider := NewContextAwareProvider(clientManager, llmClient, nil, true, fallbackClient, serverInfo)
 
 	if provider == nil {
 		t.Fatal("Expected non-nil provider")
@@ -70,7 +69,6 @@ func TestContextAwareProvider_List(t *testing.T) {
 	defer clientManager.CloseAll()
 
 	llmClient := llm.NewClient("anthropic", "test-key", "https://api.anthropic.com/v1", "claude-sonnet-4-5")
-	resourceReg := resources.NewRegistry()
 	fallbackClient := database.NewClient()
 	serverInfo := ServerInfo{
 		Name:     "Test Server",
@@ -80,7 +78,7 @@ func TestContextAwareProvider_List(t *testing.T) {
 		Model:    "claude-sonnet-4-5",
 	}
 
-	provider := NewContextAwareProvider(clientManager, llmClient, resourceReg, true, fallbackClient, serverInfo)
+	provider := NewContextAwareProvider(clientManager, llmClient, nil, true, fallbackClient, serverInfo)
 
 	// Register tools
 	err := provider.RegisterTools(nil)
@@ -135,7 +133,7 @@ func TestContextAwareProvider_Execute_NoAuth(t *testing.T) {
 	defer clientManager.CloseAll()
 
 	llmClient := llm.NewClient("anthropic", "test-key", "https://api.anthropic.com/v1", "claude-sonnet-4-5")
-	resourceReg := resources.NewRegistry()
+	// nil no longer needed
 	fallbackClient := database.NewClient()
 	serverInfo := ServerInfo{
 		Name:     "Test Server",
@@ -146,7 +144,7 @@ func TestContextAwareProvider_Execute_NoAuth(t *testing.T) {
 	}
 
 	// Auth disabled - should use fallback client
-	provider := NewContextAwareProvider(clientManager, llmClient, resourceReg, false, fallbackClient, serverInfo)
+	provider := NewContextAwareProvider(clientManager, llmClient, nil, false, fallbackClient, serverInfo)
 
 	// Context without token hash
 	ctx := context.Background()
@@ -183,7 +181,7 @@ func TestContextAwareProvider_Execute_WithAuth(t *testing.T) {
 	defer clientManager.CloseAll()
 
 	llmClient := llm.NewClient("anthropic", "test-key", "https://api.anthropic.com/v1", "claude-sonnet-4-5")
-	resourceReg := resources.NewRegistry()
+	// nil no longer needed
 	fallbackClient := database.NewClient()
 	serverInfo := ServerInfo{
 		Name:     "Test Server",
@@ -194,7 +192,7 @@ func TestContextAwareProvider_Execute_WithAuth(t *testing.T) {
 	}
 
 	// Auth enabled - should require token hash
-	provider := NewContextAwareProvider(clientManager, llmClient, resourceReg, true, fallbackClient, serverInfo)
+	provider := NewContextAwareProvider(clientManager, llmClient, nil, true, fallbackClient, serverInfo)
 
 	t.Run("missing token hash returns error", func(t *testing.T) {
 		// Context without token hash
@@ -269,7 +267,7 @@ func TestContextAwareProvider_Execute_InvalidTool(t *testing.T) {
 	defer clientManager.CloseAll()
 
 	llmClient := llm.NewClient("anthropic", "test-key", "https://api.anthropic.com/v1", "claude-sonnet-4-5")
-	resourceReg := resources.NewRegistry()
+	// nil no longer needed
 	fallbackClient := database.NewClient()
 	serverInfo := ServerInfo{
 		Name:     "Test Server",
@@ -280,7 +278,7 @@ func TestContextAwareProvider_Execute_InvalidTool(t *testing.T) {
 	}
 
 	// Auth disabled for simplicity
-	provider := NewContextAwareProvider(clientManager, llmClient, resourceReg, false, fallbackClient, serverInfo)
+	provider := NewContextAwareProvider(clientManager, llmClient, nil, false, fallbackClient, serverInfo)
 
 	ctx := context.Background()
 
@@ -300,8 +298,10 @@ func TestContextAwareProvider_Execute_InvalidTool(t *testing.T) {
 	}
 
 	errorMsg := response.Content[0].Text
-	if !strings.Contains(errorMsg, "Tool not found") {
-		t.Errorf("Expected 'Tool not found' error, got: %s", errorMsg)
+	// With runtime database connection, we now get a "no database connection" error
+	// for non-stateless tools when database isn't configured
+	if !strings.Contains(errorMsg, "no database connection configured") && !strings.Contains(errorMsg, "Tool not found") {
+		t.Errorf("Expected 'no database connection configured' or 'Tool not found' error, got: %s", errorMsg)
 	}
 }
 
@@ -316,7 +316,6 @@ func TestContextAwareProvider_RegisterTools_WithContext(t *testing.T) {
 	defer clientManager.CloseAll()
 
 	llmClient := llm.NewClient("anthropic", "test-key", "https://api.anthropic.com/v1", "claude-sonnet-4-5")
-	resourceReg := resources.NewRegistry()
 	fallbackClient := database.NewClient()
 	serverInfo := ServerInfo{
 		Name:     "Test Server",
@@ -326,7 +325,7 @@ func TestContextAwareProvider_RegisterTools_WithContext(t *testing.T) {
 		Model:    "claude-sonnet-4-5",
 	}
 
-	provider := NewContextAwareProvider(clientManager, llmClient, resourceReg, true, fallbackClient, serverInfo)
+	provider := NewContextAwareProvider(clientManager, llmClient, nil, true, fallbackClient, serverInfo)
 
 	// Register with context containing token hash
 	ctx := context.WithValue(context.Background(), auth.TokenHashContextKey, "registration-token")

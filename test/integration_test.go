@@ -76,7 +76,6 @@ func StartMCPServer(t *testing.T, connString, apiKey string) (*MCPServer, error)
 	// Force stdio mode even if there's a config file with HTTP enabled
 	cmd := exec.Command(binaryPath, "-http=false")
 	cmd.Env = append(os.Environ(),
-		"POSTGRES_CONNECTION_STRING="+connString,
 		"ANTHROPIC_API_KEY="+apiKey,
 	)
 
@@ -219,6 +218,10 @@ func TestMCPServerIntegration(t *testing.T) {
 		testInitialize(t, server)
 	})
 
+	t.Run("SetDatabaseConnection", func(t *testing.T) {
+		testSetDatabaseConnection(t, server, connString)
+	})
+
 	t.Run("ListTools", func(t *testing.T) {
 		testListTools(t, server)
 	})
@@ -301,6 +304,44 @@ func testInitialize(t *testing.T, server *MCPServer) {
 	t.Log("Initialize test passed")
 }
 
+func testSetDatabaseConnection(t *testing.T, server *MCPServer, connString string) {
+	params := map[string]interface{}{
+		"name": "set_database_connection",
+		"arguments": map[string]interface{}{
+			"connection_string": connString,
+		},
+	}
+
+	resp, err := server.SendRequest("tools/call", params)
+	if err != nil {
+		t.Fatalf("tools/call (set_database_connection) failed: %v", err)
+	}
+
+	if resp.Error != nil {
+		t.Fatalf("set_database_connection returned error: %s", resp.Error.Message)
+	}
+
+	// Parse the result
+	var result map[string]interface{}
+	if err := json.Unmarshal(resp.Result, &result); err != nil {
+		t.Fatalf("Failed to parse set_database_connection result: %v", err)
+	}
+
+	// Check for error response in the tool result
+	if isError, ok := result["isError"].(bool); ok && isError {
+		content := result["content"].([]interface{})
+		if len(content) > 0 {
+			contentMap := content[0].(map[string]interface{})
+			t.Fatalf("set_database_connection returned error: %s", contentMap["text"])
+		}
+	}
+
+	// Give the database a moment to fully initialize
+	time.Sleep(500 * time.Millisecond)
+
+	t.Log("SetDatabaseConnection test passed")
+}
+
 func testListTools(t *testing.T, server *MCPServer) {
 	resp, err := server.SendRequest("tools/list", nil)
 	if err != nil {
@@ -322,17 +363,25 @@ func testListTools(t *testing.T, server *MCPServer) {
 		t.Fatal("tools array not found in result")
 	}
 
-	if len(tools) < 5 {
-		t.Errorf("Expected at least 5 tools, got %d", len(tools))
+	// After calling set_database_connection, all tools should be available
+	if len(tools) < 12 {
+		t.Errorf("Expected at least 12 tools after database connection, got %d", len(tools))
 	}
 
 	// Verify expected tools exist
 	expectedTools := map[string]bool{
-		"query_database":            false,
-		"get_schema_info":           false,
-		"set_pg_configuration":      false,
+		"query_database":             false,
+		"get_schema_info":            false,
+		"set_pg_configuration":       false,
 		"recommend_pg_configuration": false,
-		"read_resource":             false,
+		"analyze_bloat":              false,
+		"read_server_log":            false,
+		"read_postgresql_conf":       false,
+		"read_pg_hba_conf":           false,
+		"read_pg_ident_conf":         false,
+		"server_info":                false,
+		"set_database_connection":    false,
+		"read_resource":              false,
 	}
 
 	for _, tool := range tools {
@@ -353,7 +402,7 @@ func testListTools(t *testing.T, server *MCPServer) {
 		}
 	}
 
-	t.Log("ListTools test passed")
+	t.Logf("ListTools test passed, found %d tools", len(tools))
 }
 
 func testListResources(t *testing.T, server *MCPServer) {

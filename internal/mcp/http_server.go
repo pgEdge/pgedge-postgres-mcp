@@ -157,7 +157,7 @@ func (s *Server) handleRequestHTTP(ctx context.Context, req JSONRPCRequest) JSON
 	case "resources/list":
 		return s.handleResourcesListHTTP(req)
 	case "resources/read":
-		return s.handleResourceReadHTTP(req)
+		return s.handleResourceReadHTTP(ctx, req)
 	default:
 		return createErrorResponse(req.ID, -32601, "Method not found", nil)
 	}
@@ -237,7 +237,7 @@ func (s *Server) handleResourcesListHTTP(req JSONRPCRequest) JSONRPCResponse {
 	}
 }
 
-func (s *Server) handleResourceReadHTTP(req JSONRPCRequest) JSONRPCResponse {
+func (s *Server) handleResourceReadHTTP(ctx context.Context, req JSONRPCRequest) JSONRPCResponse {
 	if s.resources == nil {
 		return createErrorResponse(req.ID, -32603, "Resources not available", nil)
 	}
@@ -254,7 +254,7 @@ func (s *Server) handleResourceReadHTTP(req JSONRPCRequest) JSONRPCResponse {
 		return createErrorResponse(req.ID, -32602, "Invalid params", err.Error())
 	}
 
-	content, err := s.resources.Read(params.URI)
+	content, err := s.resources.Read(ctx, params.URI)
 	if err != nil {
 		return createErrorResponse(req.ID, -32603, "Failed to read resource", err.Error())
 	}

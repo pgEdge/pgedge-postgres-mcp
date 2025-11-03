@@ -42,17 +42,37 @@ func NewClient() *Client {
 	}
 }
 
+// NewClientWithConnectionString creates a new client with a specific connection string
+func NewClientWithConnectionString(connStr string) *Client {
+	c := &Client{
+		connections:    make(map[string]*ConnectionInfo),
+		initialConnStr: connStr,
+		defaultConnStr: connStr,
+	}
+	return c
+}
+
 // Connect establishes a connection to the default PostgreSQL database
 func (c *Client) Connect() error {
-	connStr := os.Getenv("POSTGRES_CONNECTION_STRING")
-	if connStr == "" {
-		connStr = "postgres://localhost/postgres?sslmode=disable"
-	}
+	// If a connection string was already set (e.g., via NewClientWithConnectionString),
+	// use that instead of reading from the environment
+	c.mu.RLock()
+	existingConnStr := c.defaultConnStr
+	c.mu.RUnlock()
 
-	c.mu.Lock()
-	c.initialConnStr = connStr
-	c.defaultConnStr = connStr
-	c.mu.Unlock()
+	connStr := existingConnStr
+	if connStr == "" {
+		// No connection string set yet, read from environment
+		connStr = os.Getenv("POSTGRES_CONNECTION_STRING")
+		if connStr == "" {
+			connStr = "postgres://localhost/postgres?sslmode=disable"
+		}
+
+		c.mu.Lock()
+		c.initialConnStr = connStr
+		c.defaultConnStr = connStr
+		c.mu.Unlock()
+	}
 
 	return c.ConnectTo(connStr)
 }

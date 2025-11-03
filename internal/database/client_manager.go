@@ -152,3 +152,75 @@ func (cm *ClientManager) GetClientCount() int {
 	defer cm.mu.RUnlock()
 	return len(cm.clients)
 }
+
+// SetClient sets a database client for the given key (token hash or "default")
+// This allows runtime configuration of database connections
+func (cm *ClientManager) SetClient(key string, client *Client) error {
+	if key == "" {
+		return fmt.Errorf("key is required")
+	}
+	if client == nil {
+		return fmt.Errorf("client cannot be nil")
+	}
+
+	cm.mu.Lock()
+	defer cm.mu.Unlock()
+
+	// Close existing client if it exists
+	if existingClient, exists := cm.clients[key]; exists {
+		existingClient.Close()
+	}
+
+	cm.clients[key] = client
+
+	fmt.Fprintf(os.Stderr, "Set database connection for key: %s (total: %d)\n", key, len(cm.clients))
+
+	return nil
+}
+
+// GetOrCreateClient returns a database client for the given key
+// If no client exists and autoConnect is true, creates and connects a new client using POSTGRES_CONNECTION_STRING
+// If no client exists and autoConnect is false, returns an error
+func (cm *ClientManager) GetOrCreateClient(key string, autoConnect bool) (*Client, error) {
+	if key == "" {
+		return nil, fmt.Errorf("key is required")
+	}
+
+	// Try to get existing client (read lock)
+	cm.mu.RLock()
+	if client, exists := cm.clients[key]; exists {
+		cm.mu.RUnlock()
+		return client, nil
+	}
+	cm.mu.RUnlock()
+
+	if !autoConnect {
+		return nil, fmt.Errorf("no database connection configured - please call set_database_connection first")
+	}
+
+	// Create new client (write lock)
+	cm.mu.Lock()
+	defer cm.mu.Unlock()
+
+	// Double-check after acquiring write lock
+	if client, exists := cm.clients[key]; exists {
+		return client, nil
+	}
+
+	// Create and initialize new client
+	client := NewClient()
+	if err := client.Connect(); err != nil {
+		return nil, fmt.Errorf("failed to connect database: %w", err)
+	}
+
+	if err := client.LoadMetadata(); err != nil {
+		client.Close()
+		return nil, fmt.Errorf("failed to load metadata: %w", err)
+	}
+
+	cm.clients[key] = client
+
+	fmt.Fprintf(os.Stderr, "Created new database connection for key: %s (total: %d)\n", key, len(cm.clients))
+
+	return client, nil
+}

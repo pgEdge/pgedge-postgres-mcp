@@ -23,11 +23,6 @@ A Model Context Protocol (MCP) server that enables **natural language queries** 
 - 🌐 **HTTP/HTTPS Mode** - Direct API access with token authentication
 - 🔐 **Secure** - TLS support, token auth, read-only enforcement
 
-## TODO
-
-- Remove the default database when running with authentication enabled
-- Allow users to register server connection strings when authentication is enabled
-
 ## Quick Start
 
 ### 1. Installation
@@ -64,7 +59,6 @@ ollama pull qwen2.5-coder:32b
     "pgedge": {
       "command": "/absolute/path/to/bin/pgedge-postgres-mcp",
       "env": {
-        "POSTGRES_CONNECTION_STRING": "postgres://user:pass@localhost:5432/mydb",
         "ANTHROPIC_API_KEY": "sk-ant-your-key"
       }
     }
@@ -78,25 +72,30 @@ ollama pull qwen2.5-coder:32b
   "mcpServers": {
     "pgedge": {
       "command": "/absolute/path/to/bin/pgedge-postgres-mcp",
-      "args": ["-llm-provider", "ollama", "-ollama-model", "qwen2.5-coder:32b"],
-      "env": {
-        "POSTGRES_CONNECTION_STRING": "postgres://user:pass@localhost:5432/mydb"
-      }
+      "args": ["-llm-provider", "ollama", "-ollama-model", "qwen2.5-coder:32b"]
     }
   }
 }
 ```
 
-### 4. Start Using
+### 4. Connect to Your Database
 
 1. Restart Claude Desktop
-2. Ask questions about your database!
+2. Configure your database connection:
+
+```
+"Set my database connection to postgres://user:pass@localhost:5432/mydb"
+```
+
+3. Now ask questions about your database!
 
 ```
 "Show me the database schema"
 "What are the current PostgreSQL settings?"
 "Find all users who registered last week"
 ```
+
+> **Note:** Database connections are configured at runtime via the `set_database_connection` tool for security. This keeps credentials out of config files.
 
 ## Example Queries
 
@@ -174,18 +173,20 @@ curl -X POST http://localhost:8080/mcp/v1 \
 
 ## How It Works
 
-1. **Connect** - Server connects to PostgreSQL and extracts schema metadata
-2. **Ask** - You ask questions in natural language via Claude Desktop
-3. **Translate** - LLM converts your question to SQL using schema context
-4. **Execute** - SQL runs in a **read-only transaction**
-5. **Return** - Results formatted and returned to Claude
+1. **Configure** - Call `set_database_connection` tool with your PostgreSQL connection string
+2. **Connect** - Server connects to PostgreSQL and extracts schema metadata
+3. **Ask** - You ask questions in natural language via Claude Desktop
+4. **Translate** - LLM converts your question to SQL using schema context
+5. **Execute** - SQL runs in a **read-only transaction**
+6. **Return** - Results formatted and returned to Claude
 
 **Read-Only Protection:** All queries run in read-only mode - no INSERT, UPDATE, DELETE, or DDL operations allowed.
 
 ## Development
 
 ```bash
-# Run tests
+# Run tests (uses TEST_POSTGRES_CONNECTION_STRING)
+export TEST_POSTGRES_CONNECTION_STRING="postgres://localhost/postgres?sslmode=disable"
 go test ./...
 
 # Run with coverage
@@ -195,9 +196,9 @@ go test -v -cover ./...
 golangci-lint run
 
 # Run locally
-export POSTGRES_CONNECTION_STRING="postgres://localhost/mydb"
 export ANTHROPIC_API_KEY="your-key"
 ./bin/pgedge-postgres-mcp
+# Then use set_database_connection tool to connect to database
 ```
 
 ## Security
@@ -213,14 +214,15 @@ See **[Security Guide](docs/security.md)** for comprehensive security documentat
 
 ## Troubleshooting
 
-**Server won't start?**
-- Check `POSTGRES_CONNECTION_STRING` is correct
-- Verify PostgreSQL is running: `pg_isready`
-
 **Tools not visible in Claude Desktop?**
 - Use absolute paths in config
 - Restart Claude Desktop completely
 - Check JSON syntax
+
+**Database connection errors?**
+- Call `set_database_connection` tool first with your connection string
+- Verify PostgreSQL is running: `pg_isready`
+- Check connection string format: `postgres://user:pass@host:port/dbname`
 
 **Natural language queries fail?**
 - Verify `ANTHROPIC_API_KEY` is set (for Anthropic)

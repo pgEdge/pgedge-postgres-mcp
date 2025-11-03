@@ -18,10 +18,6 @@ The server can read configuration from a YAML file, making it easier to manage s
 ### Example Configuration
 
 ```yaml
-# Database connection (required)
-database:
-  connection_string: "postgres://localhost/postgres?sslmode=disable"
-
 # LLM Provider selection (required)
 llm:
   provider: anthropic  # or "ollama"
@@ -72,7 +68,6 @@ All configuration options can be overridden via command line flags:
 ### General Options
 
 - `-config` - Path to configuration file (default: same directory as binary)
-- `-db` - PostgreSQL connection string
 
 ### LLM Provider Options
 
@@ -110,11 +105,11 @@ See [Authentication Guide](authentication.md) for details on API token managemen
 **Using Anthropic (cloud):**
 ```bash
 ./bin/pgedge-postgres-mcp \
-  -db "postgres://localhost/mydb" \
   -llm-provider anthropic \
   -api-key "sk-ant-..." \
   -http \
   -addr ":9090"
+# Then use set_database_connection tool to connect
 ```
 
 **Using Ollama (local, free):**
@@ -124,21 +119,14 @@ ollama pull qwen2.5-coder:32b
 
 # Then run the server
 ./bin/pgedge-postgres-mcp \
-  -db "postgres://localhost/mydb" \
   -llm-provider ollama \
   -ollama-model qwen2.5-coder:32b
+# Then use set_database_connection tool to connect
 ```
 
 ## Environment Variables
 
 The server also supports environment variables for configuration options:
-
-### Required Variables
-
-- **`POSTGRES_CONNECTION_STRING`**: PostgreSQL connection string
-
-    - Format: `postgres://username:password@host:port/database?sslmode=disable`
-    - Example: `postgres://myuser:mypass@localhost:5432/mydb?sslmode=disable`
 
 ### LLM Provider Variables
 
@@ -159,22 +147,31 @@ The server also supports environment variables for configuration options:
 **Anthropic (cloud):**
 
 ```bash
-export POSTGRES_CONNECTION_STRING="postgres://localhost/mydb?sslmode=disable"
 export LLM_PROVIDER="anthropic"
 export ANTHROPIC_API_KEY="sk-ant-your-api-key-here"
 export ANTHROPIC_MODEL="claude-sonnet-4-5"
 
 ./bin/pgedge-postgres-mcp
+# Then use set_database_connection tool to connect to your database
 ```
 
 **Ollama (local):**
 
 ```bash
-export POSTGRES_CONNECTION_STRING="postgres://localhost/mydb?sslmode=disable"
 export LLM_PROVIDER="ollama"
 export OLLAMA_MODEL="qwen2.5-coder:32b"
 
 ./bin/pgedge-postgres-mcp
+# Then use set_database_connection tool to connect to your database
+```
+
+**For Tests:**
+
+Tests use a separate environment variable to avoid confusion with runtime configuration:
+
+```bash
+export TEST_POSTGRES_CONNECTION_STRING="postgres://localhost/postgres?sslmode=disable"
+go test ./...
 ```
 
 ## Configuration for Claude Desktop
@@ -197,7 +194,6 @@ To use this MCP server with Claude Desktop, add it to your MCP configuration fil
     "pgedge": {
       "command": "/absolute/path/to/pgedge-postgres-mcp/bin/pgedge-postgres-mcp",
       "env": {
-        "POSTGRES_CONNECTION_STRING": "postgres://username:password@localhost:5432/database_name?sslmode=disable",
         "ANTHROPIC_API_KEY": "sk-ant-your-api-key-here"
       }
     }
@@ -212,10 +208,7 @@ To use this MCP server with Claude Desktop, add it to your MCP configuration fil
   "mcpServers": {
     "pgedge": {
       "command": "/absolute/path/to/pgedge-postgres-mcp/bin/pgedge-postgres-mcp",
-      "args": ["-llm-provider", "ollama", "-ollama-model", "qwen2.5-coder:32b"],
-      "env": {
-        "POSTGRES_CONNECTION_STRING": "postgres://username:password@localhost:5432/database_name?sslmode=disable"
-      }
+      "args": ["-llm-provider", "ollama", "-ollama-model", "qwen2.5-coder:32b"]
     }
   }
 }
@@ -223,6 +216,7 @@ To use this MCP server with Claude Desktop, add it to your MCP configuration fil
 
 **Important Notes:**
 - Replace `/absolute/path/to/pgedge-postgres-mcp` with the full path to your project directory
+- Database connections are configured at runtime via the `set_database_connection` tool for security
 - For Ollama: Make sure to install Ollama and download the model first:
     ```bash
     # Install from https://ollama.ai/
@@ -253,16 +247,16 @@ Understanding how configuration priority works:
 
 ```bash
 # Config file has: address: ":8080"
-# Environment has: POSTGRES_CONNECTION_STRING="postgres://localhost/db1"
+# Environment has: ANTHROPIC_API_KEY="key-from-env"
 
 ./bin/pgedge-postgres-mcp \
   -http \
   -addr ":3000" \
-  -db "postgres://localhost/db2"
+  -api-key "key-from-cli"
 
 # Result:
 # - Address: :3000 (from command line, highest priority)
-# - Database: postgres://localhost/db2 (from command line)
+# - API Key: key-from-cli (from command line)
 ```
 
 ### Example 2: Environment Override
@@ -317,12 +311,13 @@ chmod 600 bin/pgedge-postgres-mcp.yaml  # Should be readable
 
 ```bash
 # Verify environment variables are set
-env | grep POSTGRES
 env | grep ANTHROPIC
+env | grep OLLAMA
 
 # Export them if running in a new shell
-export POSTGRES_CONNECTION_STRING="..."
 export ANTHROPIC_API_KEY="..."
+# Or for Ollama:
+export OLLAMA_MODEL="qwen2.5-coder:32b"
 ```
 
 ### Claude Desktop Configuration Issues

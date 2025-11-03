@@ -33,11 +33,12 @@ import (
 
 // HTTPMCPServer manages an MCP server running in HTTP/HTTPS mode
 type HTTPMCPServer struct {
-	cmd      *exec.Cmd
-	baseURL  string
-	t        *testing.T
-	certFile string
-	keyFile  string
+	cmd        *exec.Cmd
+	baseURL    string
+	t          *testing.T
+	certFile   string
+	keyFile    string
+	connString string
 }
 
 // StartHTTPMCPServer starts the MCP server in HTTP mode for testing
@@ -56,7 +57,8 @@ func StartHTTPMCPServer(t *testing.T, connString, apiKey, addr string, useTLS bo
 	}
 
 	server := &HTTPMCPServer{
-		t: t,
+		t:          t,
+		connString: connString,
 	}
 
 	// Build command line arguments
@@ -81,7 +83,6 @@ func StartHTTPMCPServer(t *testing.T, connString, apiKey, addr string, useTLS bo
 	// Create command
 	cmd := exec.Command(binaryPath, args...)
 	cmd.Env = append(os.Environ(),
-		"POSTGRES_CONNECTION_STRING="+connString,
 		"ANTHROPIC_API_KEY="+apiKey,
 	)
 
@@ -310,6 +311,10 @@ func TestHTTPModeIntegration(t *testing.T) {
 		testHTTPInitialize(t, server)
 	})
 
+	t.Run("SetDatabaseConnection", func(t *testing.T) {
+		testHTTPSetDatabaseConnection(t, server)
+	})
+
 	t.Run("ListTools", func(t *testing.T) {
 		testHTTPListTools(t, server)
 	})
@@ -361,6 +366,10 @@ func TestHTTPSModeIntegration(t *testing.T) {
 
 	t.Run("Initialize", func(t *testing.T) {
 		testHTTPInitialize(t, server)
+	})
+
+	t.Run("SetDatabaseConnection", func(t *testing.T) {
+		testHTTPSetDatabaseConnection(t, server)
 	})
 
 	t.Run("ListTools", func(t *testing.T) {
@@ -433,6 +442,44 @@ func testHTTPInitialize(t *testing.T, server *HTTPMCPServer) {
 	t.Log("HTTP Initialize test passed")
 }
 
+func testHTTPSetDatabaseConnection(t *testing.T, server *HTTPMCPServer) {
+	params := map[string]interface{}{
+		"name": "set_database_connection",
+		"arguments": map[string]interface{}{
+			"connection_string": server.connString,
+		},
+	}
+
+	resp, err := server.SendHTTPRequest("tools/call", params)
+	if err != nil {
+		t.Fatalf("tools/call (set_database_connection) failed: %v", err)
+	}
+
+	if resp.Error != nil {
+		t.Fatalf("set_database_connection returned error: %s", resp.Error.Message)
+	}
+
+	// Parse the result
+	var result map[string]interface{}
+	if err := json.Unmarshal(resp.Result, &result); err != nil {
+		t.Fatalf("Failed to parse set_database_connection result: %v", err)
+	}
+
+	// Check for error response in the tool result
+	if isError, ok := result["isError"].(bool); ok && isError {
+		content := result["content"].([]interface{})
+		if len(content) > 0 {
+			contentMap := content[0].(map[string]interface{})
+			t.Fatalf("set_database_connection returned error: %s", contentMap["text"])
+		}
+	}
+
+	// Give the database a moment to fully initialize
+	time.Sleep(500 * time.Millisecond)
+
+	t.Log("HTTP SetDatabaseConnection test passed")
+}
+
 func testHTTPListTools(t *testing.T, server *HTTPMCPServer) {
 	resp, err := server.SendHTTPRequest("tools/list", nil)
 	if err != nil {
@@ -453,8 +500,9 @@ func testHTTPListTools(t *testing.T, server *HTTPMCPServer) {
 		t.Fatal("tools array not found in result")
 	}
 
-	if len(tools) < 5 {
-		t.Errorf("Expected at least 5 tools, got %d", len(tools))
+	// After calling set_database_connection, all tools should be available
+	if len(tools) < 11 {
+		t.Errorf("Expected at least 11 tools after database connection, got %d", len(tools))
 	}
 
 	t.Logf("HTTP ListTools test passed, found %d tools", len(tools))

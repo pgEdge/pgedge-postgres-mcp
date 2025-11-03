@@ -11,6 +11,7 @@
 package resources
 
 import (
+	"context"
 	"testing"
 
 	"pgedge-postgres-mcp/internal/mcp"
@@ -185,7 +186,7 @@ func TestRead(t *testing.T) {
 
 		registry.Register("counter://resource", resource)
 
-		content, err := registry.Read("counter://resource")
+		content, err := registry.Read(context.Background(), "counter://resource")
 		if err != nil {
 			t.Errorf("Read() unexpected error: %v", err)
 		}
@@ -208,7 +209,7 @@ func TestRead(t *testing.T) {
 	})
 
 	t.Run("non-existent resource", func(t *testing.T) {
-		content, err := registry.Read("non://existent")
+		content, err := registry.Read(context.Background(), "non://existent")
 		if err != nil {
 			t.Errorf("Read() unexpected error: %v", err)
 		}
@@ -250,7 +251,7 @@ func TestRead(t *testing.T) {
 
 		registry.Register("json://data", resource)
 
-		content, err := registry.Read("json://data")
+		content, err := registry.Read(context.Background(), "json://data")
 		if err != nil {
 			t.Errorf("Read() unexpected error: %v", err)
 		}
@@ -312,7 +313,7 @@ func TestRead(t *testing.T) {
 
 		registry.Register("versioned://resource", resource2)
 
-		content, err := registry.Read("versioned://resource")
+		content, err := registry.Read(context.Background(), "versioned://resource")
 		if err != nil {
 			t.Errorf("Read() unexpected error: %v", err)
 		}
@@ -357,7 +358,7 @@ func TestRead(t *testing.T) {
 
 		registry.Register("multi://content", resource)
 
-		content, err := registry.Read("multi://content")
+		content, err := registry.Read(context.Background(), "multi://content")
 		if err != nil {
 			t.Errorf("Read() unexpected error: %v", err)
 		}

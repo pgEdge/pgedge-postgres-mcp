@@ -17,11 +17,12 @@ This guide focuses on HTTP/HTTPS mode. For stdio mode (Claude Desktop), see the 
 
 ```bash
 # Set environment variables
-export POSTGRES_CONNECTION_STRING="postgres://localhost/mydb?sslmode=disable"
 export ANTHROPIC_API_KEY="sk-ant-your-key"
 
 # Start HTTP server on default port 8080
 ./bin/pgedge-postgres-mcp -http
+
+# Then connect to database using the set_database_connection tool via API
 ```
 
 ### With Custom Port
@@ -297,10 +298,12 @@ Build and run:
 docker build -t pgedge-mcp .
 docker run -d \
   -p 8080:8080 \
-  -e POSTGRES_CONNECTION_STRING="postgres://host.docker.internal/mydb" \
   -e ANTHROPIC_API_KEY="sk-ant-..." \
   --name pgedge-mcp \
   pgedge-mcp
+
+# Then connect to database using the set_database_connection tool via API
+# Use host.docker.internal to access host machine from container
 ```
 
 ### Docker Compose
@@ -316,11 +319,12 @@ services:
     ports:
       - "8080:8080"
     environment:
-      POSTGRES_CONNECTION_STRING: postgres://postgres:password@db:5432/mydb
       ANTHROPIC_API_KEY: sk-ant-your-key
     depends_on:
       - db
     restart: unless-stopped
+    # Note: Database connection configured at runtime via set_database_connection tool
+    # Use connection string: postgres://postgres:password@db:5432/mydb
 
   db:
     image: postgres:16

@@ -34,9 +34,8 @@ b) **Test PostgreSQL connection directly:**
     # Using psql
     psql "postgres://username:password@localhost:5432/database"
 
-    # Or using environment variable
-    export POSTGRES_CONNECTION_STRING="postgres://user:pass@localhost:5432/db?sslmode=disable"
-    psql "$POSTGRES_CONNECTION_STRING"
+    # Or test connection string directly
+    psql "postgres://user:pass@localhost:5432/db?sslmode=disable"
     ```
 
 c) **Common connection string issues:**
@@ -62,11 +61,9 @@ d) **Check PostgreSQL is running:**
 
 #### 2. Missing Environment Variables
 
-**Required:**
-- `POSTGRES_CONNECTION_STRING` - Database connection string
-
-**Required for NL queries:**
-- `ANTHROPIC_API_KEY` - Claude API key
+**Required for LLM functionality:**
+- `ANTHROPIC_API_KEY` - Claude API key (if using Anthropic)
+- Or Ollama configuration (if using Ollama)
 
 **Check your MCP config file:**
 
@@ -78,7 +75,6 @@ macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`
     "pgedge": {
       "command": "/absolute/path/to/pgedge-postgres-mcp",
       "env": {
-        "POSTGRES_CONNECTION_STRING": "postgres://user:pass@localhost:5432/db?sslmode=disable",
         "ANTHROPIC_API_KEY": "sk-ant-your-key-here"
       }
     }
@@ -90,6 +86,7 @@ macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`
 - Use absolute paths (not `~` or relative paths)
 - Check for typos in environment variable names
 - Restart Claude Desktop after config changes
+- Database connections are configured at runtime via `set_database_connection` tool
 
 #### 3. Database Metadata Loading Issues
 
@@ -145,7 +142,6 @@ If your database is empty (no user tables), the server will still start but won'
         "pgedge": {
             "command": "/full/path/to/pgedge-postgres-mcp",
             "env": {
-            "POSTGRES_CONNECTION_STRING": "...",
             "ANTHROPIC_API_KEY": "..."
             }
         }
@@ -160,9 +156,9 @@ If your database is empty (no user tables), the server will still start but won'
 4. **Test manually:**
 
     ```bash
-    export POSTGRES_CONNECTION_STRING="..."
     export ANTHROPIC_API_KEY="..."
     echo '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}' | ./pgedge-postgres-mcp
+    # Then use set_database_connection tool to connect to database
     ```
 
 ## Natural Language Queries Not Working
@@ -310,7 +306,6 @@ go build -o pgedge-postgres-mcp
 ### Manual Testing
 ```bash
 # Set environment
-export POSTGRES_CONNECTION_STRING="postgres://localhost/mydb?sslmode=disable"
 export ANTHROPIC_API_KEY="sk-ant-..."
 
 # Test initialize
@@ -359,8 +354,9 @@ If you're still having issues:
 ## Debug Checklist
 
 - [ ] PostgreSQL is running
-- [ ] Can connect with psql using same connection string
-- [ ] POSTGRES_CONNECTION_STRING is set in MCP config
+- [ ] Can connect with psql using connection string
+- [ ] ANTHROPIC_API_KEY is set in MCP config
+- [ ] Database connection configured via `set_database_connection` tool
 - [ ] Path to binary is absolute (not relative)
 - [ ] Claude Desktop has been restarted
 - [ ] Checked Claude Desktop logs for errors

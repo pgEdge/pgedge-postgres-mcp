@@ -33,7 +33,7 @@ type ToolProvider interface {
 // ResourceProvider is an interface for listing and reading resources
 type ResourceProvider interface {
 	List() []Resource
-	Read(uri string) (ResourceContent, error)
+	Read(ctx context.Context, uri string) (ResourceContent, error)
 }
 
 // Server handles MCP protocol communication
@@ -205,7 +205,8 @@ func (s *Server) handleResourceRead(req JSONRPCRequest) {
 		return
 	}
 
-	content, err := s.resources.Read(params.URI)
+	// Use background context for stdio mode (no HTTP request context available)
+	content, err := s.resources.Read(context.Background(), params.URI)
 	if err != nil {
 		sendError(req.ID, -32603, "Resource read error", err.Error())
 		return

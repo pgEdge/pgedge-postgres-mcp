@@ -20,9 +20,6 @@ import (
 
 // Config represents the complete server configuration
 type Config struct {
-	// Database configuration
-	Database DatabaseConfig `yaml:"database"`
-
 	// LLM provider configuration
 	LLM LLMConfig `yaml:"llm"`
 
@@ -34,11 +31,6 @@ type Config struct {
 
 	// HTTP server configuration
 	HTTP HTTPConfig `yaml:"http"`
-}
-
-// DatabaseConfig holds PostgreSQL connection settings
-type DatabaseConfig struct {
-	ConnectionString string `yaml:"connection_string"`
 }
 
 // LLMConfig holds LLM provider selection
@@ -123,10 +115,6 @@ type CLIFlags struct {
 	ConfigFileSet bool
 	ConfigFile    string
 
-	// Database flags
-	ConnectionString    string
-	ConnectionStringSet bool
-
 	// LLM provider flags
 	LLMProvider    string
 	LLMProviderSet bool
@@ -169,9 +157,6 @@ type CLIFlags struct {
 // defaultConfig returns configuration with hard-coded defaults
 func defaultConfig() *Config {
 	return &Config{
-		Database: DatabaseConfig{
-			ConnectionString: "",
-		},
 		LLM: LLMConfig{
 			Provider: "anthropic", // Default to Anthropic
 		},
@@ -217,11 +202,6 @@ func loadConfigFile(path string) (*Config, error) {
 
 // mergeConfig merges source config into dest, only overriding non-zero values
 func mergeConfig(dest, src *Config) {
-	// Database
-	if src.Database.ConnectionString != "" {
-		dest.Database.ConnectionString = src.Database.ConnectionString
-	}
-
 	// LLM
 	if src.LLM.Provider != "" {
 		dest.LLM.Provider = src.LLM.Provider
@@ -275,10 +255,6 @@ func mergeConfig(dest, src *Config) {
 
 // applyEnvironmentVariables overrides config with environment variables if they exist
 func applyEnvironmentVariables(cfg *Config) {
-	if val := os.Getenv("POSTGRES_CONNECTION_STRING"); val != "" {
-		cfg.Database.ConnectionString = val
-	}
-
 	if val := os.Getenv("LLM_PROVIDER"); val != "" {
 		cfg.LLM.Provider = val
 	}
@@ -302,11 +278,6 @@ func applyEnvironmentVariables(cfg *Config) {
 
 // applyCLIFlags overrides config with CLI flags if they were explicitly set
 func applyCLIFlags(cfg *Config, flags CLIFlags) {
-	// Database
-	if flags.ConnectionStringSet {
-		cfg.Database.ConnectionString = flags.ConnectionString
-	}
-
 	// LLM Provider
 	if flags.LLMProviderSet {
 		cfg.LLM.Provider = flags.LLMProvider
@@ -361,11 +332,6 @@ func applyCLIFlags(cfg *Config, flags CLIFlags) {
 
 // validateConfig checks if the configuration is valid
 func validateConfig(cfg *Config) error {
-	// Database connection string is required
-	if cfg.Database.ConnectionString == "" {
-		return fmt.Errorf("database connection string is required (set via -db flag, POSTGRES_CONNECTION_STRING env var, or config file)")
-	}
-
 	// Validate LLM provider configuration
 	switch cfg.LLM.Provider {
 	case "anthropic":

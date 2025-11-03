@@ -43,7 +43,6 @@ func main() {
 
 	// Command line flags
 	configFile := flag.String("config", defaultConfigPath, "Path to configuration file")
-	dbConnString := flag.String("db", "", "PostgreSQL connection string (overrides config file)")
 	llmProvider := flag.String("llm-provider", "", "LLM provider: 'anthropic' or 'ollama' (overrides config file)")
 	apiKey := flag.String("api-key", "", "Anthropic API key (overrides config file)")
 	model := flag.String("model", "", "Anthropic model to use (overrides config file)")
@@ -122,9 +121,6 @@ func main() {
 		case "config":
 			cliFlags.ConfigFileSet = true
 			cliFlags.ConfigFile = *configFile
-		case "db":
-			cliFlags.ConnectionStringSet = true
-			cliFlags.ConnectionString = *dbConnString
 		case "llm-provider":
 			cliFlags.LLMProviderSet = true
 			cliFlags.LLMProvider = *llmProvider
@@ -198,11 +194,6 @@ func main() {
 		cfg.HTTP.Auth.TokenFile = auth.GetDefaultTokenPath(execPath)
 	}
 
-	// Set environment variables for database connection
-	if err := os.Setenv("POSTGRES_CONNECTION_STRING", cfg.Database.ConnectionString); err != nil {
-		fmt.Fprintf(os.Stderr, "ERROR: Failed to set environment variable: %v\n", err)
-		os.Exit(1)
-	}
 
 	// Verify TLS files exist if HTTPS is enabled
 	if cfg.HTTP.TLS.Enabled {
@@ -257,17 +248,38 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel() // Ensure background goroutines are stopped on exit
 
-	// Register resources first (so they can be used by tools)
-	resourceRegistry := resources.NewRegistry()
+	// Initialize client manager for runtime database connections
+	clientManager := database.NewClientManager()
 
-	var server *mcp.Server
-	var clientManager *database.ClientManager
+	// Prepare server info
+	serverInfo := tools.ServerInfo{
+		Name:     serverName,
+		Company:  serverCompany,
+		Version:  serverVersion,
+		Provider: cfg.LLM.Provider,
+		Model:    getModelName(cfg),
+	}
 
-	// Choose tool provider based on mode
+	// Use context-aware providers for runtime database connections
+	// Both stdio and HTTP modes use the same providers
+	authEnabled := cfg.HTTP.Enabled && cfg.HTTP.Auth.Enabled
+
+	// Context-aware resource provider
+	contextAwareResourceProvider := resources.NewContextAwareRegistry(clientManager, authEnabled)
+
+	// Context-aware tool provider
+	contextAwareToolProvider := tools.NewContextAwareProvider(clientManager, llmClient, contextAwareResourceProvider, authEnabled, nil, serverInfo)
+	if err := contextAwareToolProvider.RegisterTools(ctx); err != nil {
+		fmt.Fprintf(os.Stderr, "ERROR: Failed to register tools: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Create MCP server with context-aware providers
+	server := mcp.NewServer(contextAwareToolProvider)
+	server.SetResourceProvider(contextAwareResourceProvider)
+
+	// Start periodic cleanup of expired tokens if auth is enabled
 	if cfg.HTTP.Enabled && cfg.HTTP.Auth.Enabled {
-		// HTTP mode with authentication: Use per-token connection isolation
-		clientManager = database.NewClientManager()
-
 		// Clean up expired tokens on startup (no connections exist yet)
 		if removed, _ := tokenStore.CleanupExpiredTokens(); removed > 0 {
 			fmt.Fprintf(os.Stderr, "Removed %d expired token(s)\n", removed)
@@ -277,14 +289,13 @@ func main() {
 			}
 		}
 
-		// Start periodic cleanup of expired tokens and their connections
+		// Start periodic cleanup goroutine
 		go func() {
 			ticker := time.NewTicker(5 * time.Minute)
 			defer ticker.Stop()
 			for {
 				select {
 				case <-ctx.Done():
-					// Context cancelled, stop cleanup goroutine
 					return
 				case <-ticker.C:
 					if removed, hashes := tokenStore.CleanupExpiredTokens(); removed > 0 {
@@ -302,95 +313,14 @@ func main() {
 			}
 		}()
 
-		// Create a fallback client for initialization (not used for actual requests)
-		fallbackClient := database.NewClient()
-
-		// Initialize fallback database connection in background
-		go func() {
-			if err := fallbackClient.Connect(); err != nil {
-				fmt.Fprintf(os.Stderr, "ERROR: Failed to connect to database: %v\n", err)
-				return
-			}
-
-			if err := fallbackClient.LoadMetadata(); err != nil {
-				fmt.Fprintf(os.Stderr, "ERROR: Failed to load database metadata: %v\n", err)
-				return
-			}
-
-			fmt.Fprintf(os.Stderr, "Database ready: %d tables/views loaded\n", len(fallbackClient.GetMetadata()))
-		}()
-
-		// Set up resources with fallback client
-		registerResources(resourceRegistry, fallbackClient)
-
-		// Prepare server info
-		serverInfo := tools.ServerInfo{
-			Name:     serverName,
-			Company:  serverCompany,
-			Version:  serverVersion,
-			Provider: cfg.LLM.Provider,
-			Model:    getModelName(cfg),
-		}
-
-		// Use context-aware provider for per-token connection isolation
-		contextAwareProvider := tools.NewContextAwareProvider(clientManager, llmClient, resourceRegistry, true, fallbackClient, serverInfo)
-		if err := contextAwareProvider.RegisterTools(ctx); err != nil {
-			fmt.Fprintf(os.Stderr, "ERROR: Failed to register tools: %v\n", err)
-			os.Exit(1)
-		}
-
-		server = mcp.NewServer(contextAwareProvider)
-		server.SetResourceProvider(resourceRegistry)
-
-		fmt.Fprintf(os.Stderr, "Connection isolation: ENABLED (per-token database connections)\n")
+		fmt.Fprintf(os.Stderr, "Authentication: ENABLED (per-token database connections)\n")
+	} else if cfg.HTTP.Enabled {
+		fmt.Fprintf(os.Stderr, "Authentication: DISABLED (shared database connection via 'default' key)\n")
 	} else {
-		// Stdio mode or HTTP without auth: Use shared database connection
-		dbClient := database.NewClient()
-
-		// Initialize database in background
-		go func() {
-			if err := dbClient.Connect(); err != nil {
-				fmt.Fprintf(os.Stderr, "ERROR: Failed to connect to database: %v\n", err)
-				return
-			}
-
-			if err := dbClient.LoadMetadata(); err != nil {
-				fmt.Fprintf(os.Stderr, "ERROR: Failed to load database metadata: %v\n", err)
-				return
-			}
-
-			fmt.Fprintf(os.Stderr, "Database ready: %d tables/views loaded\n", len(dbClient.GetMetadata()))
-		}()
-
-		// Set up resources with shared client
-		registerResources(resourceRegistry, dbClient)
-
-		// Register tools with shared client
-		toolRegistry := tools.NewRegistry()
-		toolRegistry.Register("query_database", tools.QueryDatabaseTool(dbClient, llmClient))
-		toolRegistry.Register("get_schema_info", tools.GetSchemaInfoTool(dbClient))
-		toolRegistry.Register("set_pg_configuration", tools.SetPGConfigurationTool(dbClient))
-		toolRegistry.Register("recommend_pg_configuration", tools.RecommendPGConfigurationTool())
-		toolRegistry.Register("analyze_bloat", tools.AnalyzeBloatTool(dbClient))
-		toolRegistry.Register("read_server_log", tools.ReadServerLogTool(dbClient))
-
-		// Register server info tool
-		serverInfo := tools.ServerInfo{
-			Name:     serverName,
-			Company:  serverCompany,
-			Version:  serverVersion,
-			Provider: cfg.LLM.Provider,
-			Model:    getModelName(cfg),
-		}
-		toolRegistry.Register("server_info", tools.ServerInfoTool(serverInfo))
-		toolRegistry.Register("read_postgresql_conf", tools.ReadPostgresqlConfTool(dbClient))
-		toolRegistry.Register("read_pg_hba_conf", tools.ReadPgHbaConfTool(dbClient))
-		toolRegistry.Register("read_pg_ident_conf", tools.ReadPgIdentConfTool(dbClient))
-		toolRegistry.Register("read_resource", tools.ReadResourceTool(resourceRegistry))
-
-		server = mcp.NewServer(toolRegistry)
-		server.SetResourceProvider(resourceRegistry)
+		fmt.Fprintf(os.Stderr, "Mode: STDIO (shared database connection via 'default' key)\n")
 	}
+
+	fmt.Fprintf(os.Stderr, "Database connection: Runtime configuration via set_database_connection tool\n")
 
 	if cfg.HTTP.Enabled {
 		// HTTP/HTTPS mode
@@ -453,18 +383,3 @@ func getModelName(cfg *config.Config) string {
 	}
 }
 
-// registerResources registers all PostgreSQL resources with the given registry and client
-func registerResources(registry *resources.Registry, client *database.Client) {
-	registry.Register(resources.URISettings, resources.PGSettingsResource(client))
-	registry.Register(resources.URISystemInfo, resources.PGSystemInfoResource(client))
-	registry.Register(resources.URIStatActivity, resources.PGStatActivityResource(client))
-	registry.Register(resources.URIStatDatabase, resources.PGStatDatabaseResource(client))
-	registry.Register(resources.URIStatUserTables, resources.PGStatUserTablesResource(client))
-	registry.Register(resources.URIStatUserIndexes, resources.PGStatUserIndexesResource(client))
-	registry.Register(resources.URIStatReplication, resources.PGStatReplicationResource(client))
-	registry.Register(resources.URIStatBgwriter, resources.PGStatBgwriterResource(client))
-	registry.Register(resources.URIStatWAL, resources.PGStatWALResource(client))
-	registry.Register(resources.URIStatIOUserTables, resources.PGStatIOUserTablesResource(client))
-	registry.Register(resources.URIStatIOUserIndexes, resources.PGStatIOUserIndexesResource(client))
-	registry.Register(resources.URIStatIOUserSequences, resources.PGStatIOUserSequencesResource(client))
-}

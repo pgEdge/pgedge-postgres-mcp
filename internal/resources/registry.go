@@ -11,6 +11,8 @@
 package resources
 
 import (
+	"context"
+
 	"pgedge-postgres-mcp/internal/mcp"
 )
 
@@ -56,7 +58,8 @@ func (r *Registry) List() []mcp.Resource {
 }
 
 // Read retrieves a resource by URI and executes its handler
-func (r *Registry) Read(uri string) (mcp.ResourceContent, error) {
+// Note: This implementation ignores the context parameter for backward compatibility
+func (r *Registry) Read(ctx context.Context, uri string) (mcp.ResourceContent, error) {
 	resource, exists := r.Get(uri)
 	if !exists {
 		return mcp.ResourceContent{

@@ -132,8 +132,8 @@ Comprehensive integration tests for all 12 MCP resources are available in `inter
 #### Running Resource Integration Tests
 
 ```bash
-# 1. Set up PostgreSQL connection
-export POSTGRES_CONNECTION_STRING="postgres://user:pass@localhost/dbname"
+# 1. Set up PostgreSQL connection for tests
+export TEST_POSTGRES_CONNECTION_STRING="postgres://user:pass@localhost/dbname"
 
 # 2. Run all integration tests
 go test ./internal/resources -v -run "Integration"
@@ -155,22 +155,22 @@ To ensure compatibility across versions:
 ```bash
 # PostgreSQL 14
 docker run -d -p 5432:5432 -e POSTGRES_PASSWORD=test postgres:14
-export POSTGRES_CONNECTION_STRING="postgres://postgres:test@localhost/postgres"
+export TEST_POSTGRES_CONNECTION_STRING="postgres://postgres:test@localhost/postgres"
 go test ./internal/resources -v -run "Integration"
 
 # PostgreSQL 15
 docker run -d -p 5432:5432 -e POSTGRES_PASSWORD=test postgres:15
-export POSTGRES_CONNECTION_STRING="postgres://postgres:test@localhost/postgres"
+export TEST_POSTGRES_CONNECTION_STRING="postgres://postgres:test@localhost/postgres"
 go test ./internal/resources -v -run "Integration"
 
 # PostgreSQL 16
 docker run -d -p 5432:5432 -e POSTGRES_PASSWORD=test postgres:16
-export POSTGRES_CONNECTION_STRING="postgres://postgres:test@localhost/postgres"
+export TEST_POSTGRES_CONNECTION_STRING="postgres://postgres:test@localhost/postgres"
 go test ./internal/resources -v -run "Integration"
 
 # PostgreSQL 17
 docker run -d -p 5432:5432 -e POSTGRES_PASSWORD=test postgres:17
-export POSTGRES_CONNECTION_STRING="postgres://postgres:test@localhost/postgres"
+export TEST_POSTGRES_CONNECTION_STRING="postgres://postgres:test@localhost/postgres"
 go test ./internal/resources -v -run "Integration"
 ```
 
@@ -233,10 +233,10 @@ ollama serve
 ollama pull tinyllama:1.1b
 
 # 4. Test with a real database connection
-export POSTGRES_CONNECTION_STRING="postgres://user:pass@localhost/dbname"
 export LLM_PROVIDER="ollama"
 export OLLAMA_MODEL="tinyllama:1.1b"
 ./bin/pgedge-postgres-mcp
+# Then use the set_database_connection tool to connect to your database
 ```
 
 Note: Integration tests with actual models are not automated in the test suite to avoid large downloads and external dependencies.
