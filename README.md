@@ -37,7 +37,7 @@ make build
 
 **Option A: Anthropic Claude (Cloud)**
 ```bash
-export ANTHROPIC_API_KEY="sk-ant-your-key"
+export PGEDGE_ANTHROPIC_API_KEY="sk-ant-your-key"
 ```
 Get your API key at https://console.anthropic.com/
 
@@ -196,7 +196,7 @@ go test -v -cover ./...
 golangci-lint run
 
 # Run locally
-export ANTHROPIC_API_KEY="your-key"
+export PGEDGE_ANTHROPIC_API_KEY="your-key"
 ./bin/pgedge-postgres-mcp
 # Then use set_database_connection tool to connect to database
 ```
@@ -225,7 +225,7 @@ See **[Security Guide](docs/security.md)** for comprehensive security documentat
 - Check connection string format: `postgres://user:pass@host:port/dbname`
 
 **Natural language queries fail?**
-- Verify `ANTHROPIC_API_KEY` is set (for Anthropic)
+- Verify `PGEDGE_ANTHROPIC_API_KEY` is set (for Anthropic)
 - Ensure Ollama is running: `ollama serve` (for Ollama)
 - Check model is downloaded: `ollama list`
 
