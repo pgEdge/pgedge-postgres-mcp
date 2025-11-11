@@ -34,6 +34,8 @@ Copyright:      © 2025, pgEdge, Inc.
 
 Executes a SQL query against the PostgreSQL database. Supports dynamic connection strings to query different databases.
 
+**IMPORTANT**: Using `AT postgres://...` or `SET DEFAULT DATABASE` for temporary connections does NOT modify saved connections - these are session-only changes.
+
 **Input Examples**:
 
 Basic query:
@@ -300,7 +302,9 @@ Total: 2 saved connection(s)
 
 ### edit_database_connection
 
-Update an existing saved connection. You can update any or all connection parameters. Only non-empty fields will be updated.
+Permanently modify an existing saved connection's configuration. You can update any or all connection parameters. Only non-empty fields will be updated.
+
+**IMPORTANT**: Only use this tool when explicitly asked to update, change, or edit a saved connection. To temporarily connect to a different database, use `set_database_connection` with a full connection string instead.
 
 **Input**:
 ```json
@@ -346,6 +350,8 @@ Updated: host, port, user, password, sslmode, description
 ### set_database_connection (Enhanced)
 
 Set the database connection for the current session. Now supports both connection strings and aliases.
+
+**IMPORTANT**: This tool does NOT modify saved connections - it only sets which connection to use for this session. To connect to a different database temporarily, provide a full connection string (e.g., `postgres://user@host/different_database`).
 
 **Input with alias**:
 ```json

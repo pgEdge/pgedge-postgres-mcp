@@ -26,7 +26,7 @@ func QueryDatabaseTool(dbClient *database.Client) Tool {
 	return Tool{
 		Definition: mcp.Tool{
 			Name:        "query_database",
-			Description: "Execute a SQL query against the PostgreSQL database in a read-only transaction. All queries run in read-only mode to prevent data modifications. You can specify an alternative database connection by including 'at postgres://...' in your query, or set a new default connection with 'set default database to postgres://...'.",
+			Description: "Execute a SQL query against the PostgreSQL database in a read-only transaction. All queries run in read-only mode to prevent data modifications. You can temporarily query a different database by including 'at postgres://...' in your query (e.g., 'SELECT * FROM users at postgres://user@host/other_database'), or set a new default connection with 'set default database to postgres://...'. IMPORTANT: These connection changes are temporary and do NOT modify saved connections.",
 			InputSchema: mcp.InputSchema{
 				Type: "object",
 				Properties: map[string]interface{}{

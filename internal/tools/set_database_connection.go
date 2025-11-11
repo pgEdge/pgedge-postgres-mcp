@@ -25,13 +25,13 @@ func SetDatabaseConnectionTool(clientManager *database.ClientManager, connMgr *C
 	return Tool{
 		Definition: mcp.Tool{
 			Name:        "set_database_connection",
-			Description: "Set the PostgreSQL database connection for this session. You can provide either a full connection string OR an alias to a saved connection. This must be called before using any database-dependent tools. Examples: 'production', 'postgres://user:pass@host/db'",
+			Description: "Set the PostgreSQL database connection for this session. You can provide either a full connection string OR an alias to a saved connection. This must be called before using any database-dependent tools. IMPORTANT: This tool does NOT modify saved connections - it only sets which connection to use for this session. To connect to a different database temporarily, use a full connection string. Examples: 'production', 'postgres://user:pass@host/db', 'postgres://user@host/different_database'",
 			InputSchema: mcp.InputSchema{
 				Type: "object",
 				Properties: map[string]interface{}{
 					"connection_string": map[string]interface{}{
 						"type":        "string",
-						"description": "PostgreSQL connection string OR alias to a saved connection. If using an alias, the saved connection will be retrieved and used. Format: postgres://username:password@host:port/database?options OR saved alias name (e.g., 'production', 'staging')",
+						"description": "PostgreSQL connection string OR alias to a saved connection. If using an alias, the saved connection will be retrieved and used as-is without modification. To temporarily connect to a different database on the same server, provide a full connection string with the different database name. Format: postgres://username:password@host:port/database?options OR saved alias name (e.g., 'production', 'staging')",
 					},
 				},
 				Required: []string{"connection_string"},

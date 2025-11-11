@@ -368,7 +368,7 @@ func EditDatabaseConnectionTool(connMgr *ConnectionManager, configPath string) T
 	return Tool{
 		Definition: mcp.Tool{
 			Name:        "edit_database_connection",
-			Description: "Edit an existing saved database connection. Provide only the fields you want to update. Passwords will be encrypted before storage.",
+			Description: "Permanently modify a saved database connection's configuration. IMPORTANT: Only use this tool when the user explicitly asks to update, change, or edit a saved connection. DO NOT use this tool to temporarily connect to a different database - use set_database_connection with a full connection string instead. Provide only the fields you want to update. Passwords will be encrypted before storage.",
 			InputSchema: mcp.InputSchema{
 				Type: "object",
 				Properties: map[string]interface{}{
