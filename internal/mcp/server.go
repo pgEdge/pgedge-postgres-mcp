@@ -21,7 +21,7 @@ import (
 const (
 	ProtocolVersion = "2024-11-05"
 	ServerName      = "pgedge-postgres-mcp"
-	ServerVersion   = "0.1.0"
+	ServerVersion   = "1.0.0-alpha1"
 )
 
 // ToolProvider is an interface for listing and executing tools

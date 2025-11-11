@@ -29,7 +29,7 @@ import (
 const (
 	serverName    = "pgEdge PostgreSQL MCP Server"
 	serverCompany = "pgEdge, Inc."
-	serverVersion = "1.0.0"
+	serverVersion = "1.0.0-alpha1"
 )
 
 func main() {
