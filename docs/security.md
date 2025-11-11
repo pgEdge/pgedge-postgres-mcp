@@ -67,10 +67,10 @@ add_database_connection(
 )
 
 # Or use environment variables for runtime connections
-export POSTGRES_CONNECTION_STRING="postgres://user:password@host/db"
+export PGEDGE_POSTGRES_CONNECTION_STRING="postgres://user:password@host/db"
 
 # Or use a secrets manager
-export POSTGRES_CONNECTION_STRING=$(vault kv get -field=connection_string secret/pgedge-mcp)
+export PGEDGE_POSTGRES_CONNECTION_STRING=$(vault kv get -field=connection_string secret/pgedge-mcp)
 ```
 
 **Example - Insecure (DON'T DO THIS):**
@@ -89,13 +89,13 @@ git add pgedge-postgres-mcp.secret  # DON'T DO THIS
 
 ```bash
 # Require SSL
-POSTGRES_CONNECTION_STRING="postgres://user:pass@host/db?sslmode=require"
+PGEDGE_POSTGRES_CONNECTION_STRING="postgres://user:pass@host/db?sslmode=require"
 
 # Verify CA certificate
-POSTGRES_CONNECTION_STRING="postgres://user:pass@host/db?sslmode=verify-ca&sslrootcert=/path/to/ca.crt"
+PGEDGE_POSTGRES_CONNECTION_STRING="postgres://user:pass@host/db?sslmode=verify-ca&sslrootcert=/path/to/ca.crt"
 
 # Full verification (hostname + CA)
-POSTGRES_CONNECTION_STRING="postgres://user:pass@host/db?sslmode=verify-full&sslrootcert=/path/to/ca.crt"
+PGEDGE_POSTGRES_CONNECTION_STRING="postgres://user:pass@host/db?sslmode=verify-full&sslrootcert=/path/to/ca.crt"
 ```
 
 **SSL Mode Options:**
@@ -691,7 +691,7 @@ SELECT pg_reload_conf();
 
     ```bash
     # Update connection string
-    export POSTGRES_CONNECTION_STRING="postgres://mcp_readonly:new_password@host/db"
+    export PGEDGE_POSTGRES_CONNECTION_STRING="postgres://mcp_readonly:new_password@host/db"
 
     # Restart server
     sudo systemctl restart pgedge-mcp

@@ -133,7 +133,7 @@ Comprehensive integration tests for all 12 MCP resources are available in `inter
 
 ```bash
 # 1. Set up PostgreSQL connection for tests
-export TEST_POSTGRES_CONNECTION_STRING="postgres://user:pass@localhost/dbname"
+export TEST_PGEDGE_POSTGRES_CONNECTION_STRING="postgres://user:pass@localhost/dbname"
 
 # 2. Run all integration tests
 go test ./internal/resources -v -run "Integration"
@@ -155,22 +155,22 @@ To ensure compatibility across versions:
 ```bash
 # PostgreSQL 14
 docker run -d -p 5432:5432 -e POSTGRES_PASSWORD=test postgres:14
-export TEST_POSTGRES_CONNECTION_STRING="postgres://postgres:test@localhost/postgres"
+export TEST_PGEDGE_POSTGRES_CONNECTION_STRING="postgres://postgres:test@localhost/postgres"
 go test ./internal/resources -v -run "Integration"
 
 # PostgreSQL 15
 docker run -d -p 5432:5432 -e POSTGRES_PASSWORD=test postgres:15
-export TEST_POSTGRES_CONNECTION_STRING="postgres://postgres:test@localhost/postgres"
+export TEST_PGEDGE_POSTGRES_CONNECTION_STRING="postgres://postgres:test@localhost/postgres"
 go test ./internal/resources -v -run "Integration"
 
 # PostgreSQL 16
 docker run -d -p 5432:5432 -e POSTGRES_PASSWORD=test postgres:16
-export TEST_POSTGRES_CONNECTION_STRING="postgres://postgres:test@localhost/postgres"
+export TEST_PGEDGE_POSTGRES_CONNECTION_STRING="postgres://postgres:test@localhost/postgres"
 go test ./internal/resources -v -run "Integration"
 
 # PostgreSQL 17
 docker run -d -p 5432:5432 -e POSTGRES_PASSWORD=test postgres:17
-export TEST_POSTGRES_CONNECTION_STRING="postgres://postgres:test@localhost/postgres"
+export TEST_PGEDGE_POSTGRES_CONNECTION_STRING="postgres://postgres:test@localhost/postgres"
 go test ./internal/resources -v -run "Integration"
 ```
 

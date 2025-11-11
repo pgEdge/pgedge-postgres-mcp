@@ -175,6 +175,14 @@ func (p *ContextAwareProvider) getOrCreateRegistryForClient(client *database.Cli
 // Execute runs a tool by name with the given arguments and context
 // Uses cached per-client registries to avoid re-creating tools on every request
 func (p *ContextAwareProvider) Execute(ctx context.Context, name string, args map[string]interface{}) (mcp.ToolResponse, error) {
+	// If authentication is enabled, validate token for ALL tools
+	if p.authEnabled {
+		tokenHash := auth.GetTokenHashFromContext(ctx)
+		if tokenHash == "" {
+			return mcp.ToolResponse{}, fmt.Errorf("no authentication token found in request context")
+		}
+	}
+
 	// Check if this is a stateless tool that doesn't require a database client
 	statelessTools := map[string]bool{
 		"recommend_pg_configuration": true,

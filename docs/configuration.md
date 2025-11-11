@@ -82,7 +82,6 @@ connections:
       user: dbuser
       password: "encrypted_base64_password_here"  # AES-256-GCM encrypted
       dbname: mydb
-      maintenance_db: postgres
       sslmode: verify-full
       sslrootcert: /path/to/ca.crt
       description: "Production database"
@@ -95,7 +94,6 @@ connections:
       user: dbuser
       password: "encrypted_base64_password_here"  # AES-256-GCM encrypted
       dbname: mydb
-      maintenance_db: postgres
       sslmode: require
       description: "Staging environment"
       created_at: 2025-01-15T10:00:00Z
@@ -128,8 +126,10 @@ The server provides tools to manage saved database connections:
 # Add a connection with an alias
 add_database_connection(
   alias="production",
-  connection_string="postgres://user:pass@host/db",
-  maintenance_db="postgres",
+  host="host",
+  user="user",
+  password="pass",
+  dbname="db",
   description="Production database"
 )
 
@@ -318,7 +318,7 @@ export PGEDGE_TLS_KEY_FILE="./server.key"
 Tests use a separate environment variable to avoid confusion with runtime configuration:
 
 ```bash
-export TEST_POSTGRES_CONNECTION_STRING="postgres://localhost/postgres?sslmode=disable"
+export TEST_PGEDGE_POSTGRES_CONNECTION_STRING="postgres://localhost/postgres?sslmode=disable"
 go test ./...
 ```
 

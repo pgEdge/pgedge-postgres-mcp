@@ -53,7 +53,7 @@ A Model Context Protocol (MCP) server written in Go that enables natural languag
         "pgedge": {
             "command": "/absolute/path/to/bin/pgedge-postgres-mcp",
             "env": {
-            "POSTGRES_CONNECTION_STRING": "postgres://user:pass@localhost:5432/mydb",
+            "PGEDGE_POSTGRES_CONNECTION_STRING": "postgres://user:pass@localhost:5432/mydb",
             "ANTHROPIC_API_KEY": "sk-ant-your-key"
             }
         }
@@ -161,7 +161,7 @@ go test ./...
 go test -v -cover ./...
 
 # Integration tests (requires PostgreSQL)
-export POSTGRES_CONNECTION_STRING="postgres://user:pass@localhost/testdb"
+export TEST_PGEDGE_POSTGRES_CONNECTION_STRING="postgres://user:pass@localhost/testdb"
 go test ./internal/resources -v -run Integration
 ```
 

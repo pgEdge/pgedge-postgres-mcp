@@ -104,10 +104,6 @@ func AddDatabaseConnectionTool(connMgr *ConnectionManager, configPath string) To
 						"type":        "string",
 						"description": "Database name (defaults to username if not specified)",
 					},
-					"maintenance_db": map[string]interface{}{
-						"type":        "string",
-						"description": "Maintenance/initial database for admin operations (default: 'postgres')",
-					},
 					"sslmode": map[string]interface{}{
 						"type":        "string",
 						"description": "SSL mode: disable, allow, prefer, require, verify-ca, verify-full (default: prefer)",
@@ -177,10 +173,6 @@ func AddDatabaseConnectionTool(connMgr *ConnectionManager, configPath string) To
 				conn.DBName = dbname
 			}
 
-			if maintenanceDB, ok := args["maintenance_db"].(string); ok && maintenanceDB != "" {
-				conn.MaintenanceDB = maintenanceDB
-			}
-
 			if desc, ok := args["description"].(string); ok && desc != "" {
 				conn.Description = desc
 			}
@@ -248,9 +240,6 @@ func AddDatabaseConnectionTool(connMgr *ConnectionManager, configPath string) To
 			msg += fmt.Sprintf("User: %s\n", conn.User)
 			if conn.DBName != "" {
 				msg += fmt.Sprintf("Database: %s\n", conn.DBName)
-			}
-			if conn.MaintenanceDB != "" {
-				msg += fmt.Sprintf("Maintenance DB: %s\n", conn.MaintenanceDB)
 			}
 			if conn.SSLMode != "" {
 				msg += fmt.Sprintf("SSL Mode: %s\n", conn.SSLMode)
@@ -353,9 +342,6 @@ func ListDatabaseConnectionsTool(connMgr *ConnectionManager) Tool {
 				if conn.DBName != "" {
 					result.WriteString(fmt.Sprintf("  Database: %s\n", conn.DBName))
 				}
-				if conn.MaintenanceDB != "" {
-					result.WriteString(fmt.Sprintf("  Maintenance DB: %s\n", conn.MaintenanceDB))
-				}
 				if conn.SSLMode != "" {
 					result.WriteString(fmt.Sprintf("  SSL Mode: %s\n", conn.SSLMode))
 				}
@@ -409,10 +395,6 @@ func EditDatabaseConnectionTool(connMgr *ConnectionManager, configPath string) T
 					"dbname": map[string]interface{}{
 						"type":        "string",
 						"description": "New database name",
-					},
-					"maintenance_db": map[string]interface{}{
-						"type":        "string",
-						"description": "New maintenance database",
 					},
 					"sslmode": map[string]interface{}{
 						"type":        "string",
@@ -474,10 +456,6 @@ func EditDatabaseConnectionTool(connMgr *ConnectionManager, configPath string) T
 			}
 			if dbname, ok := args["dbname"].(string); ok && dbname != "" {
 				updates.DBName = dbname
-				hasUpdates = true
-			}
-			if maintenanceDB, ok := args["maintenance_db"].(string); ok && maintenanceDB != "" {
-				updates.MaintenanceDB = maintenanceDB
 				hasUpdates = true
 			}
 			if desc, ok := args["description"].(string); ok && desc != "" {

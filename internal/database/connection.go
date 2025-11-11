@@ -63,7 +63,7 @@ func (c *Client) Connect() error {
 	connStr := existingConnStr
 	if connStr == "" {
 		// No connection string set yet, read from environment
-		connStr = os.Getenv("POSTGRES_CONNECTION_STRING")
+		connStr = os.Getenv("PGEDGE_POSTGRES_CONNECTION_STRING")
 		if connStr == "" {
 			connStr = "postgres://localhost/postgres?sslmode=disable"
 		}

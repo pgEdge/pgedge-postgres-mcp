@@ -161,8 +161,8 @@ Note: The configuration file [`.golangci.yml`](.golangci.yml) is compatible with
 ### Testing
 
 ```bash
-# Run tests (uses TEST_POSTGRES_CONNECTION_STRING)
-export TEST_POSTGRES_CONNECTION_STRING="postgres://localhost/postgres?sslmode=disable"
+# Run tests (uses TEST_PGEDGE_POSTGRES_CONNECTION_STRING)
+export TEST_PGEDGE_POSTGRES_CONNECTION_STRING="postgres://localhost/postgres?sslmode=disable"
 go test ./...
 
 # Run with coverage

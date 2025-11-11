@@ -57,8 +57,8 @@ func TestNewContextAwareProvider(t *testing.T) {
 // TestContextAwareProvider_List tests tool listing
 func TestContextAwareProvider_List(t *testing.T) {
 	// Skip if no database connection available
-	if os.Getenv("POSTGRES_CONNECTION_STRING") == "" {
-		t.Skip("POSTGRES_CONNECTION_STRING not set, skipping database test")
+	if os.Getenv("TEST_PGEDGE_POSTGRES_CONNECTION_STRING") == "" {
+		t.Skip("TEST_PGEDGE_POSTGRES_CONNECTION_STRING not set, skipping database test")
 	}
 
 	clientManager := database.NewClientManager()
@@ -162,8 +162,8 @@ func TestContextAwareProvider_Execute_NoAuth(t *testing.T) {
 // TestContextAwareProvider_Execute_WithAuth tests execution with authentication
 func TestContextAwareProvider_Execute_WithAuth(t *testing.T) {
 	// Skip if no database connection available (needed for client creation)
-	if os.Getenv("POSTGRES_CONNECTION_STRING") == "" {
-		t.Skip("POSTGRES_CONNECTION_STRING not set, skipping database test")
+	if os.Getenv("TEST_PGEDGE_POSTGRES_CONNECTION_STRING") == "" {
+		t.Skip("TEST_PGEDGE_POSTGRES_CONNECTION_STRING not set, skipping database test")
 	}
 
 	clientManager := database.NewClientManager()
@@ -187,7 +187,7 @@ func TestContextAwareProvider_Execute_WithAuth(t *testing.T) {
 		// Execute server_info (even though it doesn't need DB, context validation happens first)
 		_, err := provider.Execute(ctx, "server_info", map[string]interface{}{})
 		if err == nil {
-			t.Error("Expected error for missing token hash")
+			t.Fatal("Expected error for missing token hash, got nil")
 		}
 
 		if !strings.Contains(err.Error(), "no authentication token") {
@@ -219,9 +219,9 @@ func TestContextAwareProvider_Execute_WithAuth(t *testing.T) {
 			t.Error("Expected output to contain server name")
 		}
 
-		// Verify a client was created for this token
-		if count := clientManager.GetClientCount(); count != 1 {
-			t.Errorf("Expected 1 client to be created, got %d", count)
+		// Note: server_info is a stateless tool, so no client should be created
+		if count := clientManager.GetClientCount(); count != 0 {
+			t.Errorf("Expected 0 clients for stateless tool, got %d", count)
 		}
 	})
 
@@ -240,9 +240,16 @@ func TestContextAwareProvider_Execute_WithAuth(t *testing.T) {
 			t.Fatalf("Execute failed for token 2: %v", err)
 		}
 
-		// Should have 3 clients now (test-token-hash-123, token-hash-1, token-hash-2)
-		if count := clientManager.GetClientCount(); count != 3 {
-			t.Errorf("Expected 3 clients for different tokens, got %d", count)
+		// Third token
+		ctx3 := context.WithValue(context.Background(), auth.TokenHashContextKey, "token-hash-3")
+		_, err = provider.Execute(ctx3, "server_info", map[string]interface{}{})
+		if err != nil {
+			t.Fatalf("Execute failed for token 3: %v", err)
+		}
+
+		// Note: server_info is a stateless tool, so no clients should be created
+		if count := clientManager.GetClientCount(); count != 0 {
+			t.Errorf("Expected 0 clients for stateless tool, got %d", count)
 		}
 	})
 }
@@ -291,8 +298,8 @@ func TestContextAwareProvider_Execute_InvalidTool(t *testing.T) {
 // TestContextAwareProvider_RegisterTools_WithContext tests registering with context
 func TestContextAwareProvider_RegisterTools_WithContext(t *testing.T) {
 	// Skip if no database connection available
-	if os.Getenv("POSTGRES_CONNECTION_STRING") == "" {
-		t.Skip("POSTGRES_CONNECTION_STRING not set, skipping database test")
+	if os.Getenv("TEST_PGEDGE_POSTGRES_CONNECTION_STRING") == "" {
+		t.Skip("TEST_PGEDGE_POSTGRES_CONNECTION_STRING not set, skipping database test")
 	}
 
 	clientManager := database.NewClientManager()
@@ -315,12 +322,13 @@ func TestContextAwareProvider_RegisterTools_WithContext(t *testing.T) {
 		t.Fatalf("RegisterTools failed: %v", err)
 	}
 
-	// Verify a client was created for this token
-	if count := clientManager.GetClientCount(); count != 1 {
-		t.Errorf("Expected 1 client after registration, got %d", count)
+	// Note: RegisterTools doesn't create clients - clients are created on-demand
+	// when Execute() is called with database-dependent tools
+	if count := clientManager.GetClientCount(); count != 0 {
+		t.Errorf("Expected 0 clients after registration (clients created on-demand), got %d", count)
 	}
 
-	// Verify tools are registered
+	// Verify tools are registered in base registry
 	tools := provider.List()
 	if len(tools) == 0 {
 		t.Error("Expected tools to be registered")

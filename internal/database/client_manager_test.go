@@ -18,8 +18,8 @@ import (
 // TestClientManager_GetClient tests that different tokens get different clients
 func TestClientManager_GetClient(t *testing.T) {
 	// Skip if no database connection available
-	if os.Getenv("POSTGRES_CONNECTION_STRING") == "" {
-		t.Skip("POSTGRES_CONNECTION_STRING not set, skipping database test")
+	if os.Getenv("TEST_PGEDGE_POSTGRES_CONNECTION_STRING") == "" {
+		t.Skip("TEST_PGEDGE_POSTGRES_CONNECTION_STRING not set, skipping database test")
 	}
 
 	cm := NewClientManager()
@@ -93,8 +93,8 @@ func TestClientManager_GetClient(t *testing.T) {
 // TestClientManager_RemoveClient tests removing individual clients
 func TestClientManager_RemoveClient(t *testing.T) {
 	// Skip if no database connection available
-	if os.Getenv("POSTGRES_CONNECTION_STRING") == "" {
-		t.Skip("POSTGRES_CONNECTION_STRING not set, skipping database test")
+	if os.Getenv("TEST_PGEDGE_POSTGRES_CONNECTION_STRING") == "" {
+		t.Skip("TEST_PGEDGE_POSTGRES_CONNECTION_STRING not set, skipping database test")
 	}
 
 	cm := NewClientManager()
@@ -134,8 +134,8 @@ func TestClientManager_RemoveClient(t *testing.T) {
 // TestClientManager_RemoveClients tests removing multiple clients at once
 func TestClientManager_RemoveClients(t *testing.T) {
 	// Skip if no database connection available
-	if os.Getenv("POSTGRES_CONNECTION_STRING") == "" {
-		t.Skip("POSTGRES_CONNECTION_STRING not set, skipping database test")
+	if os.Getenv("TEST_PGEDGE_POSTGRES_CONNECTION_STRING") == "" {
+		t.Skip("TEST_PGEDGE_POSTGRES_CONNECTION_STRING not set, skipping database test")
 	}
 
 	cm := NewClientManager()
@@ -169,8 +169,8 @@ func TestClientManager_RemoveClients(t *testing.T) {
 // TestClientManager_CloseAll tests closing all clients
 func TestClientManager_CloseAll(t *testing.T) {
 	// Skip if no database connection available
-	if os.Getenv("POSTGRES_CONNECTION_STRING") == "" {
-		t.Skip("POSTGRES_CONNECTION_STRING not set, skipping database test")
+	if os.Getenv("TEST_PGEDGE_POSTGRES_CONNECTION_STRING") == "" {
+		t.Skip("TEST_PGEDGE_POSTGRES_CONNECTION_STRING not set, skipping database test")
 	}
 
 	cm := NewClientManager()
@@ -202,8 +202,8 @@ func TestClientManager_CloseAll(t *testing.T) {
 // TestClientManager_Concurrency tests thread-safety of client manager
 func TestClientManager_Concurrency(t *testing.T) {
 	// Skip if no database connection available
-	if os.Getenv("POSTGRES_CONNECTION_STRING") == "" {
-		t.Skip("POSTGRES_CONNECTION_STRING not set, skipping database test")
+	if os.Getenv("TEST_PGEDGE_POSTGRES_CONNECTION_STRING") == "" {
+		t.Skip("TEST_PGEDGE_POSTGRES_CONNECTION_STRING not set, skipping database test")
 	}
 
 	cm := NewClientManager()

@@ -285,10 +285,10 @@ func generateSelfSignedCert(t *testing.T) (certFile, keyFile string, err error) 
 
 // TestHTTPModeIntegration tests the HTTP transport mode
 func TestHTTPModeIntegration(t *testing.T) {
-	connString := os.Getenv("TEST_POSTGRES_CONNECTION_STRING")
+	connString := os.Getenv("TEST_PGEDGE_POSTGRES_CONNECTION_STRING")
 	if connString == "" {
 		connString = "postgres://localhost/postgres?sslmode=disable"
-		t.Logf("TEST_POSTGRES_CONNECTION_STRING not set, using default: %s", connString)
+		t.Logf("TEST_PGEDGE_POSTGRES_CONNECTION_STRING not set, using default: %s", connString)
 	}
 
 	apiKey := os.Getenv("TEST_ANTHROPIC_API_KEY")
@@ -342,10 +342,10 @@ func TestHTTPModeIntegration(t *testing.T) {
 
 // TestHTTPSModeIntegration tests the HTTPS transport mode with TLS
 func TestHTTPSModeIntegration(t *testing.T) {
-	connString := os.Getenv("TEST_POSTGRES_CONNECTION_STRING")
+	connString := os.Getenv("TEST_PGEDGE_POSTGRES_CONNECTION_STRING")
 	if connString == "" {
 		connString = "postgres://localhost/postgres?sslmode=disable"
-		t.Logf("TEST_POSTGRES_CONNECTION_STRING not set, using default: %s", connString)
+		t.Logf("TEST_PGEDGE_POSTGRES_CONNECTION_STRING not set, using default: %s", connString)
 	}
 
 	apiKey := os.Getenv("TEST_ANTHROPIC_API_KEY")
@@ -707,7 +707,7 @@ func TestHTTPCommandLineFlags(t *testing.T) {
 		// Try to use -tls without -http
 		cmd := exec.Command(binaryPath, "-tls")
 		cmd.Env = append(os.Environ(),
-			"POSTGRES_CONNECTION_STRING=postgres://localhost/postgres",
+			"PGEDGE_POSTGRES_CONNECTION_STRING=postgres://localhost/postgres",
 			"PGEDGE_ANTHROPIC_API_KEY=dummy",
 		)
 
@@ -728,7 +728,7 @@ func TestHTTPCommandLineFlags(t *testing.T) {
 		// Try to use -cert without -http
 		cmd := exec.Command(binaryPath, "-cert", "/tmp/cert.pem")
 		cmd.Env = append(os.Environ(),
-			"POSTGRES_CONNECTION_STRING=postgres://localhost/postgres",
+			"PGEDGE_POSTGRES_CONNECTION_STRING=postgres://localhost/postgres",
 			"PGEDGE_ANTHROPIC_API_KEY=dummy",
 		)
 

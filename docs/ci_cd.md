@@ -191,18 +191,18 @@ xdg-open coverage.html  # Linux
 Integration tests require:
 
 - PostgreSQL running locally or via environment
-- Connection string in `TEST_POSTGRES_CONNECTION_STRING`
+- Connection string in `TEST_PGEDGE_POSTGRES_CONNECTION_STRING`
 - Optional: Anthropic API key in `TEST_ANTHROPIC_API_KEY`
 
 ### Running Integration Tests
 
 ```bash
 # With default PostgreSQL
-export TEST_POSTGRES_CONNECTION_STRING="postgres://localhost/postgres?sslmode=disable"
+export TEST_PGEDGE_POSTGRES_CONNECTION_STRING="postgres://localhost/postgres?sslmode=disable"
 go test ./test/...
 
 # With custom PostgreSQL
-export TEST_POSTGRES_CONNECTION_STRING="postgres://user:pass@host/db"
+export TEST_PGEDGE_POSTGRES_CONNECTION_STRING="postgres://user:pass@host/db"
 export TEST_ANTHROPIC_API_KEY="sk-ant-your-key"
 go test ./test/...
 
@@ -233,7 +233,7 @@ None - tests run with default settings
 
 ```yaml
 env:
-  TEST_POSTGRES_CONNECTION_STRING: postgres://postgres:postgres@localhost/test
+  TEST_PGEDGE_POSTGRES_CONNECTION_STRING: postgres://postgres:postgres@localhost/test
   TEST_ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
   CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 ```
@@ -314,7 +314,7 @@ jobs:
 
     - name: Run tests
       env:
-        TEST_POSTGRES_CONNECTION_STRING: postgres://postgres:postgres@localhost:5432/postgres?sslmode=disable
+        TEST_PGEDGE_POSTGRES_CONNECTION_STRING: postgres://postgres:postgres@localhost:5432/postgres?sslmode=disable
       run: go test -v -cover ./...
 
     - name: Run lint
@@ -498,7 +498,7 @@ When tests fail:
 
    # Use same PostgreSQL version
    docker run -d -p 5432:5432 -e POSTGRES_PASSWORD=postgres postgres:16
-   export TEST_POSTGRES_CONNECTION_STRING="postgres://postgres:postgres@localhost/postgres"
+   export TEST_PGEDGE_POSTGRES_CONNECTION_STRING="postgres://postgres:postgres@localhost/postgres"
    go test -v ./test/...
    ```
 

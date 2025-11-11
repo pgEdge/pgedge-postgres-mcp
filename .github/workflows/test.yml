@@ -124,13 +124,13 @@ jobs:
 
     - name: Run integration tests
       env:
-        TEST_POSTGRES_CONNECTION_STRING: "postgres://postgres:postgres@localhost:5432/testdb?sslmode=disable"
+        TEST_PGEDGE_POSTGRES_CONNECTION_STRING: "postgres://postgres:postgres@localhost:5432/testdb?sslmode=disable"
         TEST_ANTHROPIC_API_KEY: "dummy-key-for-testing"
       run: go test -v ./test/...
 
     - name: Run integration tests with LLM (if API key available)
       env:
-        TEST_POSTGRES_CONNECTION_STRING: "postgres://postgres:postgres@localhost:5432/testdb?sslmode=disable"
+        TEST_PGEDGE_POSTGRES_CONNECTION_STRING: "postgres://postgres:postgres@localhost:5432/testdb?sslmode=disable"
         TEST_ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY || 'dummy-key-for-testing' }}
       run: go test -v ./test/... -run QueryPostgreSQLVersion
       continue-on-error: true

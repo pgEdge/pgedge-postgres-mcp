@@ -195,10 +195,10 @@ func (s *MCPServer) Close() error {
 // TestMCPServerIntegration runs basic integration tests
 func TestMCPServerIntegration(t *testing.T) {
 	// Skip if no database is available
-	connString := os.Getenv("TEST_POSTGRES_CONNECTION_STRING")
+	connString := os.Getenv("TEST_PGEDGE_POSTGRES_CONNECTION_STRING")
 	if connString == "" {
 		connString = "postgres://localhost/postgres?sslmode=disable"
-		t.Logf("TEST_POSTGRES_CONNECTION_STRING not set, using default: %s", connString)
+		t.Logf("TEST_PGEDGE_POSTGRES_CONNECTION_STRING not set, using default: %s", connString)
 	}
 
 	// API key is optional for some tests
@@ -808,9 +808,9 @@ func testQueryPostgreSQLVersion(t *testing.T, server *MCPServer, apiKey string) 
 
 // TestReadOnlyProtection tests that generated queries are executed in read-only mode
 func TestReadOnlyProtection(t *testing.T) {
-	connString := os.Getenv("TEST_POSTGRES_CONNECTION_STRING")
+	connString := os.Getenv("TEST_PGEDGE_POSTGRES_CONNECTION_STRING")
 	if connString == "" {
-		t.Skip("TEST_POSTGRES_CONNECTION_STRING not set")
+		t.Skip("TEST_PGEDGE_POSTGRES_CONNECTION_STRING not set")
 	}
 
 	apiKey := os.Getenv("TEST_ANTHROPIC_API_KEY")

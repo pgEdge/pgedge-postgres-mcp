@@ -26,12 +26,11 @@ type SavedConnection struct {
 	LastUsedAt  time.Time `yaml:"last_used_at,omitempty" json:"last_used_at,omitempty"`
 
 	// Database connection parameters
-	Host          string `yaml:"host,omitempty" json:"host,omitempty"`                     // hostname or IP address
-	Port          int    `yaml:"port,omitempty" json:"port,omitempty"`                     // port number (default 5432)
-	User          string `yaml:"user,omitempty" json:"user,omitempty"`                     // database user
-	Password      string `yaml:"password,omitempty" json:"password,omitempty"`             // encrypted password
-	DBName        string `yaml:"dbname,omitempty" json:"dbname,omitempty"`                 // database name
-	MaintenanceDB string `yaml:"maintenance_db,omitempty" json:"maintenance_db,omitempty"` // maintenance database (default postgres)
+	Host     string `yaml:"host,omitempty" json:"host,omitempty"`         // hostname or IP address
+	Port     int    `yaml:"port,omitempty" json:"port,omitempty"`         // port number (default 5432)
+	User     string `yaml:"user,omitempty" json:"user,omitempty"`         // database user
+	Password string `yaml:"password,omitempty" json:"password,omitempty"` // encrypted password
+	DBName   string `yaml:"dbname,omitempty" json:"dbname,omitempty"`     // database name
 
 	// SSL/TLS parameters
 	SSLMode       string `yaml:"sslmode,omitempty" json:"sslmode,omitempty"`             // disable, allow, prefer, require, verify-ca, verify-full
@@ -148,9 +147,6 @@ func (s *SavedConnectionStore) Add(conn *SavedConnection) error {
 	if conn.Port == 0 {
 		conn.Port = 5432 // Default PostgreSQL port
 	}
-	if conn.MaintenanceDB == "" {
-		conn.MaintenanceDB = "postgres" // Default maintenance database
-	}
 	if conn.DBName == "" {
 		conn.DBName = conn.User // Default to username if not specified
 	}
@@ -209,9 +205,6 @@ func (s *SavedConnectionStore) Update(alias string, updates *SavedConnection) er
 	}
 	if updates.DBName != "" {
 		conn.DBName = updates.DBName
-	}
-	if updates.MaintenanceDB != "" {
-		conn.MaintenanceDB = updates.MaintenanceDB
 	}
 	if updates.Description != "" {
 		conn.Description = updates.Description

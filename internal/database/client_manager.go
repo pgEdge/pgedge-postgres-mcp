@@ -179,7 +179,7 @@ func (cm *ClientManager) SetClient(key string, client *Client) error {
 }
 
 // GetOrCreateClient returns a database client for the given key
-// If no client exists and autoConnect is true, creates and connects a new client using POSTGRES_CONNECTION_STRING
+// If no client exists and autoConnect is true, creates and connects a new client using PGEDGE_POSTGRES_CONNECTION_STRING
 // If no client exists and autoConnect is false, returns an error
 func (cm *ClientManager) GetOrCreateClient(key string, autoConnect bool) (*Client, error) {
 	if key == "" {

@@ -19,7 +19,7 @@ import (
 // TestMCPCompliance verifies that the MCP server properly advertises
 // all capabilities, tools, and resources according to the MCP specification
 func TestMCPCompliance(t *testing.T) {
-	connString := os.Getenv("TEST_POSTGRES_CONNECTION_STRING")
+	connString := os.Getenv("TEST_PGEDGE_POSTGRES_CONNECTION_STRING")
 	if connString == "" {
 		connString = "postgres://localhost/postgres?sslmode=disable"
 	}

@@ -194,7 +194,6 @@ Save a database connection with an alias for later use. Connections are persiste
   "user": "dbuser",
   "password": "securepassword",
   "dbname": "mydb",
-  "maintenance_db": "postgres",
   "sslmode": "verify-full",
   "sslrootcert": "/path/to/ca.crt",
   "description": "Production database server"
@@ -208,7 +207,6 @@ Save a database connection with an alias for later use. Connections are persiste
 - `user` (required): Database username
 - `password` (optional): Database password (will be encrypted before storage)
 - `dbname` (optional, default: same as user): Database name
-- `maintenance_db` (optional, default: "postgres"): Initial database for connections, like pgAdmin
 - `sslmode` (optional): SSL mode - disable, allow, prefer, require, verify-ca, verify-full
 - `sslcert` (optional): Path to client certificate file
 - `sslkey` (optional): Path to client key file
@@ -225,7 +223,6 @@ Successfully saved connection 'production'
 Host: prod-host.example.com:5432
 User: dbuser
 Database: mydb
-Maintenance DB: postgres
 SSL Mode: verify-full
 Description: Production database server
 ```
@@ -321,7 +318,6 @@ Update an existing saved connection. You can update any or all connection parame
 - `user` (optional): New database username
 - `password` (optional): New database password (will be encrypted before storage)
 - `dbname` (optional): New database name
-- `maintenance_db` (optional): New maintenance database
 - `sslmode` (optional): New SSL mode
 - `sslcert` (optional): New path to client certificate file
 - `sslkey` (optional): New path to client key file

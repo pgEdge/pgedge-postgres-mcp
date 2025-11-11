@@ -145,11 +145,10 @@ func convertConnection(old *OldSavedConnection, encryptionKey *crypto.Encryption
     }
 
     newConn := &auth.SavedConnection{
-        Alias:         old.Alias,
-        Description:   old.Description,
-        CreatedAt:     old.CreatedAt,
-        LastUsedAt:    old.LastUsedAt,
-        MaintenanceDB: old.MaintenanceDB,
+        Alias:       old.Alias,
+        Description: old.Description,
+        CreatedAt:   old.CreatedAt,
+        LastUsedAt:  old.LastUsedAt,
     }
 
     // Extract user and password

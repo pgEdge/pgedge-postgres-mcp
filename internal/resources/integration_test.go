@@ -22,8 +22,8 @@ import (
 // This test helps catch compatibility issues across different PostgreSQL versions
 func TestAllResources_Integration(t *testing.T) {
 	// Skip if no database connection available
-	if os.Getenv("POSTGRES_CONNECTION_STRING") == "" {
-		t.Skip("POSTGRES_CONNECTION_STRING not set, skipping integration test")
+	if os.Getenv("TEST_PGEDGE_POSTGRES_CONNECTION_STRING") == "" {
+		t.Skip("TEST_PGEDGE_POSTGRES_CONNECTION_STRING not set, skipping integration test")
 	}
 
 	client := database.NewClient()

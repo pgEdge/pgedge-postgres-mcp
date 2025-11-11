@@ -211,7 +211,7 @@ To add MCP prompts support:
 ## Configuration
 
 ### Environment Variables
-- `POSTGRES_CONNECTION_STRING`: Database connection (required)
+- `PGEDGE_POSTGRES_CONNECTION_STRING`: Database connection (required)
 - `ANTHROPIC_API_KEY`: Claude API key (required for queries)
 - `ANTHROPIC_MODEL`: Claude model ID (optional)
 
@@ -223,7 +223,7 @@ Configure in Claude Desktop's MCP config file:
     "pgedge": {
       "command": "/path/to/bin/pgedge-postgres-mcp",
       "env": {
-        "POSTGRES_CONNECTION_STRING": "...",
+        "PGEDGE_POSTGRES_CONNECTION_STRING": "...",
         "ANTHROPIC_API_KEY": "..."
       }
     }
@@ -250,7 +250,7 @@ make test
 ### Manual Testing
 ```bash
 # Set environment
-export POSTGRES_CONNECTION_STRING="..."
+export PGEDGE_POSTGRES_CONNECTION_STRING="..."
 export ANTHROPIC_API_KEY="..."
 
 # Run server
