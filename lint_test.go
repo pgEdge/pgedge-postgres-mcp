@@ -11,6 +11,7 @@
 package main
 
 import (
+	"os"
 	"os/exec"
 	"strings"
 	"testing"
@@ -19,14 +20,26 @@ import (
 // TestLint runs golangci-lint if it's installed on the system.
 // This integrates linting into the regular test suite.
 func TestLint(t *testing.T) {
-	// Check if golangci-lint is available
-	_, err := exec.LookPath("golangci-lint")
+	// Check if golangci-lint is available (try PATH first, then GOPATH/bin)
+	lintPath, err := exec.LookPath("golangci-lint")
 	if err != nil {
-		t.Skip("golangci-lint not found in PATH, skipping lint test. Install with: go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest")
+		// Try GOPATH/bin
+		gopath := exec.Command("go", "env", "GOPATH")
+		gopathOut, gopathErr := gopath.Output()
+		if gopathErr == nil {
+			gopathBin := strings.TrimSpace(string(gopathOut)) + "/bin/golangci-lint"
+			if _, statErr := os.Stat(gopathBin); statErr == nil {
+				lintPath = gopathBin
+			}
+		}
+	}
+
+	if lintPath == "" {
+		t.Skip("golangci-lint not found in PATH or GOPATH/bin, skipping lint test. Install with: go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest")
 	}
 
 	// Run golangci-lint from the project root
-	cmd := exec.Command("golangci-lint", "run", "--timeout=5m")
+	cmd := exec.Command(lintPath, "run", "--timeout=5m")
 	output, err := cmd.CombinedOutput()
 	outputStr := string(output)
 

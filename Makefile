@@ -86,9 +86,11 @@ lint:
 	@echo "Running linter..."
 	@if command -v golangci-lint >/dev/null 2>&1; then \
 		golangci-lint run; \
+	elif [ -f "$$(go env GOPATH)/bin/golangci-lint" ]; then \
+		$$(go env GOPATH)/bin/golangci-lint run; \
 	else \
 		echo "golangci-lint not found. Install it with:"; \
-		echo "  brew install golangci-lint  # macOS"; \
+		echo "  go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest"; \
 		echo "  or visit https://golangci-lint.run/usage/install/"; \
 	fi
 

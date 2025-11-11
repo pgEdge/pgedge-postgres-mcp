@@ -78,9 +78,11 @@ func SetDatabaseConnectionTool(clientManager *database.ClientManager, connMgr *C
 						connStr = savedConn.ConnectionString
 						alias = savedConn.Alias
 
-						// Mark as used
-						_ = store.MarkUsed(alias)
-						_ = connMgr.saveChanges(configPath)
+						// Mark as used (ignore errors as this is non-critical metadata)
+						if err := store.MarkUsed(alias); err == nil {
+							//nolint:errcheck // Ignore save error as connection can still proceed
+							connMgr.saveChanges(configPath)
+						}
 					}
 				}
 			}

@@ -184,6 +184,24 @@ curl -X POST http://localhost:8080/mcp/v1 \
 
 ## Development
 
+### Prerequisites
+
+- Go 1.21 or higher
+- PostgreSQL (for testing)
+- golangci-lint v1.x (for linting)
+
+### Setup Linter
+
+The project uses golangci-lint v1.x. Install it with:
+
+```bash
+go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+```
+
+Note: The configuration file [`.golangci.yml`](.golangci.yml) is compatible with golangci-lint v1.x (not v2).
+
+### Testing
+
 ```bash
 # Run tests (uses TEST_POSTGRES_CONNECTION_STRING)
 export TEST_POSTGRES_CONNECTION_STRING="postgres://localhost/postgres?sslmode=disable"
@@ -193,6 +211,8 @@ go test ./...
 go test -v -cover ./...
 
 # Run linting
+make lint
+# or directly:
 golangci-lint run
 
 # Run locally

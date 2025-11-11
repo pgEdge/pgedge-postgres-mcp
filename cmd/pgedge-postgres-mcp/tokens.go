@@ -49,8 +49,9 @@ func addTokenCommand(tokenFile, annotation string, expiresIn time.Duration) erro
 	if annotation == "" {
 		fmt.Print("Enter annotation/note for this token (optional): ")
 		reader := bufio.NewReader(os.Stdin)
-		annotation, _ = reader.ReadString('\n')
-		annotation = strings.TrimSpace(annotation)
+		if input, err := reader.ReadString('\n'); err == nil {
+			annotation = strings.TrimSpace(input)
+		}
 	}
 
 	// Calculate expiry
@@ -62,8 +63,10 @@ func addTokenCommand(tokenFile, annotation string, expiresIn time.Duration) erro
 		// Prompt for expiry
 		fmt.Print("Enter expiry duration (e.g., '30d', '1y', or 'never'): ")
 		reader := bufio.NewReader(os.Stdin)
-		input, _ := reader.ReadString('\n')
-		input = strings.TrimSpace(input)
+		input := ""
+		if userInput, err := reader.ReadString('\n'); err == nil {
+			input = strings.TrimSpace(userInput)
+		}
 
 		if input != "" && input != "never" {
 			duration, err := parseDuration(input)

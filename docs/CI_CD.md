@@ -105,16 +105,54 @@ go test -v -run TestAuthTokenGeneration ./internal/auth/...
 
 ### Linting
 
+The project uses **golangci-lint v1.x** (NOT v2). The configuration file [`.golangci.yml`](../.golangci.yml) is designed for v1.
+
+#### Installation
+
 ```bash
-# Run golangci-lint
+# Install latest v1.x version
+go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+
+# Verify installation
+golangci-lint version
+# Should show: golangci-lint has version v1.x.x
+```
+
+The linter will be installed to `$(go env GOPATH)/bin/golangci-lint`.
+
+#### Running Linter
+
+```bash
+# Using Makefile (recommended - handles GOPATH/bin automatically)
+make lint
+
+# Direct invocation (if in PATH)
 golangci-lint run
 
-# With all enabled linters
-golangci-lint run --enable-all
+# Using full path
+$(go env GOPATH)/bin/golangci-lint run
 
 # Auto-fix issues
 golangci-lint run --fix
 ```
+
+#### Linter Configuration
+
+The [`.golangci.yml`](../.golangci.yml) configuration:
+
+- **Enabled linters**: errcheck, govet, ineffassign, staticcheck, unused, misspell, gocritic
+- **Disabled checks**: Style checks that are too strict (octalLiteral, httpNoBody, paramTypeCombine, etc.)
+- **Test file exclusions**: Test files skip errcheck and gocritic checks for better readability
+
+#### Version Note
+
+⚠️ **Important**: The project uses golangci-lint **v1.x**, not v2. If you have v2 installed, you'll see an error:
+
+```
+Error: you are using a configuration file for golangci-lint v2 with golangci-lint v1
+```
+
+To fix this, install v1.x using the command above.
 
 ## Test Coverage
 
@@ -299,7 +337,14 @@ echo "Running tests..."
 go test ./...
 
 echo "Running linter..."
-golangci-lint run
+# Try PATH first, then GOPATH/bin
+if command -v golangci-lint >/dev/null 2>&1; then
+    golangci-lint run
+elif [ -f "$(go env GOPATH)/bin/golangci-lint" ]; then
+    $(go env GOPATH)/bin/golangci-lint run
+else
+    echo "Warning: golangci-lint not found, skipping linter"
+fi
 
 echo "All checks passed!"
 EOF
@@ -537,15 +582,50 @@ go mod tidy
 
 ### Lint Failures
 
+#### Version Mismatch Error
+
+```
+Error: you are using a configuration file for golangci-lint v2 with golangci-lint v1
+```
+
+**Solution**: Install golangci-lint v1.x:
+
 ```bash
-# Check locally
+go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+```
+
+#### Check Linter Locally
+
+```bash
+# Using Makefile
+make lint
+
+# Direct invocation
 golangci-lint run
 
-# Auto-fix
-golangci-lint run --fix
+# Using full path
+$(go env GOPATH)/bin/golangci-lint run
 
-# Update linter config
+# Auto-fix issues
+golangci-lint run --fix
+```
+
+#### Update Linter Config
+
+If you need to adjust linting rules:
+
+```bash
+# Edit config
 vim .golangci.yml
+
+# Disable specific checks in gocritic section:
+# disabled-checks:
+#   - checkName
+
+# Exclude specific paths or linters in issues section:
+# exclude-rules:
+#   - path: _test\.go
+#     linters: [errcheck]
 ```
 
 ## Related Documentation

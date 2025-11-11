@@ -18,6 +18,7 @@
     * Ensure any temporary files created during test runs are removed when the 
         run is complete, except for logs that may need to be reviewed.
     * Ensure all tests run under the "go test" suite.
+    * ALWAYS use the top-level Makefile for running tests, e.g. make lint or make test
 
 * Remember to ensure that all code changes remain secure:
     * Authentication should be required if enabled.

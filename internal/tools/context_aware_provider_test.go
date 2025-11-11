@@ -81,7 +81,7 @@ func TestContextAwareProvider_List(t *testing.T) {
 	provider := NewContextAwareProvider(clientManager, llmClient, nil, true, fallbackClient, serverInfo, nil, nil, nil, "")
 
 	// Register tools
-	err := provider.RegisterTools(nil)
+	err := provider.RegisterTools(context.TODO())
 	if err != nil {
 		t.Fatalf("RegisterTools failed: %v", err)
 	}

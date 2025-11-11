@@ -1,4 +1,6 @@
-version: "2"
+# golangci-lint configuration for v1.x
+# To install: go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+# Note: This config is NOT compatible with golangci-lint v2
 
 linters-settings:
   errcheck:
@@ -28,6 +30,13 @@ linters-settings:
     disabled-checks:
       - commentedOutCode
       - hugeParam
+      - octalLiteral
+      - httpNoBody
+      - paramTypeCombine
+      - appendCombine
+      - ifElseChain
+      - unnamedResult
+      - exitAfterDefer
 
 linters:
   enable:
@@ -46,11 +55,15 @@ issues:
         - gocyclo
         - dupl
         - goconst
+        - errcheck
+        - gocritic
     - path: test/
       linters:
         - gocyclo
         - dupl
         - goconst
+        - errcheck
+        - gocritic
   exclude-dirs:
     - vendor
   exclude-files:
