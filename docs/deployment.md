@@ -53,7 +53,7 @@ HTTP/HTTPS Options:
   -key string        Path to TLS key file
   -chain string      Path to TLS certificate chain file (optional)
   -no-auth           Disable API token authentication
-  -token-file        Path to API token file (default: api-tokens.yaml)
+  -token-file        Path to API token file (default: {binary_dir}/api-tokens.yaml)
 ```
 
 **Note**: TLS options (`-tls`, `-cert`, `-key`, `-chain`) require the `-http` flag.

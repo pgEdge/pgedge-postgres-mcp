@@ -441,26 +441,26 @@ Here's a typical workflow for managing database connections:
 ## Security Considerations
 
 - **Authentication Enabled (per-token connections)**:
-  - Each API token has its own isolated set of saved connections
-  - Users cannot see or access connections from other tokens
-  - Connections are stored in `api-tokens.yaml` with the token
+    - Each API token has its own isolated set of saved connections
+    - Users cannot see or access connections from other tokens
+    - Connections are stored in `api-tokens.yaml` with the token
 
 - **Authentication Disabled (global connections)**:
-  - All connections are stored in the preferences file (`pgedge-postgres-mcp-prefs.yaml`)
-  - All users share the same set of saved connections
-  - Suitable for single-user or trusted environments
+    - All connections are stored in the preferences file (`pgedge-postgres-mcp-prefs.yaml`)
+    - All users share the same set of saved connections
+    - Suitable for single-user or trusted environments
 
 - **Password Encryption**:
-  - All passwords are encrypted using AES-256-GCM encryption before storage
-  - Encryption key is stored in a separate secret file (default: `pgedge-postgres-mcp.secret`)
-  - Secret file is auto-generated on first run with restricted permissions (0600)
-  - Both database passwords and SSL key passwords are encrypted
-  - Passwords are never displayed in tool outputs or logs
+    - All passwords are encrypted using AES-256-GCM encryption before storage
+    - Encryption key is stored in a separate secret file (default: `pgedge-postgres-mcp.secret`)
+    - Secret file is auto-generated on first run with restricted permissions (0600)
+    - Both database passwords and SSL key passwords are encrypted
+    - Passwords are never displayed in tool outputs or logs
 
 - **Connection Storage Security**:
-  - Use appropriate file permissions (0600 for tokens and preferences files)
-  - Connection parameters are stored in YAML files with encrypted passwords
-  - Never commit secret file or preferences files with real credentials to version control
-  - Secret file should be backed up securely and separately from configuration files
-  - Consider using SSL client certificates instead of passwords for authentication
+    - Use appropriate file permissions (0600 for tokens and preferences files)
+    - Connection parameters are stored in YAML files with encrypted passwords
+    - Never commit secret file or preferences files with real credentials to version control
+    - Secret file should be backed up securely and separately from configuration files
+    - Consider using SSL client certificates instead of passwords for authentication
 

@@ -49,24 +49,30 @@ copyright: Copyright &copy; 2025 pgEdge, Inc
 repo_url: https://github.com/pgEdge/pgedge-mcp
 
 nav:
-  - Introduction: index.md
-  - Configuration: configuration.md
-  - Tools: tools.md
-  - Resources: resources.md
-  - Query Examples: examples.md
-  - Chatbot Examples:
+  - Getting Started:
+      - Introduction: index.md
+  - User Guide:
+      - Configuration: configuration.md
+      - Authentication: authentication.md
+      - Deployment: deployment.md
+      - Available Tools: tools.md
+      - Available Resources: resources.md
+      - Query Examples: examples.md
+      - Security: security.md
+      - Troubleshooting: troubleshooting.md
+  - Chat Clients:
       - Overview: chatbot-examples.md
       - Go Chat Client: go-chat-client.md
-      - Stdio + Anthropic Claude: stdio-anthropic-chatbot.md
-      - HTTP + Ollama: http-ollama-chatbot.md
-  - Deployment: deployment.md
-  - Authentication: authentication.md
-  - MCP Protocol Guide: mcp_protocol.md
-  - Security Guide: security.md
-  - Architecture Guide: architecture.md
-  - Testing Guide: testing.md
-  - CI/CD Guide: ci_cd.md
-  - Troubleshooting Guide: troubleshooting.md
-  - Config File Example: config-example.md
-  - API Tokens Example: api-tokens-example.md
-  - Chat Client Config Example: chat-client-config-example.md
+      - Python Examples:
+          - Stdio + Anthropic Claude: stdio-anthropic-chatbot.md
+          - HTTP + Ollama: http-ollama-chatbot.md
+  - Developer Guide:
+      - Development: development.md
+      - Architecture: architecture.md
+      - Testing: testing.md
+      - CI/CD: ci_cd.md
+      - MCP Protocol Reference: mcp_protocol.md
+  - Configuration Reference:
+      - Server Config Example: config-example.md
+      - API Tokens Example: api-tokens-example.md
+      - Chat Client Config Example: chat-client-config-example.md

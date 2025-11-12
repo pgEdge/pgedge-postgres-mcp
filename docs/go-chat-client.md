@@ -1,6 +1,8 @@
 # Go Chat Client
 
-The pgEdge Postgres MCP Go Chat Client is a native Go implementation that provides an interactive command-line interface for chatting with your PostgreSQL database using natural language.
+The pgEdge Postgres MCP Go Chat Client is a **production-ready, full-featured** native Go implementation that provides an interactive command-line interface for chatting with your PostgreSQL database using natural language.
+
+This is the recommended client for production use and provides significantly more features and polish than the [Python examples](chatbot-examples.md), which are intended as simple reference implementations to demonstrate the MCP protocol.
 
 ## Features
 
@@ -196,19 +198,22 @@ The history persists across sessions, so your previous queries and commands are 
 
 ## Example Conversation
 
+This shows the client's elephant-themed UI in action, including the thinking animation and tool execution messages:
+
 ```
-    ___
-   /   \
-  | @ @ |  pgEdge Postgres MCP Chat Client
-  |  >  |
-   \___/   Type 'quit' or 'exit' to leave, 'help' for commands
-    | |
+          _
+   ______/ \-.   _           pgEdge Postgres MCP Chat Client
+.-/     (    o\_//           Type 'quit' or 'exit' to leave, 'help' for commands
+ |  ___  \_/\---'
+ |_||  |_||
 
 System: Connected to MCP server (15 tools available)
 System: Using LLM: anthropic (claude-sonnet-4-20250514)
 ────────────────────────────────────────────────────────────────────────────────
 You: What database connections do I have?
 
+
+⠋ Consulting the herd...
   → Executing tool: list_database_connections
 
 Assistant: You have 3 saved database connections: production, staging, and development.
@@ -229,82 +234,6 @@ Assistant: Here are the users from your production database:
 You: quit
 
 System: Goodbye!
-```
-
-## Development and Testing
-
-### Running Tests
-
-The chat client has comprehensive test coverage including unit tests, integration tests, and UI tests.
-
-Run all chat client tests:
-
-```bash
-# Using Go directly
-go test -v ./internal/chat/...
-
-# Or using Make
-make test-client
-
-# Check test coverage
-go test -cover ./internal/chat/...
-
-# Generate detailed coverage report
-go test -coverprofile=coverage.out ./internal/chat/...
-go tool cover -html=coverage.out
-```
-
-### Test Organization
-
-The test suite includes:
-
-- **Unit tests** ([config_test.go](https://github.com/pgEdge/pgedge-mcp/blob/main/internal/chat/config_test.go)): Configuration loading and validation
-- **Integration tests** ([client_integration_test.go](https://github.com/pgEdge/pgedge-mcp/blob/main/internal/chat/client_integration_test.go)):
-  - Client connection (HTTP and stdio modes)
-  - LLM initialization (Anthropic and Ollama)
-  - Command handling (help, clear, tools, resources)
-  - Query processing with tool execution
-  - Error handling and edge cases
-  - Context cancellation and graceful shutdown
-- **UI tests** ([ui_test.go](https://github.com/pgEdge/pgedge-mcp/blob/main/internal/chat/ui_test.go)): Color output, animations, prompts
-- **LLM tests** ([llm_test.go](https://github.com/pgEdge/pgedge-mcp/blob/main/internal/chat/llm_test.go)): Anthropic and Ollama client functionality
-- **MCP client tests** ([mcp_client_test.go](https://github.com/pgEdge/pgedge-mcp/blob/main/internal/chat/mcp_client_test.go)): HTTP and stdio communication
-
-Current test coverage is over 48% and includes all critical paths.
-
-### Building for Multiple Platforms
-
-Build the client for different platforms:
-
-```bash
-# Build for all platforms
-make build-all
-
-# Build for specific platforms
-make build-linux    # Linux (amd64)
-make build-darwin   # macOS (amd64 and arm64)
-make build-windows  # Windows (amd64)
-```
-
-### Code Quality
-
-Run the linter on the chat client code:
-
-```bash
-# Using Go tools
-golangci-lint run ./internal/chat/... ./cmd/pgedge-postgres-mcp-chat/...
-
-# Or using Make
-make lint-client
-```
-
-Format the code:
-
-```bash
-go fmt ./internal/chat/... ./cmd/pgedge-postgres-mcp-chat/...
-
-# Or using Make
-make fmt
 ```
 
 ## Troubleshooting
@@ -380,9 +309,13 @@ ollama pull llama3
 
 ## See Also
 
+**For Users:**
 - [Chat Client Config Example](chat-client-config-example.md) - Complete configuration reference
 - [Chatbot Examples Overview](chatbot-examples.md) - Compare different chatbot approaches
 - [Stdio + Anthropic Claude Chatbot](stdio-anthropic-chatbot.md) - Python stdio example
 - [HTTP + Ollama Chatbot](http-ollama-chatbot.md) - Python HTTP + Ollama example
 - [MCP Server Configuration](configuration.md) - Configure the MCP server
 - [Available Tools](tools.md) - List of database tools you can use
+
+**For Developers:**
+- [Development Guide](development.md) - Building, testing, and development workflow

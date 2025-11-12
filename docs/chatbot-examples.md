@@ -22,11 +22,14 @@ The client:
 
 ## Available Examples
 
+
+**Note:** The Go Chat Client is a full-featured application with polished UI, configuration management, and command history. The Python examples are intentionally simple reference implementations to demonstrate the MCP protocol.
+
 We provide three complete chatbot examples demonstrating different approaches:
 
 ### Go Chat Client (Recommended)
 
-A native Go implementation with support for both stdio and HTTP modes, and both Anthropic Claude and Ollama.
+A full-featured native Go implementation with support for both stdio and HTTP modes, and both Anthropic Claude and Ollama.
 
 - **Best for**: Production use, flexible deployments, native performance
 - **Requires**: Go 1.23+ to build, or use pre-built binary
@@ -37,7 +40,7 @@ A native Go implementation with support for both stdio and HTTP modes, and both 
 
 ### Stdio + Anthropic Claude (Python)
 
-A Python chatbot that connects to the MCP server via stdio (standard input/output) and uses Anthropic's Claude for natural language processing.
+A simple Python example that connects to the MCP server via stdio (standard input/output) and uses Anthropic's Claude for natural language processing.
 
 - **Best for**: Quick prototyping, Python developers, simple deployments
 - **Requires**: Python 3.10+, Anthropic API key
@@ -47,7 +50,7 @@ A Python chatbot that connects to the MCP server via stdio (standard input/outpu
 
 ### HTTP + Ollama (Python)
 
-A Python chatbot that connects to the MCP server via HTTP and uses Ollama for local LLM inference.
+A simple Python example that connects to the MCP server via HTTP and uses Ollama for local LLM inference.
 
 - **Best for**: Distributed systems, microservices, privacy-sensitive applications
 - **Requires**: Python 3.10+, Ollama installed locally

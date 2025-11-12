@@ -7,12 +7,12 @@ This document provides example natural language queries you can use with the pgE
 - [Basic Data Queries](#basic-data-queries)
 - [Schema Discovery](#schema-discovery)
 - [Configuration Management](#configuration-management)
-  - [Viewing Configuration](#viewing-configuration)
-  - [Modifying Configuration](#modifying-configuration)
+    - [Viewing Configuration](#viewing-configuration)
+    - [Modifying Configuration](#modifying-configuration)
 
 - [Multi-Database Queries](#multi-database-queries)
-  - [Temporary Connection (Single Query)](#temporary-connection-single-query)
-  - [Setting Default Database](#setting-default-database)
+    - [Temporary Connection (Single Query)](#temporary-connection-single-query)
+    - [Setting Default Database](#setting-default-database)
 
 - [Advanced Queries](#advanced-queries)
 - [Connection String Format](#connection-string-format)

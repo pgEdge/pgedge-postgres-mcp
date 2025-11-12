@@ -44,7 +44,7 @@ http:
     chain_file: ""
   auth:
     enabled: true
-    token_file: ""  # defaults to api-tokens.yaml
+    token_file: ""  # defaults to {binary_dir}/api-tokens.yaml
 
 # User preferences file path (optional)
 preferences_file: ""  # defaults to pgedge-postgres-mcp-prefs.yaml
@@ -183,9 +183,9 @@ base64_encoded_32_byte_key_here==
 ### Security Considerations
 
 - **File Permissions**:
-  - The secret file is created with `0600` permissions (owner read/write only)
-  - The server will **refuse to start** if the secret file has incorrect permissions
-  - This prevents accidentally exposing the encryption key to other users on the system
+    - The secret file is created with `0600` permissions (owner read/write only)
+    - The server will **refuse to start** if the secret file has incorrect permissions
+    - This prevents accidentally exposing the encryption key to other users on the system
 
 - **Backup**: Back up the secret file securely - without it, encrypted passwords cannot be decrypted
 - **Storage**: Store the secret file separately from configuration and preferences files
@@ -244,7 +244,7 @@ See [Deployment Guide](deployment.md) for details on HTTP/HTTPS server setup.
 ### Authentication Options
 
 - `-no-auth` - Disable API token authentication
-- `-token-file` - Path to token file (default: api-tokens.yaml)
+- `-token-file` - Path to token file (default: {binary_dir}/api-tokens.yaml)
 - `-add-token` - Add a new API token
 - `-remove-token` - Remove token by ID or hash prefix
 - `-list-tokens` - List all API tokens
