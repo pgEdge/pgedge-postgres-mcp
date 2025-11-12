@@ -1,57 +1,90 @@
-.PHONY: build clean test run install help
+.PHONY: build build-server build-client clean clean-server clean-client test test-server test-client run install help lint lint-server lint-client fmt
 
-# Binary name and output directory
-BINARY_NAME=pgedge-postgres-mcp
+# Binary names and directories
+SERVER_BINARY=pgedge-postgres-mcp
+CLIENT_BINARY=pgedge-postgres-mcp-chat
 BIN_DIR=bin
-CMD_DIR=cmd/pgedge-postgres-mcp
+SERVER_CMD_DIR=cmd/pgedge-postgres-mcp
+CLIENT_CMD_DIR=cmd/pgedge-postgres-mcp-chat
 
 # Build variables
 GO=go
 GOFLAGS=-v
 
-# Default target
+# Default target - build both server and client
 all: build
 
-# Build the binary
-build:
-	@echo "Building $(BINARY_NAME)..."
-	@mkdir -p $(BIN_DIR)
-	$(GO) build $(GOFLAGS) -o $(BIN_DIR)/$(BINARY_NAME) ./$(CMD_DIR)
-	@echo "Build complete: $(BIN_DIR)/$(BINARY_NAME)"
+# Build both server and client
+build: build-server build-client
 
-# Build for multiple platforms
+# Build the server binary
+build-server: server
+server:
+	@echo "Building $(SERVER_BINARY)..."
+	@mkdir -p $(BIN_DIR)
+	$(GO) build $(GOFLAGS) -o $(BIN_DIR)/$(SERVER_BINARY) ./$(SERVER_CMD_DIR)
+	@echo "Server build complete: $(BIN_DIR)/$(SERVER_BINARY)"
+
+# Build the client binary
+build-client: client
+client:
+	@echo "Building $(CLIENT_BINARY)..."
+	@mkdir -p $(BIN_DIR)
+	$(GO) build $(GOFLAGS) -o $(BIN_DIR)/$(CLIENT_BINARY) ./$(CLIENT_CMD_DIR)
+	@echo "Client build complete: $(BIN_DIR)/$(CLIENT_BINARY)"
+
+# Build for multiple platforms (server only for now)
 build-all: build-linux build-darwin build-windows
 
 build-linux:
-	@echo "Building for Linux..."
+	@echo "Building server for Linux..."
 	@mkdir -p $(BIN_DIR)
-	GOOS=linux GOARCH=amd64 $(GO) build $(GOFLAGS) -o $(BIN_DIR)/$(BINARY_NAME)-linux-amd64 ./$(CMD_DIR)
-	@echo "Linux build complete: $(BIN_DIR)/$(BINARY_NAME)-linux-amd64"
+	GOOS=linux GOARCH=amd64 $(GO) build $(GOFLAGS) -o $(BIN_DIR)/$(SERVER_BINARY)-linux-amd64 ./$(SERVER_CMD_DIR)
+	@echo "Linux build complete: $(BIN_DIR)/$(SERVER_BINARY)-linux-amd64"
 
 build-darwin:
-	@echo "Building for macOS..."
+	@echo "Building server for macOS..."
 	@mkdir -p $(BIN_DIR)
-	GOOS=darwin GOARCH=amd64 $(GO) build $(GOFLAGS) -o $(BIN_DIR)/$(BINARY_NAME)-darwin-amd64 ./$(CMD_DIR)
-	GOOS=darwin GOARCH=arm64 $(GO) build $(GOFLAGS) -o $(BIN_DIR)/$(BINARY_NAME)-darwin-arm64 ./$(CMD_DIR)
-	@echo "macOS builds complete: $(BIN_DIR)/$(BINARY_NAME)-darwin-{amd64,arm64}"
+	GOOS=darwin GOARCH=amd64 $(GO) build $(GOFLAGS) -o $(BIN_DIR)/$(SERVER_BINARY)-darwin-amd64 ./$(SERVER_CMD_DIR)
+	GOOS=darwin GOARCH=arm64 $(GO) build $(GOFLAGS) -o $(BIN_DIR)/$(SERVER_BINARY)-darwin-arm64 ./$(SERVER_CMD_DIR)
+	@echo "macOS builds complete: $(BIN_DIR)/$(SERVER_BINARY)-darwin-{amd64,arm64}"
 
 build-windows:
-	@echo "Building for Windows..."
+	@echo "Building server for Windows..."
 	@mkdir -p $(BIN_DIR)
-	GOOS=windows GOARCH=amd64 $(GO) build $(GOFLAGS) -o $(BIN_DIR)/$(BINARY_NAME)-windows-amd64.exe ./$(CMD_DIR)
-	@echo "Windows build complete: $(BIN_DIR)/$(BINARY_NAME)-windows-amd64.exe"
+	GOOS=windows GOARCH=amd64 $(GO) build $(GOFLAGS) -o $(BIN_DIR)/$(SERVER_BINARY)-windows-amd64.exe ./$(SERVER_CMD_DIR)
+	@echo "Windows build complete: $(BIN_DIR)/$(SERVER_BINARY)-windows-amd64.exe"
 
-# Clean build artifacts
-clean:
-	@echo "Cleaning build artifacts..."
-	rm -rf $(BIN_DIR)
-	$(GO) clean
-	@echo "Clean complete"
+# Clean all build artifacts
+clean: clean-server clean-client
+	@echo "All clean complete"
 
-# Run tests
-test:
-	@echo "Running tests..."
-	$(GO) test -v ./...
+# Clean server artifacts
+clean-server:
+	@echo "Cleaning server artifacts..."
+	rm -f $(BIN_DIR)/$(SERVER_BINARY)
+	rm -f $(BIN_DIR)/$(SERVER_BINARY)-*
+	@echo "Server clean complete"
+
+# Clean client artifacts
+clean-client:
+	@echo "Cleaning client artifacts..."
+	rm -f $(BIN_DIR)/$(CLIENT_BINARY)
+	rm -f $(BIN_DIR)/$(CLIENT_BINARY)-*
+	@echo "Client clean complete"
+
+# Run all tests
+test: test-server test-client
+
+# Run server tests
+test-server:
+	@echo "Running server tests..."
+	$(GO) test -v ./internal/mcp/... ./internal/auth/... ./internal/config/... ./internal/crypto/... ./internal/database/... ./internal/resources/... ./internal/tools/... ./$(SERVER_CMD_DIR)/...
+
+# Run client tests
+test-client:
+	@echo "Running client tests..."
+	$(GO) test -v ./internal/chat/... ./$(CLIENT_CMD_DIR)/...
 
 # Run with example environment
 run:
@@ -59,8 +92,8 @@ run:
 		echo "Error: .env file not found. Copy configs/.env.example to .env and configure it."; \
 		exit 1; \
 	fi
-	@echo "Running $(BINARY_NAME)..."
-	@export $$(cat .env | xargs) && $(BIN_DIR)/$(BINARY_NAME)
+	@echo "Running $(SERVER_BINARY)..."
+	@export $$(cat .env | xargs) && $(BIN_DIR)/$(SERVER_BINARY)
 
 # Install dependencies
 deps:
@@ -69,11 +102,13 @@ deps:
 	$(GO) mod tidy
 	@echo "Dependencies installed"
 
-# Install the binary to GOPATH/bin
+# Install both binaries to GOPATH/bin
 install: build
-	@echo "Installing $(BINARY_NAME) to $(GOPATH)/bin..."
-	$(GO) install ./$(CMD_DIR)
-	@echo "Install complete"
+	@echo "Installing $(SERVER_BINARY) to $$(go env GOPATH)/bin..."
+	$(GO) install ./$(SERVER_CMD_DIR)
+	@echo "Installing $(CLIENT_BINARY) to $$(go env GOPATH)/bin..."
+	$(GO) install ./$(CLIENT_CMD_DIR)
+	@echo "Install complete: $(SERVER_BINARY) and $(CLIENT_BINARY)"
 
 # Format code
 fmt:
@@ -81,9 +116,9 @@ fmt:
 	$(GO) fmt ./...
 	@echo "Format complete"
 
-# Run linter (requires golangci-lint)
+# Run linter on all code (requires golangci-lint)
 lint:
-	@echo "Running linter..."
+	@echo "Running linter on all code..."
 	@if command -v golangci-lint >/dev/null 2>&1; then \
 		golangci-lint run; \
 	elif [ -f "$$(go env GOPATH)/bin/golangci-lint" ]; then \
@@ -94,21 +129,67 @@ lint:
 		echo "  or visit https://golangci-lint.run/usage/install/"; \
 	fi
 
+# Run linter on server code
+lint-server:
+	@echo "Running linter on server code..."
+	@if command -v golangci-lint >/dev/null 2>&1; then \
+		golangci-lint run ./internal/mcp/... ./internal/auth/... ./internal/config/... ./internal/crypto/... ./internal/database/... ./internal/resources/... ./internal/tools/... ./$(SERVER_CMD_DIR)/...; \
+	elif [ -f "$$(go env GOPATH)/bin/golangci-lint" ]; then \
+		$$(go env GOPATH)/bin/golangci-lint run ./internal/mcp/... ./internal/auth/... ./internal/config/... ./internal/crypto/... ./internal/database/... ./internal/resources/... ./internal/tools/... ./$(SERVER_CMD_DIR)/...; \
+	else \
+		echo "golangci-lint not found. Install it with:"; \
+		echo "  go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest"; \
+		echo "  or visit https://golangci-lint.run/usage/install/"; \
+	fi
+
+# Run linter on client code
+lint-client:
+	@echo "Running linter on client code..."
+	@if command -v golangci-lint >/dev/null 2>&1; then \
+		golangci-lint run ./internal/chat/... ./$(CLIENT_CMD_DIR)/...; \
+	elif [ -f "$$(go env GOPATH)/bin/golangci-lint" ]; then \
+		$$(go env GOPATH)/bin/golangci-lint run ./internal/chat/... ./$(CLIENT_CMD_DIR)/...; \
+	else \
+		echo "golangci-lint not found. Install it with:"; \
+		echo "  go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest"; \
+		echo "  or visit https://golangci-lint.run/usage/install/"; \
+	fi
+
 # Show help
 help:
-	@echo "pgEdge MCP Server - Makefile commands:"
+	@echo "pgEdge Postgres MCP - Makefile commands:"
 	@echo ""
-	@echo "  make build         - Build the binary"
-	@echo "  make build-all     - Build for all platforms"
-	@echo "  make build-linux   - Build for Linux (amd64)"
-	@echo "  make build-darwin  - Build for macOS (amd64 and arm64)"
-	@echo "  make build-windows - Build for Windows (amd64)"
-	@echo "  make clean         - Remove build artifacts"
-	@echo "  make test          - Run tests"
-	@echo "  make run           - Run with environment from .env file"
-	@echo "  make deps          - Install/update dependencies"
-	@echo "  make install       - Install binary to GOPATH/bin"
-	@echo "  make fmt           - Format Go code"
-	@echo "  make lint          - Run linter (requires golangci-lint)"
-	@echo "  make help          - Show this help message"
+	@echo "Building:"
+	@echo "  make                - Build both server and client (default)"
+	@echo "  make build          - Build both server and client"
+	@echo "  make server         - Build the MCP server"
+	@echo "  make client         - Build the chat client"
+	@echo "  make build-server   - Build the MCP server (alias)"
+	@echo "  make build-client   - Build the chat client (alias)"
+	@echo "  make build-all      - Build for all platforms"
+	@echo "  make build-linux    - Build for Linux (amd64)"
+	@echo "  make build-darwin   - Build for macOS (amd64 and arm64)"
+	@echo "  make build-windows  - Build for Windows (amd64)"
+	@echo ""
+	@echo "Testing:"
+	@echo "  make test           - Run all tests (server + client)"
+	@echo "  make test-server    - Run server tests only"
+	@echo "  make test-client    - Run client tests only"
+	@echo ""
+	@echo "Linting:"
+	@echo "  make lint           - Run linter on all code"
+	@echo "  make lint-server    - Run linter on server code only"
+	@echo "  make lint-client    - Run linter on client code only"
+	@echo ""
+	@echo "Cleaning:"
+	@echo "  make clean          - Remove all build artifacts"
+	@echo "  make clean-server   - Remove server artifacts only"
+	@echo "  make clean-client   - Remove client artifacts only"
+	@echo ""
+	@echo "Other:"
+	@echo "  make run            - Run server with environment from .env file"
+	@echo "  make deps           - Install/update dependencies"
+	@echo "  make install        - Install both binaries to GOPATH/bin"
+	@echo "  make fmt            - Format Go code"
+	@echo "  make help           - Show this help message"
 	@echo ""

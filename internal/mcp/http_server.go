@@ -134,8 +134,9 @@ func (s *Server) handleHTTPRequest(w http.ResponseWriter, r *http.Request) {
 	if s.debug {
 		fmt.Fprintf(os.Stderr, "[DEBUG] Incoming request: method=%s id=%v\n", req.Method, req.ID)
 		if req.Params != nil {
-			paramsJSON, _ := json.Marshal(req.Params)
-			fmt.Fprintf(os.Stderr, "[DEBUG] Request params: %s\n", string(paramsJSON))
+			if paramsJSON, err := json.Marshal(req.Params); err == nil {
+				fmt.Fprintf(os.Stderr, "[DEBUG] Request params: %s\n", string(paramsJSON))
+			}
 		}
 	}
 
@@ -144,8 +145,9 @@ func (s *Server) handleHTTPRequest(w http.ResponseWriter, r *http.Request) {
 
 	// Debug logging: log outgoing response
 	if s.debug {
-		responseJSON, _ := json.Marshal(response)
-		fmt.Fprintf(os.Stderr, "[DEBUG] Outgoing response: %s\n", string(responseJSON))
+		if responseJSON, err := json.Marshal(response); err == nil {
+			fmt.Fprintf(os.Stderr, "[DEBUG] Outgoing response: %s\n", string(responseJSON))
+		}
 	}
 
 	// Send response

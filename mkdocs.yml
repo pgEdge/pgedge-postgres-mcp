@@ -56,6 +56,7 @@ nav:
   - Query Examples: examples.md
   - Chatbot Examples:
       - Overview: chatbot-examples.md
+      - Go Chat Client: go-chat-client.md
       - Stdio + Anthropic Claude: stdio-anthropic-chatbot.md
       - HTTP + Ollama: http-ollama-chatbot.md
   - Deployment: deployment.md
@@ -68,3 +69,4 @@ nav:
   - Troubleshooting Guide: troubleshooting.md
   - Config File Example: config-example.md
   - API Tokens Example: api-tokens-example.md
+  - Chat Client Config Example: chat-client-config-example.md

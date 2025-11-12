@@ -1,0 +1,245 @@
+```yaml
+# pgEdge Postgres MCP Chat Client Configuration Example
+#
+# Configuration Priority (highest to lowest):
+#   1. Command line flags
+#   2. Environment variables
+#   3. Configuration file values (this file)
+#   4. Hard-coded defaults
+#
+# Copy this file to .pgedge-mcp-chat.yaml or ~/.pgedge-mcp-chat.yaml
+# and customize it for your environment.
+
+# ============================================================================
+# MCP SERVER CONNECTION CONFIGURATION
+# ============================================================================
+mcp:
+    # Connection mode: "stdio" or "http"
+    # stdio: Spawns MCP server as subprocess (local only)
+    # http: Connects to MCP server via HTTP/HTTPS (can be remote)
+    # Default: stdio
+    # Environment variable: PGEDGE_MCP_MODE
+    # Command line flag: -mcp-mode
+    mode: stdio
+
+    # -------------------------
+    # Stdio Mode Configuration
+    # -------------------------
+    # Path to MCP server binary (for stdio mode)
+    # Default: ./bin/pgedge-postgres-mcp
+    # Environment variable: PGEDGE_MCP_SERVER_PATH
+    # Command line flag: -mcp-server-path
+    server_path: ./bin/pgedge-postgres-mcp
+
+    # -------------------------
+    # HTTP Mode Configuration
+    # -------------------------
+    # MCP server URL (for HTTP mode)
+    # Should include protocol and optionally path: http://host:port or https://host:port
+    # The /mcp/v1 path will be appended automatically if not present
+    # Default: http://localhost:8080
+    # Environment variable: PGEDGE_MCP_URL
+    # Command line flag: -mcp-url
+    # url: http://localhost:8080
+
+    # Authentication token for HTTP mode
+    # Token priority: PGEDGE_POSTGRES_MCP_SERVER_TOKEN env var >
+    #                 ~/.pgedge-postgres-mcp-server-token file >
+    #                 this config value >
+    #                 prompt at startup
+    # Environment variable: PGEDGE_POSTGRES_MCP_SERVER_TOKEN
+    # Token file: ~/.pgedge-postgres-mcp-server-token
+    # token: your-token-here
+
+    # Use TLS/HTTPS for HTTP mode
+    # Default: false
+    # Command line flag: (inferred from URL protocol)
+    # tls: false
+
+# ============================================================================
+# LLM PROVIDER CONFIGURATION
+# ============================================================================
+llm:
+    # Provider: "anthropic" or "ollama"
+    # anthropic: Uses Anthropic's Claude API (requires API key)
+    # ollama: Uses locally running Ollama server (no API key needed)
+    # Default: anthropic
+    # Environment variable: PGEDGE_LLM_PROVIDER
+    # Command line flag: -llm-provider
+    provider: anthropic
+
+    # Model to use
+    # Anthropic models: claude-sonnet-4-20250514, claude-opus-4-20250514, etc.
+    # Ollama models: llama3, llama3.1, mistral, gpt-oss:20b, etc.
+    # Default: claude-sonnet-4-20250514 (anthropic) or llama3 (ollama)
+    # Environment variable: PGEDGE_LLM_MODEL
+    # Command line flag: -llm-model
+    model: claude-sonnet-4-20250514
+
+    # -------------------------
+    # Anthropic Configuration
+    # -------------------------
+    # API key for Anthropic
+    # Get your API key from: https://console.anthropic.com/
+    # Environment variable: ANTHROPIC_API_KEY (preferred) or PGEDGE_ANTHROPIC_API_KEY
+    # Command line flag: -api-key
+    # api_key: your-anthropic-api-key-here
+
+    # Maximum tokens for LLM response
+    # Default: 4096
+    # Command line flag: (not available)
+    max_tokens: 4096
+
+    # Temperature for sampling (0.0-1.0)
+    # Lower = more focused/deterministic, Higher = more creative/random
+    # Default: 0.7
+    # Command line flag: (not available)
+    temperature: 0.7
+
+    # -------------------------
+    # Ollama Configuration
+    # -------------------------
+    # Ollama server URL
+    # Default: http://localhost:11434
+    # Environment variable: OLLAMA_BASE_URL
+    # Command line flag: -ollama-url
+    ollama_url: http://localhost:11434
+
+# ============================================================================
+# USER INTERFACE CONFIGURATION
+# ============================================================================
+ui:
+    # Disable colored output
+    # Useful for environments that don't support ANSI color codes
+    # Default: false
+    # Command line flag: -no-color
+    no_color: false
+```
+
+## Configuration Examples
+
+### Stdio Mode with Anthropic Claude
+
+```yaml
+mcp:
+    mode: stdio
+    server_path: ./bin/pgedge-postgres-mcp
+
+llm:
+    provider: anthropic
+    model: claude-sonnet-4-20250514
+    # Set ANTHROPIC_API_KEY environment variable
+```
+
+Then run:
+
+```bash
+export ANTHROPIC_API_KEY="your-key-here"
+./bin/pgedge-postgres-mcp-chat
+```
+
+### HTTP Mode with Authentication
+
+```yaml
+mcp:
+    mode: http
+    url: https://mcp.example.com:8080
+    tls: true
+
+llm:
+    provider: anthropic
+    model: claude-sonnet-4-20250514
+```
+
+Then run:
+
+```bash
+export ANTHROPIC_API_KEY="your-key-here"
+export PGEDGE_POSTGRES_MCP_SERVER_TOKEN="your-mcp-token"
+./bin/pgedge-postgres-mcp-chat
+```
+
+### Local Setup with Ollama
+
+```yaml
+mcp:
+    mode: stdio
+    server_path: ./bin/pgedge-postgres-mcp
+
+llm:
+    provider: ollama
+    model: llama3
+    ollama_url: http://localhost:11434
+```
+
+Then run:
+
+```bash
+# Make sure Ollama is running with the model pulled
+ollama pull llama3
+./bin/pgedge-postgres-mcp-chat
+```
+
+### Remote HTTP Server with Ollama
+
+```yaml
+mcp:
+    mode: http
+    url: http://mcp-server.internal:8080
+
+llm:
+    provider: ollama
+    model: gpt-oss:20b
+    ollama_url: http://localhost:11434
+```
+
+## Environment Variables
+
+The chat client supports the following environment variables (in order of precedence):
+
+### MCP Connection
+
+- `PGEDGE_MCP_MODE`: Connection mode (`stdio` or `http`)
+- `PGEDGE_MCP_SERVER_PATH`: Path to MCP server binary (stdio mode)
+- `PGEDGE_MCP_URL`: MCP server URL (http mode)
+- `PGEDGE_POSTGRES_MCP_SERVER_TOKEN`: Authentication token (http mode)
+
+### LLM Configuration
+
+- `PGEDGE_LLM_PROVIDER`: LLM provider (`anthropic` or `ollama`)
+- `PGEDGE_LLM_MODEL`: Model to use
+- `ANTHROPIC_API_KEY` or `PGEDGE_ANTHROPIC_API_KEY`: Anthropic API key
+- `OLLAMA_BASE_URL`: Ollama server URL
+
+## Command Line Flags
+
+All configuration options can be overridden with command line flags:
+
+```bash
+./bin/pgedge-postgres-mcp-chat \
+    -config /path/to/config.yaml \
+    -mcp-mode http \
+    -mcp-url https://mcp.example.com:8080 \
+    -llm-provider anthropic \
+    -llm-model claude-opus-4-20250514 \
+    -api-key your-anthropic-key \
+    -no-color
+```
+
+Run `./bin/pgedge-postgres-mcp-chat --help` to see all available flags.
+
+## Token File Location
+
+For HTTP mode authentication, the token can be stored in:
+
+```
+~/.pgedge-postgres-mcp-server-token
+```
+
+This file should contain only the token (no newlines or extra whitespace).
+
+## See Also
+
+- [Go Chat Client Documentation](go-chat-client.md) - Complete usage guide
+- [MCP Server Configuration](config-example.md) - Configure the MCP server
+- [Authentication](authentication.md) - Set up API tokens for HTTP mode

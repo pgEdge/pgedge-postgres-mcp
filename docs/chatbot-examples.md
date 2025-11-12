@@ -22,52 +22,63 @@ The client:
 
 ## Available Examples
 
-We provide two complete chatbot examples demonstrating different approaches:
+We provide three complete chatbot examples demonstrating different approaches:
 
-### Stdio + Anthropic Claude
+### Go Chat Client (Recommended)
 
-A chatbot that connects to the MCP server via stdio (standard input/output) and uses Anthropic's Claude for natural language processing.
+A native Go implementation with support for both stdio and HTTP modes, and both Anthropic Claude and Ollama.
 
-- **Best for**: Desktop applications, local development, simple deployments
-- **Requires**: Anthropic API key
+- **Best for**: Production use, flexible deployments, native performance
+- **Requires**: Go 1.23+ to build, or use pre-built binary
+- **Connection**: Supports both stdio and HTTP
+- **LLM Support**: Anthropic Claude and Ollama
+
+[View Go Chat Client →](go-chat-client.md)
+
+### Stdio + Anthropic Claude (Python)
+
+A Python chatbot that connects to the MCP server via stdio (standard input/output) and uses Anthropic's Claude for natural language processing.
+
+- **Best for**: Quick prototyping, Python developers, simple deployments
+- **Requires**: Python 3.10+, Anthropic API key
 - **Connection**: Direct process communication via stdio
 
 [View Stdio + Anthropic Claude Example →](stdio-anthropic-chatbot.md)
 
-### HTTP + Ollama
+### HTTP + Ollama (Python)
 
-A chatbot that connects to the MCP server via HTTP and uses Ollama for local LLM inference.
+A Python chatbot that connects to the MCP server via HTTP and uses Ollama for local LLM inference.
 
 - **Best for**: Distributed systems, microservices, privacy-sensitive applications
-- **Requires**: Ollama installed locally
+- **Requires**: Python 3.10+, Ollama installed locally
 - **Connection**: HTTP REST API
 
 [View HTTP + Ollama Example →](http-ollama-chatbot.md)
 
 ## Choosing an Approach
 
-| Feature | Stdio + Anthropic | HTTP + Ollama |
-|---------|------------------|---------------|
-| **LLM** | Anthropic Claude (cloud) | Ollama (local) |
-| **Connection** | Stdio (process) | HTTP (network) |
-| **Deployment** | Single machine | Distributed |
-| **Privacy** | Data sent to Anthropic | Data stays local |
-| **Cost** | Per-token pricing | Free (after hardware) |
-| **Performance** | Fast (cloud GPUs) | Depends on local hardware |
-| **Scalability** | Limited by API rate limits | Limited by local resources |
+| Feature | Go Chat Client | Stdio + Anthropic (Python) | HTTP + Ollama (Python) |
+|---------|----------------|---------------------------|----------------------|
+| **Language** | Go (native binary) | Python | Python |
+| **LLM** | Both Anthropic and Ollama | Anthropic Claude (cloud) | Ollama (local) |
+| **Connection** | Both stdio and HTTP | Stdio (process) | HTTP (network) |
+| **Deployment** | Flexible | Single machine | Distributed |
+| **Privacy** | Configurable | Data sent to Anthropic | Data stays local |
+| **Performance** | Native, fast startup | Fast | Depends on hardware |
+| **Best for** | Production use | Quick prototyping | Local/privacy-focused |
 
 ## General Prerequisites
 
 **For all examples:**
 
-- Python 3.10+
 - The pgEdge Postgres MCP Server built and available
 - A PostgreSQL database (connections can be configured via environment variable or through the chatbot)
 
 **Example-specific requirements:**
 
-- **Stdio + Anthropic**: Anthropic API key
-- **HTTP + Ollama**: Ollama installed with a model pulled
+- **Go Chat Client**: Go 1.23+ (to build), or use pre-built binary
+- **Stdio + Anthropic (Python)**: Python 3.10+, Anthropic API key
+- **HTTP + Ollama (Python)**: Python 3.10+, Ollama installed with a model pulled
 
 ## Best Practices
 
@@ -89,7 +100,8 @@ A chatbot that connects to the MCP server via HTTP and uses Ollama for local LLM
 
 Choose the example that best fits your needs:
 
-- [Stdio + Anthropic Claude Example](stdio-anthropic-chatbot.md) - Great for getting started quickly
+- [Go Chat Client](go-chat-client.md) - **Recommended** for production use
+- [Stdio + Anthropic Claude Example](stdio-anthropic-chatbot.md) - Great for prototyping with Python
 - [HTTP + Ollama Example](http-ollama-chatbot.md) - Perfect for privacy-sensitive or offline applications
 
 For more information about the MCP server itself, see:

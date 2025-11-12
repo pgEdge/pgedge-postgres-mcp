@@ -68,9 +68,8 @@ func tryMergeSavedConnection(ctx context.Context, connString string, connMgr *Co
 	var matchedAlias string
 
 	// First, try case-insensitive alias match (most explicit)
-	requestedHostLower := strings.ToLower(requestedHost)
 	for alias, savedConn := range store.Connections {
-		if strings.ToLower(alias) == requestedHostLower {
+		if strings.EqualFold(alias, requestedHost) {
 			matchedConn = savedConn
 			matchedAlias = alias
 			fmt.Fprintf(os.Stderr, "[DEBUG] tryMergeSavedConnection: Matched by alias (case-insensitive): %s\n", alias)
@@ -193,9 +192,8 @@ func SetDatabaseConnectionTool(clientManager *database.ClientManager, connMgr *C
 					savedConn, err := store.Get(connStrOrAlias)
 					if err != nil {
 						// Try case-insensitive match
-						inputLower := strings.ToLower(connStrOrAlias)
 						for candidateAlias, candidate := range store.Connections {
-							if strings.ToLower(candidateAlias) == inputLower {
+							if strings.EqualFold(candidateAlias, connStrOrAlias) {
 								savedConn = candidate
 								err = nil
 								break
@@ -234,7 +232,7 @@ func SetDatabaseConnectionTool(clientManager *database.ClientManager, connMgr *C
 			} else {
 				fmt.Fprintf(os.Stderr, "[DEBUG] set_database_connection: Input is connection string, trying hostname merge\n")
 				// It's a connection string - try to merge with saved connection by hostname
-				connStr, alias = tryMergeSavedConnection(ctx, connStrOrAlias, connMgr, configPath)
+				connStr, _ = tryMergeSavedConnection(ctx, connStrOrAlias, connMgr, configPath)
 			}
 
 			fmt.Fprintf(os.Stderr, "[DEBUG] set_database_connection: Attempting connection with: %s\n", maskPassword(connStr))
