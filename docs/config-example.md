@@ -69,7 +69,7 @@ http:
         enabled: true
 
         # Path to API token configuration file
-        # Default: Same directory as binary (api-tokens.yaml)
+        # Default: Same directory as binary (pgedge-postgres-mcp-server-tokens.yaml)
         # Environment variable: PGEDGE_AUTH_TOKEN_FILE
         # Command line flag: -token-file
         token_file: ""
@@ -145,7 +145,7 @@ secret_file: ""
 #         enabled: false
 #     auth:
 #         enabled: true
-#         token_file: "./api-tokens.yaml"
+#         token_file: "./pgedge-postgres-mcp-server-tokens.yaml"
 
 # Example 4: Production HTTPS deployment with authentication
 # http:

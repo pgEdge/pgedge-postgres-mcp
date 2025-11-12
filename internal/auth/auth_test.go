@@ -451,7 +451,7 @@ func TestSaveAndLoadTokenStore(t *testing.T) {
 func TestGetDefaultTokenPath(t *testing.T) {
 	t.Run("returns correct default path", func(t *testing.T) {
 		binaryPath := "/usr/local/bin/pgedge-postgres-mcp"
-		expectedPath := "/usr/local/bin/api-tokens.yaml"
+		expectedPath := "/usr/local/bin/pgedge-postgres-mcp-server-tokens.yaml"
 
 		path := GetDefaultTokenPath(binaryPath)
 		if path != expectedPath {
@@ -463,8 +463,8 @@ func TestGetDefaultTokenPath(t *testing.T) {
 		binaryPath := "./bin/pgedge-postgres-mcp"
 		path := GetDefaultTokenPath(binaryPath)
 
-		if filepath.Base(path) != "api-tokens.yaml" {
-			t.Errorf("Expected filename 'api-tokens.yaml', got %s", filepath.Base(path))
+		if filepath.Base(path) != "pgedge-postgres-mcp-server-tokens.yaml" {
+			t.Errorf("Expected filename 'pgedge-postgres-mcp-server-tokens.yaml', got %s", filepath.Base(path))
 		}
 	})
 }

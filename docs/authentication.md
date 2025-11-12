@@ -311,14 +311,14 @@ http:
   address: ":8080"
   auth:
     enabled: true
-    token_file: "/path/to/api-tokens.yaml"
+    token_file: "/path/to/pgedge-postgres-mcp-server-tokens.yaml"
 ```
 
 ## Token Storage
 
 ### Storage Location
 
-- **Default**: `api-tokens.yaml` in the same directory as the binary
+- **Default**: `pgedge-postgres-mcp-server-tokens.yaml` in the same directory as the binary
 - **Custom**: Specified via `-token-file` flag or config file
 
 ### Storage Format
@@ -343,7 +343,7 @@ tokens:
 Expired tokens are automatically removed when the server starts:
 
 ```
-Loaded 3 API token(s) from api-tokens.yaml
+Loaded 3 API token(s) from pgedge-postgres-mcp-server-tokens.yaml
 Removed 1 expired token(s)
 ```
 
@@ -468,7 +468,7 @@ When distributing tokens to users/services:
 
 ```bash
 # Error message:
-ERROR: Token file not found: /path/to/api-tokens.yaml
+ERROR: Token file not found: /path/to/pgedge-postgres-mcp-server-tokens.yaml
 Create tokens with: ./pgedge-postgres-mcp -add-token
 Or disable authentication with: -no-auth
 ```
@@ -483,7 +483,7 @@ Or disable authentication with: -no-auth
 
 ```bash
 # Check token file exists and has correct permissions
-ls -la api-tokens.yaml  # Should show -rw------- (600)
+ls -la pgedge-postgres-mcp-server-tokens.yaml  # Should show -rw------- (600)
 
 # List tokens to verify token exists
 ./bin/pgedge-postgres-mcp -list-tokens

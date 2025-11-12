@@ -413,10 +413,10 @@ See [Authentication Guide](authentication.md) for detailed token management.
 
     ```bash
     # Verify file permissions
-    ls -la api-tokens.yaml  # Should be -rw------- (600)
+    ls -la pgedge-postgres-mcp-server-tokens.yaml  # Should be -rw------- (600)
 
     # Fix if needed
-    chmod 600 api-tokens.yaml
+    chmod 600 pgedge-postgres-mcp-server-tokens.yaml
     ```
 
 ### Connection Isolation
@@ -562,7 +562,7 @@ sudo systemctl list-timers | grep certbot
 
     # Config files: 600 (readable/writable by owner only)
     chmod 600 /etc/pgedge-mcp/config.yaml
-    chmod 600 /etc/pgedge-mcp/api-tokens.yaml
+    chmod 600 /etc/pgedge-mcp/pgedge-postgres-mcp-server-tokens.yaml
     chmod 600 /etc/pgedge-mcp/pgedge-postgres-mcp-prefs.yaml
 
     # Secret file: 600 (CRITICAL - contains encryption key)

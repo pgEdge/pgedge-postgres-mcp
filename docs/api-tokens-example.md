@@ -140,7 +140,7 @@ tokens:
 # ============================================================================
 
 # 1. Set proper file permissions (required):
-#    chmod 600 api-tokens.yaml
+#    chmod 600 pgedge-postgres-mcp-server-tokens.yaml
 
 # 2. Store tokens securely:
 #    - Use environment variables or secret managers for the actual tokens

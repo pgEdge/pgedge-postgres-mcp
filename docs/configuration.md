@@ -44,7 +44,7 @@ http:
     chain_file: ""
   auth:
     enabled: true
-    token_file: ""  # defaults to {binary_dir}/api-tokens.yaml
+    token_file: ""  # defaults to {binary_dir}/pgedge-postgres-mcp-server-tokens.yaml
 
 # User preferences file path (optional)
 preferences_file: ""  # defaults to pgedge-postgres-mcp-prefs.yaml
@@ -244,7 +244,7 @@ See [Deployment Guide](deployment.md) for details on HTTP/HTTPS server setup.
 ### Authentication Options
 
 - `-no-auth` - Disable API token authentication
-- `-token-file` - Path to token file (default: {binary_dir}/api-tokens.yaml)
+- `-token-file` - Path to token file (default: {binary_dir}/pgedge-postgres-mcp-server-tokens.yaml)
 - `-add-token` - Add a new API token
 - `-remove-token` - Remove token by ID or hash prefix
 - `-list-tokens` - List all API tokens
@@ -302,7 +302,7 @@ The server supports environment variables for all configuration options. All env
 export PGEDGE_HTTP_ENABLED="true"
 export PGEDGE_HTTP_ADDRESS=":8080"
 export PGEDGE_AUTH_ENABLED="true"
-export PGEDGE_AUTH_TOKEN_FILE="./api-tokens.yaml"
+export PGEDGE_AUTH_TOKEN_FILE="./pgedge-postgres-mcp-server-tokens.yaml"
 
 ./bin/pgedge-postgres-mcp
 ```

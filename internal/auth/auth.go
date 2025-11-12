@@ -198,7 +198,7 @@ type TokenInfo struct {
 // GetDefaultTokenPath returns the default token file path
 func GetDefaultTokenPath(binaryPath string) string {
 	dir := filepath.Dir(binaryPath)
-	return filepath.Join(dir, "api-tokens.yaml")
+	return filepath.Join(dir, "pgedge-postgres-mcp-server-tokens.yaml")
 }
 
 // InitializeTokenStore creates a new empty token store

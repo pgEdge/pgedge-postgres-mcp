@@ -240,7 +240,7 @@ Description: Production database server
 
 **Storage**:
 
-- **With authentication enabled**: Stored per-token in `api-tokens.yaml`
+- **With authentication enabled**: Stored per-token in `pgedge-postgres-mcp-server-tokens.yaml`
 - **With authentication disabled**: Stored globally in preferences file `pgedge-postgres-mcp-prefs.yaml`
 
 ### remove_database_connection
@@ -443,7 +443,7 @@ Here's a typical workflow for managing database connections:
 - **Authentication Enabled (per-token connections)**:
     - Each API token has its own isolated set of saved connections
     - Users cannot see or access connections from other tokens
-    - Connections are stored in `api-tokens.yaml` with the token
+    - Connections are stored in `pgedge-postgres-mcp-server-tokens.yaml` with the token
 
 - **Authentication Disabled (global connections)**:
     - All connections are stored in the preferences file (`pgedge-postgres-mcp-prefs.yaml`)
