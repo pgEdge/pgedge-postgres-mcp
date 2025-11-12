@@ -378,18 +378,18 @@ Set the database connection for the current session. Now supports both connectio
 **Examples of smart hostname matching**:
 
 ```json
-// You have a saved connection "kielbasa" with host "kielbasa.example.com"
-// and credentials user:password, connected to database "tenaciousdd"
+// You have a saved connection "server1" with host "server1.example.com"
+// and credentials user:password, connected to database "myapp"
 
 // Connect to a different database on the same server:
 {
-  "connection_string": "postgres://user@kielbasa/postgres"
+  "connection_string": "postgres://user@server1/postgres"
 }
-// This will automatically use the saved password from "kielbasa" connection
+// This will automatically use the saved password from "server1" connection
 
 // Or using the full hostname:
 {
-  "connection_string": "postgres://user@kielbasa.example.com/newdb"
+  "connection_string": "postgres://user@server1.example.com/newdb"
 }
 // Also uses saved credentials, connects to "newdb" instead
 ```

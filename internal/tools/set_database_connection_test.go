@@ -51,16 +51,16 @@ func TestTryMergeSavedConnection(t *testing.T) {
 		t.Fatalf("Failed to encrypt password: %v", err)
 	}
 
-	// Add a saved connection for "kielbasa"
+	// Add a saved connection for "server1"
 	testConn := &auth.SavedConnection{
-		Alias:       "kielbasa",
+		Alias:       "server1",
 		Description: "Test server",
 		CreatedAt:   time.Now(),
-		Host:        "kielbasa.example.com",
+		Host:        "server1.example.com",
 		Port:        5432,
 		User:        "testuser",
 		Password:    encryptedPassword,
-		DBName:      "tenaciousdd",
+		DBName:      "myapp",
 		SSLMode:     "disable",
 	}
 	if err := prefs.Connections.Add(testConn); err != nil {
@@ -83,24 +83,24 @@ func TestTryMergeSavedConnection(t *testing.T) {
 	}{
 		{
 			name:           "Connection string with hostname match",
-			connString:     "postgres://testuser@kielbasa.example.com/postgres",
+			connString:     "postgres://testuser@server1.example.com/postgres",
 			expectPassword: true,
 			expectDBName:   "postgres",
-			expectAlias:    "kielbasa",
+			expectAlias:    "server1",
 		},
 		{
 			name:           "Connection string with alias as hostname",
-			connString:     "postgres://testuser@kielbasa/postgres",
+			connString:     "postgres://testuser@server1/postgres",
 			expectPassword: true,
 			expectDBName:   "postgres",
-			expectAlias:    "kielbasa",
+			expectAlias:    "server1",
 		},
 		{
 			name:           "Connection string with no database specified",
-			connString:     "postgres://testuser@kielbasa.example.com",
+			connString:     "postgres://testuser@server1.example.com",
 			expectPassword: true,
-			expectDBName:   "tenaciousdd", // Should use saved connection's default
-			expectAlias:    "kielbasa",
+			expectDBName:   "myapp", // Should use saved connection's default
+			expectAlias:    "server1",
 		},
 		{
 			name:           "Connection string with unknown host",
@@ -190,7 +190,7 @@ func TestTryMergeSavedConnection_NoStore(t *testing.T) {
 	connMgr := NewConnectionManager(nil, nil, nil, false, key)
 
 	ctx := context.Background()
-	connString := "postgres://testuser@kielbasa/postgres"
+	connString := "postgres://testuser@server1/postgres"
 
 	mergedConnStr, alias := tryMergeSavedConnection(ctx, connString, connMgr, configPath)
 
@@ -219,12 +219,12 @@ func TestTryMergeSavedConnection_EncryptionError(t *testing.T) {
 		Connections: auth.NewSavedConnectionStore(),
 	}
 	testConn := &auth.SavedConnection{
-		Alias:    "kielbasa",
-		Host:     "kielbasa.example.com",
+		Alias:    "server1",
+		Host:     "server1.example.com",
 		Port:     5432,
 		User:     "testuser",
 		Password: encryptedPassword, // Encrypted with different key
-		DBName:   "tenaciousdd",
+		DBName:   "myapp",
 	}
 	prefs.Connections.Add(testConn)
 
@@ -232,7 +232,7 @@ func TestTryMergeSavedConnection_EncryptionError(t *testing.T) {
 	connMgr := NewConnectionManager(nil, nil, prefs, false, key2)
 
 	ctx := context.Background()
-	connString := "postgres://testuser@kielbasa/postgres"
+	connString := "postgres://testuser@server1/postgres"
 
 	mergedConnStr, alias := tryMergeSavedConnection(ctx, connString, connMgr, configPath)
 
