@@ -1,0 +1,11 @@
+# Python dependencies for pgEdge Postgres MCP Chatbot Client
+# Install with: pip install -r requirements.txt
+
+# Anthropic Claude API client
+anthropic>=0.40.0
+
+# Model Context Protocol SDK
+mcp>=1.0.0
+
+# Optional: python-dotenv for .env file support
+python-dotenv>=1.0.0

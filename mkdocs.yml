@@ -54,6 +54,10 @@ nav:
   - Tools: tools.md
   - Resources: resources.md
   - Query Examples: examples.md
+  - Chatbot Examples:
+      - Overview: chatbot-examples.md
+      - Stdio + Anthropic Claude: stdio-anthropic-chatbot.md
+      - HTTP + Ollama: http-ollama-chatbot.md
   - Deployment: deployment.md
   - Authentication: authentication.md
   - MCP Protocol Guide: mcp_protocol.md
