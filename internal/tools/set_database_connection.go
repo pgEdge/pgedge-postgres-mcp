@@ -34,12 +34,9 @@ func maskPassword(connStr string) string {
 // If the connection string references a hostname that matches a saved connection,
 // it will use the saved connection's credentials and merge any database name from the request
 func tryMergeSavedConnection(ctx context.Context, connString string, connMgr *ConnectionManager, configPath string) (string, string) {
-	fmt.Fprintf(os.Stderr, "[DEBUG] tryMergeSavedConnection: Input connection string: %s\n", maskPassword(connString))
-
 	// Parse the connection string
 	parsedURL, err := url.Parse(connString)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "[DEBUG] tryMergeSavedConnection: Failed to parse URL: %v\n", err)
 		// If we can't parse it, just return the original
 		return connString, ""
 	}
@@ -47,7 +44,6 @@ func tryMergeSavedConnection(ctx context.Context, connString string, connMgr *Co
 	// Extract hostname and database name from the provided connection string
 	requestedHost := parsedURL.Hostname()
 	requestedDB := strings.TrimPrefix(parsedURL.Path, "/")
-	fmt.Fprintf(os.Stderr, "[DEBUG] tryMergeSavedConnection: Extracted host=%s, db=%s\n", requestedHost, requestedDB)
 
 	if requestedHost == "" {
 		// No hostname in the connection string, can't merge
@@ -72,7 +68,6 @@ func tryMergeSavedConnection(ctx context.Context, connString string, connMgr *Co
 		if strings.EqualFold(alias, requestedHost) {
 			matchedConn = savedConn
 			matchedAlias = alias
-			fmt.Fprintf(os.Stderr, "[DEBUG] tryMergeSavedConnection: Matched by alias (case-insensitive): %s\n", alias)
 			break
 		}
 	}
@@ -83,31 +78,24 @@ func tryMergeSavedConnection(ctx context.Context, connString string, connMgr *Co
 			if savedConn.Host == requestedHost {
 				matchedConn = savedConn
 				matchedAlias = alias
-				fmt.Fprintf(os.Stderr, "[DEBUG] tryMergeSavedConnection: Matched by hostname: %s\n", savedConn.Host)
 				break
 			}
 		}
 	}
 
 	if matchedConn == nil {
-		fmt.Fprintf(os.Stderr, "[DEBUG] tryMergeSavedConnection: No matching saved connection found\n")
 		// No matching saved connection found
 		return connString, ""
 	}
-
-	fmt.Fprintf(os.Stderr, "[DEBUG] tryMergeSavedConnection: Found matching connection: alias=%s, host=%s, port=%d, user=%s, dbname=%s\n",
-		matchedAlias, matchedConn.Host, matchedConn.Port, matchedConn.User, matchedConn.DBName)
 
 	// Found a matching saved connection - use its credentials
 	decryptedPassword := ""
 	if matchedConn.Password != "" {
 		decryptedPassword, err = connMgr.encryptionKey.Decrypt(matchedConn.Password)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "[DEBUG] tryMergeSavedConnection: Failed to decrypt password: %v\n", err)
 			// Can't decrypt password, return original
 			return connString, ""
 		}
-		fmt.Fprintf(os.Stderr, "[DEBUG] tryMergeSavedConnection: Successfully decrypted password\n")
 	}
 
 	// Clone the saved connection to avoid modifying the original
@@ -115,13 +103,11 @@ func tryMergeSavedConnection(ctx context.Context, connString string, connMgr *Co
 
 	// Override the database name if one was specified in the request
 	if requestedDB != "" {
-		fmt.Fprintf(os.Stderr, "[DEBUG] tryMergeSavedConnection: Overriding database name: %s -> %s\n", mergedConn.DBName, requestedDB)
 		mergedConn.DBName = requestedDB
 	}
 
 	// Build the merged connection string
 	mergedConnStr := mergedConn.ToConnectionString(decryptedPassword)
-	fmt.Fprintf(os.Stderr, "[DEBUG] tryMergeSavedConnection: Final connection string: %s\n", maskPassword(mergedConnStr))
 
 	// Mark the saved connection as used
 	if err := store.MarkUsed(matchedAlias); err == nil {

@@ -106,6 +106,25 @@ type anthropicResponse struct {
 	Usage      anthropicUsage           `json:"usage"`
 }
 
+type anthropicErrorResponse struct {
+	Type  string `json:"type"`
+	Error struct {
+		Type    string `json:"type"`
+		Message string `json:"message"`
+	} `json:"error"`
+}
+
+// extractAnthropicErrorMessage parses Anthropic's error response to get a user-friendly message
+func extractAnthropicErrorMessage(statusCode int, body []byte) string {
+	var errResp anthropicErrorResponse
+	if err := json.Unmarshal(body, &errResp); err == nil && errResp.Error.Message != "" {
+		// Successfully parsed error response, return the message
+		return fmt.Sprintf("API error (%d): %s", statusCode, errResp.Error.Message)
+	}
+	// Fallback to raw body if parsing fails
+	return fmt.Sprintf("API error (%d): %s", statusCode, string(body))
+}
+
 func (c *anthropicClient) Chat(ctx context.Context, messages []Message, tools []mcp.Tool) (LLMResponse, error) {
 	startTime := time.Now()
 	operation := "chat"
@@ -170,8 +189,11 @@ func (c *anthropicClient) Chat(ctx context.Context, messages []Message, tools []
 			embedding.LogRateLimitError("anthropic", c.model, resp.StatusCode, string(body))
 		}
 
+		// Extract user-friendly error message from Anthropic's error response
+		userFriendlyMsg := extractAnthropicErrorMessage(resp.StatusCode, body)
+
 		duration := time.Since(startTime)
-		apiErr := fmt.Errorf("API error %d: %s", resp.StatusCode, string(body))
+		apiErr := fmt.Errorf("%s", userFriendlyMsg)
 		embedding.LogLLMCall("anthropic", c.model, operation, 0, 0, duration, apiErr)
 		return LLMResponse{}, apiErr
 	}
@@ -269,6 +291,25 @@ type ollamaResponse struct {
 type toolCallRequest struct {
 	Tool      string                 `json:"tool"`
 	Arguments map[string]interface{} `json:"arguments"`
+}
+
+type ollamaErrorResponse struct {
+	Error string `json:"error"`
+}
+
+// extractOllamaErrorMessage parses Ollama's error response to get a user-friendly message
+func extractOllamaErrorMessage(statusCode int, body []byte) string {
+	var errResp ollamaErrorResponse
+	if err := json.Unmarshal(body, &errResp); err == nil && errResp.Error != "" {
+		// Successfully parsed error response, return the message
+		return fmt.Sprintf("Ollama error (%d): %s", statusCode, errResp.Error)
+	}
+	// Fallback to raw body if parsing fails
+	bodyStr := string(body)
+	if len(bodyStr) > 200 {
+		bodyStr = bodyStr[:200] + "..."
+	}
+	return fmt.Sprintf("Ollama error (%d): %s", statusCode, bodyStr)
 }
 
 func (c *ollamaClient) Chat(ctx context.Context, messages []Message, tools []mcp.Tool) (LLMResponse, error) {
@@ -387,8 +428,11 @@ IMPORTANT INSTRUCTIONS:
 			return LLMResponse{}, readErr
 		}
 
+		// Extract user-friendly error message from Ollama's error response
+		userFriendlyMsg := extractOllamaErrorMessage(resp.StatusCode, body)
+
 		duration := time.Since(startTime)
-		apiErr := fmt.Errorf("API error %d: %s", resp.StatusCode, string(body))
+		apiErr := fmt.Errorf("%s", userFriendlyMsg)
 		embedding.LogLLMCall("ollama", c.model, operation, 0, 0, duration, apiErr)
 		return LLMResponse{}, apiErr
 	}

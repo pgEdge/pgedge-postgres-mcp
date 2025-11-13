@@ -258,3 +258,83 @@ func containsSubstring(s, substr string) bool {
 	}
 	return false
 }
+
+func TestExtractAnthropicErrorMessage(t *testing.T) {
+	tests := []struct {
+		name       string
+		statusCode int
+		body       string
+		want       string
+	}{
+		{
+			name:       "Rate limit error",
+			statusCode: 429,
+			body:       `{"type":"error","error":{"type":"rate_limit_error","message":"You have exceeded your rate limit. Please wait before trying again."}}`,
+			want:       "API error (429): You have exceeded your rate limit. Please wait before trying again.",
+		},
+		{
+			name:       "Authentication error",
+			statusCode: 401,
+			body:       `{"type":"error","error":{"type":"authentication_error","message":"Invalid API key provided"}}`,
+			want:       "API error (401): Invalid API key provided",
+		},
+		{
+			name:       "Generic error with no JSON",
+			statusCode: 500,
+			body:       `Internal Server Error`,
+			want:       "API error (500): Internal Server Error",
+		},
+		{
+			name:       "Malformed JSON",
+			statusCode: 400,
+			body:       `{invalid json}`,
+			want:       "API error (400): {invalid json}",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := extractAnthropicErrorMessage(tt.statusCode, []byte(tt.body))
+			if got != tt.want {
+				t.Errorf("extractAnthropicErrorMessage() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestExtractOllamaErrorMessage(t *testing.T) {
+	tests := []struct {
+		name       string
+		statusCode int
+		body       string
+		wantContains string
+	}{
+		{
+			name:       "Model not found error",
+			statusCode: 404,
+			body:       `{"error":"model not found"}`,
+			wantContains: "model not found",
+		},
+		{
+			name:       "Generic error",
+			statusCode: 500,
+			body:       `{"error":"internal server error"}`,
+			wantContains: "internal server error",
+		},
+		{
+			name:       "Non-JSON error",
+			statusCode: 503,
+			body:       `Service Unavailable`,
+			wantContains: "Service Unavailable",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := extractOllamaErrorMessage(tt.statusCode, []byte(tt.body))
+			if !containsSubstring(got, tt.wantContains) {
+				t.Errorf("extractOllamaErrorMessage() = %v, want to contain %v", got, tt.wantContains)
+			}
+		})
+	}
+}

@@ -90,6 +90,9 @@ func (ui *UI) PrintSystemMessage(text string) {
 
 // PrintError prints an error message
 func (ui *UI) PrintError(text string) {
+	// Clear any thinking animation line and add blank line before error
+	maxWidth := ui.getThinkingMaxWidth()
+	fmt.Print("\r" + strings.Repeat(" ", maxWidth) + "\r\n\n")
 	fmt.Println(ui.colorize(ColorRed, "Error: ") + text)
 }
 
