@@ -139,7 +139,8 @@ export PGEDGE_OPENAI_API_KEY="your-api-key-here"
 
 Supported OpenAI models:
 
-- `gpt-5` - Latest GPT-5 model (recommended)
+- `gpt-5-main` - Latest GPT-5 fast model (recommended)
+- `gpt-5-thinking` - GPT-5 reasoning model
 - `gpt-4o` - GPT-4 Omni
 - `gpt-4-turbo` - GPT-4 Turbo
 - `gpt-3.5-turbo` - GPT-3.5 Turbo

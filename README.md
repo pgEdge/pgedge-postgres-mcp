@@ -155,8 +155,8 @@ curl -X POST http://localhost:8080/mcp/v1 \
 
 ### Essential Guides
 - **[Configuration Guide](docs/configuration.md)** - Config file, environment variables, CLI flags
-- **[Tools Documentation](docs/tools.md)** - All 9 MCP tools reference
-- **[Resources Documentation](docs/resources.md)** - All 4 MCP resources reference
+- **[Tools Documentation](docs/tools.md)** - All 6 MCP tools reference
+- **[Resources Documentation](docs/resources.md)** - All 3 MCP resources reference
 - **[Query Examples](docs/examples.md)** - Comprehensive usage examples
 - **[Deployment Guide](docs/deployment.md)** - HTTP/HTTPS production deployment
 - **[Authentication Guide](docs/authentication.md)** - API token management

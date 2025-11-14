@@ -17,6 +17,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"sync"
 	"time"
 )
 
@@ -47,6 +48,9 @@ var ollamaModelDimensions = map[string]int{
 	"all-minilm:latest": 384,
 	"all-minilm:l6-v2":  384,
 }
+
+// Mutex to protect concurrent access to ollamaModelDimensions
+var ollamaModelDimensionsMu sync.RWMutex
 
 // NewOllamaProvider creates a new Ollama embedding provider
 func NewOllamaProvider(baseURL, model string) (*OllamaProvider, error) {
@@ -151,9 +155,11 @@ func (p *OllamaProvider) Embed(ctx context.Context, text string) ([]float64, err
 	embedding := embResp.Embeddings[0]
 
 	// Update known dimensions if this is a new model
+	ollamaModelDimensionsMu.Lock()
 	if _, ok := ollamaModelDimensions[p.model]; !ok {
 		ollamaModelDimensions[p.model] = len(embedding)
 	}
+	ollamaModelDimensionsMu.Unlock()
 
 	duration := time.Since(startTime)
 	dimensions := len(embedding)
@@ -165,6 +171,8 @@ func (p *OllamaProvider) Embed(ctx context.Context, text string) ([]float64, err
 
 // Dimensions returns the number of dimensions for this model
 func (p *OllamaProvider) Dimensions() int {
+	ollamaModelDimensionsMu.RLock()
+	defer ollamaModelDimensionsMu.RUnlock()
 	if dims, ok := ollamaModelDimensions[p.model]; ok {
 		return dims
 	}

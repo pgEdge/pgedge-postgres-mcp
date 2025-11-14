@@ -64,15 +64,21 @@ func NewAnthropicProvider(apiKey, model string) (*AnthropicProvider, error) {
 		return nil, fmt.Errorf("unsupported Anthropic model: %s (supported: voyage-3, voyage-3-lite, voyage-2, voyage-2-lite)", model)
 	}
 
+	// Mask the API key for logging (show only first/last few characters)
+	maskedKey := "(redacted)"
+	if len(apiKey) > 8 {
+		maskedKey = apiKey[:4] + "..." + apiKey[len(apiKey)-4:]
+	}
+
 	LogProviderInit("anthropic", model, map[string]string{
-		"api_key":  apiKey,
-		"base_url": "https://api.anthropic.com/v1/messages",
+		"api_key":  maskedKey,
+		"base_url": "https://api.voyageai.com/v1/embeddings",
 	})
 
 	return &AnthropicProvider{
 		apiKey:  apiKey,
 		model:   model,
-		baseURL: "https://api.anthropic.com/v1/messages", // Note: Anthropic embeddings use Messages API with specific system prompt
+		baseURL: "https://api.voyageai.com/v1/embeddings",
 		client: &http.Client{
 			Timeout: 30 * time.Second,
 		},
@@ -88,7 +94,7 @@ func (p *AnthropicProvider) Embed(ctx context.Context, text string) ([]float64, 
 		return nil, fmt.Errorf("text cannot be empty")
 	}
 
-	url := p.baseURL + "/embeddings"
+	url := p.baseURL
 	LogAPICallDetails("anthropic", p.model, url, textLen)
 	LogRequestTrace("anthropic", p.model, text)
 
@@ -108,8 +114,7 @@ func (p *AnthropicProvider) Embed(ctx context.Context, text string) ([]float64, 
 	}
 
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("anthropic-version", "2023-06-01")
-	req.Header.Set("x-api-key", p.apiKey)
+	req.Header.Set("Authorization", "Bearer "+p.apiKey)
 
 	resp, err := p.client.Do(req)
 	if err != nil {

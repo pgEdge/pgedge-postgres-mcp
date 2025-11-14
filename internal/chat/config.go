@@ -178,7 +178,7 @@ func (c *Config) Validate() error {
 			return fmt.Errorf("PGEDGE_OPENAI_API_KEY environment variable or openai_api_key config is required for OpenAI")
 		}
 		if c.LLM.Model == "" {
-			c.LLM.Model = "gpt-5"
+			c.LLM.Model = "gpt-5-main"
 		}
 	} else {
 		if c.LLM.OllamaURL == "" {

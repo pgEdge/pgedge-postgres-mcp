@@ -592,7 +592,7 @@ func TestSaveAndLoadUserStore(t *testing.T) {
         }
 
         // Check file permissions (should be 0600)
-        mode := info.Mode()
+        mode := info.Mode().Perm()
         expectedMode := os.FileMode(0600)
         if mode != expectedMode {
             t.Errorf("Expected file mode %v, got %v", expectedMode, mode)

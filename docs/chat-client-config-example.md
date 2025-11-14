@@ -71,9 +71,9 @@ llm:
 
     # Model to use
     # Anthropic models: claude-sonnet-4-20250514, claude-opus-4-20250514, etc.
-    # OpenAI models: gpt-5, gpt-4o, gpt-4-turbo, gpt-3.5-turbo, etc.
+    # OpenAI models: gpt-5-main, gpt-5-thinking, gpt-4o, gpt-4-turbo, gpt-3.5-turbo, etc.
     # Ollama models: llama3, llama3.1, mistral, gpt-oss:20b, etc.
-    # Default: claude-sonnet-4-20250514 (anthropic), gpt-5 (openai), or llama3 (ollama)
+    # Default: claude-sonnet-4-20250514 (anthropic), gpt-5-main (openai), or llama3 (ollama)
     # Environment variable: PGEDGE_LLM_MODEL
     # Command line flag: -llm-model
     model: claude-sonnet-4-20250514
@@ -161,7 +161,7 @@ mcp:
 
 llm:
     provider: openai
-    model: gpt-5
+    model: gpt-5-main
     # Set PGEDGE_OPENAI_API_KEY environment variable
 ```
 

@@ -72,8 +72,14 @@ func NewOpenAIProvider(apiKey, model string) (*OpenAIProvider, error) {
 		return nil, fmt.Errorf("unsupported OpenAI model: %s (supported: text-embedding-3-large, text-embedding-3-small, text-embedding-ada-002)", model)
 	}
 
+	// Mask the API key for logging (show only first/last few characters)
+	maskedKey := "(redacted)"
+	if len(apiKey) > 8 {
+		maskedKey = apiKey[:4] + "..." + apiKey[len(apiKey)-4:]
+	}
+
 	LogProviderInit("openai", model, map[string]string{
-		"api_key":  apiKey,
+		"api_key":  maskedKey,
 		"base_url": "https://api.openai.com/v1",
 	})
 
