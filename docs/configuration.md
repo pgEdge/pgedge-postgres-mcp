@@ -164,10 +164,7 @@ embedding:
 **Environment Variables**:
 
 ```bash
-# Standard OpenAI environment variable (recommended)
-export OPENAI_API_KEY="sk-proj-your-key-here"
-
-# Or use the pgEdge-prefixed version
+# Use PGEDGE-prefixed environment variable
 export PGEDGE_OPENAI_API_KEY="sk-proj-your-key-here"
 ```
 
@@ -200,7 +197,7 @@ embedding:
 **Environment Variable**:
 
 ```bash
-export ANTHROPIC_API_KEY="sk-ant-your-key-here"
+export PGEDGE_ANTHROPIC_API_KEY="sk-ant-your-key-here"
 ```
 
 ### Using Ollama (Local Embeddings)

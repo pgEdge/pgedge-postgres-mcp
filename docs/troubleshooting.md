@@ -189,7 +189,7 @@ If your database is empty (no user tables), the server will still start but won'
 
     ```bash
     curl https://api.anthropic.com/v1/messages \
-        -H "x-api-key: $ANTHROPIC_API_KEY" \
+        -H "x-api-key: $PGEDGE_ANTHROPIC_API_KEY" \
         -H "anthropic-version: 2023-06-01" \
         -H "content-type: application/json" \
         -d '{

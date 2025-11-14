@@ -151,7 +151,7 @@ func TestClient_ConnectToMCP_HTTPMode(t *testing.T) {
 		},
 		LLM: LLMConfig{
 			Provider: "anthropic",
-			APIKey:   "test-key",
+			AnthropicAPIKey: "test-key",
 			Model:    "claude-test",
 		},
 		UI: UIConfig{
@@ -188,7 +188,7 @@ func TestClient_InitializeLLM_Anthropic(t *testing.T) {
 		},
 		LLM: LLMConfig{
 			Provider:    "anthropic",
-			APIKey:      "test-key",
+			AnthropicAPIKey: "test-key",
 			Model:       "claude-test",
 			MaxTokens:   4096,
 			Temperature: 0.7,
@@ -405,7 +405,7 @@ func TestClient_ProcessQuery_SimpleResponse(t *testing.T) {
 		},
 		LLM: LLMConfig{
 			Provider: "anthropic",
-			APIKey:   "test-key",
+			AnthropicAPIKey: "test-key",
 			Model:    "claude-test",
 		},
 		UI: UIConfig{
@@ -487,7 +487,7 @@ func TestClient_ProcessQuery_WithToolUse(t *testing.T) {
 		},
 		LLM: LLMConfig{
 			Provider: "anthropic",
-			APIKey:   "test-key",
+			AnthropicAPIKey: "test-key",
 			Model:    "claude-test",
 		},
 		UI: UIConfig{
@@ -573,7 +573,7 @@ func TestClient_ProcessQuery_MaxIterations(t *testing.T) {
 		},
 		LLM: LLMConfig{
 			Provider: "anthropic",
-			APIKey:   "test-key",
+			AnthropicAPIKey: "test-key",
 			Model:    "claude-test",
 		},
 		UI: UIConfig{
@@ -648,7 +648,7 @@ func TestClient_ProcessQuery_ContextCancellation(t *testing.T) {
 		},
 		LLM: LLMConfig{
 			Provider: "anthropic",
-			APIKey:   "test-key",
+			AnthropicAPIKey: "test-key",
 			Model:    "claude-test",
 		},
 		UI: UIConfig{
@@ -839,7 +839,7 @@ func TestClient_ProcessQuery_ToolListRefreshAfterManageConnections(t *testing.T)
 		},
 		LLM: LLMConfig{
 			Provider: "anthropic",
-			APIKey:   "test-key",
+			AnthropicAPIKey: "test-key",
 			Model:    "claude-test",
 		},
 		UI: UIConfig{

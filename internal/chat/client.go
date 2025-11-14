@@ -233,14 +233,14 @@ func (c *Client) authenticateUser(ctx context.Context, username, password string
 func (c *Client) initializeLLM() error {
 	if c.config.LLM.Provider == "anthropic" {
 		c.llm = NewAnthropicClient(
-			c.config.LLM.APIKey,
+			c.config.LLM.AnthropicAPIKey,
 			c.config.LLM.Model,
 			c.config.LLM.MaxTokens,
 			c.config.LLM.Temperature,
 		)
 	} else if c.config.LLM.Provider == "openai" {
 		c.llm = NewOpenAIClient(
-			c.config.LLM.APIKey,
+			c.config.LLM.OpenAIAPIKey,
 			c.config.LLM.Model,
 			c.config.LLM.MaxTokens,
 			c.config.LLM.Temperature,

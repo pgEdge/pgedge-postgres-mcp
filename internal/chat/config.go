@@ -40,12 +40,13 @@ type MCPConfig struct {
 
 // LLMConfig holds LLM provider configuration
 type LLMConfig struct {
-	Provider    string  `yaml:"provider"`    // anthropic, openai, or ollama
-	Model       string  `yaml:"model"`       // Model to use
-	APIKey      string  `yaml:"api_key"`     // API key (for Anthropic/OpenAI)
-	OllamaURL   string  `yaml:"ollama_url"`  // Ollama server URL
-	MaxTokens   int     `yaml:"max_tokens"`  // Max tokens for response
-	Temperature float64 `yaml:"temperature"` // Temperature for sampling
+	Provider        string  `yaml:"provider"`          // anthropic, openai, or ollama
+	Model           string  `yaml:"model"`             // Model to use
+	AnthropicAPIKey string  `yaml:"anthropic_api_key"` // API key for Anthropic
+	OpenAIAPIKey    string  `yaml:"openai_api_key"`    // API key for OpenAI
+	OllamaURL       string  `yaml:"ollama_url"`        // Ollama server URL
+	MaxTokens       int     `yaml:"max_tokens"`        // Max tokens for response
+	Temperature     float64 `yaml:"temperature"`       // Temperature for sampling
 }
 
 // UIConfig holds UI configuration
@@ -67,12 +68,13 @@ func LoadConfig(configPath string) (*Config, error) {
 			TLS:        false,
 		},
 		LLM: LLMConfig{
-			Provider:    getEnvOrDefault("PGEDGE_LLM_PROVIDER", "anthropic"),
-			Model:       getEnvOrDefault("PGEDGE_LLM_MODEL", "claude-sonnet-4-20250514"),
-			APIKey:      "", // Will be loaded based on provider in Validate()
-			OllamaURL:   getEnvOrDefault("OLLAMA_BASE_URL", "http://localhost:11434"),
-			MaxTokens:   4096,
-			Temperature: 0.7,
+			Provider:        getEnvOrDefault("PGEDGE_LLM_PROVIDER", "anthropic"),
+			Model:           getEnvOrDefault("PGEDGE_LLM_MODEL", "claude-sonnet-4-20250514"),
+			AnthropicAPIKey: os.Getenv("PGEDGE_ANTHROPIC_API_KEY"),
+			OpenAIAPIKey:    os.Getenv("PGEDGE_OPENAI_API_KEY"),
+			OllamaURL:       getEnvOrDefault("PGEDGE_OLLAMA_URL", "http://localhost:11434"),
+			MaxTokens:       4096,
+			Temperature:     0.7,
 		},
 		UI: UIConfig{
 			NoColor: os.Getenv("NO_COLOR") != "",
@@ -165,23 +167,15 @@ func (c *Config) Validate() error {
 
 	// Validate LLM configuration based on provider
 	if c.LLM.Provider == "anthropic" {
-		// Load API key from environment if not set in config
-		if c.LLM.APIKey == "" {
-			c.LLM.APIKey = os.Getenv("ANTHROPIC_API_KEY")
-		}
-		if c.LLM.APIKey == "" {
-			return fmt.Errorf("ANTHROPIC_API_KEY environment variable or api-key config is required for Anthropic")
+		if c.LLM.AnthropicAPIKey == "" {
+			return fmt.Errorf("PGEDGE_ANTHROPIC_API_KEY environment variable or anthropic_api_key config is required for Anthropic")
 		}
 		if c.LLM.Model == "" {
 			c.LLM.Model = "claude-sonnet-4-20250514"
 		}
 	} else if c.LLM.Provider == "openai" {
-		// Load API key from environment if not set in config
-		if c.LLM.APIKey == "" {
-			c.LLM.APIKey = os.Getenv("OPENAI_API_KEY")
-		}
-		if c.LLM.APIKey == "" {
-			return fmt.Errorf("OPENAI_API_KEY environment variable or api-key config is required for OpenAI")
+		if c.LLM.OpenAIAPIKey == "" {
+			return fmt.Errorf("PGEDGE_OPENAI_API_KEY environment variable or openai_api_key config is required for OpenAI")
 		}
 		if c.LLM.Model == "" {
 			c.LLM.Model = "gpt-5"

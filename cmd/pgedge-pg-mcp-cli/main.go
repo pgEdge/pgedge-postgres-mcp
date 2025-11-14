@@ -38,7 +38,8 @@ func main() {
 	mcpPassword := flag.String("mcp-password", "", "MCP server password (for user mode)")
 	llmProvider := flag.String("llm-provider", "", "LLM provider: anthropic, openai, or ollama (default: anthropic)")
 	llmModel := flag.String("llm-model", "", "LLM model to use")
-	apiKey := flag.String("api-key", "", "API key for LLM provider")
+	anthropicAPIKey := flag.String("anthropic-api-key", "", "API key for Anthropic")
+	openaiAPIKey := flag.String("openai-api-key", "", "API key for OpenAI")
 	ollamaURL := flag.String("ollama-url", "", "Ollama server URL (default: http://localhost:11434)")
 	noColor := flag.Bool("no-color", false, "Disable colored output")
 
@@ -85,8 +86,11 @@ func main() {
 	if *llmModel != "" {
 		cfg.LLM.Model = *llmModel
 	}
-	if *apiKey != "" {
-		cfg.LLM.APIKey = *apiKey
+	if *anthropicAPIKey != "" {
+		cfg.LLM.AnthropicAPIKey = *anthropicAPIKey
+	}
+	if *openaiAPIKey != "" {
+		cfg.LLM.OpenAIAPIKey = *openaiAPIKey
 	}
 	if *ollamaURL != "" {
 		cfg.LLM.OllamaURL = *ollamaURL

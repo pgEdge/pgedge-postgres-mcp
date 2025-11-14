@@ -60,7 +60,8 @@ mcp:
 llm:
     provider: anthropic  # Options: anthropic, openai, or ollama
     model: claude-sonnet-4-20250514
-    # api_key: your-api-key-here  # Or use ANTHROPIC_API_KEY/OPENAI_API_KEY env var
+    # anthropic_api_key: your-anthropic-key-here  # Or use PGEDGE_ANTHROPIC_API_KEY env var
+    # openai_api_key: your-openai-key-here        # Or use PGEDGE_OPENAI_API_KEY env var
     max_tokens: 4096
     temperature: 0.7
 
@@ -78,9 +79,9 @@ For a complete configuration file example with all available options and detaile
 - `PGEDGE_MCP_TOKEN`: Authentication token (for HTTP mode)
 - `PGEDGE_LLM_PROVIDER`: LLM provider (anthropic, openai, or ollama)
 - `PGEDGE_LLM_MODEL`: LLM model name
-- `ANTHROPIC_API_KEY`: Anthropic API key
-- `OPENAI_API_KEY`: OpenAI API key
-- `OLLAMA_BASE_URL`: Ollama server URL (default: http://localhost:11434)
+- `PGEDGE_ANTHROPIC_API_KEY`: Anthropic API key
+- `PGEDGE_OPENAI_API_KEY`: OpenAI API key
+- `PGEDGE_OLLAMA_URL`: Ollama server URL (default: http://localhost:11434)
 - `NO_COLOR`: Disable colored output
 
 ### Command-Line Flags
@@ -96,7 +97,8 @@ Flags:
   -mcp-server-path string   Path to MCP server binary (for stdio mode)
   -llm-provider string      LLM provider: anthropic, openai, or ollama
   -llm-model string         LLM model to use
-  -api-key string           API key for LLM provider
+  -anthropic-api-key string API key for Anthropic
+  -openai-api-key string    API key for OpenAI
   -ollama-url string        Ollama server URL
   -no-color                 Disable colored output
 ```
@@ -109,7 +111,7 @@ This is the simplest setup for local development.
 
 ```bash
 # Set your Anthropic API key
-export ANTHROPIC_API_KEY="your-api-key-here"
+export PGEDGE_ANTHROPIC_API_KEY="your-api-key-here"
 
 # Run the chat client
 ./bin/pgedge-pg-mcp-cli
@@ -127,7 +129,7 @@ Use OpenAI's GPT models for natural language processing.
 
 ```bash
 # Set your OpenAI API key
-export OPENAI_API_KEY="your-api-key-here"
+export PGEDGE_OPENAI_API_KEY="your-api-key-here"
 
 # Run the chat client with OpenAI
 ./bin/pgedge-pg-mcp-cli \
@@ -196,7 +198,7 @@ mcp:
 llm:
   provider: anthropic
   model: claude-sonnet-4-20250514
-  api_key: sk-ant-...
+  anthropic_api_key: sk-ant-...
 EOF
 
 # Run with config file
@@ -314,9 +316,9 @@ ollama pull llama3
 
 **Solutions**:
 
-- Set the `ANTHROPIC_API_KEY` environment variable
-- Or add `api_key` to your configuration file under `llm:`
-- Or use the `-api-key` command-line flag
+- Set the `PGEDGE_ANTHROPIC_API_KEY` environment variable
+- Or add `anthropic_api_key` to your configuration file under `llm:`
+- Or use the `-anthropic-api-key` command-line flag
 
 ### Terminal/Display Issues
 

@@ -363,11 +363,6 @@ func applyEnvironmentVariables(cfg *Config) {
 	setStringFromEnv(&cfg.Embedding.OpenAIAPIKey, "PGEDGE_OPENAI_API_KEY")
 	setStringFromEnv(&cfg.Embedding.OllamaURL, "PGEDGE_OLLAMA_URL")
 
-	// Also support standard OpenAI environment variable for convenience
-	if cfg.Embedding.OpenAIAPIKey == "" {
-		setStringFromEnv(&cfg.Embedding.OpenAIAPIKey, "OPENAI_API_KEY")
-	}
-
 	// Secret file
 	setStringFromEnv(&cfg.SecretFile, "PGEDGE_SECRET_FILE")
 }

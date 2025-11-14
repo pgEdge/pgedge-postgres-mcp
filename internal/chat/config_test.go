@@ -153,7 +153,7 @@ func TestValidate_StdioMode(t *testing.T) {
 		},
 		LLM: LLMConfig{
 			Provider: "anthropic",
-			APIKey:   "test-key",
+			AnthropicAPIKey: "test-key",
 			Model:    "claude-test",
 		},
 	}
@@ -188,7 +188,7 @@ func TestValidate_InvalidMode(t *testing.T) {
 		},
 		LLM: LLMConfig{
 			Provider: "anthropic",
-			APIKey:   "test-key",
+			AnthropicAPIKey: "test-key",
 		},
 	}
 
@@ -205,7 +205,7 @@ func TestValidate_MissingURL(t *testing.T) {
 		},
 		LLM: LLMConfig{
 			Provider: "anthropic",
-			APIKey:   "test-key",
+			AnthropicAPIKey: "test-key",
 		},
 	}
 
@@ -222,7 +222,7 @@ func TestValidate_MissingServerPath(t *testing.T) {
 		},
 		LLM: LLMConfig{
 			Provider: "anthropic",
-			APIKey:   "test-key",
+			AnthropicAPIKey: "test-key",
 		},
 	}
 

@@ -83,18 +83,18 @@ llm:
     # -------------------------
     # API key for Anthropic
     # Get your API key from: https://console.anthropic.com/
-    # Environment variable: ANTHROPIC_API_KEY (preferred) or PGEDGE_ANTHROPIC_API_KEY
-    # Command line flag: -api-key
-    # api_key: your-anthropic-api-key-here
+    # Environment variable: PGEDGE_ANTHROPIC_API_KEY
+    # Command line flag: -anthropic-api-key
+    # anthropic_api_key: your-anthropic-api-key-here
 
     # -------------------------
     # OpenAI Configuration
     # -------------------------
     # API key for OpenAI
     # Get your API key from: https://platform.openai.com/
-    # Environment variable: OPENAI_API_KEY (preferred)
-    # Command line flag: -api-key
-    # api_key: your-openai-api-key-here
+    # Environment variable: PGEDGE_OPENAI_API_KEY
+    # Command line flag: -openai-api-key
+    # openai_api_key: your-openai-api-key-here
 
     # Maximum tokens for LLM response
     # For GPT-5 and o-series models, automatically uses max_completion_tokens
@@ -115,7 +115,7 @@ llm:
     # -------------------------
     # Ollama server URL
     # Default: http://localhost:11434
-    # Environment variable: OLLAMA_BASE_URL
+    # Environment variable: PGEDGE_OLLAMA_URL
     # Command line flag: -ollama-url
     ollama_url: http://localhost:11434
 
@@ -142,13 +142,13 @@ mcp:
 llm:
     provider: anthropic
     model: claude-sonnet-4-20250514
-    # Set ANTHROPIC_API_KEY environment variable
+    # Set PGEDGE_ANTHROPIC_API_KEY environment variable
 ```
 
 Then run:
 
 ```bash
-export ANTHROPIC_API_KEY="your-key-here"
+export PGEDGE_ANTHROPIC_API_KEY="your-key-here"
 ./bin/pgedge-pg-mcp-cli
 ```
 
@@ -162,13 +162,13 @@ mcp:
 llm:
     provider: openai
     model: gpt-5
-    # Set OPENAI_API_KEY environment variable
+    # Set PGEDGE_OPENAI_API_KEY environment variable
 ```
 
 Then run:
 
 ```bash
-export OPENAI_API_KEY="your-key-here"
+export PGEDGE_OPENAI_API_KEY="your-key-here"
 ./bin/pgedge-pg-mcp-cli
 ```
 
@@ -188,7 +188,7 @@ llm:
 Then run:
 
 ```bash
-export ANTHROPIC_API_KEY="your-key-here"
+export PGEDGE_ANTHROPIC_API_KEY="your-key-here"
 export PGEDGE_MCP_TOKEN="your-mcp-token"
 ./bin/pgedge-pg-mcp-cli
 ```
@@ -242,9 +242,9 @@ The chat client supports the following environment variables (in order of preced
 
 - `PGEDGE_LLM_PROVIDER`: LLM provider (`anthropic`, `openai`, or `ollama`)
 - `PGEDGE_LLM_MODEL`: Model to use
-- `ANTHROPIC_API_KEY` or `PGEDGE_ANTHROPIC_API_KEY`: Anthropic API key
-- `OPENAI_API_KEY`: OpenAI API key
-- `OLLAMA_BASE_URL`: Ollama server URL
+- `PGEDGE_ANTHROPIC_API_KEY`: Anthropic API key
+- `PGEDGE_OPENAI_API_KEY`: OpenAI API key
+- `PGEDGE_OLLAMA_URL`: Ollama server URL
 
 ## Command Line Flags
 
@@ -257,7 +257,7 @@ All configuration options can be overridden with command line flags:
     -mcp-url https://mcp.example.com:8080 \
     -llm-provider anthropic \
     -llm-model claude-opus-4-20250514 \
-    -api-key your-anthropic-key \
+    -anthropic-api-key your-anthropic-key \
     -no-color
 ```
 
