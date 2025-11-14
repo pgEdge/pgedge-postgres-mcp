@@ -1,15 +1,17 @@
 # MCP Tools
 
-The pgEdge MCP Server provides seven tools that enable SQL database interaction, connection management, semantic search, and embedding generation.
+The pgEdge MCP Server provides six tools that enable SQL database interaction, semantic search, embedding generation, and resource reading.
 
 ## Smart Tool Filtering
 
 The server uses **smart tool filtering** to optimize token usage and improve user experience:
 
-- **Without database connection**: Only 3 stateless tools are shown (`manage_connections`, `read_resource`, `generate_embedding`)
-- **With database connection**: All 7 tools are available (adds `query_database`, `get_schema_info`, `semantic_search`, `search_similar`)
+- **Without database connection**: Only 2 stateless tools are shown (`read_resource`, `generate_embedding`)
+- **With database connection**: All 6 tools are available (adds `query_database`, `get_schema_info`, `semantic_search`, `search_similar`)
 
-This dynamic tool list reduces token usage by ~60% when no database is connected, helping you stay within API rate limits.
+This dynamic tool list reduces token usage when no database is connected, helping you stay within API rate limits.
+
+> **Note:** Database connections are now configured at server startup via environment variables (PGEDGE_DB_* or PG*) or command-line flags, not via tools.
 
 ## Available Tools
 
@@ -491,180 +493,4 @@ Read a specific resource:
 - `pg://stat/replication` - Replication status
 
 See [Resources](resources.md) for detailed information about each resource.
-## Connection Management Tool
-
-### manage_connections
-
-Unified tool for all database connection management operations. This consolidated tool reduces token usage while providing full CRUD functionality for saved connections.
-
-**Operations**: `connect`, `add`, `edit`, `remove`, `list`
-
-#### Operation: connect
-
-Set the active database connection for the current session. You can use a **saved connection alias** (e.g., "production") or provide a **full PostgreSQL connection string**. Also supports smart hostname matching.
-
-**Connect using saved alias** (recommended):
-```json
-{
-  "operation": "connect",
-  "connection_string": "production"
-}
-```
-
-**Connect with full connection string**:
-```json
-{
-  "operation": "connect",
-  "connection_string": "postgres://user:pass@host:5432/database"
-}
-```
-
-**Smart Hostname Matching**: If a connection string is provided and the hostname matches a saved connection, it automatically uses the saved credentials while allowing you to override the database name.
-
-**Output**:
-```
-Connected to saved connection 'production'. Loaded metadata for 142 tables/views.
-```
-
-#### Operation: add
-
-Save a new database connection with an alias. Passwords are encrypted using AES-256-GCM.
-
-**Input**:
-```json
-{
-  "operation": "add",
-  "alias": "production",
-  "host": "prod-host.example.com",
-  "port": 5432,
-  "user": "dbuser",
-  "password": "securepassword",
-  "dbname": "mydb",
-  "sslmode": "verify-full",
-  "sslrootcert": "/path/to/ca.crt",
-  "description": "Production database server"
-}
-```
-
-**Parameters**:
-- `alias` (required): Friendly name
-- `host` (required): Hostname/IP
-- `user` (required): Username
-- `password` (optional): Password (encrypted)
-- `port` (optional, default: 5432)
-- `dbname` (optional)
-- `sslmode` (optional)
-- `sslcert`, `sslkey`, `sslrootcert`, `sslpassword` (optional)
-- `connect_timeout`, `application_name`, `description` (optional)
-
-**Output**:
-```
-Connection 'production' saved successfully
-```
-
-#### Operation: edit
-
-Update an existing saved connection. Only provided fields will be updated.
-
-**Input**:
-```json
-{
-  "operation": "edit",
-  "alias": "production",
-  "host": "new-prod-host.example.com",
-  "description": "Updated production server"
-}
-```
-
-**Output**:
-```
-Connection 'production' updated successfully
-```
-
-#### Operation: remove
-
-Delete a saved connection.
-
-**Input**:
-```json
-{
-  "operation": "remove",
-  "alias": "staging"
-}
-```
-
-**Output**:
-```
-Connection 'staging' removed successfully
-```
-
-#### Operation: list
-
-List all saved connections.
-
-**Input**:
-```json
-{
-  "operation": "list"
-}
-```
-
-**Output**:
-```
-Saved Database Connections (2 total):
-==========================================
-
-Alias: production
-  Host: prod-host.example.com:5432
-  User: dbuser
-  Database: mydb
-  SSL Mode: verify-full
-  Description: Production database
-  Created: 2025-01-15 10:00:00
-  Last Used: 2025-01-15 14:30:00
-
-Alias: staging
-  Host: staging-host.example.com:5432
-  User: dbuser
-  Database: mydb
-  SSL Mode: require
-  Created: 2025-01-15 10:05:00
-```
-
-### Connection Management Workflow
-
-Typical workflow for managing connections:
-
-```
-1. Add connections:
-   manage_connections(operation="add", alias="prod", host="...", user="...")
-
-2. List saved connections:
-   manage_connections(operation="list")
-
-3. Connect using alias:
-   manage_connections(operation="connect", connection_string="prod")
-
-4. Work with the database:
-   query_database(query="SELECT ...")
-   get_schema_info()
-
-5. Update if needed:
-   manage_connections(operation="edit", alias="prod", description="Updated")
-
-6. Remove old connections:
-   manage_connections(operation="remove", alias="old_staging")
-```
-
-### Security Considerations
-
-- **Password Encryption**: All passwords encrypted with AES-256-GCM
-- **Per-Token Isolation** (with auth enabled): Each token has isolated connections
-- **Global Connections** (auth disabled): Shared connections in preferences file
-- **Secure Storage**: Secret file auto-generated with 0600 permissions
-
-**Storage Locations**:
-- With auth: `pgedge-postgres-mcp-server-tokens.yaml`
-- Without auth: `pgedge-postgres-mcp-prefs.yaml`
-- Encryption key: `pgedge-postgres-mcp.secret`
 

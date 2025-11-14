@@ -22,7 +22,7 @@ SELECT tablename, pg_table_size(tablename::regclass) as size FROM pg_tables WHER
 
 - 🔒 **Read-Only Protection** - All queries run in read-only transactions
 - 📊 **3 Resources** - Access PostgreSQL statistics
-- 🛠️ **7 Tools** - Query execution, schema analysis, semantic search (pgvector), embedding generation (OpenAI), connection management
+- 🛠️ **6 Tools** - Query execution, schema analysis, semantic search (pgvector), embedding generation, resource reading
 - 🌐 **HTTP/HTTPS Mode** - Direct API access with token authentication
 - 🔐 **Secure** - TLS support, token auth, read-only enforcement
 
@@ -52,16 +52,51 @@ make build
 
 ### 3. Connect to Your Database
 
-1. Restart Claude Desktop
-2. Configure your database connection:
+Update your Claude Desktop configuration to include database connection parameters:
 
+```json
+{
+  "mcpServers": {
+    "pgedge": {
+      "command": "/absolute/path/to/bin/pgedge-postgres-mcp",
+      "env": {
+        "PGHOST": "localhost",
+        "PGPORT": "5432",
+        "PGDATABASE": "mydb",
+        "PGUSER": "myuser",
+        "PGPASSWORD": "mypass"
+      }
+    }
+  }
+}
 ```
-"Set my database connection to postgres://user:pass@localhost:5432/mydb"
+
+Alternatively, use a `.pgpass` file for password management (recommended for security):
+
+```bash
+# ~/.pgpass
+localhost:5432:mydb:myuser:mypass
 ```
 
-3. Now execute SQL queries against your database!
+Then configure without PGPASSWORD in the config:
 
-> **Note:** Database connections are configured at runtime via the `set_database_connection` tool for security. This keeps credentials out of config files.
+```json
+{
+  "mcpServers": {
+    "pgedge": {
+      "command": "/absolute/path/to/bin/pgedge-postgres-mcp",
+      "env": {
+        "PGHOST": "localhost",
+        "PGPORT": "5432",
+        "PGDATABASE": "mydb",
+        "PGUSER": "myuser"
+      }
+    }
+  }
+}
+```
+
+> **Note:** The server connects to the database at startup using standard PostgreSQL environment variables (PG*) or PGEDGE_DB_* variables. Passwords can be stored securely in `.pgpass` files.
 
 ## Example Queries
 

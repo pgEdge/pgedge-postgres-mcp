@@ -23,6 +23,9 @@ type Config struct {
 	// HTTP server configuration
 	HTTP HTTPConfig `yaml:"http"`
 
+	// Database connection configuration
+	Database DatabaseConfig `yaml:"database"`
+
 	// Embedding configuration
 	Embedding EmbeddingConfig `yaml:"embedding"`
 
@@ -53,6 +56,16 @@ type TLSConfig struct {
 	CertFile  string `yaml:"cert_file"`
 	KeyFile   string `yaml:"key_file"`
 	ChainFile string `yaml:"chain_file"`
+}
+
+// DatabaseConfig holds database connection settings
+type DatabaseConfig struct {
+	Host     string `yaml:"host"`     // Database host (default: localhost)
+	Port     int    `yaml:"port"`     // Database port (default: 5432)
+	Database string `yaml:"database"` // Database name (default: postgres)
+	User     string `yaml:"user"`     // Database user (required)
+	Password string `yaml:"password"` // Database password (optional, will use PGEDGE_DB_PASSWORD env var or .pgpass if not set)
+	SSLMode  string `yaml:"sslmode"`  // SSL mode: disable, require, verify-ca, verify-full (default: prefer)
 }
 
 // EmbeddingConfig holds embedding generation settings
@@ -130,6 +143,20 @@ type CLIFlags struct {
 	AuthTokenFile  string
 	AuthTokenSet   bool
 
+	// Database flags
+	DBHost     string
+	DBHostSet  bool
+	DBPort     int
+	DBPortSet  bool
+	DBName     string
+	DBNameSet  bool
+	DBUser     string
+	DBUserSet  bool
+	DBPassword string
+	DBPassSet  bool
+	DBSSLMode  string
+	DBSSLSet   bool
+
 	// Preferences flags
 	PreferencesFile    string
 	PreferencesFileSet bool
@@ -155,6 +182,14 @@ func defaultConfig() *Config {
 				Enabled:   true, // Authentication enabled by default
 				TokenFile: "",   // Will be set to default path if not specified
 			},
+		},
+		Database: DatabaseConfig{
+			Host:     "localhost",
+			Port:     5432,
+			Database: "postgres",
+			User:     "",        // Required - must be provided
+			Password: "",        // Optional - will use env var or .pgpass
+			SSLMode:  "prefer",  // Default SSL mode
 		},
 		Embedding: EmbeddingConfig{
 			Enabled:         false,                    // Disabled by default (opt-in)
@@ -214,6 +249,26 @@ func mergeConfig(dest, src *Config) {
 		dest.HTTP.Auth.TokenFile = src.HTTP.Auth.TokenFile
 	}
 
+	// Database
+	if src.Database.Host != "" {
+		dest.Database.Host = src.Database.Host
+	}
+	if src.Database.Port != 0 {
+		dest.Database.Port = src.Database.Port
+	}
+	if src.Database.Database != "" {
+		dest.Database.Database = src.Database.Database
+	}
+	if src.Database.User != "" {
+		dest.Database.User = src.Database.User
+	}
+	if src.Database.Password != "" {
+		dest.Database.Password = src.Database.Password
+	}
+	if src.Database.SSLMode != "" {
+		dest.Database.SSLMode = src.Database.SSLMode
+	}
+
 	// Embedding - merge if any embedding fields are set
 	if src.Embedding.Provider != "" || src.Embedding.Enabled {
 		dest.Embedding.Enabled = src.Embedding.Enabled
@@ -257,6 +312,17 @@ func setBoolFromEnv(dest *bool, key string) {
 	}
 }
 
+// setIntFromEnv sets an integer config value from an environment variable if it exists
+func setIntFromEnv(dest *int, key string) {
+	if val := os.Getenv(key); val != "" {
+		var intVal int
+		_, err := fmt.Sscanf(val, "%d", &intVal)
+		if err == nil {
+			*dest = intVal
+		}
+	}
+}
+
 // applyEnvironmentVariables overrides config with environment variables if they exist
 // All environment variables use the PGEDGE_ prefix to avoid collisions
 func applyEnvironmentVariables(cfg *Config) {
@@ -273,6 +339,34 @@ func applyEnvironmentVariables(cfg *Config) {
 	// Auth
 	setBoolFromEnv(&cfg.HTTP.Auth.Enabled, "PGEDGE_AUTH_ENABLED")
 	setStringFromEnv(&cfg.HTTP.Auth.TokenFile, "PGEDGE_AUTH_TOKEN_FILE")
+
+	// Database
+	setStringFromEnv(&cfg.Database.Host, "PGEDGE_DB_HOST")
+	setIntFromEnv(&cfg.Database.Port, "PGEDGE_DB_PORT")
+	setStringFromEnv(&cfg.Database.Database, "PGEDGE_DB_NAME")
+	setStringFromEnv(&cfg.Database.User, "PGEDGE_DB_USER")
+	setStringFromEnv(&cfg.Database.Password, "PGEDGE_DB_PASSWORD")
+	setStringFromEnv(&cfg.Database.SSLMode, "PGEDGE_DB_SSLMODE")
+
+	// Also support standard PostgreSQL environment variables for convenience
+	if cfg.Database.Host == "localhost" {
+		setStringFromEnv(&cfg.Database.Host, "PGHOST")
+	}
+	if cfg.Database.Port == 5432 {
+		setIntFromEnv(&cfg.Database.Port, "PGPORT")
+	}
+	if cfg.Database.Database == "postgres" {
+		setStringFromEnv(&cfg.Database.Database, "PGDATABASE")
+	}
+	if cfg.Database.User == "" {
+		setStringFromEnv(&cfg.Database.User, "PGUSER")
+	}
+	if cfg.Database.Password == "" {
+		setStringFromEnv(&cfg.Database.Password, "PGPASSWORD")
+	}
+	if cfg.Database.SSLMode == "prefer" {
+		setStringFromEnv(&cfg.Database.SSLMode, "PGSSLMODE")
+	}
 
 	// Embedding
 	setBoolFromEnv(&cfg.Embedding.Enabled, "PGEDGE_EMBEDDING_ENABLED")
@@ -326,6 +420,26 @@ func applyCLIFlags(cfg *Config, flags CLIFlags) {
 		cfg.HTTP.Auth.TokenFile = flags.AuthTokenFile
 	}
 
+	// Database
+	if flags.DBHostSet {
+		cfg.Database.Host = flags.DBHost
+	}
+	if flags.DBPortSet {
+		cfg.Database.Port = flags.DBPort
+	}
+	if flags.DBNameSet {
+		cfg.Database.Database = flags.DBName
+	}
+	if flags.DBUserSet {
+		cfg.Database.User = flags.DBUser
+	}
+	if flags.DBPassSet {
+		cfg.Database.Password = flags.DBPassword
+	}
+	if flags.DBSSLSet {
+		cfg.Database.SSLMode = flags.DBSSLMode
+	}
+
 	// Preferences
 	if flags.PreferencesFileSet {
 		cfg.PreferencesFile = flags.PreferencesFile
@@ -361,6 +475,14 @@ func validateConfig(cfg *Config) error {
 		}
 	}
 
+	// Database configuration is optional - server can run with only stateless tools
+	// If database parameters are partially set, validate they're complete
+	if cfg.Database.Host != "" || cfg.Database.Port != 0 || cfg.Database.Database != "" {
+		if cfg.Database.User == "" {
+			return fmt.Errorf("database user is required when database host/port/database are configured (set via -db-user, PGEDGE_DB_USER, PGUSER env var, or config file)")
+		}
+	}
+
 	return nil
 }
 
@@ -374,6 +496,28 @@ func GetDefaultConfigPath(binaryPath string) string {
 func GetDefaultSecretPath(binaryPath string) string {
 	dir := filepath.Dir(binaryPath)
 	return filepath.Join(dir, "pgedge-postgres-mcp.secret")
+}
+
+// BuildConnectionString creates a PostgreSQL connection string from DatabaseConfig
+// If password is not set, pgx will automatically look it up from .pgpass file
+func (cfg *DatabaseConfig) BuildConnectionString() string {
+	// Build connection string components
+	connStr := fmt.Sprintf("postgres://%s", cfg.User)
+
+	// Add password only if explicitly set
+	// If not set, pgx will use .pgpass file automatically
+	if cfg.Password != "" {
+		connStr += ":" + cfg.Password
+	}
+
+	connStr += fmt.Sprintf("@%s:%d/%s", cfg.Host, cfg.Port, cfg.Database)
+
+	// Add SSL mode
+	if cfg.SSLMode != "" {
+		connStr += "?sslmode=" + cfg.SSLMode
+	}
+
+	return connStr
 }
 
 // ConfigFileExists checks if a config file exists at the given path

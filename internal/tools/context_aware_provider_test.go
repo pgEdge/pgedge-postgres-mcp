@@ -19,15 +19,17 @@ import (
 	"pgedge-postgres-mcp/internal/auth"
 	"pgedge-postgres-mcp/internal/config"
 	"pgedge-postgres-mcp/internal/database"
+	"pgedge-postgres-mcp/internal/resources"
 )
 
 // TestNewContextAwareProvider tests provider creation
 func TestNewContextAwareProvider(t *testing.T) {
 	clientManager := database.NewClientManager()
-	// nil no longer needed
 	fallbackClient := database.NewClient()
+	cfg := &config.Config{}
+	resourceReg := resources.NewContextAwareRegistry(clientManager, true)
 
-	provider := NewContextAwareProvider(clientManager, nil, true, fallbackClient, nil, nil, nil, "", nil)
+	provider := NewContextAwareProvider(clientManager, resourceReg, true, fallbackClient, cfg)
 
 	if provider == nil {
 		t.Fatal("Expected non-nil provider")
@@ -52,8 +54,10 @@ func TestContextAwareProvider_List(t *testing.T) {
 	defer clientManager.CloseAll()
 
 	fallbackClient := database.NewClient()
+	cfg := &config.Config{}
+	resourceReg := resources.NewContextAwareRegistry(clientManager, false)
 
-	provider := NewContextAwareProvider(clientManager, nil, false, fallbackClient, nil, nil, nil, "", nil)
+	provider := NewContextAwareProvider(clientManager, resourceReg, false, fallbackClient, cfg)
 
 	// Register tools
 	err := provider.RegisterTools(context.TODO())
@@ -65,9 +69,8 @@ func TestContextAwareProvider_List(t *testing.T) {
 		// List tools without connection
 		tools := provider.List()
 
-		// Should have only 3 stateless tools
+		// Should have only 2 stateless tools (manage_connections removed)
 		expectedTools := []string{
-			"manage_connections",
 			"read_resource",
 			"generate_embedding",
 		}
@@ -111,11 +114,10 @@ func TestContextAwareProvider_List(t *testing.T) {
 		// List tools with connection
 		tools := provider.List()
 
-		// Should have all 7 tools
+		// Should have all 6 tools (manage_connections removed)
 		expectedTools := []string{
 			"query_database",
 			"get_schema_info",
-			"manage_connections",
 			"read_resource",
 			"generate_embedding",
 			"semantic_search",
@@ -142,40 +144,30 @@ func TestContextAwareProvider_List(t *testing.T) {
 
 // TestContextAwareProvider_Execute_NoAuth tests execution without authentication
 func TestContextAwareProvider_Execute_NoAuth(t *testing.T) {
-	// This test doesn't require database connection, testing manage_connections tool
+	// This test doesn't require database connection, testing read_resource tool
 	clientManager := database.NewClientManager()
 	defer clientManager.CloseAll()
 
-	// nil no longer needed
 	fallbackClient := database.NewClient()
-
-	// Create minimal config for manage_connections tool
 	cfg := &config.Config{}
-	prefs := &config.Preferences{}
-
-	// Use temp file for preferences
-	tmpFile := "/tmp/test-prefs-noauth.yaml"
-	defer os.Remove(tmpFile)
+	resourceReg := resources.NewContextAwareRegistry(clientManager, false)
 
 	// Auth disabled - should use fallback client
-	provider := NewContextAwareProvider(clientManager, nil, false, fallbackClient, nil, cfg, prefs, tmpFile, nil)
+	provider := NewContextAwareProvider(clientManager, resourceReg, false, fallbackClient, cfg)
 
 	// Context without token hash
 	ctx := context.Background()
 
-	// Execute manage_connections with list operation (doesn't require database)
-	response, err := provider.Execute(ctx, "manage_connections", map[string]interface{}{
-		"operation": "list",
+	// Execute read_resource with a non-existent resource (tests the tool works)
+	response, err := provider.Execute(ctx, "read_resource", map[string]interface{}{
+		"uri": "test://nonexistent",
 	})
 	if err != nil {
 		t.Fatalf("Execute failed: %v", err)
 	}
 
-	if response.IsError {
-		t.Error("Expected successful response")
-	}
-
-	// Verify response contains connection list (may be empty)
+	// read_resource should return an error for non-existent resource, but not fail
+	// Verify we got a response (error or not)
 	if len(response.Content) == 0 {
 		t.Fatal("Expected non-empty response content")
 	}
@@ -186,30 +178,20 @@ func TestContextAwareProvider_Execute_WithAuth(t *testing.T) {
 	clientManager := database.NewClientManager()
 	defer clientManager.CloseAll()
 
-	// nil no longer needed
 	fallbackClient := database.NewClient()
-
-	// Create minimal config for manage_connections tool
 	cfg := &config.Config{}
-	prefs := &config.Preferences{}
-
-	// Use temp file for preferences
-	tmpFile := "/tmp/test-prefs-withauth.yaml"
-	defer os.Remove(tmpFile)
-
-	// Create token store for auth mode
-	tokenStore := auth.InitializeTokenStore()
+	resourceReg := resources.NewContextAwareRegistry(clientManager, true)
 
 	// Auth enabled - should require token hash
-	provider := NewContextAwareProvider(clientManager, nil, true, fallbackClient, tokenStore, cfg, prefs, tmpFile, nil)
+	provider := NewContextAwareProvider(clientManager, resourceReg, true, fallbackClient, cfg)
 
 	t.Run("missing token hash returns error", func(t *testing.T) {
 		// Context without token hash
 		ctx := context.Background()
 
-		// Execute manage_connections (even though it doesn't need DB, context validation happens first)
-		_, err := provider.Execute(ctx, "manage_connections", map[string]interface{}{
-			"operation": "list",
+		// Execute read_resource (even though it doesn't need DB, context validation happens first)
+		_, err := provider.Execute(ctx, "read_resource", map[string]interface{}{
+			"uri": "test://test",
 		})
 		if err == nil {
 			t.Fatal("Expected error for missing token hash, got nil")
@@ -221,53 +203,34 @@ func TestContextAwareProvider_Execute_WithAuth(t *testing.T) {
 	})
 
 	t.Run("with valid token hash succeeds", func(t *testing.T) {
-		// Add a token to the store
-		tokenHash := "test-token-hash-123"
-		err := tokenStore.AddToken("test-token-id", tokenHash, "test token", nil)
-		if err != nil {
-			t.Fatalf("Failed to add token: %v", err)
-		}
+		// Context with token hash (no token store needed for stateless tools in auth mode)
+		ctx := context.WithValue(context.Background(), auth.TokenHashContextKey, "test-token-hash")
 
-		// Context with token hash
-		ctx := context.WithValue(context.Background(), auth.TokenHashContextKey, tokenHash)
-
-		// Execute manage_connections with list operation (doesn't require database queries)
-		response, err := provider.Execute(ctx, "manage_connections", map[string]interface{}{
-			"operation": "list",
+		// Execute read_resource (doesn't require database queries)
+		response, err := provider.Execute(ctx, "read_resource", map[string]interface{}{
+			"uri": "test://test",
 		})
 		if err != nil {
 			t.Fatalf("Execute failed: %v", err)
 		}
 
-		if response.IsError {
-			if len(response.Content) > 0 {
-				t.Errorf("Expected successful response, got error: %s", response.Content[0].Text)
-			} else {
-				t.Error("Expected successful response")
-			}
-		}
-
-		// Verify response contains connection list
+		// read_resource should return a response (may be error for non-existent resource)
+		// Verify we got a response
 		if len(response.Content) == 0 {
 			t.Fatal("Expected non-empty response content")
 		}
 
-		// Note: manage_connections is a stateless tool, so no client should be created
+		// Note: read_resource is a stateless tool, so no client should be created
 		if count := clientManager.GetClientCount(); count != 0 {
 			t.Errorf("Expected 0 clients for stateless tool, got %d", count)
 		}
 	})
 
 	t.Run("multiple tokens get different clients", func(t *testing.T) {
-		// Add tokens to the store
-		tokenStore.AddToken("token-id-1", "token-hash-1", "token 1", nil)
-		tokenStore.AddToken("token-id-2", "token-hash-2", "token 2", nil)
-		tokenStore.AddToken("token-id-3", "token-hash-3", "token 3", nil)
-
 		// First token
 		ctx1 := context.WithValue(context.Background(), auth.TokenHashContextKey, "token-hash-1")
-		_, err := provider.Execute(ctx1, "manage_connections", map[string]interface{}{
-			"operation": "list",
+		_, err := provider.Execute(ctx1, "read_resource", map[string]interface{}{
+			"uri": "test://test1",
 		})
 		if err != nil {
 			t.Fatalf("Execute failed for token 1: %v", err)
@@ -275,8 +238,8 @@ func TestContextAwareProvider_Execute_WithAuth(t *testing.T) {
 
 		// Second token
 		ctx2 := context.WithValue(context.Background(), auth.TokenHashContextKey, "token-hash-2")
-		_, err = provider.Execute(ctx2, "manage_connections", map[string]interface{}{
-			"operation": "list",
+		_, err = provider.Execute(ctx2, "read_resource", map[string]interface{}{
+			"uri": "test://test2",
 		})
 		if err != nil {
 			t.Fatalf("Execute failed for token 2: %v", err)
@@ -284,14 +247,14 @@ func TestContextAwareProvider_Execute_WithAuth(t *testing.T) {
 
 		// Third token
 		ctx3 := context.WithValue(context.Background(), auth.TokenHashContextKey, "token-hash-3")
-		_, err = provider.Execute(ctx3, "manage_connections", map[string]interface{}{
-			"operation": "list",
+		_, err = provider.Execute(ctx3, "read_resource", map[string]interface{}{
+			"uri": "test://test3",
 		})
 		if err != nil {
 			t.Fatalf("Execute failed for token 3: %v", err)
 		}
 
-		// Note: manage_connections is a stateless tool, so no clients should be created
+		// Note: read_resource is a stateless tool, so no clients should be created
 		if count := clientManager.GetClientCount(); count != 0 {
 			t.Errorf("Expected 0 clients for stateless tool, got %d", count)
 		}
@@ -303,11 +266,12 @@ func TestContextAwareProvider_Execute_InvalidTool(t *testing.T) {
 	clientManager := database.NewClientManager()
 	defer clientManager.CloseAll()
 
-	// nil no longer needed
 	fallbackClient := database.NewClient()
+	cfg := &config.Config{}
+	resourceReg := resources.NewContextAwareRegistry(clientManager, false)
 
 	// Auth disabled for simplicity
-	provider := NewContextAwareProvider(clientManager, nil, false, fallbackClient, nil, nil, nil, "", nil)
+	provider := NewContextAwareProvider(clientManager, resourceReg, false, fallbackClient, cfg)
 
 	ctx := context.Background()
 
@@ -340,8 +304,10 @@ func TestContextAwareProvider_RegisterTools_WithContext(t *testing.T) {
 	defer clientManager.CloseAll()
 
 	fallbackClient := database.NewClient()
+	cfg := &config.Config{}
+	resourceReg := resources.NewContextAwareRegistry(clientManager, true)
 
-	provider := NewContextAwareProvider(clientManager, nil, true, fallbackClient, nil, nil, nil, "", nil)
+	provider := NewContextAwareProvider(clientManager, resourceReg, true, fallbackClient, cfg)
 
 	// Register with context containing token hash
 	ctx := context.WithValue(context.Background(), auth.TokenHashContextKey, "registration-token")

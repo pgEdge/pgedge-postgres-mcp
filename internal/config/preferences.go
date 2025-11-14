@@ -15,26 +15,21 @@ import (
 	"os"
 	"path/filepath"
 
-	"pgedge-postgres-mcp/internal/auth"
-
 	"gopkg.in/yaml.v3"
 )
 
 // Preferences represents user preferences that can be modified at runtime
 // This is separate from the main configuration file for security reasons
 type Preferences struct {
-	// Saved database connections (used when auth is disabled)
-	// When auth is enabled, connections are stored per-token in the token file
-	Connections *auth.SavedConnectionStore `yaml:"connections,omitempty"`
+	// Reserved for future user preferences
+	// Database connection is now configured via config file, environment, or CLI flags
 }
 
 // LoadPreferences loads user preferences from a YAML file
 func LoadPreferences(path string) (*Preferences, error) {
 	// If file doesn't exist, return empty preferences
 	if _, err := os.Stat(path); os.IsNotExist(err) {
-		return &Preferences{
-			Connections: auth.NewSavedConnectionStore(),
-		}, nil
+		return &Preferences{}, nil
 	}
 
 	data, err := os.ReadFile(path)
@@ -45,11 +40,6 @@ func LoadPreferences(path string) (*Preferences, error) {
 	var prefs Preferences
 	if err := yaml.Unmarshal(data, &prefs); err != nil {
 		return nil, fmt.Errorf("failed to parse preferences file: %w", err)
-	}
-
-	// Ensure connections is initialized
-	if prefs.Connections == nil {
-		prefs.Connections = auth.NewSavedConnectionStore()
 	}
 
 	return &prefs, nil

@@ -19,7 +19,6 @@ import (
 
 	"pgedge-postgres-mcp/internal/auth"
 	"pgedge-postgres-mcp/internal/config"
-	"pgedge-postgres-mcp/internal/crypto"
 	"pgedge-postgres-mcp/internal/database"
 	"pgedge-postgres-mcp/internal/mcp"
 	"pgedge-postgres-mcp/internal/resources"
@@ -46,8 +45,15 @@ func main() {
 	noAuth := flag.Bool("no-auth", false, "Disable API token authentication in HTTP mode")
 	debug := flag.Bool("debug", false, "Enable debug logging (logs HTTP requests/responses)")
 	tokenFilePath := flag.String("token-file", "", "Path to API token file")
-	preferencesFilePath := flag.String("preferences-file", "", "Path to user preferences file (for saved connections when auth is disabled)")
-	secretFilePath := flag.String("secret-file", "", "Path to encryption secret file (auto-generated if not present)")
+	preferencesFilePath := flag.String("preferences-file", "", "Path to user preferences file")
+
+	// Database connection flags
+	dbHost := flag.String("db-host", "", "Database host")
+	dbPort := flag.Int("db-port", 0, "Database port")
+	dbName := flag.String("db-name", "", "Database name")
+	dbUser := flag.String("db-user", "", "Database user")
+	dbPassword := flag.String("db-password", "", "Database password")
+	dbSSLMode := flag.String("db-sslmode", "", "Database SSL mode (disable, require, verify-ca, verify-full)")
 
 	// Token management commands
 	addTokenCmd := flag.Bool("add-token", false, "Add a new API token")
@@ -140,9 +146,24 @@ func main() {
 		case "preferences-file":
 			cliFlags.PreferencesFileSet = true
 			cliFlags.PreferencesFile = *preferencesFilePath
-		case "secret-file":
-			cliFlags.SecretFileSet = true
-			cliFlags.SecretFile = *secretFilePath
+		case "db-host":
+			cliFlags.DBHostSet = true
+			cliFlags.DBHost = *dbHost
+		case "db-port":
+			cliFlags.DBPortSet = true
+			cliFlags.DBPort = *dbPort
+		case "db-name":
+			cliFlags.DBNameSet = true
+			cliFlags.DBName = *dbName
+		case "db-user":
+			cliFlags.DBUserSet = true
+			cliFlags.DBUser = *dbUser
+		case "db-password":
+			cliFlags.DBPassSet = true
+			cliFlags.DBPassword = *dbPassword
+		case "db-sslmode":
+			cliFlags.DBSSLSet = true
+			cliFlags.DBSSLMode = *dbSSLMode
 		}
 	})
 
@@ -181,42 +202,6 @@ func main() {
 	// Set default preferences file path if not specified
 	if cfg.PreferencesFile == "" {
 		cfg.PreferencesFile = config.GetDefaultPreferencesPath(execPath)
-	}
-
-	// Set default secret file path if not specified
-	if cfg.SecretFile == "" {
-		cfg.SecretFile = config.GetDefaultSecretPath(execPath)
-	}
-
-	// Load or generate encryption key
-	var encryptionKey *crypto.EncryptionKey
-	if _, err := os.Stat(cfg.SecretFile); os.IsNotExist(err) {
-		// Generate new encryption key
-		fmt.Fprintf(os.Stderr, "Generating new encryption key at %s\n", cfg.SecretFile)
-		encryptionKey, err = crypto.GenerateKey()
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "ERROR: Failed to generate encryption key: %v\n", err)
-			os.Exit(1)
-		}
-		if err := encryptionKey.SaveToFile(cfg.SecretFile); err != nil {
-			fmt.Fprintf(os.Stderr, "ERROR: Failed to save encryption key: %v\n", err)
-			os.Exit(1)
-		}
-		fmt.Fprintf(os.Stderr, "Encryption key saved successfully\n")
-	} else {
-		// Load existing encryption key
-		encryptionKey, err = crypto.LoadKeyFromFile(cfg.SecretFile)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "ERROR: Failed to load encryption key from %s: %v\n", cfg.SecretFile, err)
-			os.Exit(1)
-		}
-	}
-
-	// Load user preferences (for saved connections when auth is disabled)
-	prefs, err := config.LoadPreferences(cfg.PreferencesFile)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "ERROR: Failed to load preferences file: %v\n", err)
-		os.Exit(1)
 	}
 
 	// Verify TLS files exist if HTTPS is enabled
@@ -260,18 +245,60 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel() // Ensure background goroutines are stopped on exit
 
-	// Initialize client manager for runtime database connections
+	// Initialize client manager for database connections
 	clientManager := database.NewClientManager()
 
-	// Use context-aware providers for runtime database connections
-	// Both stdio and HTTP modes use the same providers
+	// Determine authentication mode
 	authEnabled := cfg.HTTP.Enabled && cfg.HTTP.Auth.Enabled
+
+	// Create fallback database client for stdio and HTTP-no-auth modes
+	// This will be used as the "default" connection if database is configured
+	var fallbackClient *database.Client
+	if !authEnabled && cfg.Database.User != "" {
+		// Create connection to database using config
+		connStr := cfg.Database.BuildConnectionString()
+		fallbackClient = database.NewClientWithConnectionString(connStr)
+
+		// Connect to database
+		if err := fallbackClient.Connect(); err != nil {
+			fmt.Fprintf(os.Stderr, "ERROR: Failed to connect to database: %v\n", err)
+			os.Exit(1)
+		}
+
+		// Load metadata
+		if err := fallbackClient.LoadMetadata(); err != nil {
+			// Close the connection before exiting to avoid connection leak
+			fallbackClient.Close()
+			fmt.Fprintf(os.Stderr, "ERROR: Failed to load database metadata: %v\n", err)
+			os.Exit(1)
+		}
+
+		// Set as default connection in client manager
+		if err := clientManager.SetClient("default", fallbackClient); err != nil {
+			fmt.Fprintf(os.Stderr, "ERROR: Failed to set default client: %v\n", err)
+			os.Exit(1)
+		}
+
+		fmt.Fprintf(os.Stderr, "Connected to database: %s@%s:%d/%s\n",
+			cfg.Database.User, cfg.Database.Host, cfg.Database.Port, cfg.Database.Database)
+	} else if authEnabled && cfg.Database.User != "" {
+		// Auth mode - connections will be created per-session on-demand
+		// Create a template client that won't be connected
+		connStr := cfg.Database.BuildConnectionString()
+		fallbackClient = database.NewClientWithConnectionString(connStr)
+		fmt.Fprintf(os.Stderr, "Database configured: %s@%s:%d/%s (per-session connections)\n",
+			cfg.Database.User, cfg.Database.Host, cfg.Database.Port, cfg.Database.Database)
+	} else {
+		// No database configured
+		fallbackClient = database.NewClient()
+		fmt.Fprintf(os.Stderr, "Database: Not configured\n")
+	}
 
 	// Context-aware resource provider
 	contextAwareResourceProvider := resources.NewContextAwareRegistry(clientManager, authEnabled)
 
 	// Context-aware tool provider
-	contextAwareToolProvider := tools.NewContextAwareProvider(clientManager, contextAwareResourceProvider, authEnabled, nil, tokenStore, cfg, prefs, cfg.PreferencesFile, encryptionKey)
+	contextAwareToolProvider := tools.NewContextAwareProvider(clientManager, contextAwareResourceProvider, authEnabled, fallbackClient, cfg)
 	if err := contextAwareToolProvider.RegisterTools(ctx); err != nil {
 		fmt.Fprintf(os.Stderr, "ERROR: Failed to register tools: %v\n", err)
 		os.Exit(1)
@@ -316,14 +343,12 @@ func main() {
 			}
 		}()
 
-		fmt.Fprintf(os.Stderr, "Authentication: ENABLED (per-token database connections)\n")
+		fmt.Fprintf(os.Stderr, "Authentication: ENABLED\n")
 	} else if cfg.HTTP.Enabled {
-		fmt.Fprintf(os.Stderr, "Authentication: DISABLED (shared database connection via 'default' key)\n")
+		fmt.Fprintf(os.Stderr, "Authentication: DISABLED\n")
 	} else {
-		fmt.Fprintf(os.Stderr, "Mode: STDIO (shared database connection via 'default' key)\n")
+		fmt.Fprintf(os.Stderr, "Mode: STDIO\n")
 	}
-
-	fmt.Fprintf(os.Stderr, "Database connection: Runtime configuration via set_database_connection tool\n")
 
 	if cfg.HTTP.Enabled {
 		// HTTP/HTTPS mode

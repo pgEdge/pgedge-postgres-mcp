@@ -17,7 +17,6 @@ import (
 
 	"pgedge-postgres-mcp/internal/auth"
 	"pgedge-postgres-mcp/internal/config"
-	"pgedge-postgres-mcp/internal/crypto"
 	"pgedge-postgres-mcp/internal/database"
 	"pgedge-postgres-mcp/internal/mcp"
 	"pgedge-postgres-mcp/internal/resources"
@@ -30,10 +29,8 @@ type ContextAwareProvider struct {
 	clientManager   *database.ClientManager
 	resourceReg     *resources.ContextAwareRegistry
 	authEnabled     bool
-	fallbackClient  *database.Client   // Used when auth is disabled
-	connMgr         *ConnectionManager // Manages saved database connections
-	preferencesPath string             // Path to preferences file for persistence
-	cfg             *config.Config     // Server configuration (for embedding settings)
+	fallbackClient  *database.Client // Used when auth is disabled
+	cfg             *config.Config   // Server configuration (for embedding settings)
 
 	// Cache of registries per client to avoid re-creating tools on every Execute()
 	mu               sync.RWMutex
@@ -42,9 +39,6 @@ type ContextAwareProvider struct {
 
 // registerStatelessTools registers all stateless tools (those that don't require a database client)
 func (p *ContextAwareProvider) registerStatelessTools(registry *Registry) {
-	// Consolidated connection management tool (connect, add, edit, remove, list)
-	registry.Register("manage_connections", ManageConnectionsTool(p.clientManager, p.connMgr, p.preferencesPath))
-
 	// Note: read_resource tool provides backward compatibility for resource access
 	// Resources are also accessible via the native MCP resources/read endpoint
 	registry.Register("read_resource", ReadResourceTool(p.createResourceAdapter()))
@@ -62,18 +56,13 @@ func (p *ContextAwareProvider) registerDatabaseTools(registry *Registry, client 
 }
 
 // NewContextAwareProvider creates a new context-aware tool provider
-func NewContextAwareProvider(clientManager *database.ClientManager, resourceReg *resources.ContextAwareRegistry, authEnabled bool, fallbackClient *database.Client, tokenStore *auth.TokenStore, cfg *config.Config, prefs *config.Preferences, preferencesPath string, encryptionKey *crypto.EncryptionKey) *ContextAwareProvider {
-	// Create connection manager
-	connMgr := NewConnectionManager(tokenStore, cfg, prefs, authEnabled, encryptionKey)
-
+func NewContextAwareProvider(clientManager *database.ClientManager, resourceReg *resources.ContextAwareRegistry, authEnabled bool, fallbackClient *database.Client, cfg *config.Config) *ContextAwareProvider {
 	provider := &ContextAwareProvider{
 		baseRegistry:     NewRegistry(),
 		clientManager:    clientManager,
 		resourceReg:      resourceReg,
 		authEnabled:      authEnabled,
 		fallbackClient:   fallbackClient,
-		connMgr:          connMgr,
-		preferencesPath:  preferencesPath,
 		cfg:              cfg,
 		clientRegistries: make(map[*database.Client]*Registry),
 	}
@@ -226,10 +215,8 @@ func (p *ContextAwareProvider) Execute(ctx context.Context, name string, args ma
 
 	// Check if this is a stateless tool that doesn't require a database client
 	statelessTools := map[string]bool{
-		"recommend_pg_configuration": true,
-		"read_resource":              true,
-		"manage_connections":         true, // Consolidated connection management (connect, add, edit, remove, list)
-		"generate_embedding":         true, // Embedding generation doesn't need database
+		"read_resource":      true, // Resource access tool
+		"generate_embedding": true, // Embedding generation doesn't need database
 	}
 
 	if statelessTools[name] {
@@ -244,7 +231,7 @@ func (p *ContextAwareProvider) Execute(ctx context.Context, name string, args ma
 			Content: []mcp.ContentItem{
 				{
 					Type: "text",
-					Text: fmt.Sprintf("Failed to get database client: %v\nPlease call set_database_connection first to configure the database connection.", err),
+					Text: fmt.Sprintf("Failed to get database client: %v\nPlease ensure database connection is configured via environment variables or config file.", err),
 				},
 			},
 			IsError: true,

@@ -75,9 +75,40 @@ func StartMCPServer(t *testing.T, connString, apiKey string) (*MCPServer, error)
 
 	// Force stdio mode even if there's a config file with HTTP enabled
 	cmd := exec.Command(binaryPath, "-http=false")
-	cmd.Env = append(os.Environ(),
+
+	// Set up environment with database connection from connString
+	env := append(os.Environ(),
 		"PGEDGE_ANTHROPIC_API_KEY="+apiKey,
 	)
+
+	// If connString is provided, parse it and set PG* environment variables
+	// The server will use these to connect at startup
+	if connString != "" {
+		// Use pgxpool to parse the connection string
+		config, err := pgxpool.ParseConfig(connString)
+		if err == nil {
+			if config.ConnConfig.Host != "" {
+				env = append(env, "PGHOST="+config.ConnConfig.Host)
+			}
+			if config.ConnConfig.Port != 0 {
+				env = append(env, fmt.Sprintf("PGPORT=%d", config.ConnConfig.Port))
+			}
+			if config.ConnConfig.Database != "" {
+				env = append(env, "PGDATABASE="+config.ConnConfig.Database)
+			}
+			if config.ConnConfig.User != "" {
+				env = append(env, "PGUSER="+config.ConnConfig.User)
+			}
+			if config.ConnConfig.Password != "" {
+				env = append(env, "PGPASSWORD="+config.ConnConfig.Password)
+			}
+			t.Logf("Setting database connection via PG* environment variables from connection string")
+		} else {
+			t.Logf("Warning: Failed to parse connection string: %v", err)
+		}
+	}
+
+	cmd.Env = env
 
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
@@ -218,16 +249,8 @@ func TestMCPServerIntegration(t *testing.T) {
 		testInitialize(t, server)
 	})
 
-	t.Run("ListToolsBeforeConnection", func(t *testing.T) {
-		testListToolsBeforeConnection(t, server)
-	})
-
-	t.Run("SetDatabaseConnection", func(t *testing.T) {
-		testSetDatabaseConnection(t, server, connString)
-	})
-
-	t.Run("ListToolsAfterConnection", func(t *testing.T) {
-		testListToolsAfterConnection(t, server)
+	t.Run("ListTools", func(t *testing.T) {
+		testListTools(t, server)
 	})
 
 	t.Run("ListResources", func(t *testing.T) {
@@ -304,46 +327,7 @@ func testInitialize(t *testing.T, server *MCPServer) {
 	t.Log("Initialize test passed")
 }
 
-func testSetDatabaseConnection(t *testing.T, server *MCPServer, connString string) {
-	params := map[string]interface{}{
-		"name": "manage_connections",
-		"arguments": map[string]interface{}{
-			"operation":         "connect",
-			"connection_string": connString,
-		},
-	}
-
-	resp, err := server.SendRequest("tools/call", params)
-	if err != nil {
-		t.Fatalf("tools/call (manage_connections connect) failed: %v", err)
-	}
-
-	if resp.Error != nil {
-		t.Fatalf("manage_connections connect returned error: %s", resp.Error.Message)
-	}
-
-	// Parse the result
-	var result map[string]interface{}
-	if err := json.Unmarshal(resp.Result, &result); err != nil {
-		t.Fatalf("Failed to parse manage_connections result: %v", err)
-	}
-
-	// Check for error response in the tool result
-	if isError, ok := result["isError"].(bool); ok && isError {
-		content := result["content"].([]interface{})
-		if len(content) > 0 {
-			contentMap := content[0].(map[string]interface{})
-			t.Fatalf("manage_connections connect returned error: %s", contentMap["text"])
-		}
-	}
-
-	// Give the database a moment to fully initialize
-	time.Sleep(500 * time.Millisecond)
-
-	t.Log("SetDatabaseConnection test passed")
-}
-
-func testListToolsBeforeConnection(t *testing.T, server *MCPServer) {
+func testListTools(t *testing.T, server *MCPServer) {
 	resp, err := server.SendRequest("tools/list", nil)
 	if err != nil {
 		t.Fatalf("tools/list failed: %v", err)
@@ -364,70 +348,16 @@ func testListToolsBeforeConnection(t *testing.T, server *MCPServer) {
 		t.Fatal("tools array not found in result")
 	}
 
-	// Before database connection, only stateless tools should be available
-	if len(tools) != 3 {
-		t.Errorf("Expected exactly 3 stateless tools before database connection, got %d", len(tools))
-	}
-
-	// Verify expected stateless tools exist
-	expectedTools := map[string]bool{
-		"manage_connections": false,
-		"read_resource":      false,
-		"generate_embedding": false,
-	}
-
-	for _, tool := range tools {
-		toolMap, ok := tool.(map[string]interface{})
-		if !ok {
-			continue
-		}
-		if name, ok := toolMap["name"].(string); ok {
-			if _, exists := expectedTools[name]; exists {
-				expectedTools[name] = true
-			}
-		}
-	}
-
-	for toolName, found := range expectedTools {
-		if !found {
-			t.Errorf("Expected stateless tool '%s' not found", toolName)
-		}
-	}
-
-	t.Log("ListToolsBeforeConnection test passed")
-}
-
-func testListToolsAfterConnection(t *testing.T, server *MCPServer) {
-	resp, err := server.SendRequest("tools/list", nil)
-	if err != nil {
-		t.Fatalf("tools/list failed: %v", err)
-	}
-
-	if resp.Error != nil {
-		t.Fatalf("tools/list returned error: %s", resp.Error.Message)
-	}
-
-	// Parse the result
-	var result map[string]interface{}
-	if err := json.Unmarshal(resp.Result, &result); err != nil {
-		t.Fatalf("Failed to parse tools/list result: %v", err)
-	}
-
-	tools, ok := result["tools"].([]interface{})
-	if !ok {
-		t.Fatal("tools array not found in result")
-	}
-
-	// After calling manage_connections, all tools should be available
-	if len(tools) != 7 {
-		t.Errorf("Expected exactly 7 tools after database connection, got %d", len(tools))
+	// With database connected at startup, all 6 tools should be available
+	// (manage_connections removed, so 6 instead of 7)
+	if len(tools) != 6 {
+		t.Errorf("Expected exactly 6 tools with database connection, got %d", len(tools))
 	}
 
 	// Verify expected tools exist
 	expectedTools := map[string]bool{
 		"query_database":     false,
 		"get_schema_info":    false,
-		"manage_connections": false,
 		"read_resource":      false,
 		"generate_embedding": false,
 		"semantic_search":    false,
@@ -452,7 +382,7 @@ func testListToolsAfterConnection(t *testing.T, server *MCPServer) {
 		}
 	}
 
-	t.Logf("ListToolsAfterConnection test passed, found %d tools", len(tools))
+	t.Log("ListTools test passed")
 }
 
 func testListResources(t *testing.T, server *MCPServer) {

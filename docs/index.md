@@ -7,7 +7,7 @@ A Model Context Protocol (MCP) server written in Go that enables natural languag
 ## Quick Links
 
 - **[Configuration Guide](configuration.md)** - Setup and configuration
-- **[Tools Reference](tools.md)** - All 7 MCP tools
+- **[Tools Reference](tools.md)** - All 6 MCP tools
 - **[Resources Reference](resources.md)** - All 3 MCP resources
 - **[Query Examples](examples.md)** - Usage examples
 - **[Deployment Guide](deployment.md)** - HTTP/HTTPS deployment
@@ -19,7 +19,7 @@ A Model Context Protocol (MCP) server written in Go that enables natural languag
 - 🔒 **Read-Only Protection** - All queries execute in read-only transactions
 - 🤖 **Multiple LLM Support** - Anthropic Claude, OpenAI (GPT-4o, GPT-5), or Ollama (local/free)
 - 📊 **3 Resources** - PostgreSQL statistics (pg_stat_*, pg://system_info)
-- 🛠️ **7 Tools** - Query execution, schema analysis, semantic search, embedding generation, connection management
+- 🛠️ **6 Tools** - Query execution, schema analysis, semantic search, embedding generation, resource reading
 - 🌐 **HTTP/HTTPS Mode** - Direct API access with token authentication
 - 🔐 **Secure** - TLS support, token authentication, read-only enforcement
 
@@ -54,7 +54,11 @@ A Model Context Protocol (MCP) server written in Go that enables natural languag
         "pgedge": {
             "command": "/absolute/path/to/bin/pgedge-postgres-mcp",
             "env": {
-            "PGEDGE_POSTGRES_CONNECTION_STRING": "postgres://user:pass@localhost:5432/mydb",
+            "PGHOST": "localhost",
+            "PGPORT": "5432",
+            "PGDATABASE": "mydb",
+            "PGUSER": "myuser",
+            "PGPASSWORD": "mypass",
             "ANTHROPIC_API_KEY": "sk-ant-your-key"
             }
         }
@@ -74,10 +78,10 @@ For detailed setup instructions, see **[Configuration Guide](configuration.md)**
 Complete configuration reference covering config files, environment variables, command-line flags, and Claude Desktop setup for Anthropic, OpenAI, and Ollama providers.
 
 #### [Tools Documentation](tools.md)
-Reference for all 9 MCP tools including `query_database`, `get_schema_info`, `set_pg_configuration`, `semantic_search`, `search_similar`, `generate_embedding`, connection management, and more.
+Reference for all 6 MCP tools including `query_database`, `get_schema_info`, `semantic_search`, `search_similar`, `generate_embedding`, and `read_resource`.
 
 #### [Resources Documentation](resources.md)
-Reference for all 4 MCP resources providing access to PostgreSQL statistics, system information, and configuration.
+Reference for all 3 MCP resources providing access to PostgreSQL statistics and system information.
 
 #### [Query Examples](examples.md)
 Comprehensive collection of example queries covering schema discovery, data analysis, system monitoring, and multi-database operations.
