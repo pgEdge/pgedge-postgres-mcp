@@ -44,14 +44,14 @@ jobs:
         echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
 
     - name: Run golangci-lint on client code
-      run: golangci-lint run ./internal/chat/... ./cmd/pgedge-postgres-mcp-chat/...
+      run: golangci-lint run ./internal/chat/... ./cmd/pgedge-pg-mcp-cli/...
 
     - name: Run go vet on client code
-      run: go vet ./internal/chat/... ./cmd/pgedge-postgres-mcp-chat/...
+      run: go vet ./internal/chat/... ./cmd/pgedge-pg-mcp-cli/...
 
     - name: Check formatting
       run: |
-        gofmt -l ./internal/chat ./cmd/pgedge-postgres-mcp-chat > /tmp/gofmt.out
+        gofmt -l ./internal/chat ./cmd/pgedge-pg-mcp-cli > /tmp/gofmt.out
         if [ -s /tmp/gofmt.out ]; then
           echo "The following files are not formatted:"
           cat /tmp/gofmt.out

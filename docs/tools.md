@@ -401,7 +401,7 @@ Full embedding vector returned with 768 dimensions.
 
 **Configuration**:
 
-Enable in `pgedge-postgres-mcp.yaml`:
+Enable in `pgedge-pg-mcp-svr.yaml`:
 
 ```yaml
 embedding:

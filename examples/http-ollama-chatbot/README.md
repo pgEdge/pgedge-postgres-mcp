@@ -28,10 +28,10 @@ pip install -r requirements.txt
 
 ```bash
 cd ../..
-go build -o bin/pgedge-postgres-mcp ./cmd/pgedge-postgres-mcp
+go build -o bin/pgedge-pg-mcp-svr ./cmd/pgedge-pg-mcp-svr
 
 # Start the server in HTTP mode
-./bin/pgedge-postgres-mcp -http -addr :8080
+./bin/pgedge-pg-mcp-svr -http -addr :8080
 ```
 
 **4. Set up environment (in a new terminal):**
@@ -137,7 +137,7 @@ export OLLAMA_MODEL="mistral"
 Make sure the MCP server is running in HTTP mode:
 
 ```bash
-./bin/pgedge-postgres-mcp -http -addr :8080
+./bin/pgedge-pg-mcp-svr -http -addr :8080
 export PGEDGE_MCP_SERVER_URL="http://localhost:8080/mcp/v1"
 ```
 

@@ -52,7 +52,7 @@ A Model Context Protocol (MCP) server written in Go that enables natural languag
     {
         "mcpServers": {
         "pgedge": {
-            "command": "/absolute/path/to/bin/pgedge-postgres-mcp",
+            "command": "/absolute/path/to/bin/pgedge-pg-mcp-svr",
             "env": {
             "PGHOST": "localhost",
             "PGPORT": "5432",
@@ -129,10 +129,10 @@ Run as a standalone HTTP server:
 
 ```bash
 # HTTP
-./bin/pgedge-postgres-mcp -http
+./bin/pgedge-pg-mcp-svr -http
 
 # HTTPS
-./bin/pgedge-postgres-mcp -http -tls -cert server.crt -key server.key
+./bin/pgedge-pg-mcp-svr -http -tls -cert server.crt -key server.key
 ```
 
 See **[Deployment Guide](deployment.md)** and **[Authentication Guide](authentication.md)** for details.
@@ -143,7 +143,7 @@ See **[Deployment Guide](deployment.md)** and **[Authentication Guide](authentic
 
 ```
 pgedge-postgres-mcp/
-├── cmd/pgedge-postgres-mcp/  # Application entry point
+├── cmd/pgedge-pg-mcp-svr/  # Application entry point
 ├── internal/                  # Private packages
 │   ├── auth/                  # API token authentication
 │   ├── config/                # Configuration management

@@ -38,7 +38,7 @@ jobs:
       run: go mod download
 
     - name: Run server unit tests
-      run: go test -v -race -coverprofile=coverage.out -covermode=atomic ./internal/mcp/... ./internal/auth/... ./internal/config/... ./internal/crypto/... ./internal/database/... ./internal/resources/... ./internal/tools/... ./cmd/pgedge-postgres-mcp/...
+      run: go test -v -race -coverprofile=coverage.out -covermode=atomic ./internal/mcp/... ./internal/auth/... ./internal/config/... ./internal/crypto/... ./internal/database/... ./internal/resources/... ./internal/tools/... ./cmd/pgedge-pg-mcp-svr/...
 
     - name: Generate coverage report
       if: matrix.go-version == '1.23'
@@ -104,7 +104,7 @@ jobs:
     - name: Build binary
       run: |
         mkdir -p bin
-        go build -v -o bin/pgedge-postgres-mcp ./cmd/pgedge-postgres-mcp
+        go build -v -o bin/pgedge-pg-mcp-svr ./cmd/pgedge-pg-mcp-svr
 
     - name: Wait for PostgreSQL
       run: |

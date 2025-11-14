@@ -1,11 +1,11 @@
 .PHONY: build build-server build-client clean clean-server clean-client test test-server test-client run install help lint lint-server lint-client fmt
 
 # Binary names and directories
-SERVER_BINARY=pgedge-postgres-mcp
-CLIENT_BINARY=pgedge-postgres-mcp-chat
+SERVER_BINARY=pgedge-pg-mcp-svr
+CLIENT_BINARY=pgedge-pg-mcp-cli
 BIN_DIR=bin
-SERVER_CMD_DIR=cmd/pgedge-postgres-mcp
-CLIENT_CMD_DIR=cmd/pgedge-postgres-mcp-chat
+SERVER_CMD_DIR=cmd/pgedge-pg-mcp-svr
+CLIENT_CMD_DIR=cmd/pgedge-pg-mcp-cli
 
 # Build variables
 GO=go

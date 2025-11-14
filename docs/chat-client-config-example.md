@@ -7,7 +7,7 @@
 #   3. Configuration file values (this file)
 #   4. Hard-coded defaults
 #
-# Copy this file to .pgedge-mcp-chat.yaml or ~/.pgedge-mcp-chat.yaml
+# Copy this file to .pgedge-pg-mcp-cli.yaml or ~/.pgedge-pg-mcp-cli.yaml
 # and customize it for your environment.
 
 # ============================================================================
@@ -26,10 +26,10 @@ mcp:
     # Stdio Mode Configuration
     # -------------------------
     # Path to MCP server binary (for stdio mode)
-    # Default: ./bin/pgedge-postgres-mcp
+    # Default: ./bin/pgedge-pg-mcp-svr
     # Environment variable: PGEDGE_MCP_SERVER_PATH
     # Command line flag: -mcp-server-path
-    server_path: ./bin/pgedge-postgres-mcp
+    server_path: ./bin/pgedge-pg-mcp-svr
 
     # -------------------------
     # HTTP Mode Configuration
@@ -43,12 +43,12 @@ mcp:
     # url: http://localhost:8080
 
     # Authentication token for HTTP mode
-    # Token priority: PGEDGE_POSTGRES_MCP_SERVER_TOKEN env var >
-    #                 ~/.pgedge-postgres-mcp-server-token file >
+    # Token priority: PGEDGE_MCP_TOKEN env var >
+    #                 ~/.pgedge-pg-mcp-cli-token file >
     #                 this config value >
     #                 prompt at startup
-    # Environment variable: PGEDGE_POSTGRES_MCP_SERVER_TOKEN
-    # Token file: ~/.pgedge-postgres-mcp-server-token
+    # Environment variable: PGEDGE_MCP_TOKEN
+    # Token file: ~/.pgedge-pg-mcp-cli-token
     # token: your-token-here
 
     # Use TLS/HTTPS for HTTP mode
@@ -137,7 +137,7 @@ ui:
 ```yaml
 mcp:
     mode: stdio
-    server_path: ./bin/pgedge-postgres-mcp
+    server_path: ./bin/pgedge-pg-mcp-svr
 
 llm:
     provider: anthropic
@@ -149,7 +149,7 @@ Then run:
 
 ```bash
 export ANTHROPIC_API_KEY="your-key-here"
-./bin/pgedge-postgres-mcp-chat
+./bin/pgedge-pg-mcp-cli
 ```
 
 ### Stdio Mode with OpenAI
@@ -157,7 +157,7 @@ export ANTHROPIC_API_KEY="your-key-here"
 ```yaml
 mcp:
     mode: stdio
-    server_path: ./bin/pgedge-postgres-mcp
+    server_path: ./bin/pgedge-pg-mcp-svr
 
 llm:
     provider: openai
@@ -169,7 +169,7 @@ Then run:
 
 ```bash
 export OPENAI_API_KEY="your-key-here"
-./bin/pgedge-postgres-mcp-chat
+./bin/pgedge-pg-mcp-cli
 ```
 
 ### HTTP Mode with Authentication
@@ -189,8 +189,8 @@ Then run:
 
 ```bash
 export ANTHROPIC_API_KEY="your-key-here"
-export PGEDGE_POSTGRES_MCP_SERVER_TOKEN="your-mcp-token"
-./bin/pgedge-postgres-mcp-chat
+export PGEDGE_MCP_TOKEN="your-mcp-token"
+./bin/pgedge-pg-mcp-cli
 ```
 
 ### Local Setup with Ollama
@@ -198,7 +198,7 @@ export PGEDGE_POSTGRES_MCP_SERVER_TOKEN="your-mcp-token"
 ```yaml
 mcp:
     mode: stdio
-    server_path: ./bin/pgedge-postgres-mcp
+    server_path: ./bin/pgedge-pg-mcp-svr
 
 llm:
     provider: ollama
@@ -211,7 +211,7 @@ Then run:
 ```bash
 # Make sure Ollama is running with the model pulled
 ollama pull llama3
-./bin/pgedge-postgres-mcp-chat
+./bin/pgedge-pg-mcp-cli
 ```
 
 ### Remote HTTP Server with Ollama
@@ -236,7 +236,7 @@ The chat client supports the following environment variables (in order of preced
 - `PGEDGE_MCP_MODE`: Connection mode (`stdio` or `http`)
 - `PGEDGE_MCP_SERVER_PATH`: Path to MCP server binary (stdio mode)
 - `PGEDGE_MCP_URL`: MCP server URL (http mode)
-- `PGEDGE_POSTGRES_MCP_SERVER_TOKEN`: Authentication token (http mode)
+- `PGEDGE_MCP_TOKEN`: Authentication token (http mode)
 
 ### LLM Configuration
 
@@ -251,7 +251,7 @@ The chat client supports the following environment variables (in order of preced
 All configuration options can be overridden with command line flags:
 
 ```bash
-./bin/pgedge-postgres-mcp-chat \
+./bin/pgedge-pg-mcp-cli \
     -config /path/to/config.yaml \
     -mcp-mode http \
     -mcp-url https://mcp.example.com:8080 \
@@ -261,14 +261,14 @@ All configuration options can be overridden with command line flags:
     -no-color
 ```
 
-Run `./bin/pgedge-postgres-mcp-chat --help` to see all available flags.
+Run `./bin/pgedge-pg-mcp-cli --help` to see all available flags.
 
 ## Token File Location
 
 For HTTP mode authentication, the token can be stored in:
 
 ```
-~/.pgedge-postgres-mcp-server-token
+~/.pgedge-pg-mcp-cli-token
 ```
 
 This file should contain only the token (no newlines or extra whitespace).

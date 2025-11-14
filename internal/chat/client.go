@@ -15,8 +15,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/chzyer/readline"
@@ -261,12 +259,8 @@ func (c *Client) initializeLLM() error {
 
 // chatLoop runs the interactive chat loop
 func (c *Client) chatLoop(ctx context.Context) error {
-	// Set up readline with history
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return fmt.Errorf("failed to get home directory: %w", err)
-	}
-	historyFile := filepath.Join(homeDir, ".pgedge-postgres-mcp-chat-history")
+	// Use history file from config
+	historyFile := c.config.HistoryFile
 
 	// Configure readline with custom prompt
 	rl, err := readline.NewEx(&readline.Config{

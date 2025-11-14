@@ -7,7 +7,7 @@
 #   3. Configuration file values (this file)
 #   4. Hard-coded defaults
 #
-# Copy this file to pgedge-postgres-mcp.yaml and customize as needed.
+# Copy this file to pgedge-pg-mcp-svr.yaml and customize as needed.
 # By default, the server looks for config in the same directory as the binary.
 
 # ============================================================================
@@ -69,8 +69,8 @@ http:
         enabled: true
 
         # Path to API token configuration file
-        # Default: Same directory as binary (pgedge-postgres-mcp-server-tokens.yaml)
-        # Environment variable: PGEDGE_AUTH_TOKEN_FILE
+        # Default: Same directory as binary (pgedge-pg-mcp-svr-tokens.yaml)
+        # Environment variable: PGEDGE_MCP_TOKEN_FILE
         # Command line flag: -token-file
         token_file: ""
 
@@ -80,19 +80,10 @@ http:
         # - Remove token: ./pgedge-postgres-mcp -remove-token <id>
 
 # ============================================================================
-# USER PREFERENCES FILE (Optional)
-# ============================================================================
-# Path to user preferences file where saved database connections are stored
-# Default: pgedge-postgres-mcp-prefs.yaml in the same directory as the binary
-# Environment variable: PGEDGE_PREFERENCES_FILE
-# Command line flag: -preferences-file
-preferences_file: ""
-
-# ============================================================================
 # ENCRYPTION SECRET FILE (Optional)
 # ============================================================================
 # Path to encryption secret file used for encrypting database passwords
-# Default: pgedge-postgres-mcp.secret in the same directory as the binary
+# Default: pgedge-pg-mcp-svr.secret in the same directory as the binary
 # If the file does not exist, it will be automatically generated on first run
 # IMPORTANT: The secret file must have 0600 permissions (owner read/write only)
 #            The server will refuse to start if permissions are incorrect
@@ -145,7 +136,7 @@ secret_file: ""
 #         enabled: false
 #     auth:
 #         enabled: true
-#         token_file: "./pgedge-postgres-mcp-server-tokens.yaml"
+#         token_file: "./pgedge-pg-mcp-svr-tokens.yaml"
 
 # Example 4: Production HTTPS deployment with authentication
 # http:
@@ -159,6 +150,5 @@ secret_file: ""
 #     auth:
 #         enabled: true
 #         token_file: "/etc/pgedge-mcp/tokens.yaml"
-# preferences_file: "/etc/pgedge-mcp/preferences.yaml"
 # secret_file: "/etc/pgedge-mcp/secret.key"
 ```

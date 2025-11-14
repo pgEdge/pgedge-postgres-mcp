@@ -24,7 +24,7 @@ The server supports two transport modes:
 
 **Starting in stdio mode**:
 ```bash
-./bin/pgedge-postgres-mcp
+./bin/pgedge-pg-mcp-svr
 ```
 
 ### 2. HTTP/HTTPS Mode
@@ -47,7 +47,7 @@ The server supports two transport modes:
 
 **Starting in HTTP mode**:
 ```bash
-./bin/pgedge-postgres-mcp -http -addr ":8080"
+./bin/pgedge-pg-mcp-svr -http -addr ":8080"
 ```
 
 For deployment details, see [Deployment Guide](deployment.md).
@@ -514,7 +514,7 @@ In production, errors are logged but sanitized in responses.
 ### With MCP Inspector
 
 ```bash
-npx @modelcontextprotocol/inspector /path/to/bin/pgedge-postgres-mcp
+npx @modelcontextprotocol/inspector /path/to/bin/pgedge-pg-mcp-svr
 ```
 
 The MCP Inspector provides a web UI for testing:
@@ -528,7 +528,7 @@ The MCP Inspector provides a web UI for testing:
 
 ```bash
 # Start server
-./bin/pgedge-postgres-mcp -http -no-auth
+./bin/pgedge-pg-mcp-svr -http -no-auth
 
 # Initialize
 curl -X POST http://localhost:8080/mcp/v1 \

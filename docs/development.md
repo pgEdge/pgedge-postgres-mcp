@@ -24,8 +24,8 @@ make build
 ```
 
 This creates:
-- `bin/pgedge-postgres-mcp` - MCP server
-- `bin/pgedge-postgres-mcp-chat` - Go chat client
+- `bin/pgedge-pg-mcp-svr` - MCP server
+- `bin/pgedge-pg-mcp-cli` - Go chat client
 
 ### Building Individual Components
 
@@ -34,7 +34,7 @@ Build only the server:
 ```bash
 make server
 # or
-go build -o bin/pgedge-postgres-mcp ./cmd/pgedge-postgres-mcp
+go build -o bin/pgedge-pg-mcp-svr ./cmd/pgedge-pg-mcp-svr
 ```
 
 Build only the client:
@@ -42,7 +42,7 @@ Build only the client:
 ```bash
 make client
 # or
-go build -o bin/pgedge-postgres-mcp-chat ./cmd/pgedge-postgres-mcp-chat
+go build -o bin/pgedge-pg-mcp-cli ./cmd/pgedge-pg-mcp-cli
 ```
 
 ### Building for Multiple Platforms
@@ -86,7 +86,7 @@ Run server tests only:
 ```bash
 make test-server
 # or
-go test -v ./internal/mcp/... ./internal/auth/... ./internal/config/... ./internal/crypto/... ./internal/database/... ./internal/resources/... ./internal/tools/... ./cmd/pgedge-postgres-mcp/...
+go test -v ./internal/mcp/... ./internal/auth/... ./internal/config/... ./internal/crypto/... ./internal/database/... ./internal/resources/... ./internal/tools/... ./cmd/pgedge-pg-mcp-svr/...
 ```
 
 Run client tests only:
@@ -94,7 +94,7 @@ Run client tests only:
 ```bash
 make test-client
 # or
-go test -v ./internal/chat/... ./cmd/pgedge-postgres-mcp-chat/...
+go test -v ./internal/chat/... ./cmd/pgedge-pg-mcp-cli/...
 ```
 
 ### Test Coverage
@@ -157,7 +157,7 @@ Lint server code only:
 ```bash
 make lint-server
 # or
-golangci-lint run ./internal/mcp/... ./internal/auth/... ./internal/config/... ./internal/crypto/... ./internal/database/... ./internal/resources/... ./internal/tools/... ./cmd/pgedge-postgres-mcp/...
+golangci-lint run ./internal/mcp/... ./internal/auth/... ./internal/config/... ./internal/crypto/... ./internal/database/... ./internal/resources/... ./internal/tools/... ./cmd/pgedge-pg-mcp-svr/...
 ```
 
 Lint client code only:
@@ -165,7 +165,7 @@ Lint client code only:
 ```bash
 make lint-client
 # or
-golangci-lint run ./internal/chat/... ./cmd/pgedge-postgres-mcp-chat/...
+golangci-lint run ./internal/chat/... ./cmd/pgedge-pg-mcp-cli/...
 ```
 
 ### Formatting
@@ -244,8 +244,8 @@ make lint
 make build
 
 # Test the binary
-./bin/pgedge-postgres-mcp --version
-./bin/pgedge-postgres-mcp-chat --version
+./bin/pgedge-pg-mcp-svr --version
+./bin/pgedge-pg-mcp-cli --version
 ```
 
 ## Package Management
@@ -289,7 +289,7 @@ go mod download
 Enable debug logging:
 
 ```bash
-./bin/pgedge-postgres-mcp -debug
+./bin/pgedge-pg-mcp-svr -debug
 ```
 
 Debug with a specific log level:
@@ -297,7 +297,7 @@ Debug with a specific log level:
 ```bash
 # Set log level via environment
 export LOG_LEVEL=debug
-./bin/pgedge-postgres-mcp
+./bin/pgedge-pg-mcp-svr
 ```
 
 ### Client Debugging
@@ -305,7 +305,7 @@ export LOG_LEVEL=debug
 The chat client outputs to stdout/stderr. Use verbose flags if available:
 
 ```bash
-./bin/pgedge-postgres-mcp-chat --help
+./bin/pgedge-pg-mcp-cli --help
 ```
 
 ### Using Delve Debugger
@@ -319,7 +319,7 @@ go install github.com/go-delve/delve/cmd/dlv@latest
 Debug the server:
 
 ```bash
-dlv debug ./cmd/pgedge-postgres-mcp -- -debug
+dlv debug ./cmd/pgedge-pg-mcp-svr -- -debug
 ```
 
 Debug tests:

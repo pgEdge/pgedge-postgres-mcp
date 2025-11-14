@@ -32,7 +32,7 @@ pgedge-postgres-mcp/
 │
 ├── configs/                  # Configuration examples
 │   ├── .env.example          # Environment variables
-│   └── pgedge-postgres-mcp.yaml.example # Server configuration
+│   └── pgedge-pg-mcp-svr.yaml.example # Server configuration
 │
 ├── bin/                      # Compiled binaries (gitignored)
 │
@@ -44,7 +44,7 @@ pgedge-postgres-mcp/
 
 ## Component Overview
 
-### cmd/pgedge-postgres-mcp
+### cmd/pgedge-pg-mcp-svr
 - **Purpose**: Application entry point
 - **Responsibilities**:
 
@@ -180,7 +180,7 @@ To add a new MCP tool:
    }
    ```
 
-2. **Register tool** in `cmd/pgedge-postgres-mcp/main.go`:
+2. **Register tool** in `cmd/pgedge-pg-mcp-svr/main.go`:
    ```go
    registry.Register("my_new_tool", tools.MyNewTool(dbClient, llmClient))
    ```
@@ -221,7 +221,7 @@ Configure in Claude Desktop's MCP config file:
 {
   "mcpServers": {
     "pgedge": {
-      "command": "/path/to/bin/pgedge-postgres-mcp",
+      "command": "/path/to/bin/pgedge-pg-mcp-svr",
       "env": {
         "PGEDGE_POSTGRES_CONNECTION_STRING": "...",
         "ANTHROPIC_API_KEY": "..."
@@ -254,10 +254,10 @@ export PGEDGE_POSTGRES_CONNECTION_STRING="..."
 export ANTHROPIC_API_KEY="..."
 
 # Run server
-./bin/pgedge-postgres-mcp
+./bin/pgedge-pg-mcp-svr
 
 # Send test request
-echo '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test","version":"1.0"}}}' | ./bin/pgedge-postgres-mcp
+echo '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test","version":"1.0"}}}' | ./bin/pgedge-pg-mcp-svr
 ```
 
 ## Dependencies

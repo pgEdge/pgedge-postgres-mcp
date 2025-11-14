@@ -20,7 +20,7 @@ import (
 
 const (
 	ProtocolVersion = "2024-11-05"
-	ServerName      = "pgedge-postgres-mcp"
+	ServerName      = "pgedge-pg-mcp-svr"
 	ServerVersion   = "1.0.0-alpha1"
 )
 

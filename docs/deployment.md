@@ -20,7 +20,7 @@ This guide focuses on HTTP/HTTPS mode. For stdio mode (Claude Desktop), see the 
 export ANTHROPIC_API_KEY="sk-ant-your-key"
 
 # Start HTTP server on default port 8080
-./bin/pgedge-postgres-mcp -http
+./bin/pgedge-pg-mcp-svr -http
 
 # Then connect to database using the set_database_connection tool via API
 ```
@@ -28,13 +28,13 @@ export ANTHROPIC_API_KEY="sk-ant-your-key"
 ### With Custom Port
 
 ```bash
-./bin/pgedge-postgres-mcp -http -addr ":3000"
+./bin/pgedge-pg-mcp-svr -http -addr ":3000"
 ```
 
 ### Production HTTPS Server
 
 ```bash
-./bin/pgedge-postgres-mcp -http -tls \
+./bin/pgedge-pg-mcp-svr -http -tls \
   -cert /path/to/server.crt \
   -key /path/to/server.key \
   -chain /path/to/ca-chain.crt
@@ -43,7 +43,7 @@ export ANTHROPIC_API_KEY="sk-ant-your-key"
 ## Command Line Options
 
 ```bash
-./bin/pgedge-postgres-mcp [options]
+./bin/pgedge-pg-mcp-svr [options]
 
 HTTP/HTTPS Options:
   -http              Enable HTTP transport mode (default: stdio)
@@ -53,7 +53,7 @@ HTTP/HTTPS Options:
   -key string        Path to TLS key file
   -chain string      Path to TLS certificate chain file (optional)
   -no-auth           Disable API token authentication
-  -token-file        Path to API token file (default: {binary_dir}/pgedge-postgres-mcp-server-tokens.yaml)
+  -token-file        Path to API token file (default: {binary_dir}/pgedge-pg-mcp-svr-tokens.yaml)
 ```
 
 **Note**: TLS options (`-tls`, `-cert`, `-key`, `-chain`) require the `-http` flag.
@@ -89,7 +89,7 @@ Response:
 First, create an API token (see [Authentication Guide](authentication.md) for details):
 
 ```bash
-./bin/pgedge-postgres-mcp -add-token -token-note "Test" -token-expiry "30d"
+./bin/pgedge-pg-mcp-svr -add-token -token-note "Test" -token-expiry "30d"
 ```
 
 Then make requests with the token:
@@ -146,7 +146,7 @@ curl -X POST http://localhost:8080/mcp/v1 \
 **Warning**: Only use this for local development. Never in production.
 
 ```bash
-./bin/pgedge-postgres-mcp -http -no-auth
+./bin/pgedge-pg-mcp-svr -http -no-auth
 ```
 
 ## HTTPS Mode (TLS)
@@ -163,7 +163,7 @@ openssl req -x509 -newkey rsa:4096 -keyout server.key -out server.crt \
 Start HTTPS server:
 
 ```bash
-./bin/pgedge-postgres-mcp -http -tls \
+./bin/pgedge-pg-mcp-svr -http -tls \
   -cert server.crt \
   -key server.key
 ```
@@ -194,7 +194,7 @@ sudo certbot certonly --standalone -d yourdomain.com
 #### Start Server with Let's Encrypt Certificates
 
 ```bash
-./bin/pgedge-postgres-mcp -http -tls \
+./bin/pgedge-pg-mcp-svr -http -tls \
   -cert /etc/letsencrypt/live/yourdomain.com/fullchain.pem \
   -key /etc/letsencrypt/live/yourdomain.com/privkey.pem
 ```
@@ -204,7 +204,7 @@ sudo certbot certonly --standalone -d yourdomain.com
 For CA-signed certificates from a certificate authority:
 
 ```bash
-./bin/pgedge-postgres-mcp -http -tls \
+./bin/pgedge-pg-mcp-svr -http -tls \
   -cert /path/to/server.crt \
   -key /path/to/server.key \
   -chain /path/to/ca-chain.crt
@@ -247,7 +247,7 @@ Type=simple
 User=pgedge
 Group=pgedge
 WorkingDirectory=/opt/pgedge-mcp
-ExecStart=/opt/pgedge-mcp/bin/pgedge-postgres-mcp -config /etc/pgedge-mcp/config.yaml
+ExecStart=/opt/pgedge-mcp/bin/pgedge-pg-mcp-svr -config /etc/pgedge-mcp/config.yaml
 Restart=always
 RestartSec=10
 
@@ -279,13 +279,13 @@ FROM golang:1.21-alpine AS builder
 
 WORKDIR /build
 COPY . .
-RUN go build -o pgedge-postgres-mcp ./cmd/pgedge-postgres-mcp
+RUN go build -o pgedge-postgres-mcp ./cmd/pgedge-pg-mcp-svr
 
 FROM alpine:latest
 RUN apk --no-cache add ca-certificates
 WORKDIR /app
 COPY --from=builder /build/pgedge-postgres-mcp .
-COPY configs/pgedge-postgres-mcp.yaml.example config.yaml
+COPY configs/pgedge-pg-mcp-svr.yaml.example config.yaml
 
 EXPOSE 8080
 ENTRYPOINT ["./pgedge-postgres-mcp"]
@@ -444,7 +444,7 @@ journalctl -u pgedge-mcp -f
 docker logs -f pgedge-mcp
 
 # File logging (redirect stderr)
-./bin/pgedge-postgres-mcp -http 2>> /var/log/pgedge-mcp/server.log
+./bin/pgedge-pg-mcp-svr -http 2>> /var/log/pgedge-mcp/server.log
 ```
 
 ## Security Best Practices
@@ -468,11 +468,11 @@ lsof -i :8080
 netstat -tlnp | grep 8080
 
 # Check file permissions
-ls -la bin/pgedge-postgres-mcp
+ls -la bin/pgedge-pg-mcp-svr
 ls -la /path/to/server.key  # Should be 600
 
 # Test with verbose logging
-./bin/pgedge-postgres-mcp -http -addr ":8080" 2>&1 | tee debug.log
+./bin/pgedge-pg-mcp-svr -http -addr ":8080" 2>&1 | tee debug.log
 ```
 
 ### Connection Refused

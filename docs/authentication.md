@@ -39,7 +39,7 @@ User accounts provide interactive authentication with session-based access. User
 
 ```bash
 # Add user with prompts
-./bin/pgedge-postgres-mcp -add-user
+./bin/pgedge-pg-mcp-svr -add-user
 ```
 
 You'll be prompted for:
@@ -52,7 +52,7 @@ You'll be prompted for:
 
 ```bash
 # Add user with all details specified
-./bin/pgedge-postgres-mcp -add-user \
+./bin/pgedge-pg-mcp-svr -add-user \
   -username alice \
   -password "SecurePassword123!" \
   -user-note "Alice Smith - Developer"
@@ -61,7 +61,7 @@ You'll be prompted for:
 ### Listing Users
 
 ```bash
-./bin/pgedge-postgres-mcp -list-users
+./bin/pgedge-pg-mcp-svr -list-users
 ```
 
 Output:
@@ -80,15 +80,15 @@ charlie              2024-09-01 08:00          2024-10-10 16:45     DISABLED    
 
 ```bash
 # Update password
-./bin/pgedge-postgres-mcp -update-user -username alice
+./bin/pgedge-pg-mcp-svr -update-user -username alice
 
 # Update with new password from command line (less secure)
-./bin/pgedge-postgres-mcp -update-user \
+./bin/pgedge-pg-mcp-svr -update-user \
   -username alice \
   -password "NewPassword456!"
 
 # Update annotation only
-./bin/pgedge-postgres-mcp -update-user \
+./bin/pgedge-pg-mcp-svr -update-user \
   -username alice \
   -user-note "Alice Smith - Senior Developer"
 ```
@@ -97,29 +97,29 @@ charlie              2024-09-01 08:00          2024-10-10 16:45     DISABLED    
 
 ```bash
 # Disable a user account (prevents login)
-./bin/pgedge-postgres-mcp -disable-user -username charlie
+./bin/pgedge-pg-mcp-svr -disable-user -username charlie
 
 # Re-enable a user account
-./bin/pgedge-postgres-mcp -enable-user -username charlie
+./bin/pgedge-pg-mcp-svr -enable-user -username charlie
 ```
 
 ### Deleting Users
 
 ```bash
 # Delete user (with confirmation prompt)
-./bin/pgedge-postgres-mcp -delete-user -username charlie
+./bin/pgedge-pg-mcp-svr -delete-user -username charlie
 ```
 
 ### Custom User File Location
 
 ```bash
 # Specify custom user file path
-./bin/pgedge-postgres-mcp -user-file /etc/pgedge-mcp/users.yaml -list-users
+./bin/pgedge-pg-mcp-svr -user-file /etc/pgedge-mcp/users.yaml -list-users
 ```
 
 ### User Storage
 
-- **Default location**: `pgedge-postgres-mcp-users.yaml` in the same directory as the binary
+- **Default location**: `pgedge-pg-mcp-svr-users.yaml` in the same directory as the binary
 - **Storage format**: YAML with bcrypt-hashed passwords (cost factor 12)
 - **File permissions**: Automatically set to 0600 (owner read/write only)
 - **Session tokens**: Generated with crypto/rand (32 bytes, 24-hour validity)
@@ -132,7 +132,7 @@ charlie              2024-09-01 08:00          2024-10-10 16:45     DISABLED    
 
 ```bash
 # Add token with prompts
-./bin/pgedge-postgres-mcp -add-token
+./bin/pgedge-pg-mcp-svr -add-token
 ```
 
 You'll be prompted for:
@@ -144,12 +144,12 @@ You'll be prompted for:
 
 ```bash
 # Add token with all details specified
-./bin/pgedge-postgres-mcp -add-token \
+./bin/pgedge-pg-mcp-svr -add-token \
   -token-note "Production API" \
   -token-expiry "1y"
 
 # Add token with no expiration
-./bin/pgedge-postgres-mcp -add-token \
+./bin/pgedge-pg-mcp-svr -add-token \
   -token-note "CI/CD Pipeline" \
   -token-expiry "never"
 ```
@@ -170,7 +170,7 @@ Store this token securely. It cannot be retrieved later.
 ### Listing Tokens
 
 ```bash
-./bin/pgedge-postgres-mcp -list-tokens
+./bin/pgedge-pg-mcp-svr -list-tokens
 ```
 
 Output:
@@ -201,13 +201,13 @@ You can remove tokens by ID or hash prefix:
 
 ```bash
 # Remove by full token ID
-./bin/pgedge-postgres-mcp -remove-token token-1234567890
+./bin/pgedge-pg-mcp-svr -remove-token token-1234567890
 
 # Remove by hash prefix (minimum 8 characters)
-./bin/pgedge-postgres-mcp -remove-token b3f805a4
+./bin/pgedge-pg-mcp-svr -remove-token b3f805a4
 
 # Remove by partial hash (at least 8 chars)
-./bin/pgedge-postgres-mcp -remove-token b3f805a4c2
+./bin/pgedge-pg-mcp-svr -remove-token b3f805a4c2
 ```
 
 ## Token Expiry Formats
@@ -229,16 +229,16 @@ You can remove tokens by ID or hash prefix:
 
 ```bash
 # Short-lived token for testing
-./bin/pgedge-postgres-mcp -add-token -token-note "Test" -token-expiry "1h"
+./bin/pgedge-pg-mcp-svr -add-token -token-note "Test" -token-expiry "1h"
 
 # Standard token for applications
-./bin/pgedge-postgres-mcp -add-token -token-note "API Client" -token-expiry "90d"
+./bin/pgedge-pg-mcp-svr -add-token -token-note "API Client" -token-expiry "90d"
 
 # Long-lived token for services
-./bin/pgedge-postgres-mcp -add-token -token-note "Monitoring" -token-expiry "1y"
+./bin/pgedge-pg-mcp-svr -add-token -token-note "Monitoring" -token-expiry "1y"
 
 # Permanent token (requires explicit renewal)
-./bin/pgedge-postgres-mcp -add-token -token-note "Admin" -token-expiry "never"
+./bin/pgedge-pg-mcp-svr -add-token -token-note "Admin" -token-expiry "never"
 ```
 
 ## Using Tokens
@@ -392,7 +392,7 @@ func main() {
 
 ```bash
 # Specify custom token file path
-./bin/pgedge-postgres-mcp -http -token-file /etc/pgedge-mcp/tokens.yaml
+./bin/pgedge-pg-mcp-svr -http -token-file /etc/pgedge-mcp/tokens.yaml
 ```
 
 ### Disable Authentication (Development Only)
@@ -400,12 +400,12 @@ func main() {
 **Warning**: Never use this in production!
 
 ```bash
-./bin/pgedge-postgres-mcp -http -no-auth
+./bin/pgedge-pg-mcp-svr -http -no-auth
 ```
 
 ### Configuration File
 
-In `pgedge-postgres-mcp.yaml`:
+In `pgedge-pg-mcp-svr.yaml`:
 
 ```yaml
 http:
@@ -413,14 +413,14 @@ http:
   address: ":8080"
   auth:
     enabled: true
-    token_file: "/path/to/pgedge-postgres-mcp-server-tokens.yaml"
+    token_file: "/path/to/pgedge-pg-mcp-svr-tokens.yaml"
 ```
 
 ## Token Storage
 
 ### Storage Location
 
-- **Default**: `pgedge-postgres-mcp-server-tokens.yaml` in the same directory as the binary
+- **Default**: `pgedge-pg-mcp-svr-tokens.yaml` in the same directory as the binary
 - **Custom**: Specified via `-token-file` flag or config file
 
 ### Storage Format
@@ -445,7 +445,7 @@ tokens:
 Expired tokens are automatically removed when the server starts:
 
 ```
-Loaded 3 API token(s) from pgedge-postgres-mcp-server-tokens.yaml
+Loaded 3 API token(s) from pgedge-pg-mcp-svr-tokens.yaml
 Removed 1 expired token(s)
 ```
 
@@ -529,12 +529,12 @@ HTTP Status: `401 Unauthorized`
 
 ```bash
 # Good: Short-lived tokens with rotation
-./bin/pgedge-postgres-mcp -add-token \
+./bin/pgedge-pg-mcp-svr -add-token \
   -token-note "Web App - Q4 2024" \
   -token-expiry "90d"
 
 # Bad: Never-expiring tokens
-./bin/pgedge-postgres-mcp -add-token \
+./bin/pgedge-pg-mcp-svr -add-token \
   -token-note "Web App" \
   -token-expiry "never"
 ```
@@ -544,13 +544,13 @@ HTTP Status: `401 Unauthorized`
 **Development**:
 ```bash
 # Use -no-auth for local development (localhost only)
-./bin/pgedge-postgres-mcp -http -addr "localhost:8080" -no-auth
+./bin/pgedge-pg-mcp-svr -http -addr "localhost:8080" -no-auth
 ```
 
 **Production**:
 ```bash
 # Always use authentication with HTTPS
-./bin/pgedge-postgres-mcp -http -tls \
+./bin/pgedge-pg-mcp-svr -http -tls \
   -cert /path/to/cert.pem \
   -key /path/to/key.pem
 ```
@@ -793,7 +793,7 @@ result = client.call_tool("query_database", {...})
 
 ```bash
 # Error message:
-ERROR: Token file not found: /path/to/pgedge-postgres-mcp-server-tokens.yaml
+ERROR: Token file not found: /path/to/pgedge-pg-mcp-svr-tokens.yaml
 Create tokens with: ./pgedge-postgres-mcp -add-token
 Or disable authentication with: -no-auth
 ```
@@ -801,20 +801,20 @@ Or disable authentication with: -no-auth
 **Solution**:
 ```bash
 # Create first token
-./bin/pgedge-postgres-mcp -add-token
+./bin/pgedge-pg-mcp-svr -add-token
 ```
 
 ### Token Authentication Fails
 
 ```bash
 # Check token file exists and has correct permissions
-ls -la pgedge-postgres-mcp-server-tokens.yaml  # Should show -rw------- (600)
+ls -la pgedge-pg-mcp-svr-tokens.yaml  # Should show -rw------- (600)
 
 # List tokens to verify token exists
-./bin/pgedge-postgres-mcp -list-tokens
+./bin/pgedge-pg-mcp-svr -list-tokens
 
 # Check for expired tokens
-./bin/pgedge-postgres-mcp -list-tokens | grep "Status: Expired"
+./bin/pgedge-pg-mcp-svr -list-tokens | grep "Status: Expired"
 ```
 
 ### Cannot Remove Token
@@ -822,8 +822,8 @@ ls -la pgedge-postgres-mcp-server-tokens.yaml  # Should show -rw------- (600)
 ```bash
 # Error: Token not found
 # Solution: Use at least 8 characters of the hash
-./bin/pgedge-postgres-mcp -list-tokens  # Get the hash
-./bin/pgedge-postgres-mcp -remove-token b3f805a4  # Use 8+ chars
+./bin/pgedge-pg-mcp-svr -list-tokens  # Get the hash
+./bin/pgedge-pg-mcp-svr -remove-token b3f805a4  # Use 8+ chars
 ```
 
 ### Server Won't Start (Auth Enabled)
@@ -832,10 +832,10 @@ If auth is enabled but no token file exists:
 
 ```bash
 # Option 1: Create a token file
-./bin/pgedge-postgres-mcp -add-token
+./bin/pgedge-pg-mcp-svr -add-token
 
 # Option 2: Disable auth temporarily
-./bin/pgedge-postgres-mcp -http -no-auth
+./bin/pgedge-pg-mcp-svr -http -no-auth
 ```
 
 ## Security Considerations

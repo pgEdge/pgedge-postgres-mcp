@@ -44,17 +44,17 @@ jobs:
       run: mkdir -p bin
 
     - name: Build client
-      run: go build -v -o bin/pgedge-postgres-mcp-chat ./cmd/pgedge-postgres-mcp-chat
+      run: go build -v -o bin/pgedge-pg-mcp-cli ./cmd/pgedge-pg-mcp-cli
 
     - name: Verify binary
       run: |
-        ls -lh bin/pgedge-postgres-mcp-chat
-        file bin/pgedge-postgres-mcp-chat
+        ls -lh bin/pgedge-pg-mcp-cli
+        file bin/pgedge-pg-mcp-cli
 
     - name: Upload build artifact
       if: matrix.go-version == '1.23'
       uses: actions/upload-artifact@v4
       with:
-        name: pgedge-postgres-mcp-chat-linux-amd64
-        path: bin/pgedge-postgres-mcp-chat
+        name: pgedge-pg-mcp-cli-linux-amd64
+        path: bin/pgedge-pg-mcp-cli
         retention-days: 7

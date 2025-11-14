@@ -44,17 +44,17 @@ jobs:
       run: mkdir -p bin
 
     - name: Build server
-      run: go build -v -o bin/pgedge-postgres-mcp ./cmd/pgedge-postgres-mcp
+      run: go build -v -o bin/pgedge-pg-mcp-svr ./cmd/pgedge-pg-mcp-svr
 
     - name: Verify binary
       run: |
-        ls -lh bin/pgedge-postgres-mcp
-        file bin/pgedge-postgres-mcp
+        ls -lh bin/pgedge-pg-mcp-svr
+        file bin/pgedge-pg-mcp-svr
 
     - name: Upload build artifact
       if: matrix.go-version == '1.23'
       uses: actions/upload-artifact@v4
       with:
-        name: pgedge-postgres-mcp-linux-amd64
-        path: bin/pgedge-postgres-mcp
+        name: pgedge-pg-mcp-svr-linux-amd64
+        path: bin/pgedge-pg-mcp-svr
         retention-days: 7

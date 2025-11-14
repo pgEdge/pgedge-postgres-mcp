@@ -365,7 +365,7 @@ export PGEDGE_LLM_LOG_LEVEL="debug"   # Detailed: text length, dimensions, timin
 export PGEDGE_LLM_LOG_LEVEL="trace"   # Very detailed: full request/response
 
 # Run the server
-./bin/pgedge-postgres-mcp
+./bin/pgedge-pg-mcp-svr
 ```
 
 **Log output will show**:
@@ -437,7 +437,7 @@ c) **Use embedding logging to identify high usage**:
 
 ```bash
 export PGEDGE_LLM_LOG_LEVEL="info"
-./bin/pgedge-postgres-mcp
+./bin/pgedge-pg-mcp-svr
 ```
 
 Review logs to see:

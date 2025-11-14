@@ -20,7 +20,7 @@ Build the chat client from source:
 
 ```bash
 # Using Go directly
-go build -o bin/pgedge-postgres-mcp-chat ./cmd/pgedge-postgres-mcp-chat
+go build -o bin/pgedge-pg-mcp-cli ./cmd/pgedge-pg-mcp-cli
 
 # Or using Make
 make client
@@ -29,7 +29,7 @@ make client
 make build
 ```
 
-The binary will be created at `bin/pgedge-postgres-mcp-chat`.
+The binary will be created at `bin/pgedge-pg-mcp-cli`.
 
 ## Configuration
 
@@ -41,10 +41,10 @@ The chat client can be configured in three ways (in order of precedence):
 
 ### Configuration File
 
-Create a `.pgedge-mcp-chat.yaml` file in one of these locations:
+Create a `.pgedge-pg-mcp-cli.yaml` file in one of these locations:
 
-- Current directory: `./.pgedge-mcp-chat.yaml`
-- Home directory: `~/.pgedge-mcp-chat.yaml`
+- Current directory: `./.pgedge-pg-mcp-cli.yaml`
+- Home directory: `~/.pgedge-pg-mcp-cli.yaml`
 - System-wide: `/etc/pgedge-mcp/chat.yaml`
 
 Example configuration:
@@ -52,7 +52,7 @@ Example configuration:
 ```yaml
 mcp:
     mode: stdio
-    server_path: ./bin/pgedge-postgres-mcp
+    server_path: ./bin/pgedge-pg-mcp-svr
     # For HTTP mode:
     # url: http://localhost:8080
     # token: your-token-here
@@ -75,7 +75,7 @@ For a complete configuration file example with all available options and detaile
 - `PGEDGE_MCP_MODE`: Connection mode (stdio or http)
 - `PGEDGE_MCP_URL`: MCP server URL (for HTTP mode)
 - `PGEDGE_MCP_SERVER_PATH`: Path to MCP server binary (for stdio mode)
-- `PGEDGE_POSTGRES_MCP_SERVER_TOKEN`: Authentication token (for HTTP mode)
+- `PGEDGE_MCP_TOKEN`: Authentication token (for HTTP mode)
 - `PGEDGE_LLM_PROVIDER`: LLM provider (anthropic, openai, or ollama)
 - `PGEDGE_LLM_MODEL`: LLM model name
 - `ANTHROPIC_API_KEY`: Anthropic API key
@@ -86,7 +86,7 @@ For a complete configuration file example with all available options and detaile
 ### Command-Line Flags
 
 ```bash
-pgedge-postgres-mcp-chat [flags]
+pgedge-pg-mcp-cli [flags]
 
 Flags:
   -config string            Path to configuration file
@@ -112,7 +112,7 @@ This is the simplest setup for local development.
 export ANTHROPIC_API_KEY="your-api-key-here"
 
 # Run the chat client
-./bin/pgedge-postgres-mcp-chat
+./bin/pgedge-pg-mcp-cli
 ```
 
 The client will:
@@ -130,7 +130,7 @@ Use OpenAI's GPT models for natural language processing.
 export OPENAI_API_KEY="your-api-key-here"
 
 # Run the chat client with OpenAI
-./bin/pgedge-postgres-mcp-chat \
+./bin/pgedge-pg-mcp-cli \
   -llm-provider openai \
   -llm-model gpt-4o
 ```
@@ -156,10 +156,10 @@ Connect to a remote MCP server with authentication.
 ```bash
 # Set the server URL and token
 export PGEDGE_MCP_URL="http://localhost:8080"
-export PGEDGE_POSTGRES_MCP_SERVER_TOKEN="your-token-here"
+export PGEDGE_MCP_TOKEN="your-token-here"
 
 # Run the chat client
-./bin/pgedge-postgres-mcp-chat -mcp-mode http
+./bin/pgedge-pg-mcp-cli -mcp-mode http
 ```
 
 Or, if you don't set the token, the client will prompt you for it.
@@ -176,7 +176,7 @@ ollama serve
 ollama pull llama3
 
 # Run the chat client
-./bin/pgedge-postgres-mcp-chat \
+./bin/pgedge-pg-mcp-cli \
   -llm-provider ollama \
   -llm-model llama3
 ```
@@ -187,7 +187,7 @@ Create a configuration file and use it:
 
 ```bash
 # Create config file
-cat > .pgedge-mcp-chat.yaml << EOF
+cat > .pgedge-pg-mcp-cli.yaml << EOF
 mcp:
   mode: http
   url: http://localhost:8080
@@ -200,7 +200,7 @@ llm:
 EOF
 
 # Run with config file
-./bin/pgedge-postgres-mcp-chat -config .pgedge-mcp-chat.yaml
+./bin/pgedge-pg-mcp-cli -config .pgedge-pg-mcp-cli.yaml
 ```
 
 ## Interactive Commands
@@ -217,7 +217,7 @@ Once the chat client is running, you can use these special commands:
 
 The chat client includes full readline support with persistent command history:
 
-- **History file**: `~/.pgedge-postgres-mcp-chat-history`
+- **History file**: `~/.pgedge-pg-mcp-cli-history`
 - **History limit**: 1000 entries
 - **Navigation**: Use Up/Down arrow keys to navigate through command history
 - **Search**: Use Ctrl+R for reverse search through history
@@ -273,7 +273,7 @@ System: Goodbye!
 
 **Solutions**:
 
-- In stdio mode, verify the server path is correct: `-mcp-server-path ./bin/pgedge-postgres-mcp`
+- In stdio mode, verify the server path is correct: `-mcp-server-path ./bin/pgedge-pg-mcp-svr`
 - In HTTP mode, verify the URL is correct: `-mcp-url http://localhost:8080`
 - Check if the MCP server is running (in HTTP mode)
 - Verify authentication token is set (in HTTP mode with auth enabled)
@@ -332,7 +332,7 @@ ollama pull llama3
 
 **Solutions**:
 
-- Check that `~/.pgedge-postgres-mcp-chat-history` is writable
+- Check that `~/.pgedge-pg-mcp-cli-history` is writable
 - The history file is created automatically on first use
 - On some terminals, readline features may be limited
 

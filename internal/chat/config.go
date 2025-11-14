@@ -20,9 +20,10 @@ import (
 
 // Config holds all configuration for the chat client
 type Config struct {
-	MCP MCPConfig `yaml:"mcp"`
-	LLM LLMConfig `yaml:"llm"`
-	UI  UIConfig  `yaml:"ui"`
+	MCP         MCPConfig `yaml:"mcp"`
+	LLM         LLMConfig `yaml:"llm"`
+	UI          UIConfig  `yaml:"ui"`
+	HistoryFile string    `yaml:"history_file"` // Path to chat history file
 }
 
 // MCPConfig holds MCP server connection configuration
@@ -58,7 +59,7 @@ func LoadConfig(configPath string) (*Config, error) {
 		MCP: MCPConfig{
 			Mode:       getEnvOrDefault("PGEDGE_MCP_MODE", "stdio"),
 			URL:        os.Getenv("PGEDGE_MCP_URL"),
-			ServerPath: getEnvOrDefault("PGEDGE_MCP_SERVER_PATH", "../../bin/pgedge-postgres-mcp"),
+			ServerPath: getEnvOrDefault("PGEDGE_MCP_SERVER_PATH", "../../bin/pgedge-pg-mcp-svr"),
 			AuthMode:   getEnvOrDefault("PGEDGE_MCP_AUTH_MODE", "user"),
 			Token:      "", // Will be loaded separately
 			Username:   os.Getenv("PGEDGE_MCP_USERNAME"),
@@ -76,6 +77,7 @@ func LoadConfig(configPath string) (*Config, error) {
 		UI: UIConfig{
 			NoColor: os.Getenv("NO_COLOR") != "",
 		},
+		HistoryFile: filepath.Join(os.Getenv("HOME"), ".pgedge-pg-mcp-cli-history"),
 	}
 
 	// Load from config file if provided
@@ -86,9 +88,9 @@ func LoadConfig(configPath string) (*Config, error) {
 	} else {
 		// Try default locations
 		defaultPaths := []string{
-			".pgedge-mcp-chat.yaml",
-			filepath.Join(os.Getenv("HOME"), ".pgedge-mcp-chat.yaml"),
-			"/etc/pgedge-mcp/chat.yaml",
+			".pgedge-pg-mcp-cli.yaml",
+			filepath.Join(os.Getenv("HOME"), ".pgedge-pg-mcp-cli.yaml"),
+			"/etc/pgedge/postgres-mcp/pgedge-pg-mcp-cli.yaml",
 		}
 		for _, path := range defaultPaths {
 			if _, err := os.Stat(path); err == nil {
@@ -116,17 +118,17 @@ func loadConfigFile(path string, cfg *Config) error {
 }
 
 // loadAuthToken loads the authentication token with priority:
-// 1. Environment variable PGEDGE_POSTGRES_MCP_SERVER_TOKEN
-// 2. File ~/.pgedge-postgres-mcp-server-token
+// 1. Environment variable PGEDGE_MCP_TOKEN
+// 2. File ~/.pgedge-pg-mcp-cli-token
 // 3. Returns empty string if not found (will prompt if needed)
 func loadAuthToken() string {
 	// Priority 1: Environment variable
-	if token := os.Getenv("PGEDGE_POSTGRES_MCP_SERVER_TOKEN"); token != "" {
+	if token := os.Getenv("PGEDGE_MCP_TOKEN"); token != "" {
 		return token
 	}
 
 	// Priority 2: Token file
-	tokenPath := filepath.Join(os.Getenv("HOME"), ".pgedge-postgres-mcp-server-token")
+	tokenPath := filepath.Join(os.Getenv("HOME"), ".pgedge-pg-mcp-cli-token")
 	if data, err := os.ReadFile(tokenPath); err == nil {
 		// Trim whitespace and newlines
 		return string(data)

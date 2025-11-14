@@ -45,7 +45,6 @@ func main() {
 	noAuth := flag.Bool("no-auth", false, "Disable API token authentication in HTTP mode")
 	debug := flag.Bool("debug", false, "Enable debug logging (logs HTTP requests/responses)")
 	tokenFilePath := flag.String("token-file", "", "Path to API token file")
-	preferencesFilePath := flag.String("preferences-file", "", "Path to user preferences file")
 
 	// Database connection flags
 	dbHost := flag.String("db-host", "", "Database host")
@@ -212,9 +211,6 @@ func main() {
 		case "token-file":
 			cliFlags.AuthTokenSet = true
 			cliFlags.AuthTokenFile = *tokenFilePath
-		case "preferences-file":
-			cliFlags.PreferencesFileSet = true
-			cliFlags.PreferencesFile = *preferencesFilePath
 		case "db-host":
 			cliFlags.DBHostSet = true
 			cliFlags.DBHost = *dbHost
@@ -266,11 +262,6 @@ func main() {
 	// Set default token file path if not specified and HTTP is enabled
 	if cfg.HTTP.Enabled && cfg.HTTP.Auth.TokenFile == "" {
 		cfg.HTTP.Auth.TokenFile = auth.GetDefaultTokenPath(execPath)
-	}
-
-	// Set default preferences file path if not specified
-	if cfg.PreferencesFile == "" {
-		cfg.PreferencesFile = config.GetDefaultPreferencesPath(execPath)
 	}
 
 	// Verify TLS files exist if HTTPS is enabled

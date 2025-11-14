@@ -44,14 +44,14 @@ jobs:
         echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
 
     - name: Run golangci-lint on server code
-      run: golangci-lint run ./internal/mcp/... ./internal/auth/... ./internal/config/... ./internal/crypto/... ./internal/database/... ./internal/resources/... ./internal/tools/... ./cmd/pgedge-postgres-mcp/...
+      run: golangci-lint run ./internal/mcp/... ./internal/auth/... ./internal/config/... ./internal/crypto/... ./internal/database/... ./internal/resources/... ./internal/tools/... ./cmd/pgedge-pg-mcp-svr/...
 
     - name: Run go vet on server code
-      run: go vet ./internal/mcp/... ./internal/auth/... ./internal/config/... ./internal/crypto/... ./internal/database/... ./internal/resources/... ./internal/tools/... ./cmd/pgedge-postgres-mcp/...
+      run: go vet ./internal/mcp/... ./internal/auth/... ./internal/config/... ./internal/crypto/... ./internal/database/... ./internal/resources/... ./internal/tools/... ./cmd/pgedge-pg-mcp-svr/...
 
     - name: Check formatting
       run: |
-        gofmt -l ./internal/mcp ./internal/auth ./internal/config ./internal/crypto ./internal/database ./internal/resources ./internal/tools ./cmd/pgedge-postgres-mcp > /tmp/gofmt.out
+        gofmt -l ./internal/mcp ./internal/auth ./internal/config ./internal/crypto ./internal/database ./internal/resources ./internal/tools ./cmd/pgedge-pg-mcp-svr > /tmp/gofmt.out
         if [ -s /tmp/gofmt.out ]; then
           echo "The following files are not formatted:"
           cat /tmp/gofmt.out

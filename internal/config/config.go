@@ -29,9 +29,6 @@ type Config struct {
 	// Embedding configuration
 	Embedding EmbeddingConfig `yaml:"embedding"`
 
-	// Preferences file path
-	PreferencesFile string `yaml:"preferences_file"`
-
 	// Secret file path (for encryption key)
 	SecretFile string `yaml:"secret_file"`
 }
@@ -157,10 +154,6 @@ type CLIFlags struct {
 	DBSSLMode  string
 	DBSSLSet   bool
 
-	// Preferences flags
-	PreferencesFile    string
-	PreferencesFileSet bool
-
 	// Secret file flags
 	SecretFile    string
 	SecretFileSet bool
@@ -198,8 +191,7 @@ func defaultConfig() *Config {
 			AnthropicAPIKey: "",                       // Must be provided if using Anthropic
 			OllamaURL:       "http://localhost:11434", // Default Ollama URL
 		},
-		PreferencesFile: "", // Will be set to default path if not specified
-		SecretFile:      "", // Will be set to default path if not specified
+		SecretFile: "", // Will be set to default path if not specified
 	}
 }
 
@@ -284,11 +276,6 @@ func mergeConfig(dest, src *Config) {
 		if src.Embedding.OllamaURL != "" {
 			dest.Embedding.OllamaURL = src.Embedding.OllamaURL
 		}
-	}
-
-	// Preferences
-	if src.PreferencesFile != "" {
-		dest.PreferencesFile = src.PreferencesFile
 	}
 
 	// Secret file
@@ -381,9 +368,6 @@ func applyEnvironmentVariables(cfg *Config) {
 		setStringFromEnv(&cfg.Embedding.OpenAIAPIKey, "OPENAI_API_KEY")
 	}
 
-	// Preferences
-	setStringFromEnv(&cfg.PreferencesFile, "PGEDGE_PREFERENCES_FILE")
-
 	// Secret file
 	setStringFromEnv(&cfg.SecretFile, "PGEDGE_SECRET_FILE")
 }
@@ -440,11 +424,6 @@ func applyCLIFlags(cfg *Config, flags CLIFlags) {
 		cfg.Database.SSLMode = flags.DBSSLMode
 	}
 
-	// Preferences
-	if flags.PreferencesFileSet {
-		cfg.PreferencesFile = flags.PreferencesFile
-	}
-
 	// Secret file
 	if flags.SecretFileSet {
 		cfg.SecretFile = flags.SecretFile
@@ -486,16 +465,28 @@ func validateConfig(cfg *Config) error {
 	return nil
 }
 
-// GetDefaultConfigPath returns the default config file path (same directory as binary)
+// GetDefaultConfigPath returns the default config file path
+// Searches /etc/pgedge/postgres-mcp/ first, then binary directory
 func GetDefaultConfigPath(binaryPath string) string {
+	systemPath := "/etc/pgedge/postgres-mcp/pgedge-pg-mcp-svr.yaml"
+	if _, err := os.Stat(systemPath); err == nil {
+		return systemPath
+	}
+
 	dir := filepath.Dir(binaryPath)
-	return filepath.Join(dir, "pgedge-postgres-mcp.yaml")
+	return filepath.Join(dir, "pgedge-pg-mcp-svr.yaml")
 }
 
-// GetDefaultSecretPath returns the default secret file path (same directory as binary)
+// GetDefaultSecretPath returns the default secret file path
+// Searches /etc/pgedge/postgres-mcp/ first, then binary directory
 func GetDefaultSecretPath(binaryPath string) string {
+	systemPath := "/etc/pgedge/postgres-mcp/pgedge-pg-mcp-svr.secret"
+	if _, err := os.Stat(systemPath); err == nil {
+		return systemPath
+	}
+
 	dir := filepath.Dir(binaryPath)
-	return filepath.Join(dir, "pgedge-postgres-mcp.secret")
+	return filepath.Join(dir, "pgedge-pg-mcp-svr.secret")
 }
 
 // BuildConnectionString creates a PostgreSQL connection string from DatabaseConfig

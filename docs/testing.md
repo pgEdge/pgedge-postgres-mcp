@@ -38,7 +38,7 @@ Comprehensive tests for configuration loading and provider selection:
 
 **Coverage**: 88.7% of llm package
 
-### Model Management Tests (`cmd/pgedge-postgres-mcp/models_test.go`)
+### Model Management Tests (`cmd/pgedge-pg-mcp-svr/models_test.go`)
 
 Tests for Ollama model download functionality:
 
@@ -51,7 +51,7 @@ Tests for Ollama model download functionality:
 
 All tests use mocked HTTP servers, so they don't require actual Ollama installation or large model downloads.
 
-**Coverage**: 11.8% of cmd/pgedge-postgres-mcp (focused on testable units)
+**Coverage**: 11.8% of cmd/pgedge-pg-mcp-svr (focused on testable units)
 
 ## Running Tests
 
@@ -69,7 +69,7 @@ go test ./internal/config -v
 go test ./internal/llm -v
 
 # Model management tests
-go test ./cmd/pgedge-postgres-mcp -v
+go test ./cmd/pgedge-pg-mcp-svr -v
 ```
 
 ### Run Ollama-Specific Tests
@@ -78,7 +78,7 @@ go test ./cmd/pgedge-postgres-mcp -v
 go test ./internal/llm -v -run ".*Ollama"
 
 # Model pull tests
-go test ./cmd/pgedge-postgres-mcp -v -run "TestPullModel"
+go test ./cmd/pgedge-pg-mcp-svr -v -run "TestPullModel"
 ```
 
 ### Run with Coverage
@@ -220,7 +220,7 @@ ollama pull tinyllama:1.1b
 # 4. Test with a real database connection
 export LLM_PROVIDER="ollama"
 export OLLAMA_MODEL="tinyllama:1.1b"
-./bin/pgedge-postgres-mcp
+./bin/pgedge-pg-mcp-svr
 # Then use the set_database_connection tool to connect to your database
 ```
 

@@ -269,7 +269,7 @@ jobs:
         go-version: ${{ matrix.go-version }}
 
     - name: Build
-      run: go build -v ./cmd/pgedge-postgres-mcp
+      run: go build -v ./cmd/pgedge-pg-mcp-svr
 
     - name: Verify binary
       run: ./pgedge-postgres-mcp -h
@@ -365,7 +365,7 @@ git commit --no-verify
 1. **Update version**:
    ```bash
    # Update version in code
-   vim cmd/pgedge-postgres-mcp/main.go
+   vim cmd/pgedge-pg-mcp-svr/main.go
 
    # Commit
    git commit -am "Bump version to X.Y.Z"
@@ -380,10 +380,10 @@ git commit --no-verify
 3. **Build binaries**:
    ```bash
    # Build for multiple platforms
-   GOOS=linux GOARCH=amd64 go build -o bin/pgedge-postgres-mcp-linux-amd64 ./cmd/pgedge-postgres-mcp
-   GOOS=darwin GOARCH=amd64 go build -o bin/pgedge-postgres-mcp-darwin-amd64 ./cmd/pgedge-postgres-mcp
-   GOOS=darwin GOARCH=arm64 go build -o bin/pgedge-postgres-mcp-darwin-arm64 ./cmd/pgedge-postgres-mcp
-   GOOS=windows GOARCH=amd64 go build -o bin/pgedge-postgres-mcp-windows-amd64.exe ./cmd/pgedge-postgres-mcp
+   GOOS=linux GOARCH=amd64 go build -o bin/pgedge-pg-mcp-svr-linux-amd64 ./cmd/pgedge-pg-mcp-svr
+   GOOS=darwin GOARCH=amd64 go build -o bin/pgedge-pg-mcp-svr-darwin-amd64 ./cmd/pgedge-pg-mcp-svr
+   GOOS=darwin GOARCH=arm64 go build -o bin/pgedge-pg-mcp-svr-darwin-arm64 ./cmd/pgedge-pg-mcp-svr
+   GOOS=windows GOARCH=amd64 go build -o bin/pgedge-pg-mcp-svr-windows-amd64.exe ./cmd/pgedge-pg-mcp-svr
    ```
 
 4. **Create GitHub release**:
@@ -418,10 +418,10 @@ jobs:
 
     - name: Build binaries
       run: |
-        GOOS=linux GOARCH=amd64 go build -o bin/pgedge-postgres-mcp-linux-amd64 ./cmd/pgedge-postgres-mcp
-        GOOS=darwin GOARCH=amd64 go build -o bin/pgedge-postgres-mcp-darwin-amd64 ./cmd/pgedge-postgres-mcp
-        GOOS=darwin GOARCH=arm64 go build -o bin/pgedge-postgres-mcp-darwin-arm64 ./cmd/pgedge-postgres-mcp
-        GOOS=windows GOARCH=amd64 go build -o bin/pgedge-postgres-mcp-windows-amd64.exe ./cmd/pgedge-postgres-mcp
+        GOOS=linux GOARCH=amd64 go build -o bin/pgedge-pg-mcp-svr-linux-amd64 ./cmd/pgedge-pg-mcp-svr
+        GOOS=darwin GOARCH=amd64 go build -o bin/pgedge-pg-mcp-svr-darwin-amd64 ./cmd/pgedge-pg-mcp-svr
+        GOOS=darwin GOARCH=arm64 go build -o bin/pgedge-pg-mcp-svr-darwin-arm64 ./cmd/pgedge-pg-mcp-svr
+        GOOS=windows GOARCH=amd64 go build -o bin/pgedge-pg-mcp-svr-windows-amd64.exe ./cmd/pgedge-pg-mcp-svr
 
     - name: Create Release
       uses: softprops/action-gh-release@v1

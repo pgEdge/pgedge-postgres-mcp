@@ -96,7 +96,7 @@ func (c *stdioClient) Initialize(ctx context.Context) error {
 		ProtocolVersion: mcp.ProtocolVersion,
 		Capabilities:    map[string]interface{}{},
 		ClientInfo: mcp.ClientInfo{
-			Name:    "pgedge-postgres-mcp-chat",
+			Name:    "pgedge-pg-mcp-cli",
 			Version: "1.0.0-alpha1",
 		},
 	}
@@ -254,7 +254,7 @@ func (c *httpClient) Initialize(ctx context.Context) error {
 		ProtocolVersion: mcp.ProtocolVersion,
 		Capabilities:    map[string]interface{}{},
 		ClientInfo: mcp.ClientInfo{
-			Name:    "pgedge-postgres-mcp-chat",
+			Name:    "pgedge-pg-mcp-cli",
 			Version: "1.0.0-alpha1",
 		},
 	}

@@ -20,7 +20,6 @@
 #
 #   1. Global Mode (default):
 #      - All tokens share the same database connections
-#      - Connections stored in preferences file (pgedge-postgres-mcp-prefs.yaml)
 #      - Simpler for single-user or trusted environments
 #
 #   2. Per-Token Mode:
@@ -126,7 +125,7 @@ tokens:
 # ============================================================================
 
 # Global Mode (default):
-# All tokens share database connections from pgedge-postgres-mcp-prefs.yaml
+# All tokens share database connections
 # To use: Just run the server normally
 # $ ./pgedge-postgres-mcp -http
 
@@ -140,7 +139,7 @@ tokens:
 # ============================================================================
 
 # 1. Set proper file permissions (required):
-#    chmod 600 pgedge-postgres-mcp-server-tokens.yaml
+#    chmod 600 pgedge-pg-mcp-svr-tokens.yaml
 
 # 2. Store tokens securely:
 #    - Use environment variables or secret managers for the actual tokens

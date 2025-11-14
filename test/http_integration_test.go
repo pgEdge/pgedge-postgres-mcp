@@ -44,12 +44,12 @@ type HTTPMCPServer struct {
 // StartHTTPMCPServer starts the MCP server in HTTP mode for testing
 func StartHTTPMCPServer(t *testing.T, connString, apiKey, addr string, useTLS bool) (*HTTPMCPServer, error) {
 	// Find the binary
-	binaryPath := filepath.Join("..", "bin", "pgedge-postgres-mcp")
+	binaryPath := filepath.Join("..", "bin", "pgedge-pg-mcp-svr")
 
 	// Check if binary exists, if not try to build it
 	if _, err := os.Stat(binaryPath); os.IsNotExist(err) {
 		t.Logf("Binary not found at %s, building...", binaryPath)
-		buildCmd := exec.Command("go", "build", "-o", binaryPath, "../cmd/pgedge-postgres-mcp")
+		buildCmd := exec.Command("go", "build", "-o", binaryPath, "../cmd/pgedge-pg-mcp-svr")
 		buildCmd.Dir = filepath.Dir(binaryPath)
 		if output, err := buildCmd.CombinedOutput(); err != nil {
 			return nil, fmt.Errorf("failed to build binary: %v\nOutput: %s", err, output)
@@ -697,7 +697,7 @@ func testHTTPSTLSConnection(t *testing.T, server *HTTPMCPServer) {
 
 // TestHTTPCommandLineFlags tests command line flag validation
 func TestHTTPCommandLineFlags(t *testing.T) {
-	binaryPath := filepath.Join("..", "bin", "pgedge-postgres-mcp")
+	binaryPath := filepath.Join("..", "bin", "pgedge-pg-mcp-svr")
 
 	// Check if binary exists
 	if _, err := os.Stat(binaryPath); os.IsNotExist(err) {
