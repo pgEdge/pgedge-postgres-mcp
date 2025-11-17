@@ -88,7 +88,7 @@ macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`
 - Use absolute paths (not `~` or relative paths)
 - Check for typos in environment variable names
 - Restart Claude Desktop after config changes
-- Database connections are configured at runtime via `set_database_connection` tool
+- Database connections are configured at server startup via environment variables, config file, or command-line flags
 
 #### 3. Database Metadata Loading Issues
 
@@ -159,8 +159,8 @@ If your database is empty (no user tables), the server will still start but won'
 
     ```bash
     export ANTHROPIC_API_KEY="..."
+    # Configure database connection via environment variables or config file before running
     echo '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}' | ./bin/pgedge-pg-mcp-svr
-    # Then use set_database_connection tool to connect to database
     ```
 
 ## Natural Language Queries Not Working
@@ -523,7 +523,7 @@ If you're still having issues:
 - [ ] PostgreSQL is running
 - [ ] Can connect with psql using connection string
 - [ ] ANTHROPIC_API_KEY is set in MCP config
-- [ ] Database connection configured via `set_database_connection` tool
+- [ ] Database connection configured at server startup (environment variables, config file, or flags)
 - [ ] Path to binary is absolute (not relative)
 - [ ] Claude Desktop has been restarted
 - [ ] Checked Claude Desktop logs for errors

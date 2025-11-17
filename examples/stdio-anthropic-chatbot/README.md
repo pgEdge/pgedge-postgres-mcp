@@ -16,9 +16,13 @@ pip install -r requirements.txt
 # Required: Your Anthropic API key
 export ANTHROPIC_API_KEY="sk-ant-..."
 
-# Optional: Database connection string
-# (You can also configure connections through the chatbot)
-export PGEDGE_POSTGRES_CONNECTION_STRING="postgres://user:pass@localhost/mydb"
+# Required: Database connection configuration
+# The server connects to the database at startup using PostgreSQL environment variables
+export PGHOST="localhost"
+export PGPORT="5432"
+export PGDATABASE="mydb"
+export PGUSER="myuser"
+export PGPASSWORD="mypass"  # Or use ~/.pgpass file for better security
 ```
 
 **3. Build the MCP server** (if not already built):
@@ -42,27 +46,17 @@ python chatbot.py
 PostgreSQL Chatbot (type 'quit' or 'exit' to stop)
 ============================================================
 
-To get started, you can:
-  - List saved connections: 'What database connections do I have?'
-  - Add a connection: 'Add a connection to my database at postgres://user:pass@host/db'
-  - Connect to a saved connection: 'Connect to production'
-  - List the available MCP server tools and resources: 'List the tools and resources in the MCP server
-  
 Example questions:
-  - How many tables do I have?
-  - Show me the 10 most recent orders
-  - What's the total revenue from last month?
-  - Which customers have placed more than 5 orders?
+  - List all tables: 'What tables are in my database?'
+  - Show me the schema: 'Describe the users table'
+  - Query data: 'Show me the 10 most recent orders'
+  - Aggregate data: 'What's the total revenue from last month?'
+  - Complex queries: 'Which customers have placed more than 5 orders?'
+  - Search content: 'Find articles about PostgreSQL' (if using vector search)
 
-You: Connect to production
+You: What tables are in my database?
 
-  → Executing tool: set_database_connection
-
-Claude: Connected to the 'production' database.
-
-You: How many tables do I have?
-
-  → Executing tool: query_database
+  → Executing tool: get_schema_info
 
 Claude: You have 8 tables in your database:
 - users
@@ -73,6 +67,15 @@ Claude: You have 8 tables in your database:
 - reviews
 - inventory
 - shipments
+
+You: Show me the 10 most recent orders
+
+  → Executing tool: query_database
+
+Claude: Here are the 10 most recent orders:
+1. Order #1234 - Customer: John Doe - Date: 2024-01-15 - Total: $125.99
+2. Order #1233 - Customer: Jane Smith - Date: 2024-01-14 - Total: $89.50
+...
 
 You: quit
 
@@ -86,7 +89,7 @@ For more details, see the [Stdio + Anthropic Claude Chatbot](../../docs/stdio-an
 ## Environment Variables
 
 - `ANTHROPIC_API_KEY` (required): Your Anthropic API key
-- `PGEDGE_POSTGRES_CONNECTION_STRING` (optional): PostgreSQL connection string
+- PostgreSQL connection variables (required): `PGHOST`, `PGPORT`, `PGDATABASE`, `PGUSER`, `PGPASSWORD` (or use ~/.pgpass file)
 - `PGEDGE_MCP_SERVER_PATH` (optional): Custom path to the MCP server binary (default: `../../bin/pgedge-pg-mcp-svr`)
 
 ## Troubleshooting
@@ -115,7 +118,14 @@ export ANTHROPIC_API_KEY="your-key-here"
 
 **Need to configure a database connection?**
 
-You can configure connections through the chatbot interface:
+Set the PostgreSQL environment variables before starting the chatbot:
 
-- Ask: "Add a connection to my database at postgres://user:password@host:port/database"
-- Or set the environment variable: `export PGEDGE_POSTGRES_CONNECTION_STRING="postgres://user:password@host:port/database"`
+```bash
+export PGHOST="localhost"
+export PGPORT="5432"
+export PGDATABASE="mydb"
+export PGUSER="myuser"
+export PGPASSWORD="mypass"  # Or use ~/.pgpass file for better security
+```
+
+The MCP server connects to the database at startup using these environment variables.

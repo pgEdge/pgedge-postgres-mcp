@@ -172,8 +172,8 @@ curl -X POST http://localhost:8080/mcp/v1 \
 
 ## How It Works
 
-1. **Configure** - Call `set_database_connection` tool with your PostgreSQL connection string
-2. **Connect** - Server connects to PostgreSQL and extracts schema metadata
+1. **Configure** - Set database connection parameters via environment variables, config file, or command-line flags
+2. **Start** - Server starts and connects to PostgreSQL, extracting schema metadata
 3. **Query** - You provide SQL queries via Claude Desktop or API
 4. **Execute** - SQL runs in a **read-only transaction**
 5. **Return** - Results formatted and returned to the client
@@ -215,9 +215,8 @@ make lint
 # or directly:
 golangci-lint run
 
-# Run locally
+# Run locally (configure database connection via environment variables or config file)
 ./bin/pgedge-pg-mcp-svr
-# Then use set_database_connection tool to connect to database
 ```
 
 ## Security
@@ -239,9 +238,9 @@ See **[Security Guide](docs/security.md)** for comprehensive security documentat
 - Check JSON syntax
 
 **Database connection errors?**
-- Call `set_database_connection` tool first with your connection string
+- Ensure database connection is configured before starting the server (via environment variables, config file, or command-line flags)
 - Verify PostgreSQL is running: `pg_isready`
-- Check connection string format: `postgres://user:pass@host:port/dbname`
+- Check connection parameters are correct (host, port, database, user, password)
 
 See **[Troubleshooting Guide](docs/troubleshooting.md)** for detailed solutions.
 

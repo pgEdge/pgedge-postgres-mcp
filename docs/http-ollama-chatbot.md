@@ -110,14 +110,9 @@ Example questions:
 ## Example Interaction
 
 ```
-You: Connect to production
+You: What tables are in my database?
 
-  → Executing tool: set_database_connection
-Assistant: Connected to the 'production' database.
-
-You: How many tables do I have?
-
-  → Executing tool: query_database
+  → Executing tool: get_schema_info
 
 Assistant: You have 8 tables in your database:
 - users

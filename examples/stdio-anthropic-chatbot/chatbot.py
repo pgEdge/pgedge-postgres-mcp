@@ -9,7 +9,11 @@ natural language.
 Usage:
     1. Set environment variables:
        export ANTHROPIC_API_KEY="your-api-key"
-       export PGEDGE_POSTGRES_CONNECTION_STRING="postgres://user:pass@host/db"
+       export PGHOST="localhost"
+       export PGPORT="5432"
+       export PGDATABASE="mydb"
+       export PGUSER="myuser"
+       export PGPASSWORD="mypass"  # Or use ~/.pgpass file
 
     2. Run the chatbot:
        python chatbot.py
@@ -174,16 +178,13 @@ class PostgresChatbot:
         """Run an interactive chat loop."""
         print("\nPostgreSQL Chatbot (type 'quit' or 'exit' to stop)")
         print("=" * 60)
-        print("\nTo get started, you can:")
-        print("  - List saved connections: 'What database connections do I have?'")
-        print("  - Add a connection: 'Add a connection to my database at postgres://user:pass@host/db'")
-        print("  - Connect to a saved connection: 'Connect to production'")
-        print("  - List the available MCP server tools and resources: 'List the tools and resources in the MCP server")
         print("\nExample questions:")
-        print("  - How many tables do I have?")
-        print("  - Show me the 10 most recent orders")
-        print("  - What's the total revenue from last month?")
-        print("  - Which customers have placed more than 5 orders?")
+        print("  - List all tables: 'What tables are in my database?'")
+        print("  - Show me the schema: 'Describe the users table'")
+        print("  - Query data: 'Show me the 10 most recent orders'")
+        print("  - Aggregate data: 'What's the total revenue from last month?'")
+        print("  - Complex queries: 'Which customers have placed more than 5 orders?'")
+        print("  - Search content: 'Find articles about PostgreSQL' (if using vector search)")
 
         messages = []
 

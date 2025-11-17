@@ -220,8 +220,13 @@ ollama pull tinyllama:1.1b
 # 4. Test with a real database connection
 export LLM_PROVIDER="ollama"
 export OLLAMA_MODEL="tinyllama:1.1b"
+# Configure database connection via environment variables before starting
+export PGHOST="localhost"
+export PGPORT="5432"
+export PGDATABASE="mydb"
+export PGUSER="myuser"
+export PGPASSWORD="mypass"
 ./bin/pgedge-pg-mcp-svr
-# Then use the set_database_connection tool to connect to your database
 ```
 
 Note: Integration tests with actual models are not automated in the test suite to avoid large downloads and external dependencies.

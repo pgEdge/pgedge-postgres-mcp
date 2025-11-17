@@ -297,26 +297,33 @@ This shows the client's elephant-themed UI in action, including the thinking ani
 System: Connected to MCP server (15 tools available)
 System: Using LLM: anthropic (claude-sonnet-4-20250514)
 ────────────────────────────────────────────────────────────────────────────────
-You: What database connections do I have?
-
+You: What tables are in my database?
 
 ⠋ Consulting the herd...
-  → Executing tool: list_database_connections
+  → Executing tool: get_schema_info
 
-Assistant: You have 3 saved database connections: production, staging, and development.
+Assistant: You have 8 tables in your database:
+- users
+- products
+- orders
+- order_items
+- categories
+- reviews
+- inventory
+- shipments
 
-You: Connect to production and show me the users table
+You: Show me the 10 most recent orders
 
-  → Executing tool: set_database_connection
   → Executing tool: query_database
 
-Assistant: Here are the users from your production database:
+Assistant: Here are the 10 most recent orders:
 
-| id | username | email                  | created_at          |
-|----|----------|------------------------|---------------------|
-| 1  | alice    | alice@example.com      | 2024-01-15 10:30:00 |
-| 2  | bob      | bob@example.com        | 2024-01-20 14:45:00 |
-| 3  | charlie  | charlie@example.com    | 2024-02-01 09:15:00 |
+| order_id | customer_name | order_date          | total   | status      |
+|----------|---------------|---------------------|---------|-------------|
+| 1045     | Alice Smith   | 2024-03-15 14:32:00 | $125.99 | Shipped     |
+| 1044     | Bob Jones     | 2024-03-15 12:18:00 | $89.50  | Processing  |
+| 1043     | Carol White   | 2024-03-14 16:45:00 | $210.00 | Delivered   |
+| ...      | ...           | ...                 | ...     | ...         |
 
 You: quit
 

@@ -43,10 +43,6 @@ export PGEDGE_MCP_SERVER_URL="http://localhost:8080/mcp/v1"
 # Optional: Ollama configuration (defaults shown)
 export OLLAMA_BASE_URL="http://localhost:11434"
 export OLLAMA_MODEL="gpt-oss:20b"
-
-# Optional: Database connection string
-# (You can also configure connections through the chatbot)
-export PGEDGE_POSTGRES_CONNECTION_STRING="postgres://user:pass@localhost/mydb"
 ```
 
 **5. Run the chatbot:**
@@ -65,26 +61,17 @@ MCP Server: http://localhost:8080/mcp/v1
 PostgreSQL Chatbot (type 'quit' or 'exit' to stop)
 ============================================================
 
-To get started, you can:
-  - List saved connections: 'What database connections do I have?'
-  - Add a connection: 'Add a connection to my database at postgres://user:pass@host/db'
-  - Connect to a saved connection: 'Connect to production'
-  - List the available MCP server tools and resources: 'List the tools and resources in the MCP server
-
 Example questions:
-  - How many tables do I have?
-  - Show me the 10 most recent orders
-  - What's the total revenue from last month?
-  - Which customers have placed more than 5 orders?
+  - List all tables: 'What tables are in my database?'
+  - Show me the schema: 'Describe the users table'
+  - Query data: 'Show me the 10 most recent orders'
+  - Aggregate data: 'What's the total revenue from last month?'
+  - Complex queries: 'Which customers have placed more than 5 orders?'
+  - Search content: 'Find articles about PostgreSQL' (if using vector search)
 
-You: Connect to production
+You: What tables are in my database?
 
-  → Executing tool: set_database_connection
-Assistant: Connected to the 'production' database.
-
-You: How many tables do I have?
-
-  → Executing tool: query_database
+  → Executing tool: get_schema_info
 
 Assistant: You have 8 tables in your database:
 - users
@@ -110,7 +97,8 @@ For more details, see the [HTTP + Ollama Chatbot](../../docs/http-ollama-chatbot
 - `PGEDGE_MCP_SERVER_URL` (required): URL of the MCP server running in HTTP mode
 - `OLLAMA_BASE_URL` (optional): URL of the Ollama service (default: `http://localhost:11434`)
 - `OLLAMA_MODEL` (optional): Ollama model to use (default: `gpt-oss:20b`)
-- `PGEDGE_POSTGRES_CONNECTION_STRING` (optional): PostgreSQL connection string
+
+**Note:** The MCP server must be started with database connection parameters configured via command-line flags or config file.
 
 ## Available Ollama Models
 
@@ -155,7 +143,10 @@ export PGEDGE_MCP_SERVER_URL="http://localhost:8080/mcp/v1"
 
 **Need to configure a database connection?**
 
-You can configure connections through the chatbot interface:
+The MCP server connects to the database at startup. You can configure the connection using:
 
-- Ask: "Add a connection to my database at postgres://user:password@host:port/database"
-- Or set the environment variable: `export PGEDGE_POSTGRES_CONNECTION_STRING="postgres://user:password@host:port/database"`
+- Command-line flags: `./bin/pgedge-pg-mcp-svr -http -addr :8080 -host localhost -port 5432 -database mydb -user myuser`
+- Config file: Create a `pgedge-pg-mcp-svr.yaml` file with database connection parameters
+- Environment variables: Set `PGHOST`, `PGPORT`, `PGDATABASE`, `PGUSER`, `PGPASSWORD` before starting the server
+
+See the [Configuration Guide](../../docs/configuration.md) for more details.

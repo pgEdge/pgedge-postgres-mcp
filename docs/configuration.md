@@ -319,16 +319,16 @@ See [Authentication Guide](authentication.md) for details on API token managemen
 
 **Running in stdio mode:**
 ```bash
+# Configure database connection via environment variables, config file, or flags
 ./bin/pgedge-pg-mcp-svr
-# Then use set_database_connection tool to connect
 ```
 
 **Running in HTTP mode:**
 ```bash
+# Configure database connection via environment variables, config file, or flags
 ./bin/pgedge-pg-mcp-svr \
   -http \
   -addr ":9090"
-# Then use set_database_connection tool to connect
 ```
 
 ## Environment Variables
@@ -410,7 +410,7 @@ To use this MCP server with Claude Desktop, add it to your MCP configuration fil
 **Important Notes:**
 
 - Replace `/absolute/path/to/pgedge-postgres-mcp` with the full path to your project directory
-- Database connections are configured at runtime via the `set_database_connection` tool for security
+- Database connections are configured at server startup via environment variables, config file, or command-line flags
 - Claude Desktop's LLM will handle natural language to SQL translation, then this server executes the SQL queries
 
 ### Using a Configuration File with Claude Desktop

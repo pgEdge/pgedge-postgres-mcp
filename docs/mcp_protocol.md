@@ -68,18 +68,15 @@ The server advertises these capabilities during initialization:
 
 ### Tools
 
-Ten callable functions for database interaction and management:
+Five callable functions for database interaction and management:
 
-1. **server_info** - Get MCP server information
-2. **query_database** - Execute natural language queries against PostgreSQL
-3. **get_schema_info** - Get detailed database schema information
-4. **set_pg_configuration** - Modify PostgreSQL configuration parameters
+1. **query_database** - Execute SQL queries against PostgreSQL
+2. **get_schema_info** - Get detailed database schema information
+3. **similarity_search** - Advanced hybrid search combining vector similarity with BM25 and MMR
+4. **generate_embedding** - Generate vector embeddings from text using AI models
 5. **read_resource** - Read MCP resources by URI
-6. **add_database_connection** - Save database connection with alias
-7. **remove_database_connection** - Remove saved database connection
-8. **list_database_connections** - List all saved database connections
-9. **edit_database_connection** - Edit existing database connection
-10. **set_database_connection** - Set connection string for current session
+
+**Note:** Database connection is configured at server startup via environment variables, config file, or command-line flags. There are no runtime connection management tools.
 
 For detailed tool documentation, see [Tools Documentation](tools.md).
 

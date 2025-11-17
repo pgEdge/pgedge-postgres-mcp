@@ -94,22 +94,14 @@ secret_file: ""
 # ============================================================================
 # DATABASE CONFIGURATION
 # ============================================================================
-# Database connections are configured at runtime using the MCP tools.
-# Use the set_database_connection tool to connect to a database by providing:
-#   - A PostgreSQL connection string, OR
-#   - An alias to a previously saved connection
+# Database connections are configured at server startup via:
+#   1. Config file (database section below)
+#   2. Environment variables (PGEDGE_DB_* or PG*)
+#   3. Command-line flags (-host, -port, -database, -user, -password)
 #
-# To save connections for later use, use the add_database_connection tool
-# which stores individual connection parameters (host, port, user, password,
-# database name, SSL settings, etc.) with encrypted passwords.
-#
-# Examples:
-#   - Connect via string: set_database_connection("postgres://user:pass@host/db")
-#   - Save connection:    add_database_connection(alias="prod", host="...", ...)
-#   - Connect via alias:  set_database_connection("prod")
-#   - List connections:   list_database_connections()
-#   - Edit connection:    edit_database_connection(alias="prod", host="...")
-#   - Remove connection:  remove_database_connection(alias="prod")
+# See the database section below for configuration options.
+# Environment variables override config file values.
+# Command-line flags override both config file and environment variables.
 
 # ============================================================================
 # EXAMPLE CONFIGURATIONS

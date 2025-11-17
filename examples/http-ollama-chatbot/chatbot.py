@@ -18,7 +18,6 @@ Usage:
        export OLLAMA_BASE_URL="http://localhost:11434"  # Default Ollama URL
        export OLLAMA_MODEL="gpt-oss:20b"  # Or another model you've pulled
        export PGEDGE_MCP_SERVER_URL="http://localhost:8080/mcp/v1"
-       export PGEDGE_POSTGRES_CONNECTION_STRING="postgres://user:pass@host/db"
 
     4. Run the chatbot:
        python chatbot.py
@@ -224,16 +223,13 @@ IMPORTANT INSTRUCTIONS:
         """Run an interactive chat loop."""
         print("\nPostgreSQL Chatbot (type 'quit' or 'exit' to stop)")
         print("=" * 60)
-        print("\nTo get started, you can:")
-        print("  - List saved connections: 'What database connections do I have?'")
-        print("  - Add a connection: 'Add a connection to my database at postgres://user:pass@host/db'")
-        print("  - Connect to a saved connection: 'Connect to production'")
-        print("  - List the available MCP server tools and resources: 'List the tools and resources in the MCP server")
         print("\nExample questions:")
-        print("  - How many tables do I have?")
-        print("  - Show me the 10 most recent orders")
-        print("  - What's the total revenue from last month?")
-        print("  - Which customers have placed more than 5 orders?")
+        print("  - List all tables: 'What tables are in my database?'")
+        print("  - Show me the schema: 'Describe the users table'")
+        print("  - Query data: 'Show me the 10 most recent orders'")
+        print("  - Aggregate data: 'What's the total revenue from last month?'")
+        print("  - Complex queries: 'Which customers have placed more than 5 orders?'")
+        print("  - Search content: 'Find articles about PostgreSQL' (if using vector search)")
 
         # Get available tools
         tools = await self.list_available_tools()

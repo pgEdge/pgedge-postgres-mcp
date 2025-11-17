@@ -19,10 +19,15 @@ This guide focuses on HTTP/HTTPS mode. For stdio mode (Claude Desktop), see the 
 # Set environment variables
 export ANTHROPIC_API_KEY="sk-ant-your-key"
 
+# Configure database connection (example using environment variables)
+export PGHOST="localhost"
+export PGPORT="5432"
+export PGDATABASE="mydb"
+export PGUSER="myuser"
+export PGPASSWORD="mypass"
+
 # Start HTTP server on default port 8080
 ./bin/pgedge-pg-mcp-svr -http
-
-# Then connect to database using the set_database_connection tool via API
 ```
 
 ### With Custom Port
@@ -299,11 +304,15 @@ docker build -t pgedge-mcp .
 docker run -d \
   -p 8080:8080 \
   -e ANTHROPIC_API_KEY="sk-ant-..." \
+  -e PGHOST="host.docker.internal" \
+  -e PGPORT="5432" \
+  -e PGDATABASE="mydb" \
+  -e PGUSER="myuser" \
+  -e PGPASSWORD="mypass" \
   --name pgedge-mcp \
   pgedge-mcp
 
-# Then connect to database using the set_database_connection tool via API
-# Use host.docker.internal to access host machine from container
+# Note: Use host.docker.internal to access PostgreSQL on host machine from container
 ```
 
 ### Docker Compose
@@ -320,11 +329,14 @@ services:
       - "8080:8080"
     environment:
       ANTHROPIC_API_KEY: sk-ant-your-key
+      PGHOST: db
+      PGPORT: 5432
+      PGDATABASE: mydb
+      PGUSER: postgres
+      PGPASSWORD: password
     depends_on:
       - db
     restart: unless-stopped
-    # Note: Database connection configured at runtime via set_database_connection tool
-    # Use connection string: postgres://postgres:password@db:5432/mydb
 
   db:
     image: postgres:16
