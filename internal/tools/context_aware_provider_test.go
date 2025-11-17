@@ -23,8 +23,8 @@ import (
 
 // TestNewContextAwareProvider tests provider creation
 func TestNewContextAwareProvider(t *testing.T) {
-	clientManager := database.NewClientManager()
-	fallbackClient := database.NewClient()
+	clientManager := database.NewClientManager(nil)
+	fallbackClient := database.NewClient(nil)
 	cfg := &config.Config{}
 	resourceReg := resources.NewContextAwareRegistry(clientManager, true)
 
@@ -49,10 +49,10 @@ func TestNewContextAwareProvider(t *testing.T) {
 
 // TestContextAwareProvider_List tests tool listing with smart filtering
 func TestContextAwareProvider_List(t *testing.T) {
-	clientManager := database.NewClientManager()
+	clientManager := database.NewClientManager(nil)
 	defer clientManager.CloseAll()
 
-	fallbackClient := database.NewClient()
+	fallbackClient := database.NewClient(nil)
 	cfg := &config.Config{}
 	resourceReg := resources.NewContextAwareRegistry(clientManager, false)
 
@@ -99,10 +99,10 @@ func TestContextAwareProvider_List(t *testing.T) {
 // TestContextAwareProvider_Execute_NoAuth tests execution without authentication
 func TestContextAwareProvider_Execute_NoAuth(t *testing.T) {
 	// This test doesn't require database connection, testing read_resource tool
-	clientManager := database.NewClientManager()
+	clientManager := database.NewClientManager(nil)
 	defer clientManager.CloseAll()
 
-	fallbackClient := database.NewClient()
+	fallbackClient := database.NewClient(nil)
 	cfg := &config.Config{}
 	resourceReg := resources.NewContextAwareRegistry(clientManager, false)
 
@@ -129,10 +129,10 @@ func TestContextAwareProvider_Execute_NoAuth(t *testing.T) {
 
 // TestContextAwareProvider_Execute_WithAuth tests execution with authentication
 func TestContextAwareProvider_Execute_WithAuth(t *testing.T) {
-	clientManager := database.NewClientManager()
+	clientManager := database.NewClientManager(nil)
 	defer clientManager.CloseAll()
 
-	fallbackClient := database.NewClient()
+	fallbackClient := database.NewClient(nil)
 	cfg := &config.Config{}
 	resourceReg := resources.NewContextAwareRegistry(clientManager, true)
 
@@ -217,10 +217,10 @@ func TestContextAwareProvider_Execute_WithAuth(t *testing.T) {
 
 // TestContextAwareProvider_Execute_InvalidTool tests execution of non-existent tool
 func TestContextAwareProvider_Execute_InvalidTool(t *testing.T) {
-	clientManager := database.NewClientManager()
+	clientManager := database.NewClientManager(nil)
 	defer clientManager.CloseAll()
 
-	fallbackClient := database.NewClient()
+	fallbackClient := database.NewClient(nil)
 	cfg := &config.Config{}
 	resourceReg := resources.NewContextAwareRegistry(clientManager, false)
 
@@ -254,10 +254,10 @@ func TestContextAwareProvider_Execute_InvalidTool(t *testing.T) {
 
 // TestContextAwareProvider_RegisterTools_WithContext tests registering with context
 func TestContextAwareProvider_RegisterTools_WithContext(t *testing.T) {
-	clientManager := database.NewClientManager()
+	clientManager := database.NewClientManager(nil)
 	defer clientManager.CloseAll()
 
-	fallbackClient := database.NewClient()
+	fallbackClient := database.NewClient(nil)
 	cfg := &config.Config{}
 	resourceReg := resources.NewContextAwareRegistry(clientManager, true)
 

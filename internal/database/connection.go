@@ -14,12 +14,15 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"net/url"
 	"os"
 	"regexp"
 	"strconv"
 	"sync"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"pgedge-postgres-mcp/internal/config"
 )
 
 // ConnectionInfo holds a connection pool and its metadata
@@ -35,22 +38,25 @@ type Client struct {
 	connections    map[string]*ConnectionInfo // keyed by connection string
 	defaultConnStr string                     // current default connection string
 	initialConnStr string                     // original connection string from env
+	dbConfig       *config.DatabaseConfig     // database configuration for pool settings
 	mu             sync.RWMutex
 }
 
-// NewClient creates a new database client
-func NewClient() *Client {
+// NewClient creates a new database client with optional database configuration
+func NewClient(dbConfig *config.DatabaseConfig) *Client {
 	return &Client{
 		connections: make(map[string]*ConnectionInfo),
+		dbConfig:    dbConfig,
 	}
 }
 
-// NewClientWithConnectionString creates a new client with a specific connection string
-func NewClientWithConnectionString(connStr string) *Client {
+// NewClientWithConnectionString creates a new client with a specific connection string and database configuration
+func NewClientWithConnectionString(connStr string, dbConfig *config.DatabaseConfig) *Client {
 	c := &Client{
 		connections:    make(map[string]*ConnectionInfo),
 		initialConnStr: connStr,
 		defaultConnStr: connStr,
+		dbConfig:       dbConfig,
 	}
 	return c
 }
@@ -61,14 +67,24 @@ func (c *Client) Connect() error {
 	// use that instead of reading from the environment
 	c.mu.RLock()
 	existingConnStr := c.defaultConnStr
+	dbConfig := c.dbConfig
 	c.mu.RUnlock()
 
 	connStr := existingConnStr
 	if connStr == "" {
-		// No connection string set yet, read from environment
-		connStr = os.Getenv("PGEDGE_POSTGRES_CONNECTION_STRING")
-		if connStr == "" {
-			connStr = "postgres://localhost/postgres?sslmode=disable"
+		// Priority order for connection string:
+		// 1. DatabaseConfig (if provided)
+		// 2. PGEDGE_POSTGRES_CONNECTION_STRING environment variable
+		// 3. Default fallback
+		if dbConfig != nil && dbConfig.User != "" {
+			// Build connection string from DatabaseConfig
+			connStr = dbConfig.BuildConnectionString()
+		} else {
+			// No connection string set yet, read from environment
+			connStr = os.Getenv("PGEDGE_POSTGRES_CONNECTION_STRING")
+			if connStr == "" {
+				connStr = "postgres://localhost/postgres?sslmode=disable"
+			}
 		}
 
 		c.mu.Lock()
@@ -90,7 +106,47 @@ func (c *Client) ConnectTo(connStr string) error {
 		return nil // Already connected
 	}
 
-	pool, err := pgxpool.New(context.Background(), connStr)
+	// Add application_name to connection string if not already present
+	enhancedConnStr, err := addApplicationName(connStr, "pgEdge Postgres MCP Server")
+	if err != nil {
+		return fmt.Errorf("unable to enhance connection string: %w", err)
+	}
+
+	// Parse connection string into pgxpool.Config
+	poolConfig, err := pgxpool.ParseConfig(enhancedConnStr)
+	if err != nil {
+		return fmt.Errorf("unable to parse connection string: %w", err)
+	}
+
+	// Apply pool configuration if available
+	if c.dbConfig != nil {
+		// Set pool size limits
+		if c.dbConfig.PoolMaxConns > 0 {
+			poolConfig.MaxConns = int32(c.dbConfig.PoolMaxConns)
+		}
+		if c.dbConfig.PoolMinConns > 0 {
+			poolConfig.MinConns = int32(c.dbConfig.PoolMinConns)
+		}
+
+		// Set idle timeout
+		if c.dbConfig.PoolMaxConnIdleTime != "" {
+			idleTime, err := time.ParseDuration(c.dbConfig.PoolMaxConnIdleTime)
+			if err != nil {
+				return fmt.Errorf("invalid pool_max_conn_idle_time: %w", err)
+			}
+			poolConfig.MaxConnIdleTime = idleTime
+		}
+	}
+
+	// Set read-only transaction mode for all connections
+	// This is enforced at the session level via default_transaction_read_only
+	if poolConfig.ConnConfig.RuntimeParams == nil {
+		poolConfig.ConnConfig.RuntimeParams = make(map[string]string)
+	}
+	poolConfig.ConnConfig.RuntimeParams["default_transaction_read_only"] = "on"
+
+	// Create pool with configured settings
+	pool, err := pgxpool.NewWithConfig(context.Background(), poolConfig)
 	if err != nil {
 		return fmt.Errorf("unable to create connection pool: %w", err)
 	}
@@ -108,6 +164,26 @@ func (c *Client) ConnectTo(connStr string) error {
 	}
 
 	return nil
+}
+
+// addApplicationName adds application_name parameter to a PostgreSQL connection string
+func addApplicationName(connStr, appName string) (string, error) {
+	// Parse the connection string
+	u, err := url.Parse(connStr)
+	if err != nil {
+		return "", fmt.Errorf("invalid connection string: %w", err)
+	}
+
+	// Get existing query parameters
+	query := u.Query()
+
+	// Add application_name if not already present
+	if !query.Has("application_name") {
+		query.Set("application_name", appName)
+		u.RawQuery = query.Encode()
+	}
+
+	return u.String(), nil
 }
 
 // SetDefaultConnection sets the default connection string to use for queries

@@ -15,10 +15,10 @@ import (
 )
 
 func TestNewClient(t *testing.T) {
-	client := NewClient()
+	client := NewClient(nil)
 
 	if client == nil {
-		t.Fatal("NewClient() returned nil")
+		t.Fatal("NewClient(nil) returned nil")
 	}
 
 	if client.connections == nil {
@@ -31,7 +31,7 @@ func TestNewClient(t *testing.T) {
 }
 
 func TestGetDefaultConnection(t *testing.T) {
-	client := NewClient()
+	client := NewClient(nil)
 
 	// Test initial state
 	defaultConn := client.GetDefaultConnection()
@@ -48,7 +48,7 @@ func TestGetDefaultConnection(t *testing.T) {
 }
 
 func TestListConnections(t *testing.T) {
-	client := NewClient()
+	client := NewClient(nil)
 
 	// Test with no connections
 	connections := client.ListConnections()
@@ -88,7 +88,7 @@ func TestListConnections(t *testing.T) {
 }
 
 func TestGetConnectionInfo(t *testing.T) {
-	client := NewClient()
+	client := NewClient(nil)
 
 	// Test with non-existent connection
 	info, exists := client.GetConnectionInfo("postgres://localhost/nonexistent")
@@ -124,7 +124,7 @@ func TestGetConnectionInfo(t *testing.T) {
 }
 
 func TestIsMetadataLoadedFor(t *testing.T) {
-	client := NewClient()
+	client := NewClient(nil)
 
 	// Test with non-existent connection
 	loaded := client.IsMetadataLoadedFor("postgres://localhost/nonexistent")
@@ -158,7 +158,7 @@ func TestIsMetadataLoadedFor(t *testing.T) {
 }
 
 func TestGetMetadataFor(t *testing.T) {
-	client := NewClient()
+	client := NewClient(nil)
 
 	// Test with non-existent connection
 	metadata := client.GetMetadataFor("postgres://localhost/nonexistent")
@@ -226,7 +226,7 @@ func TestGetMetadataFor(t *testing.T) {
 }
 
 func TestGetPoolFor(t *testing.T) {
-	client := NewClient()
+	client := NewClient(nil)
 
 	// Test with non-existent connection
 	pool := client.GetPoolFor("postgres://localhost/nonexistent")
@@ -247,7 +247,7 @@ func TestGetPoolFor(t *testing.T) {
 }
 
 func TestClose(t *testing.T) {
-	client := NewClient()
+	client := NewClient(nil)
 
 	// Add some mock connections (without actual pools that need closing)
 	client.connections["postgres://localhost/db1"] = &ConnectionInfo{

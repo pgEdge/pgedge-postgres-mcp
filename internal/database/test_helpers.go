@@ -13,7 +13,7 @@ package database
 // NewTestClient creates a database client for testing with mock data
 // This allows tests in other packages to create clients with predetermined metadata
 func NewTestClient(connStr string, metadata map[string]TableInfo) *Client {
-	client := NewClient()
+	client := NewClient(nil)
 
 	// Add mock connection info
 	client.connections[connStr] = &ConnectionInfo{

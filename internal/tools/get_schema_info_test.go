@@ -24,7 +24,7 @@ func createMockClient(metadata map[string]database.TableInfo) *database.Client {
 
 func TestGetSchemaInfoTool(t *testing.T) {
 	t.Run("database not ready", func(t *testing.T) {
-		client := database.NewClient()
+		client := database.NewClient(nil)
 		// Don't add any connections - database is not ready
 
 		tool := GetSchemaInfoTool(client)

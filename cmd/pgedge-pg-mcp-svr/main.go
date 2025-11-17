@@ -329,8 +329,8 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel() // Ensure background goroutines are stopped on exit
 
-	// Initialize client manager for database connections
-	clientManager := database.NewClientManager()
+	// Initialize client manager for database connections with database configuration
+	clientManager := database.NewClientManager(&cfg.Database)
 
 	// Determine authentication mode
 	authEnabled := cfg.HTTP.Enabled && cfg.HTTP.Auth.Enabled
@@ -341,7 +341,7 @@ func main() {
 	if !authEnabled && cfg.Database.User != "" {
 		// Create connection to database using config
 		connStr := cfg.Database.BuildConnectionString()
-		fallbackClient = database.NewClientWithConnectionString(connStr)
+		fallbackClient = database.NewClientWithConnectionString(connStr, &cfg.Database)
 
 		// Connect to database
 		if err := fallbackClient.Connect(); err != nil {
@@ -369,12 +369,12 @@ func main() {
 		// Auth mode - connections will be created per-session on-demand
 		// Create a template client that won't be connected
 		connStr := cfg.Database.BuildConnectionString()
-		fallbackClient = database.NewClientWithConnectionString(connStr)
+		fallbackClient = database.NewClientWithConnectionString(connStr, &cfg.Database)
 		fmt.Fprintf(os.Stderr, "Database configured: %s@%s:%d/%s (per-session connections)\n",
 			cfg.Database.User, cfg.Database.Host, cfg.Database.Port, cfg.Database.Database)
 	} else {
 		// No database configured
-		fallbackClient = database.NewClient()
+		fallbackClient = database.NewClient(&cfg.Database)
 		fmt.Fprintf(os.Stderr, "Database: Not configured\n")
 	}
 

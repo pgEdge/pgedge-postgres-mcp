@@ -26,7 +26,7 @@ func TestAllResources_Integration(t *testing.T) {
 		t.Skip("TEST_PGEDGE_POSTGRES_CONNECTION_STRING not set, skipping integration test")
 	}
 
-	client := database.NewClient()
+	client := database.NewClient(nil)
 	if err := client.Connect(); err != nil {
 		t.Fatalf("Failed to connect to database: %v", err)
 	}

@@ -14,19 +14,23 @@ import (
 	"fmt"
 	"os"
 	"sync"
+
+	"pgedge-postgres-mcp/internal/config"
 )
 
 // ClientManager manages per-token database clients for connection isolation
 // Each authenticated token gets its own database client to prevent connection sharing
 type ClientManager struct {
-	mu      sync.RWMutex
-	clients map[string]*Client // map of token hash -> client
+	mu       sync.RWMutex
+	clients  map[string]*Client     // map of token hash -> client
+	dbConfig *config.DatabaseConfig // database configuration for new clients
 }
 
-// NewClientManager creates a new client manager
-func NewClientManager() *ClientManager {
+// NewClientManager creates a new client manager with optional database configuration
+func NewClientManager(dbConfig *config.DatabaseConfig) *ClientManager {
 	return &ClientManager{
-		clients: make(map[string]*Client),
+		clients:  make(map[string]*Client),
+		dbConfig: dbConfig,
 	}
 }
 
@@ -54,8 +58,8 @@ func (cm *ClientManager) GetClient(tokenHash string) (*Client, error) {
 		return client, nil
 	}
 
-	// Create and initialize new client
-	client := NewClient()
+	// Create and initialize new client with database configuration
+	client := NewClient(cm.dbConfig)
 	if err := client.Connect(); err != nil {
 		return nil, fmt.Errorf("failed to connect database for token: %w", err)
 	}
@@ -207,8 +211,8 @@ func (cm *ClientManager) GetOrCreateClient(key string, autoConnect bool) (*Clien
 		return client, nil
 	}
 
-	// Create and initialize new client
-	client := NewClient()
+	// Create and initialize new client with database configuration
+	client := NewClient(cm.dbConfig)
 	if err := client.Connect(); err != nil {
 		return nil, fmt.Errorf("failed to connect database: %w", err)
 	}

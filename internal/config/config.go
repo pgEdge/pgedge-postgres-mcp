@@ -63,6 +63,11 @@ type DatabaseConfig struct {
 	User     string `yaml:"user"`     // Database user (required)
 	Password string `yaml:"password"` // Database password (optional, will use PGEDGE_DB_PASSWORD env var or .pgpass if not set)
 	SSLMode  string `yaml:"sslmode"`  // SSL mode: disable, require, verify-ca, verify-full (default: prefer)
+
+	// Connection pool settings
+	PoolMaxConns        int    `yaml:"pool_max_conns"`         // Maximum number of connections (default: 4)
+	PoolMinConns        int    `yaml:"pool_min_conns"`         // Minimum number of connections (default: 0)
+	PoolMaxConnIdleTime string `yaml:"pool_max_conn_idle_time"` // Max time a connection can be idle before being closed (default: 30m)
 }
 
 // EmbeddingConfig holds embedding generation settings
@@ -177,12 +182,15 @@ func defaultConfig() *Config {
 			},
 		},
 		Database: DatabaseConfig{
-			Host:     "localhost",
-			Port:     5432,
-			Database: "postgres",
-			User:     "",        // Required - must be provided
-			Password: "",        // Optional - will use env var or .pgpass
-			SSLMode:  "prefer",  // Default SSL mode
+			Host:                "localhost",
+			Port:                5432,
+			Database:            "postgres",
+			User:                "",      // Required - must be provided
+			Password:            "",      // Optional - will use env var or .pgpass
+			SSLMode:             "prefer", // Default SSL mode
+			PoolMaxConns:        4,       // Default max connections
+			PoolMinConns:        0,       // Default min connections
+			PoolMaxConnIdleTime: "30m",   // Default idle timeout
 		},
 		Embedding: EmbeddingConfig{
 			Enabled:         false,                    // Disabled by default (opt-in)
@@ -259,6 +267,15 @@ func mergeConfig(dest, src *Config) {
 	}
 	if src.Database.SSLMode != "" {
 		dest.Database.SSLMode = src.Database.SSLMode
+	}
+	if src.Database.PoolMaxConns != 0 {
+		dest.Database.PoolMaxConns = src.Database.PoolMaxConns
+	}
+	if src.Database.PoolMinConns != 0 {
+		dest.Database.PoolMinConns = src.Database.PoolMinConns
+	}
+	if src.Database.PoolMaxConnIdleTime != "" {
+		dest.Database.PoolMaxConnIdleTime = src.Database.PoolMaxConnIdleTime
 	}
 
 	// Embedding - merge if any embedding fields are set

@@ -21,7 +21,7 @@ import (
 
 func TestExecuteResourceQuery(t *testing.T) {
 	t.Run("database not ready", func(t *testing.T) {
-		client := NewClient()
+		client := NewClient(nil)
 		// Don't add any connections - database is not ready
 
 		query := "SELECT * FROM test"
@@ -210,7 +210,7 @@ func TestResourcePatterns(t *testing.T) {
 // Integration-style tests for resource helper framework
 func TestResourceHelperIntegration(t *testing.T) {
 	t.Run("helper provides consistent error messages", func(t *testing.T) {
-		client := NewClient()
+		client := NewClient(nil)
 
 		query := "SELECT 1"
 		processor := func(rows pgx.Rows) (interface{}, error) {
