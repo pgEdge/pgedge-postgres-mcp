@@ -74,7 +74,7 @@ macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`
 {
   "mcpServers": {
     "pgedge": {
-      "command": "/absolute/path/to/pgedge-postgres-mcp",
+      "command": "/absolute/path/to/bin/pgedge-pg-mcp-svr",
       "env": {
         "ANTHROPIC_API_KEY": "sk-ant-your-key-here"
       }
@@ -142,7 +142,7 @@ If your database is empty (no user tables), the server will still start but won'
     {
         "mcpServers": {
         "pgedge": {
-            "command": "/full/path/to/pgedge-postgres-mcp",
+            "command": "/full/path/to/bin/pgedge-pg-mcp-svr",
             "env": {
             "ANTHROPIC_API_KEY": "..."
             }
@@ -159,7 +159,7 @@ If your database is empty (no user tables), the server will still start but won'
 
     ```bash
     export ANTHROPIC_API_KEY="..."
-    echo '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}' | ./pgedge-postgres-mcp
+    echo '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}' | ./bin/pgedge-pg-mcp-svr
     # Then use set_database_connection tool to connect to database
     ```
 
@@ -295,7 +295,7 @@ make clean
 make build
 # or
 go clean
-go build -o pgedge-postgres-mcp
+go build -o bin/pgedge-pg-mcp-svr ./cmd/pgedge-pg-mcp-svr
 ```
 
 ## Testing the Server
@@ -311,10 +311,10 @@ go build -o pgedge-postgres-mcp
 export ANTHROPIC_API_KEY="sk-ant-..."
 
 # Test initialize
-echo '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test","version":"1.0"}}}' | ./pgedge-postgres-mcp
+echo '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test","version":"1.0"}}}' | ./bin/pgedge-pg-mcp-svr
 
 # Test tools list (in another terminal, or after initialize response)
-echo '{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}' | ./pgedge-postgres-mcp
+echo '{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}' | ./bin/pgedge-pg-mcp-svr
 ```
 
 ## Common Error Messages

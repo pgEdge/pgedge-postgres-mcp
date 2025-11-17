@@ -269,10 +269,10 @@ jobs:
         go-version: ${{ matrix.go-version }}
 
     - name: Build
-      run: go build -v ./cmd/pgedge-pg-mcp-svr
+      run: go build -v -o pgedge-pg-mcp-svr ./cmd/pgedge-pg-mcp-svr
 
     - name: Verify binary
-      run: ./pgedge-postgres-mcp -h
+      run: ./pgedge-pg-mcp-svr -h
 ```
 
 ### Test Workflow Example

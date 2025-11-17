@@ -794,7 +794,7 @@ result = client.call_tool("query_database", {...})
 ```bash
 # Error message:
 ERROR: Token file not found: /path/to/pgedge-pg-mcp-svr-tokens.yaml
-Create tokens with: ./pgedge-postgres-mcp -add-token
+Create tokens with: ./pgedge-pg-mcp-svr -add-token
 Or disable authentication with: -no-auth
 ```
 

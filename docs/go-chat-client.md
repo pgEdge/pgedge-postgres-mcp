@@ -46,7 +46,7 @@ Create a `.pgedge-pg-mcp-cli.yaml` file in one of these locations:
 
 - Current directory: `./.pgedge-pg-mcp-cli.yaml`
 - Home directory: `~/.pgedge-pg-mcp-cli.yaml`
-- System-wide: `/etc/pgedge-mcp/chat.yaml`
+- System-wide: `/etc/pgedge/postgres-mcp/pgedge-pg-mcp-cli.yaml`
 
 Example configuration:
 

@@ -79,7 +79,7 @@ Response:
 ```json
 {
   "status": "ok",
-  "server": "pgedge-postgres-mcp",
+  "server": "pgedge-pg-mcp-svr",
   "version": "1.0.0-alpha1"
 }
 ```
@@ -279,16 +279,16 @@ FROM golang:1.21-alpine AS builder
 
 WORKDIR /build
 COPY . .
-RUN go build -o pgedge-postgres-mcp ./cmd/pgedge-pg-mcp-svr
+RUN go build -o pgedge-pg-mcp-svr ./cmd/pgedge-pg-mcp-svr
 
 FROM alpine:latest
 RUN apk --no-cache add ca-certificates
 WORKDIR /app
-COPY --from=builder /build/pgedge-postgres-mcp .
+COPY --from=builder /build/pgedge-pg-mcp-svr .
 COPY configs/pgedge-pg-mcp-svr.yaml.example config.yaml
 
 EXPOSE 8080
-ENTRYPOINT ["./pgedge-postgres-mcp"]
+ENTRYPOINT ["./pgedge-pg-mcp-svr"]
 CMD ["-config", "config.yaml", "-http"]
 ```
 
@@ -479,7 +479,7 @@ ls -la /path/to/server.key  # Should be 600
 
 ```bash
 # Verify server is running
-ps aux | grep pgedge-postgres-mcp
+ps aux | grep pgedge-pg-mcp-svr
 
 # Check firewall
 sudo ufw status

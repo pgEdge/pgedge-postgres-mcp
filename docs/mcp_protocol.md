@@ -179,7 +179,7 @@ Establish connection and negotiate capabilities.
       "prompts": {}
     },
     "serverInfo": {
-      "name": "pgedge-postgres-mcp",
+      "name": "pgedge-pg-mcp-svr",
       "version": "1.0.0-alpha1"
     }
   }

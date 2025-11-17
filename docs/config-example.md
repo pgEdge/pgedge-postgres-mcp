@@ -75,9 +75,9 @@ http:
         token_file: ""
 
         # Token management commands (no database connection required):
-        # - Create token: ./pgedge-postgres-mcp -add-token
-        # - List tokens:  ./pgedge-postgres-mcp -list-tokens
-        # - Remove token: ./pgedge-postgres-mcp -remove-token <id>
+        # - Create token: ./bin/pgedge-pg-mcp-svr -add-token
+        # - List tokens:  ./bin/pgedge-pg-mcp-svr -list-tokens
+        # - Remove token: ./bin/pgedge-pg-mcp-svr -remove-token <id>
 
 # ============================================================================
 # ENCRYPTION SECRET FILE (Optional)

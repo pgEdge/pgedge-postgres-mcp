@@ -77,7 +77,7 @@ export PGEDGE_POSTGRES_CONNECTION_STRING=$(vault kv get -field=connection_string
 
 ```bash
 # Never hardcode in scripts
-./pgedge-postgres-mcp -db "postgres://admin:SuperSecret123@prod.example.com/maindb"
+./bin/pgedge-pg-mcp-svr -db "postgres://admin:SuperSecret123@prod.example.com/maindb"
 
 # Never commit secret files
 git add pgedge-pg-mcp-svr.secret  # DON'T DO THIS
@@ -271,7 +271,7 @@ cp /var/lib/postgresql/data/postgresql.auto.conf /backup/
 
 ```bash
 # Apply to staging environment
-./pgedge-postgres-mcp -db "postgres://staging/db"
+./bin/pgedge-pg-mcp-svr -db "postgres://staging/db"
 # Tool: set_pg_configuration with test values
 # Monitor impact before applying to production
 ```
