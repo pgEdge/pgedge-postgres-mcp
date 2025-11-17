@@ -1,12 +1,12 @@
 # pgEdge MCP Server
 
-[![Build Server](https://github.com/pgEdge/pgedge-pg-mcp-svr/workflows/Build%20Server/badge.svg)](https://github.com/pgEdge/pgedge-pg-mcp-svr/actions/workflows/build-server.yml)
-[![Build Client](https://github.com/pgEdge/pgedge-pg-mcp-svr/workflows/Build%20Client/badge.svg)](https://github.com/pgEdge/pgedge-pg-mcp-svr/actions/workflows/build-client.yml)
-[![Test Server](https://github.com/pgEdge/pgedge-pg-mcp-svr/workflows/Test%20Server/badge.svg)](https://github.com/pgEdge/pgedge-pg-mcp-svr/actions/workflows/test-server.yml)
-[![Test Client](https://github.com/pgEdge/pgedge-pg-mcp-svr/workflows/Test%20Client/badge.svg)](https://github.com/pgEdge/pgedge-pg-mcp-svr/actions/workflows/test-client.yml)
-[![Lint Server](https://github.com/pgEdge/pgedge-pg-mcp-svr/workflows/Lint%20Server/badge.svg)](https://github.com/pgEdge/pgedge-pg-mcp-svr/actions/workflows/lint-server.yml)
-[![Lint Client](https://github.com/pgEdge/pgedge-pg-mcp-svr/workflows/Lint%20Client/badge.svg)](https://github.com/pgEdge/pgedge-pg-mcp-svr/actions/workflows/lint-client.yml)
-[![Docs](https://github.com/pgEdge/pgedge-pg-mcp-svr/workflows/Docs/badge.svg)](https://github.com/pgEdge/pgedge-pg-mcp-svr/actions/workflows/docs.yml)
+[![Build Server](https://github.com/pgEdge/pgedge-postgres-mcp/workflows/Build%20Server/badge.svg)](https://github.com/pgEdge/pgedge-postgres-mcp/actions/workflows/build-server.yml)
+[![Build Client](https://github.com/pgEdge/pgedge-postgres-mcp/workflows/Build%20Client/badge.svg)](https://github.com/pgEdge/pgedge-postgres-mcp/actions/workflows/build-client.yml)
+[![Test Server](https://github.com/pgEdge/pgedge-postgres-mcp/workflows/Test%20Server/badge.svg)](https://github.com/pgEdge/pgedge-postgres-mcp/actions/workflows/test-server.yml)
+[![Test Client](https://github.com/pgEdge/pgedge-postgres-mcp/workflows/Test%20Client/badge.svg)](https://github.com/pgEdge/pgedge-postgres-mcp/actions/workflows/test-client.yml)
+[![Lint Server](https://github.com/pgEdge/pgedge-postgres-mcp/workflows/Lint%20Server/badge.svg)](https://github.com/pgEdge/pgedge-postgres-mcp/actions/workflows/lint-server.yml)
+[![Lint Client](https://github.com/pgEdge/pgedge-postgres-mcp/workflows/Lint%20Client/badge.svg)](https://github.com/pgEdge/pgedge-postgres-mcp/actions/workflows/lint-client.yml)
+[![Docs](https://github.com/pgEdge/pgedge-postgres-mcp/workflows/Docs/badge.svg)](https://github.com/pgEdge/pgedge-postgres-mcp/actions/workflows/docs.yml)
 
 A Model Context Protocol (MCP) server that enables **SQL queries** against PostgreSQL databases through MCP-compatible clients like Claude Desktop.
 
@@ -33,7 +33,7 @@ SELECT tablename, pg_table_size(tablename::regclass) as size FROM pg_tables WHER
 
 ```bash
 git clone <repository-url>
-cd pgedge-pg-mcp-svr
+cd pgedge-postgres-mcp
 make build
 ```
 
@@ -251,7 +251,7 @@ This software is released under The PostgreSQL License.
 ## Support
 
 - **📖 Documentation**: [docs/index.md](docs/index.md)
-- **🐛 Issues**: [GitHub Issues](https://github.com/pgEdge/pgedge-pg-mcp-svr/issues)
+- **🐛 Issues**: [GitHub Issues](https://github.com/pgEdge/pgedge-postgres-mcp/issues)
 - **💡 Examples**: [Query Examples](docs/examples.md)
 
 ## Related Projects

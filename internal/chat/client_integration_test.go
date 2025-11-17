@@ -150,9 +150,9 @@ func TestClient_ConnectToMCP_HTTPMode(t *testing.T) {
 			Token: "test-token",
 		},
 		LLM: LLMConfig{
-			Provider: "anthropic",
+			Provider:        "anthropic",
 			AnthropicAPIKey: "test-key",
-			Model:    "claude-test",
+			Model:           "claude-test",
 		},
 		UI: UIConfig{
 			NoColor: true,
@@ -187,11 +187,11 @@ func TestClient_InitializeLLM_Anthropic(t *testing.T) {
 			ServerPath: "/fake/path",
 		},
 		LLM: LLMConfig{
-			Provider:    "anthropic",
+			Provider:        "anthropic",
 			AnthropicAPIKey: "test-key",
-			Model:       "claude-test",
-			MaxTokens:   4096,
-			Temperature: 0.7,
+			Model:           "claude-test",
+			MaxTokens:       4096,
+			Temperature:     0.7,
 		},
 		UI: UIConfig{
 			NoColor: true,
@@ -404,9 +404,9 @@ func TestClient_ProcessQuery_SimpleResponse(t *testing.T) {
 			Token: "test-token",
 		},
 		LLM: LLMConfig{
-			Provider: "anthropic",
+			Provider:        "anthropic",
 			AnthropicAPIKey: "test-key",
-			Model:    "claude-test",
+			Model:           "claude-test",
 		},
 		UI: UIConfig{
 			NoColor: true,
@@ -486,9 +486,9 @@ func TestClient_ProcessQuery_WithToolUse(t *testing.T) {
 			Token: "test-token",
 		},
 		LLM: LLMConfig{
-			Provider: "anthropic",
+			Provider:        "anthropic",
 			AnthropicAPIKey: "test-key",
-			Model:    "claude-test",
+			Model:           "claude-test",
 		},
 		UI: UIConfig{
 			NoColor: true,
@@ -572,9 +572,9 @@ func TestClient_ProcessQuery_MaxIterations(t *testing.T) {
 			Token: "test-token",
 		},
 		LLM: LLMConfig{
-			Provider: "anthropic",
+			Provider:        "anthropic",
 			AnthropicAPIKey: "test-key",
-			Model:    "claude-test",
+			Model:           "claude-test",
 		},
 		UI: UIConfig{
 			NoColor: true,
@@ -647,9 +647,9 @@ func TestClient_ProcessQuery_ContextCancellation(t *testing.T) {
 			Token: "test-token",
 		},
 		LLM: LLMConfig{
-			Provider: "anthropic",
+			Provider:        "anthropic",
 			AnthropicAPIKey: "test-key",
-			Model:    "claude-test",
+			Model:           "claude-test",
 		},
 		UI: UIConfig{
 			NoColor: true,
@@ -830,9 +830,9 @@ func TestClient_ProcessQuery_ToolListRefreshAfterManageConnections(t *testing.T)
 			Token: "test-token",
 		},
 		LLM: LLMConfig{
-			Provider: "anthropic",
+			Provider:        "anthropic",
 			AnthropicAPIKey: "test-key",
-			Model:    "claude-test",
+			Model:           "claude-test",
 		},
 		UI: UIConfig{
 			NoColor: true,

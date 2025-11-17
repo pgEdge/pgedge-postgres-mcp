@@ -109,7 +109,7 @@ func (ui *UI) PrintToolExecution(toolName string, params map[string]interface{})
 		}
 	}
 
-	fmt.Print(ui.colorize(ColorMagenta, message + "\n"))
+	fmt.Print(ui.colorize(ColorMagenta, message+"\n"))
 }
 
 // PrintSeparator prints a separator line
