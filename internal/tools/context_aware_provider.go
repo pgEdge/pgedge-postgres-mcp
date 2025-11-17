@@ -129,53 +129,10 @@ func (p *ContextAwareProvider) RegisterTools(ctx context.Context) error {
 	return nil
 }
 
-// List returns registered tool definitions based on connection state
-// Smart filtering: only returns database-dependent tools when a connection exists
-// This reduces token usage by not advertising unusable tools
+// List returns all registered tool definitions
+// Hidden tools (like authenticate_user) are not included as they're in a separate registry
 func (p *ContextAwareProvider) List() []mcp.Tool {
-	// Check if we have an active database connection
-	hasConnection := p.hasActiveConnection()
-
-	allTools := p.baseRegistry.List()
-
-	// If we have a connection, return all tools
-	if hasConnection {
-		return allTools
-	}
-
-	// No connection - filter to only stateless tools
-	statelessTools := map[string]bool{
-		"manage_connections": true,
-		"read_resource":      true,
-		"generate_embedding": true,
-	}
-
-	filtered := make([]mcp.Tool, 0, len(statelessTools))
-	for _, tool := range allTools {
-		if statelessTools[tool.Name] {
-			filtered = append(filtered, tool)
-		}
-	}
-
-	return filtered
-}
-
-// hasActiveConnection checks if there's an active database connection
-func (p *ContextAwareProvider) hasActiveConnection() bool {
-	if !p.authEnabled {
-		// Auth disabled - check if default client exists and has a connection
-		client, err := p.clientManager.GetOrCreateClient("default", false)
-		if err != nil || client == nil {
-			return false
-		}
-		// Check if client has metadata loaded (indicates successful connection)
-		return client.IsMetadataLoadedFor(client.GetDefaultConnection())
-	}
-
-	// Auth enabled - check if any clients exist
-	// In auth mode, we can't know which token is requesting without context
-	// So we return all tools if any client exists, or only stateless if none
-	return p.clientManager.GetClientCount() > 0
+	return p.baseRegistry.List()
 }
 
 // getOrCreateRegistryForClient returns a cached registry for the given client

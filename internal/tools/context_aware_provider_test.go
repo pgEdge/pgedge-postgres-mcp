@@ -12,7 +12,6 @@ package tools
 
 import (
 	"context"
-	"os"
 	"strings"
 	"testing"
 
@@ -65,67 +64,22 @@ func TestContextAwareProvider_List(t *testing.T) {
 		t.Fatalf("RegisterTools failed: %v", err)
 	}
 
-	t.Run("without database connection shows only stateless tools", func(t *testing.T) {
-		// List tools without connection
+	t.Run("returns all tools regardless of connection state", func(t *testing.T) {
+		// List tools - should return all tools
 		tools := provider.List()
 
-		// Should have only 2 stateless tools (manage_connections removed)
+		// Should have all 6 tools (no filtering)
 		expectedTools := []string{
 			"read_resource",
 			"generate_embedding",
-		}
-
-		if len(tools) != len(expectedTools) {
-			t.Errorf("Expected %d stateless tools, got %d", len(expectedTools), len(tools))
-		}
-
-		// Check that all expected stateless tools are present
-		toolNames := make(map[string]bool)
-		for _, tool := range tools {
-			toolNames[tool.Name] = true
-		}
-
-		for _, expectedName := range expectedTools {
-			if !toolNames[expectedName] {
-				t.Errorf("Expected tool %q not found in list", expectedName)
-			}
-		}
-	})
-
-	t.Run("with database connection shows all tools", func(t *testing.T) {
-		// Skip if no database connection available
-		if os.Getenv("TEST_PGEDGE_POSTGRES_CONNECTION_STRING") == "" {
-			t.Skip("TEST_PGEDGE_POSTGRES_CONNECTION_STRING not set, skipping database test")
-		}
-
-		// Create and set up a database client
-		connStr := os.Getenv("TEST_PGEDGE_POSTGRES_CONNECTION_STRING")
-		client := database.NewClientWithConnectionString(connStr)
-		if err := client.Connect(); err != nil {
-			t.Fatalf("Failed to connect to database: %v", err)
-		}
-		if err := client.LoadMetadata(); err != nil {
-			t.Fatalf("Failed to load metadata: %v", err)
-		}
-		if err := clientManager.SetClient("default", client); err != nil {
-			t.Fatalf("Failed to set client: %v", err)
-		}
-
-		// List tools with connection
-		tools := provider.List()
-
-		// Should have all 6 tools (manage_connections removed)
-		expectedTools := []string{
 			"query_database",
 			"get_schema_info",
-			"read_resource",
-			"generate_embedding",
 			"semantic_search",
 			"search_similar",
 		}
 
 		if len(tools) != len(expectedTools) {
-			t.Errorf("Expected %d tools with connection, got %d", len(expectedTools), len(tools))
+			t.Errorf("Expected %d tools, got %d", len(expectedTools), len(tools))
 		}
 
 		// Check that all expected tools are present
