@@ -79,3 +79,24 @@ This ensures that:
 - Security is maintained through connection isolation
 - Resources (like pg://system_info) and tools (like query_database) both work
   correctly with session tokens
+
+  ## LLMs
+
+  The CLI and web client support models from the following providers:
+
+  * Anthropic
+  * OpenAI
+  * Ollama
+
+  The default model names are (respectively):
+
+  * claude-sonnet-4-5
+  * gpt-5.1
+  * gemma
+
+The MCP server supports models from the same providers, purely for 
+embedding generation tasks. The default model names are (respectively):
+
+* voyage-3
+* text-embedding-3-small
+* nomic-embed-text

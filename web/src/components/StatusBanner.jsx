@@ -23,8 +23,10 @@ import {
     ExpandMore as ExpandMoreIcon,
     ExpandLess as ExpandLessIcon,
 } from '@mui/icons-material';
+import { useAuth } from '../contexts/AuthContext';
 
 const StatusBanner = () => {
+    const { forceLogout } = useAuth();
     const [systemInfo, setSystemInfo] = useState(null);
     const [expanded, setExpanded] = useState(false);
     const [error, setError] = useState('');
@@ -41,6 +43,13 @@ const StatusBanner = () => {
             const response = await fetch('/api/mcp/system-info', {
                 credentials: 'include',
             });
+
+            // Handle session invalidation
+            if (response.status === 401) {
+                console.log('Session invalidated during system info fetch, logging out...');
+                forceLogout();
+                return;
+            }
 
             if (!response.ok) {
                 throw new Error('Failed to fetch system information');

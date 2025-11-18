@@ -25,7 +25,7 @@ SELECT tablename, pg_table_size(tablename::regclass) as size FROM pg_tables WHER
 - 🛠️ **5 Tools** - Query execution, schema analysis, advanced hybrid search (BM25+MMR), embedding generation, resource reading
 - 💬 **Production Chat Client** - Full-featured Go client with Anthropic prompt caching (90% cost reduction)
 - 🌐 **HTTP/HTTPS Mode** - Direct API access with token authentication
-- 🖥️ **Web Interface** - Modern React-based UI for server monitoring and management
+- 🖥️ **Web Interface** - Modern React-based UI with AI-powered chat for natural language database interaction
 - 🔐 **Secure** - TLS support, token auth, read-only enforcement
 
 ## Quick Start

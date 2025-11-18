@@ -6,5 +6,17 @@
   "session": {
     "secret": "change-this-to-a-random-secret-in-production",
     "maxAge": 86400000
+  },
+  "server": {
+    "port": 3001
+  },
+  "llm": {
+    "provider": "anthropic",
+    "model": "claude-sonnet-4-5",
+    "maxTokens": 4096,
+    "temperature": 0.7,
+    "anthropicAPIKeyFile": "~/.pgedge-pg-mcp-web-anthropic-key",
+    "openaiAPIKeyFile": "~/.pgedge-pg-mcp-web-openai-key",
+    "ollamaURL": "http://localhost:11434"
   }
 }

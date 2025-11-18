@@ -17,14 +17,18 @@ import {
     Typography,
     CircularProgress,
     Alert,
+    Button,
 } from '@mui/material';
 import {
     Send as SendIcon,
     Person as PersonIcon,
     SmartToy as BotIcon,
+    Delete as DeleteIcon,
 } from '@mui/icons-material';
+import { useAuth } from '../contexts/AuthContext';
 
 const ChatInterface = () => {
+    const { forceLogout } = useAuth();
     const [messages, setMessages] = useState([]);
     const [input, setInput] = useState('');
     const [loading, setLoading] = useState(false);
@@ -65,9 +69,26 @@ const ChatInterface = () => {
                 }),
             });
 
+            // Handle session invalidation
+            if (response.status === 401) {
+                console.log('Session invalidated, logging out...');
+                forceLogout();
+                setError('Your session has expired. Please log in again.');
+                return;
+            }
+
             if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.message || 'Failed to send message');
+                const errorData = await response.json().catch(() => ({}));
+                const errorMsg = errorData.message || 'Failed to send message';
+
+                // Provide helpful error messages
+                if (errorMsg.includes('API key')) {
+                    throw new Error('Backend configuration error: ' + errorMsg);
+                } else if (errorMsg.includes('ECONNREFUSED') || errorMsg.includes('fetch failed')) {
+                    throw new Error('Cannot connect to backend server. Please check that the server is running.');
+                } else {
+                    throw new Error(errorMsg);
+                }
             }
 
             const data = await response.json();
@@ -80,8 +101,14 @@ const ChatInterface = () => {
 
             setMessages(prev => [...prev, assistantMessage]);
         } catch (err) {
-            setError(err.message || 'Failed to send message');
             console.error('Chat error:', err);
+
+            // Network errors
+            if (err.name === 'TypeError' && err.message.includes('fetch')) {
+                setError('Cannot connect to backend server. Please check that the server is running and configured correctly.');
+            } else {
+                setError(err.message || 'Failed to send message');
+            }
         } finally {
             setLoading(false);
         }
@@ -91,6 +118,28 @@ const ChatInterface = () => {
         if (e.key === 'Enter' && !e.shiftKey) {
             e.preventDefault();
             handleSend();
+        }
+    };
+
+    const handleClear = async () => {
+        if (!window.confirm('Clear conversation history?')) return;
+
+        try {
+            const response = await fetch('/api/chat/clear', {
+                method: 'POST',
+                credentials: 'include',
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.message || 'Failed to clear conversation');
+            }
+
+            setMessages([]);
+            setError('');
+        } catch (err) {
+            setError(err.message || 'Failed to clear conversation');
+            console.error('Clear conversation error:', err);
         }
     };
 
@@ -112,8 +161,22 @@ const ChatInterface = () => {
                     p: 2,
                     mb: 2,
                     bgcolor: 'background.paper',
+                    position: 'relative',
                 }}
             >
+                {messages.length > 0 && (
+                    <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
+                        <Button
+                            size="small"
+                            startIcon={<DeleteIcon />}
+                            onClick={handleClear}
+                            variant="outlined"
+                            color="secondary"
+                        >
+                            Clear
+                        </Button>
+                    </Box>
+                )}
                 {messages.length === 0 ? (
                     <Box
                         sx={{

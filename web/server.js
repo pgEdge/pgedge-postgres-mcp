@@ -10,19 +10,28 @@
 
 import express from 'express';
 import session from 'express-session';
-import { readFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
+import { loadConfig, validateConfig } from './lib/config-loader.js';
+import { ChatAgent, MCPClient } from './lib/chat-agent.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 // Load configuration
 const configPath = process.env.CONFIG_FILE || join(__dirname, 'config.json');
-const config = JSON.parse(readFileSync(configPath, 'utf-8'));
+const config = loadConfig(configPath);
+
+// Validate configuration
+try {
+  validateConfig(config);
+} catch (error) {
+  console.error('Configuration error:', error.message);
+  process.exit(1);
+}
 
 const app = express();
-const PORT = process.env.PORT || config.server?.port || 3001;
+const PORT = config.server.port;
 
 // Middleware
 app.use(express.json());
@@ -228,48 +237,66 @@ app.get('/api/mcp/system-info', requireAuth, async (req, res) => {
   }
 });
 
-// Chat endpoint - send message to LLM via MCP server
+// Chat endpoint - agentic LLM interaction with MCP tools
 app.post('/api/chat', requireAuth, async (req, res) => {
+  console.log('=== CHAT ENDPOINT CALLED ===');
+  console.log('Message:', req.body.message);
   try {
     const { message } = req.body;
 
     if (!message || !message.trim()) {
+      console.log('ERROR: Message is empty');
       return res.status(400).json({ message: 'Message is required' });
     }
 
-    // Call MCP server's query_database tool with the user's message
-    // The LLM will process the query and return a response
-    const result = await callMCPServer(
-      'tools/call',
-      {
-        name: 'query_database',
-        arguments: {
-          query: message,
-        },
-      },
-      req.session.mcpToken
-    );
-
-    // Extract the response from the result
-    if (!result.content || result.content.length === 0) {
-      return res.status(500).json({ message: 'No response from MCP server' });
+    // Initialize conversation history in session if not exists
+    if (!req.session.conversationHistory) {
+      req.session.conversationHistory = [];
     }
+    console.log('Conversation history length:', req.session.conversationHistory.length);
 
-    const content = result.content[0];
-    let responseText = '';
+    // Create MCP client
+    console.log('Creating MCP client...');
+    const mcpClient = new MCPClient(config.mcpServer.url, req.session.mcpToken);
 
-    if (content.type === 'text') {
-      responseText = content.text;
-    } else {
-      responseText = 'Received non-text response';
-    }
+    // Create chat agent
+    console.log('Creating ChatAgent...');
+    const agent = new ChatAgent(config, mcpClient);
 
+    // Initialize agent (fetch tools and resources)
+    console.log('Initializing agent...');
+    await agent.initialize();
+    console.log('Agent initialized with', agent.tools.length, 'tools and', agent.resources.length, 'resources');
+
+    // Process the query through the agentic loop
+    console.log('Processing query...');
+    const result = await agent.processQuery(message, req.session.conversationHistory);
+
+    // Update conversation history in session
+    req.session.conversationHistory = result.conversationHistory;
+
+    console.log('Chat completed successfully, response length:', result.response.length);
     res.json({
-      response: responseText,
+      response: result.response,
+      usage: result.usage,
     });
   } catch (error) {
-    console.error('Chat error:', error);
+    console.error('=== CHAT ERROR ===');
+    console.error('Error name:', error.name);
+    console.error('Error message:', error.message);
+    console.error('Error stack:', error.stack);
     res.status(500).json({ message: error.message || 'Failed to process message' });
+  }
+});
+
+// Clear conversation history
+app.post('/api/chat/clear', requireAuth, async (req, res) => {
+  try {
+    req.session.conversationHistory = [];
+    res.json({ message: 'Conversation history cleared' });
+  } catch (error) {
+    console.error('Clear conversation error:', error);
+    res.status(500).json({ message: error.message || 'Failed to clear conversation' });
   }
 });
 
@@ -285,4 +312,9 @@ app.listen(PORT, () => {
   console.log(`pgEdge MCP Client server running on port ${PORT}`);
   console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
   console.log(`MCP Server: ${config.mcpServer.url}`);
+  console.log(`LLM Provider: ${config.llm.provider}`);
+  console.log(`LLM Model: ${config.llm.model}`);
+  if (config.llm.provider.toLowerCase() === 'ollama') {
+    console.log(`Ollama URL: ${config.llm.ollamaURL}`);
+  }
 });

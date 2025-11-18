@@ -70,8 +70,13 @@ export const AuthProvider = ({ children }) => {
     setUser(null);
   };
 
+  // Force logout without API call (used when session is invalidated)
+  const forceLogout = () => {
+    setUser(null);
+  };
+
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout }}>
+    <AuthContext.Provider value={{ user, loading, login, logout, forceLogout }}>
       {children}
     </AuthContext.Provider>
   );

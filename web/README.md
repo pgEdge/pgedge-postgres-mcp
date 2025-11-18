@@ -5,7 +5,11 @@ Web-based client for pgEdge MCP Server. This application provides a clean, moder
 ## Features
 
 - **Authentication**: Secure login using MCP server's user authentication
-- **System Monitoring**: Real-time PostgreSQL server status and statistics
+- **AI-Powered Chat**: Agentic LLM interaction with PostgreSQL database using natural language
+- **Tool Calling**: LLM can autonomously call MCP tools and resources to answer questions
+- **Multi-LLM Support**: Works with Anthropic Claude, OpenAI GPT, or Ollama models
+- **System Monitoring**: Real-time PostgreSQL server status and database connection information
+- **Conversation History**: Maintains conversation context for multi-turn interactions
 - **Dark Mode**: Toggle between light and dark themes
 - **Responsive Design**: Works on desktop and mobile devices
 
@@ -16,7 +20,7 @@ Web-based client for pgEdge MCP Server. This application provides a clean, moder
 
 ## Configuration
 
-Edit `config.json` to configure your MCP server connection:
+Edit `config.json` to configure your MCP server connection and LLM provider:
 
 ```json
 {
@@ -30,13 +34,82 @@ Edit `config.json` to configure your MCP server connection:
   },
   "server": {
     "port": 3001
+  },
+  "llm": {
+    "provider": "anthropic",
+    "model": "claude-sonnet-4-5",
+    "maxTokens": 4096,
+    "temperature": 0.7,
+    "anthropicAPIKeyFile": "~/.pgedge-pg-mcp-web-anthropic-key",
+    "openaiAPIKeyFile": "~/.pgedge-pg-mcp-web-openai-key",
+    "ollamaURL": "http://localhost:11434"
   }
 }
 ```
 
 **Important**: Change the `session.secret` to a random string in production.
 
-You can also specify a custom config file path using the `CONFIG_FILE` environment variable:
+### LLM Configuration
+
+The web client supports three LLM providers:
+
+- **Anthropic Claude**: Set `provider` to `"anthropic"` and configure your API key
+- **OpenAI GPT**: Set `provider` to `"openai"` and configure your API key
+- **Ollama**: Set `provider` to `"ollama"` and configure the Ollama server URL
+
+#### API Key Configuration
+
+**IMPORTANT**: You must configure an API key before starting the server, or it will fail to start.
+
+API keys should be stored in separate files for security. Create key files in your home directory:
+
+```bash
+# For Anthropic Claude (required if using anthropic provider)
+echo "your-anthropic-api-key" > ~/.pgedge-pg-mcp-web-anthropic-key
+chmod 600 ~/.pgedge-pg-mcp-web-anthropic-key
+
+# For OpenAI (required if using openai provider)
+echo "your-openai-api-key" > ~/.pgedge-pg-mcp-web-openai-key
+chmod 600 ~/.pgedge-pg-mcp-web-openai-key
+```
+
+The paths in `config.json` can use `~` for the home directory:
+- `anthropicAPIKeyFile`: Path to file containing Anthropic API key (default: `~/.pgedge-pg-mcp-web-anthropic-key`)
+- `openaiAPIKeyFile`: Path to file containing OpenAI API key (default: `~/.pgedge-pg-mcp-web-openai-key`)
+
+#### Environment Variables
+
+You can also configure the LLM using environment variables (which take precedence over key files):
+
+```bash
+# LLM Provider (anthropic, openai, or ollama)
+export PGEDGE_LLM_PROVIDER=anthropic
+
+# LLM Model
+export PGEDGE_LLM_MODEL=claude-sonnet-4-5
+
+# API Keys (can use either PGEDGE_* or standard env vars)
+# These take precedence over key files
+export ANTHROPIC_API_KEY=your-key-here
+export OPENAI_API_KEY=your-key-here
+
+# Ollama Configuration
+export PGEDGE_OLLAMA_URL=http://localhost:11434
+
+# Optional: Adjust generation parameters
+export PGEDGE_LLM_MAX_TOKENS=4096
+export PGEDGE_LLM_TEMPERATURE=0.7
+```
+
+**API Key Priority** (from highest to lowest):
+1. `PGEDGE_ANTHROPIC_API_KEY` or `PGEDGE_OPENAI_API_KEY` environment variable
+2. `ANTHROPIC_API_KEY` or `OPENAI_API_KEY` environment variable
+3. Key file specified in config (`anthropicAPIKeyFile` or `openaiAPIKeyFile`)
+4. Empty string (will fail validation if provider is selected)
+
+#### Custom Config File
+
+You can specify a custom config file path using the `CONFIG_FILE` environment variable:
 
 ```bash
 CONFIG_FILE=/path/to/config.json npm run serve:dev
@@ -168,7 +241,12 @@ Both authentication methods create session tokens that provide per-token databas
 
 4. Login with your MCP server credentials (username and password)
 
-5. View the MCP server status and PostgreSQL system information
+5. View the MCP server status and PostgreSQL system information in the banner
+
+6. Use the chat interface to ask questions about your database:
+   - Ask questions in natural language (e.g., "What tables are in my database?")
+   - The LLM will autonomously call MCP tools and resources to answer
+   - View conversation history and clear it when starting a new topic
 
 ## Architecture
 
@@ -178,14 +256,20 @@ The web client uses a three-tier architecture:
 - **Framework**: React 18 with Material-UI (MUI)
 - **Build Tool**: Vite
 - **State Management**: React Context API
-- **Features**: Dashboard with real-time PostgreSQL system info, authentication UI, light/dark theme
+- **Features**:
+  - Chat interface for natural language database interaction
+  - Collapsible status banner with PostgreSQL system info
+  - Authentication UI
+  - Light/dark theme toggle
 - **Testing**: Vitest + React Testing Library
 
 ### Backend (Port 3001)
 - **Framework**: Express.js
-- **Purpose**: Session handling and MCP server proxy
+- **Purpose**: Session handling, LLM integration, and MCP server proxy
 - **Features**:
-  - Session-based authentication
+  - Session-based authentication with conversation history
+  - Agentic chat loop with LLM tool calling
+  - Multi-LLM support (Anthropic, OpenAI, Ollama)
   - Proxies requests to MCP server with proper token handling
   - HTTP-only cookies for security
 - **Testing**: Vitest + Supertest
@@ -207,6 +291,21 @@ The web client uses a three-tier architecture:
 5. Subsequent requests include session token as Bearer token to MCP server
 6. MCP server uses token hash for per-token database connection isolation
 
+### Agentic Chat Flow
+1. User sends a message in the chat interface
+2. Express backend creates ChatAgent with conversation history from session
+3. ChatAgent fetches available tools and resources from MCP server
+4. ChatAgent enters agentic loop (max 10 iterations):
+   - Sends user message + conversation history to LLM with available tools
+   - If LLM requests tool use:
+     - Executes tool/resource via MCP server
+     - Adds tool results to conversation
+     - Continues loop
+   - If LLM provides final text response:
+     - Returns response to user
+     - Updates conversation history in session
+5. Frontend displays LLM response in chat interface
+
 ## Security
 
 - All API calls to the MCP server require authentication
@@ -216,6 +315,20 @@ The web client uses a three-tier architecture:
 - Per-token database connection isolation prevents cross-user data access
 
 ## Troubleshooting
+
+**Backend server fails to start with "API key is required" error:**
+- This means the LLM API key file is missing or empty
+- Create the required API key file (see API Key Configuration section above)
+- For Anthropic: `echo "your-key" > ~/.pgedge-pg-mcp-web-anthropic-key && chmod 600 ~/.pgedge-pg-mcp-web-anthropic-key`
+- For OpenAI: `echo "your-key" > ~/.pgedge-pg-mcp-web-openai-key && chmod 600 ~/.pgedge-pg-mcp-web-openai-key`
+- Alternatively, set `ANTHROPIC_API_KEY` or `OPENAI_API_KEY` environment variable
+- Check backend logs: `tail -50 /tmp/pgedge-mcp-backend.log`
+
+**"Your session has expired" or automatic logout:**
+- This happens when the backend server restarts while you're logged in
+- Sessions are stored in server memory and are lost on restart
+- Simply log in again - this is normal and protects against stale sessions
+- In production, consider using a persistent session store (Redis, etc.)
 
 **System info shows "N/A":**
 - Ensure MCP server is running and configured with database connection
