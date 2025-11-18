@@ -19,58 +19,33 @@ This document outlines security considerations and best practices for deploying 
 
 ## Database Credentials
 
-### Password Encryption
+### Configuration at Startup
 
-The pgEdge MCP Server encrypts all database passwords before storage using **AES-256-GCM encryption**:
+Database credentials are configured when the MCP server starts via:
 
-- **Encryption Algorithm**: AES-256-GCM (Galois/Counter Mode)
-- **Key Size**: 256 bits (32 bytes)
-- **Authentication**: Authenticated encryption with integrity verification
-- **Nonce**: Random nonce generated for each encryption operation
-- **Storage Format**: Base64-encoded ciphertext
-
-**How it works:**
-
-1. On first run, the server generates a random 256-bit encryption key
-2. The key is stored in a secret file (default: `pgedge-pg-mcp-svr.secret`) with `0600` permissions
-3. When you save a connection, passwords are encrypted using this key
-4. Encrypted passwords are stored as base64-encoded strings in YAML files
-5. When connecting to a database, passwords are decrypted on-the-fly
-
-**Security properties:**
-
-- Passwords are never stored in plaintext
-- Each encryption uses a unique random nonce (prevents pattern analysis)
-- GCM mode provides authentication (detects tampering)
-- Secret file is protected with strict file permissions (0600)
-- **Server will refuse to start** if the secret file has incorrect permissions (not 0600)
-
-### Storage
+- Environment variables (PGHOST, PGPORT, PGDATABASE, PGUSER, PGPASSWORD)
+- Configuration file (YAML format)
+- Command-line flags
 
 **Best Practices:**
 
-- Saved connections use AES-256-GCM encryption for passwords automatically
-- For runtime connections, use environment variables for connection strings
-- Never commit credentials or secret files to version control
-- Use `.gitignore` for config files with credentials and secret files
-- Back up secret files securely - without them, encrypted passwords cannot be decrypted
-- Consider using secret management systems (Vault, AWS Secrets Manager, etc.) for secret file storage
+- Use environment variables for sensitive credentials
+- Never commit credentials to version control
+- Use `.gitignore` for config files with credentials
+- Consider using secret management systems (Vault, AWS Secrets Manager, etc.)
+- In production, use `~/.pgpass` file or similar secure credential storage
 
-**Example - Secure Storage:**
+**Example - Environment Variables:**
 ```bash
-# Use saved connections (passwords encrypted automatically)
-add_database_connection(
-  alias="production",
-  host="prod.example.com",
-  user="dbuser",
-  password="securepassword"  # Will be encrypted before storage
-)
-
-# Or use environment variables for runtime connections
-export PGEDGE_POSTGRES_CONNECTION_STRING="postgres://user:password@host/db"
+# Set database credentials via environment variables
+export PGHOST="localhost"
+export PGPORT="5432"
+export PGDATABASE="mydb"
+export PGUSER="myuser"
+export PGPASSWORD="mypassword"
 
 # Or use a secrets manager
-export PGEDGE_POSTGRES_CONNECTION_STRING=$(vault kv get -field=connection_string secret/pgedge-mcp)
+export PGPASSWORD=$(vault kv get -field=password secret/pgedge-mcp)
 ```
 
 **Example - Insecure (DON'T DO THIS):**

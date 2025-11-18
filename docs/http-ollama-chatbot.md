@@ -94,12 +94,6 @@ MCP Server: http://localhost:8080/mcp/v1
 PostgreSQL Chatbot (type 'quit' or 'exit' to stop)
 ============================================================
 
-To get started, you can:
-  - List saved connections: 'What database connections do I have?'
-  - Add a connection: 'Add a connection to my database at postgres://user:pass@host/db'
-  - Connect to a saved connection: 'Connect to production'
-  - List the available MCP server tools and resources: 'List the tools and resources in the MCP server
-
 Example questions:
   - How many tables do I have?
   - Show me the 10 most recent orders
@@ -271,13 +265,6 @@ export PGEDGE_MCP_SERVER_URL="http://localhost:8080/mcp/v1"
 1. Install Ollama from https://ollama.com/
 2. Pull a model: `ollama pull gpt-oss:20b`
 3. Verify Ollama is running: `curl http://localhost:11434/api/tags`
-
-**Need to configure a database connection?**
-
-You can configure connections through the chatbot interface:
-
-- Ask: "Add a connection to my database at postgres://user:password@host:port/database"
-- Or set the environment variable: `export PGEDGE_POSTGRES_CONNECTION_STRING="postgres://user:password@host:port/database"`
 
 ## Advantages of HTTP + Ollama
 

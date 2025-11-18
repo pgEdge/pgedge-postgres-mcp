@@ -71,12 +71,6 @@ You should see:
 PostgreSQL Chatbot (type 'quit' or 'exit' to stop)
 ============================================================
 
-To get started, you can:
-  - List saved connections: 'What database connections do I have?'
-  - Add a connection: 'Add a connection to my database at postgres://user:pass@host/db'
-  - Connect to a saved connection: 'Connect to production'
-  - List the available MCP server tools and resources: 'List the tools and resources in the MCP server
-
 Example questions:
   - How many tables do I have?
   - Show me the 10 most recent orders
@@ -207,13 +201,6 @@ Get an API key from https://console.anthropic.com/ and set it:
 ```bash
 export ANTHROPIC_API_KEY="your-key-here"
 ```
-
-**Need to configure a database connection?**
-
-You can configure connections through the chatbot interface:
-
-- Ask: "Add a connection to my database at postgres://user:password@host:port/database"
-- Or set the environment variable: `export PGEDGE_POSTGRES_CONNECTION_STRING="postgres://user:password@host:port/database"`
 
 ## Source Code
 

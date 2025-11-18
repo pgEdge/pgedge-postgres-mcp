@@ -36,7 +36,6 @@
 #   - annotation: Human-readable description of the token's purpose
 #   - created_at: Timestamp when the token was created
 #   - expires_at: Optional expiry timestamp (omit or set to null for no expiry)
-#   - connections: Optional saved database connections (per-token mode only)
 
 tokens:
     # Example 1: Production API token with expiration
