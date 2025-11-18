@@ -11,25 +11,25 @@
 package resources
 
 import (
-    "fmt"
+	"fmt"
 
-    "pgedge-postgres-mcp/internal/database"
-    "pgedge-postgres-mcp/internal/mcp"
+	"pgedge-postgres-mcp/internal/database"
+	"pgedge-postgres-mcp/internal/mcp"
 
-    "github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5"
 )
 
 // PGDatabaseSchemaResource creates a resource for database schema overview
 func PGDatabaseSchemaResource(dbClient *database.Client) Resource {
-    return Resource{
-        Definition: mcp.Resource{
-            URI:         URIDatabaseSchema,
-            Name:        "PostgreSQL Database Schema",
-            Description: "Returns a lightweight overview of all tables in the database. Lists schema names, table names, and table owners. Use get_schema_info tool for detailed column information.",
-            MimeType:    "application/json",
-        },
-        Handler: func() (mcp.ResourceContent, error) {
-            query := `
+	return Resource{
+		Definition: mcp.Resource{
+			URI:         URIDatabaseSchema,
+			Name:        "PostgreSQL Database Schema",
+			Description: "Returns a lightweight overview of all tables in the database. Lists schema names, table names, and table owners. Use get_schema_info tool for detailed column information.",
+			MimeType:    "application/json",
+		},
+		Handler: func() (mcp.ResourceContent, error) {
+			query := `
                 SELECT
                     schemaname,
                     tablename,
@@ -39,32 +39,32 @@ func PGDatabaseSchemaResource(dbClient *database.Client) Resource {
                 ORDER BY schemaname, tablename
             `
 
-            processor := func(rows pgx.Rows) (interface{}, error) {
-                tables := []TableInfo{}
+			processor := func(rows pgx.Rows) (interface{}, error) {
+				tables := []TableInfo{}
 
-                for rows.Next() {
-                    var table TableInfo
-                    err := rows.Scan(&table.SchemaName, &table.TableName, &table.TableOwner)
-                    if err != nil {
-                        return nil, fmt.Errorf("failed to scan table info: %w", err)
-                    }
-                    tables = append(tables, table)
-                }
+				for rows.Next() {
+					var table TableInfo
+					err := rows.Scan(&table.SchemaName, &table.TableName, &table.TableOwner)
+					if err != nil {
+						return nil, fmt.Errorf("failed to scan table info: %w", err)
+					}
+					tables = append(tables, table)
+				}
 
-                return map[string]interface{}{
-                    "tables": tables,
-                    "count":  len(tables),
-                }, nil
-            }
+				return map[string]interface{}{
+					"tables": tables,
+					"count":  len(tables),
+				}, nil
+			}
 
-            return database.ExecuteResourceQuery(dbClient, URIDatabaseSchema, query, processor)
-        },
-    }
+			return database.ExecuteResourceQuery(dbClient, URIDatabaseSchema, query, processor)
+		},
+	}
 }
 
 // TableInfo represents basic table information
 type TableInfo struct {
-    SchemaName string `json:"schema"`
-    TableName  string `json:"table"`
-    TableOwner string `json:"owner"`
+	SchemaName string `json:"schema"`
+	TableName  string `json:"table"`
+	TableOwner string `json:"owner"`
 }

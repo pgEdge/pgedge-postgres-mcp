@@ -24,14 +24,14 @@ import (
 
 // User represents a user account with credentials and metadata
 type User struct {
-	Username       string     `yaml:"username"`        // Unique username
-	PasswordHash   string     `yaml:"password_hash"`   // Bcrypt hash of password
-	CreatedAt      time.Time  `yaml:"created_at"`      // When the user was created
-	LastLogin      *time.Time `yaml:"last_login"`      // Last successful login (null if never logged in)
-	Enabled        bool       `yaml:"enabled"`         // Whether the user is enabled
-	Annotation     string     `yaml:"annotation"`      // User note/description
-	SessionToken   string     `yaml:"-"`               // Current session token (not persisted)
-	SessionExpires *time.Time `yaml:"-"`               // Session expiration (not persisted)
+	Username       string     `yaml:"username"`      // Unique username
+	PasswordHash   string     `yaml:"password_hash"` // Bcrypt hash of password
+	CreatedAt      time.Time  `yaml:"created_at"`    // When the user was created
+	LastLogin      *time.Time `yaml:"last_login"`    // Last successful login (null if never logged in)
+	Enabled        bool       `yaml:"enabled"`       // Whether the user is enabled
+	Annotation     string     `yaml:"annotation"`    // User note/description
+	SessionToken   string     `yaml:"-"`             // Current session token (not persisted)
+	SessionExpires *time.Time `yaml:"-"`             // Session expiration (not persisted)
 }
 
 // UserStore manages user accounts

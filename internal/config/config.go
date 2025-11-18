@@ -65,8 +65,8 @@ type DatabaseConfig struct {
 	SSLMode  string `yaml:"sslmode"`  // SSL mode: disable, require, verify-ca, verify-full (default: prefer)
 
 	// Connection pool settings
-	PoolMaxConns        int    `yaml:"pool_max_conns"`         // Maximum number of connections (default: 4)
-	PoolMinConns        int    `yaml:"pool_min_conns"`         // Minimum number of connections (default: 0)
+	PoolMaxConns        int    `yaml:"pool_max_conns"`          // Maximum number of connections (default: 4)
+	PoolMinConns        int    `yaml:"pool_min_conns"`          // Minimum number of connections (default: 0)
 	PoolMaxConnIdleTime string `yaml:"pool_max_conn_idle_time"` // Max time a connection can be idle before being closed (default: 30m)
 }
 
@@ -185,12 +185,12 @@ func defaultConfig() *Config {
 			Host:                "localhost",
 			Port:                5432,
 			Database:            "postgres",
-			User:                "",      // Required - must be provided
-			Password:            "",      // Optional - will use env var or .pgpass
+			User:                "",       // Required - must be provided
+			Password:            "",       // Optional - will use env var or .pgpass
 			SSLMode:             "prefer", // Default SSL mode
-			PoolMaxConns:        4,       // Default max connections
-			PoolMinConns:        0,       // Default min connections
-			PoolMaxConnIdleTime: "30m",   // Default idle timeout
+			PoolMaxConns:        4,        // Default max connections
+			PoolMinConns:        0,        // Default min connections
+			PoolMaxConnIdleTime: "30m",    // Default idle timeout
 		},
 		Embedding: EmbeddingConfig{
 			Enabled:         false,                    // Disabled by default (opt-in)

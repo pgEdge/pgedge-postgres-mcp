@@ -25,10 +25,10 @@ import (
 
 // Token represents an API token with metadata
 type Token struct {
-	Hash       string     `yaml:"hash"`        // SHA256 hash of the token
-	ExpiresAt  *time.Time `yaml:"expires_at"`  // Expiry date (null for indefinite)
-	Annotation string     `yaml:"annotation"`  // User note/description
-	CreatedAt  time.Time  `yaml:"created_at"`  // When the token was created
+	Hash       string     `yaml:"hash"`       // SHA256 hash of the token
+	ExpiresAt  *time.Time `yaml:"expires_at"` // Expiry date (null for indefinite)
+	Annotation string     `yaml:"annotation"` // User note/description
+	CreatedAt  time.Time  `yaml:"created_at"` // When the token was created
 }
 
 // TokenStore manages API tokens
