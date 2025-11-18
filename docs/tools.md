@@ -97,7 +97,6 @@ public.users (TABLE)
 
 **Prerequisites**:
 
-- Database connection must be established
 - Table must have at least one pgvector column
 - Embedding generation must be enabled in server configuration
 - Corresponding text columns must exist (e.g., `title` for `title_embedding`)
