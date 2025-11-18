@@ -228,6 +228,51 @@ app.get('/api/mcp/system-info', requireAuth, async (req, res) => {
   }
 });
 
+// Chat endpoint - send message to LLM via MCP server
+app.post('/api/chat', requireAuth, async (req, res) => {
+  try {
+    const { message } = req.body;
+
+    if (!message || !message.trim()) {
+      return res.status(400).json({ message: 'Message is required' });
+    }
+
+    // Call MCP server's query_database tool with the user's message
+    // The LLM will process the query and return a response
+    const result = await callMCPServer(
+      'tools/call',
+      {
+        name: 'query_database',
+        arguments: {
+          query: message,
+        },
+      },
+      req.session.mcpToken
+    );
+
+    // Extract the response from the result
+    if (!result.content || result.content.length === 0) {
+      return res.status(500).json({ message: 'No response from MCP server' });
+    }
+
+    const content = result.content[0];
+    let responseText = '';
+
+    if (content.type === 'text') {
+      responseText = content.text;
+    } else {
+      responseText = 'Received non-text response';
+    }
+
+    res.json({
+      response: responseText,
+    });
+  } catch (error) {
+    console.error('Chat error:', error);
+    res.status(500).json({ message: error.message || 'Failed to process message' });
+  }
+});
+
 // Serve React app in production
 if (process.env.NODE_ENV === 'production') {
   app.get('*', (req, res) => {

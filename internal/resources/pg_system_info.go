@@ -34,7 +34,11 @@ func PGSystemInfoResource(dbClient *database.Client) Resource {
 				SELECT
 					version() AS full_version,
 					current_setting('server_version') AS version,
-					current_setting('server_version_num') AS version_number
+					current_setting('server_version_num') AS version_number,
+					current_database() AS database,
+					current_user AS user,
+					COALESCE(inet_server_addr()::text, 'unix socket') AS host,
+					COALESCE(inet_server_port(), 0) AS port
 			`
 
 			processor := func(rows pgx.Rows) (interface{}, error) {
@@ -42,8 +46,9 @@ func PGSystemInfoResource(dbClient *database.Client) Resource {
 					return nil, fmt.Errorf("no system information returned")
 				}
 
-				var fullVersion, version, versionNumber string
-				err := rows.Scan(&fullVersion, &version, &versionNumber)
+				var fullVersion, version, versionNumber, database, user, host string
+				var port int
+				err := rows.Scan(&fullVersion, &version, &versionNumber, &database, &user, &host, &port)
 				if err != nil {
 					return nil, fmt.Errorf("failed to scan system info: %w", err)
 				}
@@ -51,6 +56,10 @@ func PGSystemInfoResource(dbClient *database.Client) Resource {
 				// Parse the version string to extract components
 				// Example: "PostgreSQL 15.4 on x86_64-pc-linux-gnu, compiled by gcc (GCC) 11.2.0, 64-bit"
 				systemInfo := parseVersionString(fullVersion, version, versionNumber)
+				systemInfo.Database = database
+				systemInfo.User = user
+				systemInfo.Host = host
+				systemInfo.Port = port
 				return systemInfo, nil
 			}
 
@@ -68,6 +77,10 @@ type SystemInfo struct {
 	Architecture      string `json:"architecture"`
 	Compiler          string `json:"compiler"`
 	BitVersion        string `json:"bit_version"`
+	Database          string `json:"database"`
+	User              string `json:"user"`
+	Host              string `json:"host"`
+	Port              int    `json:"port"`
 }
 
 // parseVersionString extracts system information from PostgreSQL version() output

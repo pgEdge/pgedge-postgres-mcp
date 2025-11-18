@@ -69,11 +69,11 @@ const Header = ({ onToggleTheme, mode }) => {
             >
               <img
                 src={mode === 'dark' ? logoDark : logoLight}
-                alt="pgEdge MCP Client"
+                alt="pgEdge PostgreSQL Chat"
                 style={{ height: '32px' }}
               />
               <Typography variant="h6" component="div">
-                MCP Client
+                PostgreSQL Chat
               </Typography>
             </Box>
           </Box>
