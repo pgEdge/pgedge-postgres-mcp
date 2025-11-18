@@ -26,9 +26,12 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // HTTPMCPServer manages an MCP server running in HTTP/HTTPS mode
@@ -82,9 +85,38 @@ func StartHTTPMCPServer(t *testing.T, connString, apiKey, addr string, useTLS bo
 
 	// Create command
 	cmd := exec.Command(binaryPath, args...)
-	cmd.Env = append(os.Environ(),
+	env := append(os.Environ(),
 		"PGEDGE_ANTHROPIC_API_KEY="+apiKey,
 	)
+
+	// If connString is provided, parse it and set PG* environment variables
+	// The server will use these to connect at startup
+	if connString != "" {
+		// Use pgxpool to parse the connection string
+		config, err := pgxpool.ParseConfig(connString)
+		if err == nil {
+			if config.ConnConfig.Host != "" {
+				env = append(env, "PGHOST="+config.ConnConfig.Host)
+			}
+			if config.ConnConfig.Port != 0 {
+				env = append(env, "PGPORT="+strconv.Itoa(int(config.ConnConfig.Port)))
+			}
+			if config.ConnConfig.Database != "" {
+				env = append(env, "PGDATABASE="+config.ConnConfig.Database)
+			}
+			if config.ConnConfig.User != "" {
+				env = append(env, "PGUSER="+config.ConnConfig.User)
+			}
+			if config.ConnConfig.Password != "" {
+				env = append(env, "PGPASSWORD="+config.ConnConfig.Password)
+			}
+			t.Logf("Setting database connection via PG* environment variables from connection string")
+		} else {
+			t.Logf("Warning: Failed to parse connection string: %v", err)
+		}
+	}
+
+	cmd.Env = env
 
 	// Capture stderr for logging
 	stderr, err := cmd.StderrPipe()
@@ -287,7 +319,7 @@ func generateSelfSignedCert(t *testing.T) (certFile, keyFile string, err error) 
 func TestHTTPModeIntegration(t *testing.T) {
 	connString := os.Getenv("TEST_PGEDGE_POSTGRES_CONNECTION_STRING")
 	if connString == "" {
-		connString = "postgres://localhost/postgres?sslmode=disable"
+		connString = "postgres://postgres@localhost/postgres?sslmode=disable"
 		t.Logf("TEST_PGEDGE_POSTGRES_CONNECTION_STRING not set, using default: %s", connString)
 	}
 
@@ -311,9 +343,8 @@ func TestHTTPModeIntegration(t *testing.T) {
 		testHTTPInitialize(t, server)
 	})
 
-	t.Run("SetDatabaseConnection", func(t *testing.T) {
-		testHTTPSetDatabaseConnection(t, server)
-	})
+	// Note: SetDatabaseConnection test removed as connection management
+	// is now done at server startup, not at runtime
 
 	t.Run("ListTools", func(t *testing.T) {
 		testHTTPListTools(t, server)
@@ -344,7 +375,7 @@ func TestHTTPModeIntegration(t *testing.T) {
 func TestHTTPSModeIntegration(t *testing.T) {
 	connString := os.Getenv("TEST_PGEDGE_POSTGRES_CONNECTION_STRING")
 	if connString == "" {
-		connString = "postgres://localhost/postgres?sslmode=disable"
+		connString = "postgres://postgres@localhost/postgres?sslmode=disable"
 		t.Logf("TEST_PGEDGE_POSTGRES_CONNECTION_STRING not set, using default: %s", connString)
 	}
 
@@ -368,9 +399,8 @@ func TestHTTPSModeIntegration(t *testing.T) {
 		testHTTPInitialize(t, server)
 	})
 
-	t.Run("SetDatabaseConnection", func(t *testing.T) {
-		testHTTPSetDatabaseConnection(t, server)
-	})
+	// Note: SetDatabaseConnection test removed as connection management
+	// is now done at server startup, not at runtime
 
 	t.Run("ListTools", func(t *testing.T) {
 		testHTTPListTools(t, server)
@@ -442,45 +472,6 @@ func testHTTPInitialize(t *testing.T, server *HTTPMCPServer) {
 	t.Log("HTTP Initialize test passed")
 }
 
-func testHTTPSetDatabaseConnection(t *testing.T, server *HTTPMCPServer) {
-	params := map[string]interface{}{
-		"name": "manage_connections",
-		"arguments": map[string]interface{}{
-			"operation":         "connect",
-			"connection_string": server.connString,
-		},
-	}
-
-	resp, err := server.SendHTTPRequest("tools/call", params)
-	if err != nil {
-		t.Fatalf("tools/call (manage_connections connect) failed: %v", err)
-	}
-
-	if resp.Error != nil {
-		t.Fatalf("manage_connections connect returned error: %s", resp.Error.Message)
-	}
-
-	// Parse the result
-	var result map[string]interface{}
-	if err := json.Unmarshal(resp.Result, &result); err != nil {
-		t.Fatalf("Failed to parse manage_connections result: %v", err)
-	}
-
-	// Check for error response in the tool result
-	if isError, ok := result["isError"].(bool); ok && isError {
-		content := result["content"].([]interface{})
-		if len(content) > 0 {
-			contentMap := content[0].(map[string]interface{})
-			t.Fatalf("manage_connections connect returned error: %s", contentMap["text"])
-		}
-	}
-
-	// Give the database a moment to fully initialize
-	time.Sleep(500 * time.Millisecond)
-
-	t.Log("HTTP SetDatabaseConnection test passed")
-}
-
 func testHTTPListTools(t *testing.T, server *HTTPMCPServer) {
 	resp, err := server.SendHTTPRequest("tools/list", nil)
 	if err != nil {
@@ -501,9 +492,9 @@ func testHTTPListTools(t *testing.T, server *HTTPMCPServer) {
 		t.Fatal("tools array not found in result")
 	}
 
-	// After calling manage_connections connect, all 7 tools should be available
-	if len(tools) != 7 {
-		t.Errorf("Expected exactly 7 tools after database connection, got %d", len(tools))
+	// We now have 5 tools (removed connection management tools)
+	if len(tools) != 5 {
+		t.Errorf("Expected exactly 5 tools, got %d", len(tools))
 	}
 
 	t.Logf("HTTP ListTools test passed, found %d tools", len(tools))
@@ -529,8 +520,8 @@ func testHTTPListResources(t *testing.T, server *HTTPMCPServer) {
 		t.Fatal("resources array not found in result")
 	}
 
-	if len(resources) < 4 {
-		t.Errorf("Expected at least 4 resources, got %d", len(resources))
+	if len(resources) != 2 {
+		t.Errorf("Expected exactly 2 resources, got %d", len(resources))
 	}
 
 	t.Logf("HTTP ListResources test passed, found %d resources", len(resources))
