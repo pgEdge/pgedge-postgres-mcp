@@ -4,6 +4,10 @@ node_modules/
 # Build output
 dist/
 
+# Testing
+coverage/
+.nyc_output
+
 # Logs
 *.log
 npm-debug.log*

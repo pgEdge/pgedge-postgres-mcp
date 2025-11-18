@@ -81,6 +81,41 @@ npm run dev
 
 Then open [http://localhost:3000](http://localhost:3000) in your browser.
 
+## Testing
+
+Run the test suite:
+
+```bash
+# Run all tests
+npm test
+
+# Run tests in watch mode
+npm run test:watch
+
+# Run tests with coverage report
+npm run test:coverage
+
+# Run tests with UI
+npm run test:ui
+```
+
+### Test Coverage
+
+The test suite includes:
+
+- **Frontend Component Tests**: React components tested with Testing Library
+  - Login component (authentication flow, validation, error handling)
+  - MainContent component (data fetching, loading states, display)
+  - AuthContext (authentication state management)
+
+- **Backend API Tests**: Express server endpoints tested with Supertest
+  - POST `/api/login` - User authentication
+  - POST `/api/logout` - Session termination
+  - GET `/api/auth/status` - Authentication status check
+  - GET `/api/mcp/system-info` - PostgreSQL system information
+
+Coverage reports are generated in the `coverage/` directory.
+
 ## Production
 
 Build the application:
@@ -144,6 +179,7 @@ The web client uses a three-tier architecture:
 - **Build Tool**: Vite
 - **State Management**: React Context API
 - **Features**: Dashboard with real-time PostgreSQL system info, authentication UI, light/dark theme
+- **Testing**: Vitest + React Testing Library
 
 ### Backend (Port 3001)
 - **Framework**: Express.js
@@ -152,6 +188,7 @@ The web client uses a three-tier architecture:
   - Session-based authentication
   - Proxies requests to MCP server with proper token handling
   - HTTP-only cookies for security
+- **Testing**: Vitest + Supertest
 
 ### MCP Server (Port 8080)
 - **Protocol**: JSON-RPC 2.0 over HTTP/HTTPS
@@ -204,6 +241,12 @@ The web client uses a three-tier architecture:
 - Check Express backend is running on port 3001
 - Look for CORS errors in browser console
 - Ensure `credentials: 'include'` is set in fetch requests
+
+**Tests failing:**
+- Ensure all dependencies are installed: `npm install`
+- Clear test cache: `npx vitest --clearCache`
+- Check Node.js version is compatible
+- Review test output for specific errors
 
 ## License
 
