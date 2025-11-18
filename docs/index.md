@@ -21,6 +21,8 @@ A Model Context Protocol (MCP) server written in Go that enables natural languag
 - 📊 **3 Resources** - PostgreSQL statistics (pg_stat_*, pg://system_info)
 - 🛠️ **5 Tools** - Query execution, schema analysis, advanced hybrid search, embedding generation, resource reading
 - 🌐 **HTTP/HTTPS Mode** - Direct API access with token authentication
+- 🖥️ **Web Interface** - Modern React-based UI for server monitoring and management
+- 💬 **Production Chat Client** - Full-featured Go client with Anthropic prompt caching
 - 🔐 **Secure** - TLS support, token authentication, read-only enforcement
 
 ## Getting Started
@@ -91,6 +93,12 @@ Production deployment guide for HTTP/HTTPS mode including TLS setup, reverse pro
 
 #### [Authentication Guide](authentication.md)
 API token management for HTTP/HTTPS mode including token generation, validation, expiration, and security best practices.
+
+#### [Web Interface](../web/README.md)
+Modern React-based web interface for server monitoring and management. Features secure authentication, real-time PostgreSQL system information, and responsive design. Includes quick start guide and deployment instructions.
+
+#### [Go Chat Client](go-chat-client.md)
+Production-ready command-line chat client with Anthropic prompt caching (90% cost reduction), support for both stdio and HTTP modes, and comprehensive session management.
 
 ### Technical Guides
 

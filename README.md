@@ -25,6 +25,7 @@ SELECT tablename, pg_table_size(tablename::regclass) as size FROM pg_tables WHER
 - 🛠️ **5 Tools** - Query execution, schema analysis, advanced hybrid search (BM25+MMR), embedding generation, resource reading
 - 💬 **Production Chat Client** - Full-featured Go client with Anthropic prompt caching (90% cost reduction)
 - 🌐 **HTTP/HTTPS Mode** - Direct API access with token authentication
+- 🖥️ **Web Interface** - Modern React-based UI for server monitoring and management
 - 🔐 **Secure** - TLS support, token auth, read-only enforcement
 
 ## Quick Start
@@ -149,6 +150,27 @@ curl -X POST http://localhost:8080/mcp/v1 \
     }
   }'
 ```
+
+## Web Client
+
+A web-based management interface is available for monitoring and interacting with the MCP server:
+
+```bash
+# Quick start (starts both MCP server and web interface)
+./start_web_client.sh
+```
+
+**Features:**
+- 🔐 Secure authentication using MCP server credentials
+- 📊 Real-time PostgreSQL system information
+- 🌓 Light/dark theme support
+- 📱 Responsive design for desktop and mobile
+
+**Access:**
+- Web Interface: http://localhost:3000
+- MCP Server API: http://localhost:8080
+
+See [web/README.md](web/README.md) for detailed documentation.
 
 ## Documentation
 

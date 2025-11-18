@@ -1,0 +1,10 @@
+{
+  "mcpServer": {
+    "url": "http://localhost:8080/mcp/v1",
+    "name": "Default MCP Server"
+  },
+  "session": {
+    "secret": "change-this-to-a-random-secret-in-production",
+    "maxAge": 86400000
+  }
+}

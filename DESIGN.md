@@ -19,7 +19,15 @@ build their own client, using the different communication modes for the MCP
 server, and different LLMs.
 
 A web client is included to provide similar functionality to the full featured
-command line chat client, via a web interface.
+command line chat client, via a web interface. The web client uses a three-tier
+architecture:
+
+- **Frontend**: React 18 with Material-UI, served via Vite dev server (port 3000 in dev)
+- **Backend**: Express.js server (port 3001) for session handling and MCP API proxy
+- **MCP Server**: HTTP mode (port 8080) with authentication enabled
+
+The web client uses username/password authentication via the MCP server's
+authenticate_user tool, with session tokens stored server-side for security.
 
 ## Authentication
 
@@ -51,5 +59,23 @@ authenticated, the client calls the authenticate_user tool (hidden from the
 LLM), which will either return an access denied error, or if the username 
 and password are correctly validated, a short-lived session token.
 
-The session token may then be passed to the MCP server with every request, as 
+The session token may then be passed to the MCP server with every request, as
 a bearer token.
+
+## Per-Token Database Connection Isolation
+
+Both service tokens and session tokens use a token hash to isolate database
+connections. When a request arrives with a token (either service or session):
+
+1. The token is hashed using SHA256
+2. The hash is stored in the request context
+3. The database client manager uses the hash as a key to get or create a
+   dedicated database connection for that token
+4. All database operations for that request use the isolated connection
+
+This ensures that:
+- Different users/services cannot access each other's database connections
+- Connection pools are properly managed per token
+- Security is maintained through connection isolation
+- Resources (like pg://system_info) and tools (like query_database) both work
+  correctly with session tokens
