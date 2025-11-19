@@ -119,6 +119,11 @@ const ChatInterface = () => {
         const saved = localStorage.getItem('show-activity');
         return saved === null ? true : saved === 'true';
     });
+    const [renderMarkdown, setRenderMarkdown] = useState(() => {
+        // Load saved markdown rendering preference from localStorage (default to true)
+        const saved = localStorage.getItem('render-markdown');
+        return saved === null ? true : saved === 'true';
+    });
 
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
@@ -227,6 +232,11 @@ const ChatInterface = () => {
     useEffect(() => {
         localStorage.setItem('show-activity', showActivity.toString());
     }, [showActivity]);
+
+    // Save markdown rendering preference to localStorage when it changes
+    useEffect(() => {
+        localStorage.setItem('render-markdown', renderMarkdown.toString());
+    }, [renderMarkdown]);
 
     // Fetch available providers on mount
     useEffect(() => {
@@ -805,18 +815,28 @@ const ChatInterface = () => {
                                                     {thinkingMessage}...
                                                 </Typography>
                                             </Box>
-                                        ) : (
+                                        ) : renderMarkdown ? (
                                             <ReactMarkdown
                                                 remarkPlugins={[remarkGfm]}
                                                 components={markdownComponents}
                                             >
                                                 {message.content}
                                             </ReactMarkdown>
+                                        ) : (
+                                            <Typography
+                                                variant="body1"
+                                                sx={{
+                                                    whiteSpace: 'pre-wrap',
+                                                    wordBreak: 'break-word',
+                                                }}
+                                            >
+                                                {message.content}
+                                            </Typography>
                                         )}
                                     </Paper>
                                 </Box>
                             </Box>
-                        )), [messages, showActivity, thinkingMessage, theme])}
+                        )), [messages, showActivity, thinkingMessage, theme, renderMarkdown])}
                         <div ref={messagesEndRef} />
                     </Box>
                 )}
@@ -929,6 +949,18 @@ const ChatInterface = () => {
                             />
                         }
                         label="Show Activity"
+                        sx={{ ml: 1, whiteSpace: 'nowrap' }}
+                    />
+
+                    <FormControlLabel
+                        control={
+                            <Switch
+                                checked={renderMarkdown}
+                                onChange={(e) => setRenderMarkdown(e.target.checked)}
+                                size="small"
+                            />
+                        }
+                        label="Render Markdown"
                         sx={{ ml: 1, whiteSpace: 'nowrap' }}
                     />
                 </Box>
