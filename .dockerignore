@@ -1,0 +1,85 @@
+# Git files
+.git
+.gitignore
+.gitattributes
+
+# Documentation
+docs/
+*.md
+!docker/*.md
+CLAUDE.md
+LICENSE
+
+# Test files
+*_test.go
+test/
+testdata/
+
+# Build artifacts (will be rebuilt in container)
+bin/
+dist/
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Logs
+*.log
+
+# Environment and config files
+.env
+.env.*
+*.local
+.pgpass
+
+# Dependencies (will be downloaded in container)
+node_modules/
+vendor/
+
+# Web development files (not needed for server build)
+web/node_modules/
+web/dist/
+web/.nuxt/
+web/.output/
+web/coverage/
+
+# CI/CD files
+.github/
+.gitlab-ci.yml
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.bak
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Credentials and secrets
+*.key
+*.crt
+*.pem
+tokens.json
+users.json
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Linux
+.directory
+.Trash-*

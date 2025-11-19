@@ -1,0 +1,43 @@
+# Multi-stage build for pgEdge Postgres MCP CLI Client
+# Stage 1: Build the Go binary
+FROM golang:1.23-alpine AS builder
+
+# Set working directory
+WORKDIR /workspace
+
+# Copy go mod files
+COPY go.mod go.sum ./
+
+# Download dependencies
+RUN go mod download
+
+# Copy source code
+COPY . .
+
+# Build the CLI binary
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -installsuffix cgo -o pgedge-pg-mcp-cli ./cmd/pgedge-pg-mcp-cli
+
+# Stage 2: Create minimal runtime image
+FROM registry.access.redhat.com/ubi9/ubi-micro:latest
+
+# Add labels for container metadata
+LABEL name="pgedge-postgres-mcp-cli" \
+      vendor="pgEdge" \
+      version="1.0" \
+      summary="pgEdge Postgres MCP CLI Client" \
+      description="Command-line chat interface for pgEdge Postgres MCP"
+
+# Create non-root user
+USER 1001
+
+# Set working directory
+WORKDIR /app
+
+# Copy the binary from builder
+COPY --from=builder --chown=1001:1001 /workspace/pgedge-pg-mcp-cli /app/pgedge-pg-mcp-cli
+
+# Set entrypoint
+ENTRYPOINT ["/app/pgedge-pg-mcp-cli"]
+
+# Default arguments (can be overridden)
+CMD ["-mcp-mode", "http", "-mcp-url", "http://mcp-server:8080"]

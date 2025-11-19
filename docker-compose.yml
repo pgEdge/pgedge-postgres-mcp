@@ -1,0 +1,109 @@
+services:
+    # MCP Server - Backend service providing database tools
+    mcp-server:
+        build:
+            context: .
+            dockerfile: Dockerfile.server
+        container_name: pgedge-mcp-server
+        ports:
+            - "${MCP_SERVER_PORT:-8080}:8080"
+        environment:
+            # Database connection
+            - PGEDGE_DB_HOST=${PGEDGE_DB_HOST}
+            - PGEDGE_DB_PORT=${PGEDGE_DB_PORT:-5432}
+            - PGEDGE_DB_NAME=${PGEDGE_DB_NAME}
+            - PGEDGE_DB_USER=${PGEDGE_DB_USER}
+            - PGEDGE_DB_PASSWORD=${PGEDGE_DB_PASSWORD}
+            - PGEDGE_DB_SSLMODE=${PGEDGE_DB_SSLMODE:-prefer}
+            # Embedding configuration
+            - PGEDGE_EMBEDDING_PROVIDER=${PGEDGE_EMBEDDING_PROVIDER:-anthropic}
+            - PGEDGE_EMBEDDING_MODEL=${PGEDGE_EMBEDDING_MODEL}
+            - PGEDGE_ANTHROPIC_API_KEY=${PGEDGE_ANTHROPIC_API_KEY}
+            - PGEDGE_OPENAI_API_KEY=${PGEDGE_OPENAI_API_KEY}
+            - PGEDGE_OLLAMA_URL=${PGEDGE_OLLAMA_URL}
+            # LLM proxy configuration (for web client chat)
+            - PGEDGE_LLM_ENABLED=${PGEDGE_LLM_ENABLED:-true}
+            - PGEDGE_LLM_PROVIDER=${PGEDGE_LLM_PROVIDER:-anthropic}
+            - PGEDGE_LLM_MODEL=${PGEDGE_LLM_MODEL:-claude-sonnet-4-5}
+            - PGEDGE_LLM_MAX_TOKENS=${PGEDGE_LLM_MAX_TOKENS:-4096}
+            - PGEDGE_LLM_TEMPERATURE=${PGEDGE_LLM_TEMPERATURE:-0.7}
+            # Authentication
+            - PGEDGE_AUTH_MODE=${PGEDGE_AUTH_MODE:-token}
+            - PGEDGE_TOKEN_FILE=/app/data/tokens.json
+            - PGEDGE_USERS_FILE=/app/data/users.json
+            - INIT_TOKENS=${INIT_TOKENS}
+            - INIT_USERS=${INIT_USERS}
+            # Debugging
+            - PGEDGE_DEBUG=${PGEDGE_DEBUG:-false}
+            - PGEDGE_DB_LOG_LEVEL=${PGEDGE_DB_LOG_LEVEL:-none}
+            - PGEDGE_LLM_LOG_LEVEL=${PGEDGE_LLM_LOG_LEVEL:-none}
+        volumes:
+            - mcp-data:/app/data
+        networks:
+            - pgedge-network
+        restart: unless-stopped
+        healthcheck:
+            test: ["CMD", "/bin/sh", "-c", "test -f /app/pgedge-pg-mcp-svr"]
+            interval: 10s
+            timeout: 5s
+            retries: 3
+            start_period: 10s
+
+    # Web Client - Browser-based chat interface
+    web-client:
+        build:
+            context: .
+            dockerfile: Dockerfile.web
+        container_name: pgedge-mcp-web-client
+        ports:
+            - "${WEB_CLIENT_PORT:-8081}:8081"
+        depends_on:
+            mcp-server:
+                condition: service_healthy
+        networks:
+            - pgedge-network
+        restart: unless-stopped
+        healthcheck:
+            test: ["CMD", "curl", "-f", "http://localhost:8081/health"]
+            interval: 10s
+            timeout: 5s
+            retries: 3
+            start_period: 10s
+
+    # CLI Client - Interactive command-line interface (optional)
+    # Uncomment to run the CLI client in a container
+    # Note: For interactive use, you'll want to run this with:
+    #   docker-compose run --rm cli-client
+    # cli-client:
+    #     build:
+    #         context: .
+    #         dockerfile: Dockerfile.cli
+    #     container_name: pgedge-mcp-cli-client
+    #     stdin_open: true
+    #     tty: true
+    #     environment:
+    #         # MCP connection
+    #         - PGEDGE_MCP_MODE=http
+    #         - PGEDGE_MCP_URL=http://mcp-server:8080
+    #         - PGEDGE_MCP_TOKEN=${MCP_CLIENT_TOKEN}
+    #         # LLM configuration
+    #         - PGEDGE_LLM_PROVIDER=${PGEDGE_LLM_PROVIDER:-anthropic}
+    #         - PGEDGE_LLM_MODEL=${PGEDGE_LLM_MODEL}
+    #         - PGEDGE_ANTHROPIC_API_KEY=${PGEDGE_ANTHROPIC_API_KEY}
+    #         - PGEDGE_OPENAI_API_KEY=${PGEDGE_OPENAI_API_KEY}
+    #         - PGEDGE_OLLAMA_URL=${PGEDGE_OLLAMA_URL}
+    #         # UI configuration
+    #         - NO_COLOR=${NO_COLOR:-}
+    #     depends_on:
+    #         mcp-server:
+    #             condition: service_healthy
+    #     networks:
+    #         - pgedge-network
+
+volumes:
+    mcp-data:
+        driver: local
+
+networks:
+    pgedge-network:
+        driver: bridge

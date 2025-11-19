@@ -16,6 +16,24 @@ import Header from './components/Header';
 import MainContent from './components/MainContent';
 import Login from './components/Login';
 
+// Light theme for login page (always light mode)
+const lightTheme = createTheme({
+  palette: {
+    mode: 'light',
+    primary: {
+      main: '#3f51b5',
+    },
+    background: {
+      default: '#ffffff',
+      paper: '#ffffff',
+    },
+    text: {
+      primary: 'rgba(0, 0, 0, 0.87)',
+      secondary: 'rgba(0, 0, 0, 0.54)',
+    },
+  },
+});
+
 const AppContent = () => {
   const [mode, setMode] = useState(() => {
     // Load theme preference from localStorage
@@ -85,7 +103,7 @@ const AppContent = () => {
 
   if (!user) {
     return (
-      <ThemeProvider theme={theme}>
+      <ThemeProvider theme={lightTheme}>
         <CssBaseline />
         <Login />
       </ThemeProvider>

@@ -1,0 +1,43 @@
+# Multi-stage build for pgEdge Postgres MCP Web Client
+# Stage 1: Build the Vue.js application
+FROM registry.access.redhat.com/ubi9/nodejs-20:latest AS builder
+
+# Set working directory
+WORKDIR /workspace
+
+# Copy package files
+COPY web/package*.json ./
+
+# Install dependencies
+RUN npm ci
+
+# Copy source code
+COPY web/ ./
+
+# Build the application
+RUN npm run build
+
+# Stage 2: Serve with nginx
+FROM registry.access.redhat.com/ubi9/nginx-124:latest
+
+# Add labels for container metadata
+LABEL name="pgedge-postgres-mcp-web-client" \
+      vendor="pgEdge" \
+      version="1.0" \
+      summary="pgEdge Postgres MCP Web Client" \
+      description="Web-based chat interface for pgEdge Postgres MCP"
+
+# Copy built application from builder
+COPY --from=builder /workspace/dist /opt/app-root/src
+
+# Copy nginx configuration with proper permissions
+COPY --chmod=644 docker/nginx.conf /etc/nginx/nginx.conf
+
+# Expose HTTP port
+EXPOSE 8081
+
+# nginx runs as user 1001 by default in UBI
+USER 1001
+
+# Start nginx
+CMD ["nginx", "-g", "daemon off;"]

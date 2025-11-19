@@ -300,7 +300,12 @@ const Login = () => {
                   filter: 'drop-shadow(0 4px 6px rgba(0,0,0,0.1))',
                 }}
               />
-              <Typography variant="h4" component="h1" gutterBottom sx={{ fontWeight: 600 }}>
+              <Typography
+                variant="h4"
+                component="h1"
+                gutterBottom
+                sx={{ fontWeight: 600 }}
+              >
                 MCP Client
               </Typography>
               <Typography variant="body2" color="text.secondary">

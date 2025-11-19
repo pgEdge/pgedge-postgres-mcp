@@ -477,7 +477,7 @@ func applyEnvironmentVariables(cfg *Config) {
 		// Note: errors are silently ignored - file may not exist and that's ok
 	}
 	// 3. Direct config value (if set) is already in cfg.LLM.AnthropicAPIKey/OpenAIAPIKey from mergeConfig
-	setStringFromEnv(&cfg.LLM.OllamaURL, "PGEDGE_LLM_OLLAMA_URL")
+	setStringFromEnv(&cfg.LLM.OllamaURL, "PGEDGE_OLLAMA_URL")
 	setIntFromEnv(&cfg.LLM.MaxTokens, "PGEDGE_LLM_MAX_TOKENS")
 	// Temperature is a float, but we'll handle it specially
 	if val := os.Getenv("PGEDGE_LLM_TEMPERATURE"); val != "" {

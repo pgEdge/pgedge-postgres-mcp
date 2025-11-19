@@ -1,0 +1,53 @@
+# Multi-stage build for pgEdge Postgres MCP Server
+# Stage 1: Build the Go binary
+FROM golang:1.23-alpine AS builder
+
+# Set working directory
+WORKDIR /workspace
+
+# Copy go mod files
+COPY go.mod go.sum ./
+
+# Download dependencies
+RUN go mod download
+
+# Copy source code
+COPY . .
+
+# Build the server binary
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -installsuffix cgo -o pgedge-pg-mcp-svr ./cmd/pgedge-pg-mcp-svr
+
+# Stage 2: Create minimal runtime image
+# Note: Using ubi9-minimal instead of ubi9-micro to get shadow-utils for user switching
+FROM registry.access.redhat.com/ubi9/ubi-minimal:latest
+
+# Add labels for container metadata
+LABEL name="pgedge-postgres-mcp-server" \
+      vendor="pgEdge" \
+      version="1.0" \
+      summary="pgEdge Postgres MCP Server" \
+      description="Model Context Protocol server for PostgreSQL database interaction"
+
+# Install util-linux for runuser command (needed for user switching in init script)
+RUN microdnf install -y util-linux && microdnf clean all
+
+# Create user 1001 for running the server
+RUN useradd -u 1001 -r -s /bin/sh -d /app -c "MCP Server User" mcp
+
+# Set working directory
+WORKDIR /app
+
+# Copy the binary from builder
+COPY --from=builder --chown=1001:1001 /workspace/pgedge-pg-mcp-svr /app/pgedge-pg-mcp-svr
+
+# Copy initialization script (must be executable and owned by root to create directories)
+COPY --chmod=755 docker/init-server.sh /app/init-server.sh
+
+# Expose HTTP port
+EXPOSE 8080
+
+# Run as root to handle volume permissions, script will exec as user 1001
+USER root
+
+# Set entrypoint
+ENTRYPOINT ["/app/init-server.sh"]
