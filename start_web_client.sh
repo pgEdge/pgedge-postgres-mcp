@@ -106,6 +106,18 @@ echo "      PID: $MCP_SERVER_PID"
 echo "      Config: $SERVER_CONFIG"
 echo "      Log: /tmp/pgedge-mcp-server.log"
 
+# Wait a moment for process to stabilize
+sleep 1
+
+# Check if MCP server process is still running (catch immediate failures like port conflicts)
+if ! kill -0 $MCP_SERVER_PID 2>/dev/null; then
+    echo -e "${RED}Error: MCP Server process exited immediately${NC}"
+    echo "This usually means the port is already in use or there's a configuration error."
+    echo "Check the log file: /tmp/pgedge-mcp-server.log"
+    tail -20 /tmp/pgedge-mcp-server.log
+    exit 1
+fi
+
 # Wait for MCP server to be ready
 echo -e "${GREEN}[2/4] Waiting for MCP Server to be ready...${NC}"
 MAX_RETRIES=30
@@ -118,7 +130,7 @@ while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
 
     # Check if process is still running
     if ! kill -0 $MCP_SERVER_PID 2>/dev/null; then
-        echo -e "${RED}Error: MCP Server process died${NC}"
+        echo -e "${RED}Error: MCP Server process died during startup${NC}"
         echo "Check the log file: /tmp/pgedge-mcp-server.log"
         tail -20 /tmp/pgedge-mcp-server.log
         exit 1
@@ -148,6 +160,18 @@ echo "      Port: 3001"
 echo "      Config: $WEB_CONFIG"
 echo "      Log: /tmp/pgedge-mcp-backend.log"
 
+# Wait a moment for process to stabilize
+sleep 1
+
+# Check if backend server process is still running (catch immediate failures like port conflicts)
+if ! kill -0 $BACKEND_SERVER_PID 2>/dev/null; then
+    echo -e "${RED}Error: Backend Server process exited immediately${NC}"
+    echo "This usually means port 3001 is already in use or there's a configuration error."
+    echo "Check the log file: /tmp/pgedge-mcp-backend.log"
+    tail -20 /tmp/pgedge-mcp-backend.log
+    exit 1
+fi
+
 # Wait for backend to be ready
 echo -e "${GREEN}Waiting for Backend Server to be ready...${NC}"
 MAX_RETRIES=30
@@ -160,7 +184,7 @@ while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
 
     # Check if process is still running
     if ! kill -0 $BACKEND_SERVER_PID 2>/dev/null; then
-        echo -e "${RED}Error: Backend Server process died${NC}"
+        echo -e "${RED}Error: Backend Server process died during startup${NC}"
         echo "Check the log file: /tmp/pgedge-mcp-backend.log"
         tail -20 /tmp/pgedge-mcp-backend.log
         exit 1
@@ -188,6 +212,18 @@ echo "      PID: $WEB_SERVER_PID"
 echo "      Port: 3000"
 echo "      Log: /tmp/pgedge-mcp-vite.log"
 
+# Wait a moment for process to stabilize
+sleep 1
+
+# Check if Vite server process is still running (catch immediate failures like port conflicts)
+if ! kill -0 $WEB_SERVER_PID 2>/dev/null; then
+    echo -e "${RED}Error: Vite Server process exited immediately${NC}"
+    echo "This usually means port 3000 is already in use or there's a configuration error."
+    echo "Check the log file: /tmp/pgedge-mcp-vite.log"
+    tail -20 /tmp/pgedge-mcp-vite.log
+    exit 1
+fi
+
 # Wait for Vite server to be ready
 echo -e "${GREEN}Waiting for Vite Server to be ready...${NC}"
 MAX_RETRIES=30
@@ -199,7 +235,7 @@ while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
 
     # Check if process is still running
     if ! kill -0 $WEB_SERVER_PID 2>/dev/null; then
-        echo -e "${RED}Error: Vite Server process died${NC}"
+        echo -e "${RED}Error: Vite Server process died during startup${NC}"
         echo "Check the log file: /tmp/pgedge-mcp-vite.log"
         tail -20 /tmp/pgedge-mcp-vite.log
         exit 1
@@ -228,7 +264,7 @@ echo "  • Web Interface:  http://localhost:3000"
 echo ""
 echo -e "${BLUE}Logs:${NC}"
 echo "  • MCP Server:     /tmp/pgedge-mcp-server.log"
-echo "  • Backend API:    /tmp/pgedge-mcp-backend.log"
+echo "  • Backend API:    /tmp/pgedge-mcp-backend.log (includes tool/resource activity)"
 echo "  • Vite Dev:       /tmp/pgedge-mcp-vite.log"
 echo ""
 echo -e "${BLUE}Login Credentials (for web interface):${NC}"
