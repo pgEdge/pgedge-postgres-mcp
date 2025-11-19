@@ -98,7 +98,7 @@ echo ""
 # Start MCP server
 echo -e "${GREEN}[1/4] Starting MCP Server (HTTP mode with auth)...${NC}"
 cd "$BIN_DIR"
-"$SERVER_BIN" --config pgedge-pg-mcp-web.yaml > /tmp/pgedge-mcp-server.log 2>&1 &
+PGEDGE_LLM_LOG_LEVEL="trace" "$SERVER_BIN" --config pgedge-pg-mcp-web.yaml > /tmp/pgedge-mcp-server.log 2>&1 &
 MCP_SERVER_PID=$!
 cd "$SCRIPT_DIR"
 
