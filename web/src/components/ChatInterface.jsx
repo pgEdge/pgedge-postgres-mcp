@@ -78,9 +78,15 @@ const ChatInterface = () => {
 
     // Provider and model selection state
     const [providers, setProviders] = useState([]);
-    const [selectedProvider, setSelectedProvider] = useState('');
+    const [selectedProvider, setSelectedProvider] = useState(() => {
+        // Load saved provider from localStorage
+        return localStorage.getItem('llm-provider') || '';
+    });
     const [models, setModels] = useState([]);
-    const [selectedModel, setSelectedModel] = useState('');
+    const [selectedModel, setSelectedModel] = useState(() => {
+        // Load saved model from localStorage
+        return localStorage.getItem('llm-model') || '';
+    });
     const [loadingModels, setLoadingModels] = useState(false);
 
     const scrollToBottom = () => {
@@ -147,6 +153,20 @@ const ChatInterface = () => {
         return () => stopThinking();
     }, []);
 
+    // Save provider preference to localStorage when it changes
+    useEffect(() => {
+        if (selectedProvider) {
+            localStorage.setItem('llm-provider', selectedProvider);
+        }
+    }, [selectedProvider]);
+
+    // Save model preference to localStorage when it changes
+    useEffect(() => {
+        if (selectedModel) {
+            localStorage.setItem('llm-model', selectedModel);
+        }
+    }, [selectedModel]);
+
     // Fetch available providers on mount
     useEffect(() => {
         const fetchProviders = async () => {
@@ -167,14 +187,24 @@ const ChatInterface = () => {
                 console.log('Providers data:', data);
                 setProviders(data.providers || []);
 
-                // Set default provider and model
-                const defaultProvider = data.providers?.find(p => p.isDefault);
-                if (defaultProvider) {
-                    console.log('Setting default provider:', defaultProvider.name, 'model:', data.defaultModel);
-                    setSelectedProvider(defaultProvider.name);
-                    setSelectedModel(data.defaultModel || '');
+                // Only set default if no saved provider or saved provider is not available
+                const savedProvider = localStorage.getItem('llm-provider');
+                const savedModel = localStorage.getItem('llm-model');
+                const savedProviderExists = data.providers?.some(p => p.name === savedProvider);
+
+                if (!savedProvider || !savedProviderExists) {
+                    // No saved preference or saved provider no longer available - use default
+                    const defaultProvider = data.providers?.find(p => p.isDefault);
+                    if (defaultProvider) {
+                        console.log('Setting default provider:', defaultProvider.name, 'model:', data.defaultModel);
+                        setSelectedProvider(defaultProvider.name);
+                        setSelectedModel(data.defaultModel || '');
+                    } else {
+                        console.warn('No default provider found in response');
+                    }
                 } else {
-                    console.warn('No default provider found in response');
+                    console.log('Using saved provider:', savedProvider, 'model:', savedModel);
+                    // savedProvider and savedModel are already loaded from localStorage in state initialization
                 }
             } catch (error) {
                 console.error('Error fetching providers:', error);

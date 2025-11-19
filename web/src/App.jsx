@@ -17,8 +17,17 @@ import MainContent from './components/MainContent';
 import Login from './components/Login';
 
 const AppContent = () => {
-  const [mode, setMode] = useState('light');
+  const [mode, setMode] = useState(() => {
+    // Load theme preference from localStorage
+    const savedMode = localStorage.getItem('theme-mode');
+    return savedMode || 'light';
+  });
   const { user, loading } = useAuth();
+
+  // Save theme preference to localStorage when it changes
+  useEffect(() => {
+    localStorage.setItem('theme-mode', mode);
+  }, [mode]);
 
   const theme = createTheme({
     palette: {
