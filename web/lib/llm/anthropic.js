@@ -112,16 +112,42 @@ export class AnthropicClient {
      * @returns {Promise<Array>} Array of model objects
      */
     async listModels() {
-        // Anthropic doesn't have a public API to list models
-        // Return hardcoded list of known Claude models
-        return [
-            { name: 'claude-sonnet-4-5', description: 'Claude Sonnet 4.5 - Best overall model' },
-            { name: 'claude-sonnet-4', description: 'Claude Sonnet 4 - Previous generation' },
-            { name: 'claude-3-7-sonnet-20250219', description: 'Claude 3.7 Sonnet' },
-            { name: 'claude-3-5-sonnet-20241022', description: 'Claude 3.5 Sonnet (Oct 2024)' },
-            { name: 'claude-3-5-sonnet-20240620', description: 'Claude 3.5 Sonnet (June 2024)' },
-            { name: 'claude-3-opus-20240229', description: 'Claude 3 Opus - Most capable' },
-            { name: 'claude-3-haiku-20240307', description: 'Claude 3 Haiku - Fastest' },
-        ];
+        try {
+            const response = await fetch(`${this.baseURL}/models`, {
+                method: 'GET',
+                headers: {
+                    'x-api-key': this.apiKey,
+                    'anthropic-version': '2023-06-01',
+                },
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                const errorMessage = errorData.error?.message || `HTTP ${response.status}: ${response.statusText}`;
+                console.error('Anthropic models list error:', errorMessage);
+                throw new Error(`Failed to fetch Anthropic models: ${errorMessage}`);
+            }
+
+            const data = await response.json();
+
+            // Transform the response to our format
+            // data.data is an array of {id, display_name, created_at, type}
+            return data.data.map(model => ({
+                name: model.id,
+                description: model.display_name || model.id,
+            }));
+        } catch (error) {
+            console.error('Error fetching Anthropic models:', error);
+            // Fallback to hardcoded list if API fails
+            return [
+                { name: 'claude-sonnet-4-5', description: 'Claude Sonnet 4.5 - Best overall model' },
+                { name: 'claude-sonnet-4', description: 'Claude Sonnet 4 - Previous generation' },
+                { name: 'claude-3-7-sonnet-20250219', description: 'Claude 3.7 Sonnet' },
+                { name: 'claude-3-5-sonnet-20241022', description: 'Claude 3.5 Sonnet (Oct 2024)' },
+                { name: 'claude-3-5-sonnet-20240620', description: 'Claude 3.5 Sonnet (June 2024)' },
+                { name: 'claude-3-opus-20240229', description: 'Claude 3 Opus - Most capable' },
+                { name: 'claude-3-haiku-20240307', description: 'Claude 3 Haiku - Fastest' },
+            ];
+        }
     }
 }
