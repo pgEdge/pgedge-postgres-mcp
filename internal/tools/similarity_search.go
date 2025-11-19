@@ -27,7 +27,7 @@ func SimilaritySearchTool(dbClient *database.Client, cfg *config.Config) Tool {
 	return Tool{
 		Definition: mcp.Tool{
 			Name:        "similarity_search",
-			Description: "Advanced hybrid search combining vector similarity with BM25 lexical matching and MMR diversity filtering. Automatically discovers vector columns, generates query embeddings, chunks results intelligently, and returns the most relevant excerpts within token limits. Ideal for searching through large documents like Wikipedia articles.",
+			Description: "Advanced hybrid search combining vector similarity with BM25 lexical matching and MMR diversity filtering. IMPORTANT: If you don't know the exact table name, call get_schema_info first to discover available tables with vector columns (use vector_tables_only=true to reduce output). Automatically discovers vector columns, generates query embeddings, chunks results intelligently, and returns the most relevant excerpts within token limits. Ideal for searching through large documents like Wikipedia articles.",
 			InputSchema: mcp.InputSchema{
 				Type: "object",
 				Properties: map[string]interface{}{

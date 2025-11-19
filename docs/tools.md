@@ -68,6 +68,8 @@ public.users (TABLE)
 
 **Advanced hybrid search** combining vector similarity with BM25 lexical matching and MMR diversity filtering. This tool is ideal for searching through large documents like Wikipedia articles without requiring users to pre-chunk their data.
 
+**IMPORTANT**: If you don't know the exact table name, call `get_schema_info` first to discover available tables with vector columns (use `vector_tables_only=true` to reduce output).
+
 **How It Works**:
 
 1. **Auto-Discovery**: Automatically detects pgvector columns in your table and corresponding text columns
