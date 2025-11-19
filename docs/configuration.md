@@ -245,15 +245,15 @@ ollama pull nomic-embed-text
 curl http://localhost:11434/api/tags
 ```
 
-### Embedding Generation Logging
+### Database Operation Logging
 
-To debug embedding API calls and rate limits, enable structured logging:
+To debug database connections, metadata loading, and queries, enable structured logging:
 
 ```bash
 # Set log level
-export PGEDGE_LLM_LOG_LEVEL="info"    # Basic info: API calls, errors
-export PGEDGE_LLM_LOG_LEVEL="debug"   # Detailed: text length, dimensions, timing
-export PGEDGE_LLM_LOG_LEVEL="trace"   # Very detailed: full request/response
+export PGEDGE_DB_LOG_LEVEL="info"    # Basic info: connections, queries, metadata loading, errors
+export PGEDGE_DB_LOG_LEVEL="debug"   # Detailed: pool config, schema counts, query details
+export PGEDGE_DB_LOG_LEVEL="trace"   # Very detailed: full queries, row counts, timings
 
 # Run the server
 ./bin/pgedge-pg-mcp-svr
@@ -261,7 +261,35 @@ export PGEDGE_LLM_LOG_LEVEL="trace"   # Very detailed: full request/response
 
 **Log Levels**:
 
-- `info` (recommended): Logs API calls with success/failure, timing, dimensions, and rate limit errors
+- `info` (recommended): Logs connections, metadata loading, queries with success/failure and timing
+- `debug`: Adds pool configuration, schema/table/column counts, and detailed query information
+- `trace`: Adds full query text, arguments, and row counts
+
+**Example Output (info level)**:
+
+```
+[DATABASE] [INFO] Connection succeeded: connection=postgres:***@localhost:5432/mydb?sslmode=disable, duration=45ms
+[DATABASE] [INFO] Metadata loaded: connection=postgres:***@localhost:5432/mydb?sslmode=disable, table_count=42, duration=123ms
+[DATABASE] [INFO] Query succeeded: query=SELECT * FROM users WHERE id = $1, row_count=1, duration=5ms
+```
+
+### Embedding Generation Logging
+
+To debug embedding API calls and rate limits, enable structured logging:
+
+```bash
+# Set log level
+export PGEDGE_LLM_LOG_LEVEL="info"    # Basic info: API calls, errors, token usage
+export PGEDGE_LLM_LOG_LEVEL="debug"   # Detailed: text length, dimensions, timing, models
+export PGEDGE_LLM_LOG_LEVEL="trace"   # Very detailed: full request/response details
+
+# Run the server
+./bin/pgedge-pg-mcp-svr
+```
+
+**Log Levels**:
+
+- `info` (recommended): Logs API calls with success/failure, timing, dimensions, token usage, and rate limit errors
 - `debug`: Adds text length, API URLs, and provider initialization
 - `trace`: Adds request text previews and full response details
 
@@ -270,6 +298,7 @@ export PGEDGE_LLM_LOG_LEVEL="trace"   # Very detailed: full request/response
 ```
 [LLM] [INFO] Provider initialized: provider=ollama, model=nomic-embed-text, base_url=http://localhost:11434
 [LLM] [INFO] API call succeeded: provider=ollama, model=nomic-embed-text, text_length=245, dimensions=768, duration=156ms
+[LLM] [INFO] LLM call succeeded: provider=anthropic, model=claude-3-5-sonnet-20241022, operation=chat, input_tokens=100, output_tokens=50, total_tokens=150, duration=1.2s
 [LLM] [INFO] RATE LIMIT ERROR: provider=voyage, model=voyage-3-lite, status_code=429, response={"error":...}
 ```
 

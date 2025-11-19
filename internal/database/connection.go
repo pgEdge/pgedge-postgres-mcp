@@ -98,6 +98,8 @@ func (c *Client) Connect() error {
 
 // ConnectTo establishes a connection to a specific PostgreSQL database
 func (c *Client) ConnectTo(connStr string) error {
+	startTime := time.Now()
+
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -116,6 +118,16 @@ func (c *Client) ConnectTo(connStr string) error {
 	poolConfig, err := pgxpool.ParseConfig(enhancedConnStr)
 	if err != nil {
 		return fmt.Errorf("unable to parse connection string: %w", err)
+	}
+
+	// Log connection details if debug logging is enabled
+	if GetLogLevel() >= LogLevelDebug {
+		poolConfigMap := make(map[string]interface{})
+		poolConfigMap["max_conns"] = poolConfig.MaxConns
+		poolConfigMap["min_conns"] = poolConfig.MinConns
+		poolConfigMap["max_conn_lifetime"] = poolConfig.MaxConnLifetime
+		poolConfigMap["max_conn_idle_time"] = poolConfig.MaxConnIdleTime
+		LogConnectionDetails(connStr, poolConfigMap)
 	}
 
 	// Apply pool configuration if available
@@ -148,11 +160,15 @@ func (c *Client) ConnectTo(connStr string) error {
 	// Create pool with configured settings
 	pool, err := pgxpool.NewWithConfig(context.Background(), poolConfig)
 	if err != nil {
+		duration := time.Since(startTime)
+		LogConnection(connStr, duration, err)
 		return fmt.Errorf("unable to create connection pool: %w", err)
 	}
 
 	if err := pool.Ping(context.Background()); err != nil {
 		pool.Close()
+		duration := time.Since(startTime)
+		LogConnection(connStr, duration, err)
 		return fmt.Errorf("unable to ping database: %w", err)
 	}
 
@@ -162,6 +178,9 @@ func (c *Client) ConnectTo(connStr string) error {
 		Metadata:       make(map[string]TableInfo),
 		MetadataLoaded: false,
 	}
+
+	duration := time.Since(startTime)
+	LogConnection(connStr, duration, nil)
 
 	return nil
 }
@@ -236,6 +255,8 @@ func (c *Client) LoadMetadata() error {
 
 // LoadMetadataFor loads table and column metadata for a specific connection
 func (c *Client) LoadMetadataFor(connStr string) error {
+	startTime := time.Now()
+
 	c.mu.RLock()
 	conn, exists := c.connections[connStr]
 	c.mu.RUnlock()
@@ -301,11 +322,16 @@ func (c *Client) LoadMetadataFor(connStr string) error {
 
 	rows, err := conn.Pool.Query(ctx, query)
 	if err != nil {
+		duration := time.Since(startTime)
+		LogMetadataLoad(connStr, 0, duration, err)
 		return fmt.Errorf("failed to query metadata: %w", err)
 	}
 	defer rows.Close()
 
 	newMetadata := make(map[string]TableInfo)
+	schemaSet := make(map[string]bool)
+	columnCount := 0
+
 	for rows.Next() {
 		var schemaName, tableName, tableType, tableDesc, columnName, dataType, isNullable, columnDesc string
 		var typeName sql.NullString
@@ -313,10 +339,13 @@ func (c *Client) LoadMetadataFor(connStr string) error {
 
 		err := rows.Scan(&schemaName, &tableName, &tableType, &tableDesc, &columnName, &dataType, &isNullable, &columnDesc, &typeName, &typeModifier)
 		if err != nil {
+			duration := time.Since(startTime)
+			LogMetadataLoad(connStr, 0, duration, err)
 			return fmt.Errorf("failed to scan row: %w", err)
 		}
 
 		key := schemaName + "." + tableName
+		schemaSet[schemaName] = true
 
 		table, exists := newMetadata[key]
 		if !exists {
@@ -352,12 +381,15 @@ func (c *Client) LoadMetadataFor(connStr string) error {
 				IsVectorColumn:   isVector,
 				VectorDimensions: dimensions,
 			})
+			columnCount++
 		}
 
 		newMetadata[key] = table
 	}
 
 	if err := rows.Err(); err != nil {
+		duration := time.Since(startTime)
+		LogMetadataLoad(connStr, 0, duration, err)
 		return err
 	}
 
@@ -366,6 +398,14 @@ func (c *Client) LoadMetadataFor(connStr string) error {
 	conn.Metadata = newMetadata
 	conn.MetadataLoaded = true
 	c.mu.Unlock()
+
+	duration := time.Since(startTime)
+	LogMetadataLoad(connStr, len(newMetadata), duration, nil)
+
+	// Log detailed metadata info if debug logging is enabled
+	if GetLogLevel() >= LogLevelDebug {
+		LogMetadataDetails(connStr, len(schemaSet), len(newMetadata), columnCount)
+	}
 
 	return nil
 }

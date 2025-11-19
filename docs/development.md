@@ -292,11 +292,20 @@ Enable debug logging:
 ./bin/pgedge-pg-mcp-svr -debug
 ```
 
-Debug with a specific log level:
+Debug with specific log levels for different components:
 
 ```bash
-# Set log level via environment
-export LOG_LEVEL=debug
+# Database operation logging
+export PGEDGE_DB_LOG_LEVEL="info"    # Basic info: connections, metadata loading, errors
+export PGEDGE_DB_LOG_LEVEL="debug"   # Detailed: pool config, schema counts, query details
+export PGEDGE_DB_LOG_LEVEL="trace"   # Very detailed: full queries, row counts, timings
+
+# LLM/Embedding operation logging
+export PGEDGE_LLM_LOG_LEVEL="info"   # Basic info: API calls, errors, token usage
+export PGEDGE_LLM_LOG_LEVEL="debug"  # Detailed: text length, dimensions, timing, models
+export PGEDGE_LLM_LOG_LEVEL="trace"  # Very detailed: full request/response details
+
+# Run with logging enabled
 ./bin/pgedge-pg-mcp-svr
 ```
 
