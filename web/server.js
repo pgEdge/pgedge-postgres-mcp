@@ -296,12 +296,13 @@ app.get('/api/mcp/system-info', requireAuth, async (req, res) => {
   }
 });
 
-// Chat endpoint - agentic LLM interaction with MCP tools
+// Chat endpoint - agentic LLM interaction with MCP tools (SSE streaming)
 app.post('/api/chat', requireAuth, async (req, res) => {
   console.log('=== CHAT ENDPOINT CALLED ===');
   console.log('Message:', req.body.message);
   console.log('Provider:', req.body.provider);
   console.log('Model:', req.body.model);
+
   try {
     const { message, provider, model } = req.body;
 
@@ -309,6 +310,11 @@ app.post('/api/chat', requireAuth, async (req, res) => {
       console.log('ERROR: Message is empty');
       return res.status(400).json({ message: 'Message is required' });
     }
+
+    // Set up SSE headers
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
 
     // Create custom config with selected provider and model, or use defaults
     const chatConfig = { ...config };
@@ -339,24 +345,45 @@ app.post('/api/chat', requireAuth, async (req, res) => {
     await agent.initialize();
     console.log('Agent initialized with', agent.tools.length, 'tools and', agent.resources.length, 'resources');
 
-    // Process the query through the agentic loop
+    // Helper function to send SSE event
+    const sendEvent = (event, data) => {
+      res.write(`event: ${event}\n`);
+      res.write(`data: ${JSON.stringify(data)}\n\n`);
+    };
+
+    // Activity callback for streaming
+    const onActivity = (activity) => {
+      sendEvent('activity', activity);
+    };
+
+    // Process the query through the agentic loop with streaming
     console.log('Processing query...');
-    const result = await agent.processQuery(message, req.session.conversationHistory);
+    const result = await agent.processQuery(message, req.session.conversationHistory, onActivity);
 
     // Update conversation history in session
     req.session.conversationHistory = result.conversationHistory;
 
+    // Send final response
     console.log('Chat completed successfully, response length:', result.response.length);
-    res.json({
+    sendEvent('response', {
       response: result.response,
       usage: result.usage,
+      activity: result.activity || [],
     });
+
+    // Send done event
+    sendEvent('done', {});
+    res.end();
   } catch (error) {
     console.error('=== CHAT ERROR ===');
     console.error('Error name:', error.name);
     console.error('Error message:', error.message);
     console.error('Error stack:', error.stack);
-    res.status(500).json({ message: error.message || 'Failed to process message' });
+
+    // Send error event
+    res.write(`event: error\n`);
+    res.write(`data: ${JSON.stringify({ message: error.message || 'Failed to process message' })}\n\n`);
+    res.end();
   }
 });
 

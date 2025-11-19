@@ -20,6 +20,7 @@ export class ChatAgent {
         this.llmClient = createLLMClient(config.llm);
         this.tools = [];
         this.resources = [];
+        this.activity = []; // Track tool and resource activity
     }
 
     /**
@@ -37,11 +38,15 @@ export class ChatAgent {
      * Process a user query through the agentic loop
      * @param {string} query - User's question
      * @param {Array} conversationHistory - Previous messages in the conversation
+     * @param {Function} onActivity - Optional callback for streaming activity updates
      * @returns {Promise<Object>} Response with text and updated conversation history
      */
-    async processQuery(query, conversationHistory = []) {
+    async processQuery(query, conversationHistory = [], onActivity = null) {
         console.log('ChatAgent: Processing query:', query);
         console.log('ChatAgent: Conversation history length:', conversationHistory.length);
+
+        // Reset activity tracking for this query
+        this.activity = [];
 
         // Build messages array for LLM
         const messages = [
@@ -86,6 +91,18 @@ export class ChatAgent {
                     try {
                         // Check if this is a resource access (resources start with resource://)
                         if (toolUse.name === 'read_resource') {
+                            // Record resource read activity
+                            const activity = {
+                                type: 'resource',
+                                uri: toolUse.input.uri,
+                            };
+                            this.activity.push(activity);
+
+                            // Stream activity if callback provided
+                            if (onActivity) {
+                                onActivity(activity);
+                            }
+
                             const result = await this.mcpClient.readResource(toolUse.input.uri);
                             // result.contents is an array of content blocks
                             toolResults.push({
@@ -94,6 +111,18 @@ export class ChatAgent {
                                 content: result.contents,  // Array of content blocks
                             });
                         } else {
+                            // Record tool call activity
+                            const activity = {
+                                type: 'tool',
+                                name: toolUse.name,
+                            };
+                            this.activity.push(activity);
+
+                            // Stream activity if callback provided
+                            if (onActivity) {
+                                onActivity(activity);
+                            }
+
                             // Regular tool call
                             const result = await this.mcpClient.callTool(toolUse.name, toolUse.input);
                             // result.content is an array of content blocks from MCP
@@ -143,6 +172,7 @@ export class ChatAgent {
                 response: finalText,
                 conversationHistory: messages,
                 usage: response.usage,
+                activity: this.activity, // Include tool and resource activity
             };
         }
 

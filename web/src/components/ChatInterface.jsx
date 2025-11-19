@@ -350,7 +350,18 @@ const ChatInterface = () => {
         setHistoryIndex(-1);
         setTempInput('');
 
-        setMessages(prev => [...prev, userMessage]);
+        // Create thinking message placeholder
+        const thinkingMessage = {
+            role: 'assistant',
+            content: '',  // Empty initially
+            timestamp: new Date().toISOString(),
+            provider: selectedProvider,
+            model: selectedModel,
+            activity: [], // Will be populated as events arrive
+            isThinking: true,
+        };
+
+        setMessages(prev => [...prev, userMessage, thinkingMessage]);
         setInput('');
         setLoading(true);
         setError('');
@@ -376,12 +387,17 @@ const ChatInterface = () => {
                 stopThinking();
                 forceLogout();
                 setError('Your session has expired. Please log in again.');
+                // Remove thinking message
+                setMessages(prev => prev.slice(0, -1));
                 return;
             }
 
             if (!response.ok) {
                 const errorData = await response.json().catch(() => ({}));
                 const errorMsg = errorData.message || 'Failed to send message';
+
+                // Remove thinking message
+                setMessages(prev => prev.slice(0, -1));
 
                 // Provide helpful error messages
                 if (errorMsg.includes('API key')) {
@@ -393,17 +409,75 @@ const ChatInterface = () => {
                 }
             }
 
-            const data = await response.json();
+            // Parse SSE stream
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let buffer = '';
+            let finalResponse = null;
 
-            const assistantMessage = {
-                role: 'assistant',
-                content: data.response || 'No response received',
-                timestamp: new Date().toISOString(),
-                provider: selectedProvider,
-                model: selectedModel,
-            };
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
 
-            setMessages(prev => [...prev, assistantMessage]);
+                buffer += decoder.decode(value, { stream: true });
+                const lines = buffer.split('\n');
+                buffer = lines.pop() || ''; // Keep incomplete line in buffer
+
+                for (const line of lines) {
+                    if (line.startsWith('event: ')) {
+                        const eventType = line.substring(7).trim();
+                        continue;
+                    }
+
+                    if (line.startsWith('data: ')) {
+                        try {
+                            const data = JSON.parse(line.substring(6));
+
+                            // Handle different event types based on last seen event type
+                            // We'll determine type from the data structure
+                            if (data.type === 'tool' || data.type === 'resource') {
+                                // Activity event - update thinking message
+                                setMessages(prev => {
+                                    const newMessages = [...prev];
+                                    const lastMsg = newMessages[newMessages.length - 1];
+                                    if (lastMsg && lastMsg.isThinking) {
+                                        lastMsg.activity = [...lastMsg.activity, data];
+                                    }
+                                    return newMessages;
+                                });
+                            } else if (data.response !== undefined) {
+                                // Response event - store for later
+                                finalResponse = data;
+                            } else if (data.message) {
+                                // Error event
+                                setMessages(prev => prev.slice(0, -1)); // Remove thinking message
+                                throw new Error(data.message);
+                            }
+                        } catch (parseErr) {
+                            console.error('Error parsing SSE data:', parseErr);
+                        }
+                    }
+                }
+            }
+
+            // Replace thinking message with final response
+            if (finalResponse) {
+                setMessages(prev => {
+                    const newMessages = prev.slice(0, -1); // Remove thinking message
+                    return [...newMessages, {
+                        role: 'assistant',
+                        content: finalResponse.response || 'No response received',
+                        timestamp: new Date().toISOString(),
+                        provider: selectedProvider,
+                        model: selectedModel,
+                        activity: finalResponse.activity || [],
+                    }];
+                });
+            } else {
+                // No final response - remove thinking message
+                setMessages(prev => prev.slice(0, -1));
+                throw new Error('No response received from server');
+            }
         } catch (err) {
             console.error('Chat error:', err);
 
@@ -577,6 +651,30 @@ const ChatInterface = () => {
                                                 : 'Assistant'
                                         }
                                     </Typography>
+                                    {message.role === 'assistant' && message.activity && message.activity.length > 0 && (
+                                        <Box sx={{ mb: 1 }}>
+                                            {message.activity.map((activity, idx) => (
+                                                <Typography
+                                                    key={idx}
+                                                    variant="caption"
+                                                    sx={{
+                                                        display: 'block',
+                                                        color: 'text.secondary',
+                                                        fontFamily: 'monospace',
+                                                        fontSize: '0.7rem',
+                                                        mb: 0.2,
+                                                    }}
+                                                >
+                                                    {activity.type === 'tool' && (
+                                                        <>🔧 {activity.name}</>
+                                                    )}
+                                                    {activity.type === 'resource' && (
+                                                        <>📄 {activity.uri}</>
+                                                    )}
+                                                </Typography>
+                                            ))}
+                                        </Box>
+                                    )}
                                     <Paper
                                         elevation={0}
                                         sx={{
@@ -596,6 +694,19 @@ const ChatInterface = () => {
                                             >
                                                 {message.content}
                                             </Typography>
+                                        ) : message.isThinking ? (
+                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                                <CircularProgress size={20} />
+                                                <Typography
+                                                    variant="body2"
+                                                    sx={{
+                                                        color: 'text.secondary',
+                                                        fontStyle: 'italic',
+                                                    }}
+                                                >
+                                                    {thinkingMessage}...
+                                                </Typography>
+                                            </Box>
                                         ) : (
                                             <ReactMarkdown
                                                 remarkPlugins={[remarkGfm]}
@@ -608,43 +719,6 @@ const ChatInterface = () => {
                                 </Box>
                             </Box>
                         ))}
-                        {loading && (
-                            <Box
-                                sx={{
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    mb: 2,
-                                }}
-                            >
-                                <Box
-                                    sx={{
-                                        width: 32,
-                                        height: 32,
-                                        borderRadius: '50%',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                        bgcolor: 'secondary.main',
-                                        color: 'white',
-                                        mr: 2,
-                                    }}
-                                >
-                                    <BotIcon sx={{ fontSize: 20 }} />
-                                </Box>
-                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                    <CircularProgress size={20} />
-                                    <Typography
-                                        variant="body2"
-                                        sx={{
-                                            color: 'text.secondary',
-                                            fontStyle: 'italic',
-                                        }}
-                                    >
-                                        {thinkingMessage}...
-                                    </Typography>
-                                </Box>
-                            </Box>
-                        )}
                         <div ref={messagesEndRef} />
                     </Box>
                 )}
