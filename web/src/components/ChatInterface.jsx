@@ -63,7 +63,20 @@ const elephantActions = [
 const ChatInterface = () => {
     const { forceLogout } = useAuth();
     const theme = useTheme();
-    const [messages, setMessages] = useState([]);
+    const [messages, setMessages] = useState(() => {
+        // Load saved messages from localStorage
+        try {
+            const savedMessages = localStorage.getItem('chat-messages');
+            if (savedMessages) {
+                const parsed = JSON.parse(savedMessages);
+                // Mark all loaded messages as from previous session
+                return parsed.map(msg => ({ ...msg, fromPreviousSession: true }));
+            }
+        } catch (error) {
+            console.error('Error loading chat messages:', error);
+        }
+        return [];
+    });
     const [input, setInput] = useState('');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
@@ -166,6 +179,20 @@ const ChatInterface = () => {
             localStorage.setItem('llm-model', selectedModel);
         }
     }, [selectedModel]);
+
+    // Save messages to localStorage when they change
+    useEffect(() => {
+        try {
+            // Don't save if messages array is empty
+            if (messages.length > 0) {
+                // Remove the fromPreviousSession flag before saving
+                const messagesToSave = messages.map(({ fromPreviousSession, ...msg }) => msg);
+                localStorage.setItem('chat-messages', JSON.stringify(messagesToSave));
+            }
+        } catch (error) {
+            console.error('Error saving chat messages:', error);
+        }
+    }, [messages]);
 
     // Fetch available providers on mount
     useEffect(() => {
@@ -577,6 +604,7 @@ const ChatInterface = () => {
             }
 
             setMessages([]);
+            localStorage.removeItem('chat-messages');
             setError('');
         } catch (err) {
             setError(err.message || 'Failed to clear conversation');
@@ -646,6 +674,8 @@ const ChatInterface = () => {
                                     display: 'flex',
                                     mb: 2,
                                     alignItems: 'flex-start',
+                                    opacity: message.fromPreviousSession ? 0.6 : 1,
+                                    transition: 'opacity 0.3s ease-in-out',
                                 }}
                             >
                                 <Box
