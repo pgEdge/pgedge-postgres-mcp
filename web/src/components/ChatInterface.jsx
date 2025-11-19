@@ -116,25 +116,34 @@ const ChatInterface = () => {
     useEffect(() => {
         const fetchProviders = async () => {
             try {
+                console.log('Fetching providers from /api/llm/providers...');
                 const response = await fetch('/api/llm/providers', {
                     credentials: 'include',
                 });
 
+                console.log('Providers response status:', response.status);
                 if (!response.ok) {
-                    throw new Error('Failed to fetch providers');
+                    const errorText = await response.text();
+                    console.error('Providers response error:', errorText);
+                    throw new Error(`Failed to fetch providers: ${response.status} ${errorText}`);
                 }
 
                 const data = await response.json();
+                console.log('Providers data:', data);
                 setProviders(data.providers || []);
 
                 // Set default provider and model
-                const defaultProvider = data.providers.find(p => p.isDefault);
+                const defaultProvider = data.providers?.find(p => p.isDefault);
                 if (defaultProvider) {
+                    console.log('Setting default provider:', defaultProvider.name, 'model:', data.defaultModel);
                     setSelectedProvider(defaultProvider.name);
                     setSelectedModel(data.defaultModel || '');
+                } else {
+                    console.warn('No default provider found in response');
                 }
             } catch (error) {
                 console.error('Error fetching providers:', error);
+                setError('Failed to load LLM providers. Please check browser console.');
             }
         };
 
@@ -143,32 +152,44 @@ const ChatInterface = () => {
 
     // Fetch available models when provider changes
     useEffect(() => {
-        if (!selectedProvider) return;
+        if (!selectedProvider) {
+            console.log('No provider selected, skipping model fetch');
+            return;
+        }
 
         const fetchModels = async () => {
             setLoadingModels(true);
             try {
+                console.log('Fetching models for provider:', selectedProvider);
                 const response = await fetch(`/api/llm/models?provider=${selectedProvider}`, {
                     credentials: 'include',
                 });
 
+                console.log('Models response status:', response.status);
                 if (!response.ok) {
-                    throw new Error('Failed to fetch models');
+                    const errorText = await response.text();
+                    console.error('Models response error:', errorText);
+                    throw new Error(`Failed to fetch models: ${response.status} ${errorText}`);
                 }
 
                 const data = await response.json();
+                console.log('Models data:', data);
                 setModels(data.models || []);
 
                 // Set the first model as selected if current model is not in the list
-                if (data.models.length > 0) {
+                if (data.models && data.models.length > 0) {
                     const currentModelExists = data.models.some(m => m.name === selectedModel);
                     if (!currentModelExists) {
+                        console.log('Current model not in list, selecting first model:', data.models[0].name);
                         setSelectedModel(data.models[0].name);
                     }
+                } else {
+                    console.warn('No models returned from API');
                 }
             } catch (error) {
                 console.error('Error fetching models:', error);
                 setModels([]);
+                setError('Failed to load models. Please check browser console.');
             } finally {
                 setLoadingModels(false);
             }
