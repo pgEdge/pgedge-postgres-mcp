@@ -87,6 +87,41 @@ const ChatInterface = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     };
 
+    // Helper function to get short model name
+    const getShortModelName = (modelName) => {
+        if (!modelName) return '';
+
+        // Extract short name from various model formats
+        if (modelName.startsWith('claude-')) {
+            // claude-sonnet-4-5 -> Sonnet 4.5
+            // claude-3-5-sonnet-20241022 -> Sonnet 3.5
+            const parts = modelName.split('-');
+            if (parts.includes('sonnet')) {
+                const versionIndex = parts.findIndex(p => p === 'sonnet');
+                if (versionIndex > 1 && parts[versionIndex - 1].match(/^\d/)) {
+                    return `Sonnet ${parts.slice(1, versionIndex).join('.')}`;
+                }
+                if (versionIndex + 1 < parts.length && parts[versionIndex + 1].match(/^\d/)) {
+                    return `Sonnet ${parts[versionIndex + 1].replace(/(\d)(\d)/, '$1.$2')}`;
+                }
+                return 'Sonnet';
+            }
+            if (parts.includes('opus')) return 'Opus';
+            if (parts.includes('haiku')) return 'Haiku';
+        } else if (modelName.startsWith('gpt-')) {
+            // gpt-4o -> GPT-4o
+            // gpt-3.5-turbo -> GPT-3.5
+            return modelName.replace('gpt-', 'GPT-').replace('-turbo', '').toUpperCase();
+        } else if (modelName.startsWith('o1-') || modelName.startsWith('o3-')) {
+            // o1-preview -> O1
+            return modelName.split('-')[0].toUpperCase();
+        }
+
+        // For Ollama or other models, return first part or full name if short
+        const firstPart = modelName.split(':')[0];
+        return firstPart.length <= 15 ? firstPart : modelName.substring(0, 15) + '...';
+    };
+
     // Start thinking animation
     const startThinking = () => {
         // Set initial random message
@@ -364,6 +399,8 @@ const ChatInterface = () => {
                 role: 'assistant',
                 content: data.response || 'No response received',
                 timestamp: new Date().toISOString(),
+                provider: selectedProvider,
+                model: selectedModel,
             };
 
             setMessages(prev => [...prev, assistantMessage]);
@@ -533,7 +570,12 @@ const ChatInterface = () => {
                                         color="text.secondary"
                                         sx={{ display: 'block', mb: 0.5 }}
                                     >
-                                        {message.role === 'user' ? 'You' : 'Assistant'}
+                                        {message.role === 'user'
+                                            ? 'You'
+                                            : message.provider && message.model
+                                                ? `${message.provider.charAt(0).toUpperCase() + message.provider.slice(1)} (${getShortModelName(message.model)})`
+                                                : 'Assistant'
+                                        }
                                     </Typography>
                                     <Paper
                                         elevation={0}
