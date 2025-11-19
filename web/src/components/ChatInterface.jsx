@@ -85,7 +85,18 @@ const ChatInterface = () => {
     const thinkingIntervalRef = useRef(null);
 
     // History navigation state
-    const [queryHistory, setQueryHistory] = useState([]);
+    const [queryHistory, setQueryHistory] = useState(() => {
+        // Load saved query history from localStorage
+        try {
+            const savedHistory = localStorage.getItem('query-history');
+            if (savedHistory) {
+                return JSON.parse(savedHistory);
+            }
+        } catch (error) {
+            console.error('Error loading query history:', error);
+        }
+        return [];
+    });
     const [historyIndex, setHistoryIndex] = useState(-1);
     const [tempInput, setTempInput] = useState('');
 
@@ -193,6 +204,17 @@ const ChatInterface = () => {
             console.error('Error saving chat messages:', error);
         }
     }, [messages]);
+
+    // Save query history to localStorage when it changes
+    useEffect(() => {
+        try {
+            if (queryHistory.length > 0) {
+                localStorage.setItem('query-history', JSON.stringify(queryHistory));
+            }
+        } catch (error) {
+            console.error('Error saving query history:', error);
+        }
+    }, [queryHistory]);
 
     // Fetch available providers on mount
     useEffect(() => {
@@ -604,7 +626,9 @@ const ChatInterface = () => {
             }
 
             setMessages([]);
+            setQueryHistory([]);
             localStorage.removeItem('chat-messages');
+            localStorage.removeItem('query-history');
             setError('');
         } catch (err) {
             setError(err.message || 'Failed to clear conversation');
