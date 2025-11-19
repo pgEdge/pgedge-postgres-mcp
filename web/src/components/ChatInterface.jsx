@@ -682,13 +682,31 @@ const ChatInterface = () => {
                 }}
             >
                 {messages.length > 0 && (
-                    <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
+                    <Box
+                        sx={{
+                            position: 'sticky',
+                            top: 0,
+                            display: 'flex',
+                            justifyContent: 'flex-end',
+                            mb: 2,
+                            pt: 1,
+                            pb: 1,
+                            zIndex: 10,
+                        }}
+                    >
                         <Button
                             size="small"
                             startIcon={<DeleteIcon />}
                             onClick={handleClear}
                             variant="outlined"
                             color="secondary"
+                            sx={{
+                                opacity: 0.85,
+                                transition: 'opacity 0.2s ease-in-out',
+                                '&:hover': {
+                                    opacity: 1,
+                                },
+                            }}
                         >
                             Clear
                         </Button>
