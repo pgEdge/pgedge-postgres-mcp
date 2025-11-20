@@ -206,6 +206,13 @@ func HandleChat(w http.ResponseWriter, r *http.Request, config *Config) {
 		return
 	}
 
+	// Ensure request body is closed
+	defer func() {
+		if err := r.Body.Close(); err != nil {
+			fmt.Fprintf(os.Stderr, "WARNING: Failed to close request body: %v\n", err)
+		}
+	}()
+
 	// Parse request body
 	var req ChatRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
