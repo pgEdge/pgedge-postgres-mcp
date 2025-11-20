@@ -87,9 +87,9 @@ if [ -n "$INIT_TOKENS" ]; then
 
     echo "Created token file with $(echo "$INIT_TOKENS" | tr ',' '\n' | wc -l | tr -d ' ') tokens"
 else
-    # Create empty tokens.json if not using token authentication
+    # Create empty tokens.json (no tokens initialized)
     echo "{}" > "$TOKEN_FILE"
-    echo "Created empty token file (not using token authentication)"
+    echo "Created empty token file (no tokens initialized)"
 fi
 
 # Initialize users file if INIT_USERS is provided

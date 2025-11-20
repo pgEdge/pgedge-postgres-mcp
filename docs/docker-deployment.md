@@ -115,17 +115,25 @@ PGEDGE_OLLAMA_URL=http://localhost:11434
 
 #### Authentication
 
-**Token-based authentication** (simpler, for trusted environments):
+The server supports both token-based and user-based authentication
+simultaneously. You can initialize both types at startup:
+
+**Token-based authentication** (for service-to-service or API access):
 
 ```bash
-PGEDGE_AUTH_MODE=token
 INIT_TOKENS=token1,token2,token3
 ```
 
-**User-based authentication** (more secure):
+**User-based authentication** (for interactive users with session tokens):
 
 ```bash
-PGEDGE_AUTH_MODE=user
+INIT_USERS=alice:password123,bob:password456
+```
+
+**Both simultaneously**:
+
+```bash
+INIT_TOKENS=api-token-1,api-token-2
 INIT_USERS=alice:password123,bob:password456
 ```
 
@@ -288,7 +296,6 @@ PGEDGE_EMBEDDING_MODEL=voyage-3
 PGEDGE_ANTHROPIC_API_KEY=sk-ant-api03-...
 
 # Authentication
-PGEDGE_AUTH_MODE=token
 INIT_TOKENS=dev-token-1
 
 # LLM
@@ -328,7 +335,6 @@ PGEDGE_EMBEDDING_MODEL=voyage-3
 PGEDGE_ANTHROPIC_API_KEY=sk-ant-api03-...
 
 # Authentication - user mode for production
-PGEDGE_AUTH_MODE=user
 INIT_USERS=alice:secure_password_1,bob:secure_password_2
 
 # LLM
@@ -364,7 +370,6 @@ PGEDGE_EMBEDDING_MODEL=nomic-embed-text
 PGEDGE_OLLAMA_URL=http://host.docker.internal:11434
 
 # Authentication
-PGEDGE_AUTH_MODE=token
 INIT_TOKENS=local-token
 
 # LLM with Ollama
@@ -407,7 +412,6 @@ PGEDGE_EMBEDDING_MODEL=text-embedding-3-small
 PGEDGE_OPENAI_API_KEY=sk-proj-...
 
 # Authentication
-PGEDGE_AUTH_MODE=token
 INIT_TOKENS=openai-token
 
 # LLM with OpenAI
@@ -603,8 +607,8 @@ docker-compose logs -f
 ### Security
 
 1. **Use secrets management**: Don't commit `.env` to version control
-2. **Enable user authentication**: Use `PGEDGE_AUTH_MODE=user` instead of
-   tokens
+2. **Use strong authentication**: Use user authentication (`INIT_USERS`) for
+   interactive access, and tokens (`INIT_TOKENS`) for service access
 3. **Use TLS**: Run behind a reverse proxy (nginx, Traefik) with HTTPS
 4. **Network security**: Use Docker networks to isolate services
 5. **Update regularly**: Keep base images and dependencies up to date

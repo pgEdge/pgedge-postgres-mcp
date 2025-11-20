@@ -27,8 +27,7 @@ services:
             - PGEDGE_LLM_MODEL=${PGEDGE_LLM_MODEL:-claude-sonnet-4-5}
             - PGEDGE_LLM_MAX_TOKENS=${PGEDGE_LLM_MAX_TOKENS:-4096}
             - PGEDGE_LLM_TEMPERATURE=${PGEDGE_LLM_TEMPERATURE:-0.7}
-            # Authentication
-            - PGEDGE_AUTH_MODE=${PGEDGE_AUTH_MODE:-token}
+            # Authentication (both tokens and users can be used simultaneously)
             - PGEDGE_TOKEN_FILE=/app/data/tokens.json
             - PGEDGE_USERS_FILE=/app/data/users.json
             - INIT_TOKENS=${INIT_TOKENS}
