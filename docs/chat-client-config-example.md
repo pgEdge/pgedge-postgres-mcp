@@ -31,6 +31,13 @@ mcp:
     # Command line flag: -mcp-server-path
     server_path: ./bin/pgedge-pg-mcp-svr
 
+    # Path to MCP server config file (for stdio mode)
+    # If specified, the --config flag will be passed to the server binary
+    # If not specified, the server will use its default config file lookup
+    # Default: (none - server uses default config lookup)
+    # Environment variable: PGEDGE_MCP_SERVER_CONFIG_PATH
+    server_config_path: ./bin/pgedge-pg-mcp-svr-stdio.yaml
+
     # -------------------------
     # HTTP Mode Configuration
     # -------------------------
@@ -171,6 +178,7 @@ ui:
 mcp:
     mode: stdio
     server_path: ./bin/pgedge-pg-mcp-svr
+    server_config_path: ./bin/pgedge-pg-mcp-svr-stdio.yaml
 
 llm:
     provider: anthropic
@@ -191,6 +199,7 @@ export PGEDGE_ANTHROPIC_API_KEY="your-key-here"
 mcp:
     mode: stdio
     server_path: ./bin/pgedge-pg-mcp-svr
+    server_config_path: ./bin/pgedge-pg-mcp-svr-stdio.yaml
 
 llm:
     provider: openai
@@ -232,6 +241,7 @@ export PGEDGE_MCP_TOKEN="your-mcp-token"
 mcp:
     mode: stdio
     server_path: ./bin/pgedge-pg-mcp-svr
+    server_config_path: ./bin/pgedge-pg-mcp-svr-stdio.yaml
 
 llm:
     provider: ollama
@@ -268,6 +278,8 @@ The chat client supports the following environment variables (in order of preced
 
 - `PGEDGE_MCP_MODE`: Connection mode (`stdio` or `http`)
 - `PGEDGE_MCP_SERVER_PATH`: Path to MCP server binary (stdio mode)
+- `PGEDGE_MCP_SERVER_CONFIG_PATH`: Path to MCP server config file (stdio
+    mode)
 - `PGEDGE_MCP_URL`: MCP server URL (http mode)
 - `PGEDGE_MCP_TOKEN`: Authentication token (http mode)
 

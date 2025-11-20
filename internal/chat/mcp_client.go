@@ -58,8 +58,14 @@ type stdioClient struct {
 }
 
 // NewStdioClient creates a new stdio-based MCP client
-func NewStdioClient(serverPath string) (MCPClient, error) {
-	cmd := exec.Command(serverPath)
+func NewStdioClient(serverPath, serverConfigPath string) (MCPClient, error) {
+	// Build command with optional config file argument
+	var cmd *exec.Cmd
+	if serverConfigPath != "" {
+		cmd = exec.Command(serverPath, "--config", serverConfigPath)
+	} else {
+		cmd = exec.Command(serverPath)
+	}
 
 	stdin, err := cmd.StdinPipe()
 	if err != nil {

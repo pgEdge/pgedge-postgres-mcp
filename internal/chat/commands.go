@@ -75,9 +75,11 @@ func (c *Client) printSlashHelp() {
 Slash Commands:
   /help                                Show this help message
   /set status-messages <on|off>        Enable or disable status messages
+  /set markdown <on|off>               Enable or disable markdown rendering
   /set llm-provider <provider>         Set LLM provider (anthropic, openai, ollama)
   /set llm-model <model>               Set LLM model to use
   /show status-messages                Show current status messages setting
+  /show markdown                       Show current markdown rendering setting
   /show llm-provider                   Show current LLM provider
   /show llm-model                      Show current LLM model
   /show settings                       Show all current settings
@@ -92,6 +94,7 @@ Other Commands:
 
 Examples:
   /set status-messages off
+  /set markdown on
   /set llm-provider openai
   /set llm-model gpt-4-turbo
   /list models
@@ -104,7 +107,7 @@ Examples:
 func (c *Client) handleSetCommand(args []string) bool {
 	if len(args) < 2 {
 		c.ui.PrintError("Usage: /set <setting> <value>")
-		c.ui.PrintSystemMessage("Available settings: status-messages, llm-provider, llm-model")
+		c.ui.PrintSystemMessage("Available settings: status-messages, markdown, llm-provider, llm-model")
 		return true
 	}
 
@@ -115,6 +118,9 @@ func (c *Client) handleSetCommand(args []string) bool {
 	case "status-messages":
 		return c.handleSetStatusMessages(value)
 
+	case "markdown":
+		return c.handleSetMarkdown(value)
+
 	case "llm-provider":
 		return c.handleSetLLMProvider(value)
 
@@ -123,7 +129,7 @@ func (c *Client) handleSetCommand(args []string) bool {
 
 	default:
 		c.ui.PrintError(fmt.Sprintf("Unknown setting: %s", setting))
-		c.ui.PrintSystemMessage("Available settings: status-messages, llm-provider, llm-model")
+		c.ui.PrintSystemMessage("Available settings: status-messages, markdown, llm-provider, llm-model")
 		return true
 	}
 }
@@ -145,6 +151,28 @@ func (c *Client) handleSetStatusMessages(value string) bool {
 
 	default:
 		c.ui.PrintError(fmt.Sprintf("Invalid value for status-messages: %s (use on or off)", value))
+	}
+
+	return true
+}
+
+// handleSetMarkdown handles setting markdown rendering on/off
+func (c *Client) handleSetMarkdown(value string) bool {
+	value = strings.ToLower(value)
+
+	switch value {
+	case "on", "true", "1", "yes":
+		c.config.UI.RenderMarkdown = true
+		c.ui.RenderMarkdown = true
+		c.ui.PrintSystemMessage("Markdown rendering enabled")
+
+	case "off", "false", "0", "no":
+		c.config.UI.RenderMarkdown = false
+		c.ui.RenderMarkdown = false
+		c.ui.PrintSystemMessage("Markdown rendering disabled")
+
+	default:
+		c.ui.PrintError(fmt.Sprintf("Invalid value for markdown: %s (use on or off)", value))
 	}
 
 	return true
@@ -199,7 +227,7 @@ func (c *Client) handleSetLLMModel(model string) bool {
 func (c *Client) handleShowCommand(args []string) bool {
 	if len(args) < 1 {
 		c.ui.PrintError("Usage: /show <setting>")
-		c.ui.PrintSystemMessage("Available settings: status-messages, llm-provider, llm-model, settings")
+		c.ui.PrintSystemMessage("Available settings: status-messages, markdown, llm-provider, llm-model, settings")
 		return true
 	}
 
@@ -213,6 +241,13 @@ func (c *Client) handleShowCommand(args []string) bool {
 		}
 		c.ui.PrintSystemMessage(fmt.Sprintf("Status messages: %s", status))
 
+	case "markdown":
+		status := "off"
+		if c.config.UI.RenderMarkdown {
+			status = "on"
+		}
+		c.ui.PrintSystemMessage(fmt.Sprintf("Markdown rendering: %s", status))
+
 	case "llm-provider":
 		c.ui.PrintSystemMessage(fmt.Sprintf("LLM provider: %s", c.config.LLM.Provider))
 
@@ -224,7 +259,7 @@ func (c *Client) handleShowCommand(args []string) bool {
 
 	default:
 		c.ui.PrintError(fmt.Sprintf("Unknown setting: %s", setting))
-		c.ui.PrintSystemMessage("Available settings: status-messages, llm-provider, llm-model, settings")
+		c.ui.PrintSystemMessage("Available settings: status-messages, markdown, llm-provider, llm-model, settings")
 	}
 
 	return true
@@ -242,6 +277,11 @@ func (c *Client) printAllSettings() {
 		statusMsg = "on"
 	}
 	fmt.Printf("  Status Messages:  %s\n", statusMsg)
+	markdown := "off"
+	if c.config.UI.RenderMarkdown {
+		markdown = "on"
+	}
+	fmt.Printf("  Render Markdown:  %s\n", markdown)
 	noColor := "no"
 	if c.config.UI.NoColor {
 		noColor = "yes"

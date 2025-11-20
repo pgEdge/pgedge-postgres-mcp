@@ -33,7 +33,7 @@ type Client struct {
 
 // NewClient creates a new chat client
 func NewClient(cfg *Config) (*Client, error) {
-	ui := NewUI(cfg.UI.NoColor)
+	ui := NewUI(cfg.UI.NoColor, cfg.UI.RenderMarkdown)
 	ui.DisplayStatusMessages = cfg.UI.DisplayStatusMessages
 	return &Client{
 		config:   cfg,
@@ -153,7 +153,7 @@ func (c *Client) connectToMCP(ctx context.Context) error {
 		c.mcp = NewHTTPClient(url, token)
 	} else {
 		// Stdio mode
-		mcpClient, err := NewStdioClient(c.config.MCP.ServerPath)
+		mcpClient, err := NewStdioClient(c.config.MCP.ServerPath, c.config.MCP.ServerConfigPath)
 		if err != nil {
 			return err
 		}

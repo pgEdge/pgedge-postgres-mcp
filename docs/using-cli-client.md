@@ -121,6 +121,7 @@ Example configuration:
 mcp:
     mode: stdio
     server_path: ./bin/pgedge-pg-mcp-svr
+    server_config_path: ./bin/pgedge-pg-mcp-svr-stdio.yaml
     # For HTTP mode:
     # url: http://localhost:8080
     # token: your-token-here
@@ -144,6 +145,7 @@ llm:
 ui:
     no_color: false
     display_status_messages: true  # Show/hide status messages during tool execution
+    render_markdown: true  # Render markdown with formatting and syntax highlighting
 ```
 
 For a complete configuration file example with all available options and detailed comments, see the [Chat Client Config Example](chat-client-config-example.md).
@@ -406,7 +408,8 @@ Shows comprehensive help for all slash commands with examples.
 /show status-messages
 ```
 
-Control whether status messages are displayed during tool execution. Useful for cleaner output or debugging.
+Control whether status messages are displayed during tool execution. Useful
+for cleaner output or debugging.
 
 **Examples:**
 
@@ -417,6 +420,38 @@ System: Status messages disabled
 You: /set status-messages on
 System: Status messages enabled
 ```
+
+#### Markdown Rendering
+
+```
+/set markdown <on|off>
+/show markdown
+```
+
+Enable or disable markdown rendering in assistant responses. When enabled,
+markdown content is rendered with:
+
+- **Formatted headings** - Different colors for different header levels
+- **Syntax highlighting** - Color-coded code blocks for multiple languages
+- **Styled lists** - Properly formatted bullet points and numbered lists
+- **Formatted tables** - Clean table rendering with box-drawing characters
+- **Emphasized text** - Bold and italic styling
+
+When disabled, responses are shown as plain text without formatting.
+
+**Examples:**
+
+```
+You: /set markdown on
+System: Markdown rendering enabled
+
+You: /set markdown off
+System: Markdown rendering disabled
+```
+
+**Note:** Markdown rendering uses the dark theme by default. If you have
+`no_color: true` in your configuration, markdown will be rendered without
+colors but still with formatting structure.
 
 #### Switch LLM Provider
 
@@ -485,7 +520,8 @@ System: Available models from anthropic (7):
 /show <setting>
 ```
 
-Display current configuration values. Available settings: `status-messages`, `llm-provider`, `llm-model`, `settings` (all).
+Display current configuration values. Available settings: `status-messages`,
+`markdown`, `llm-provider`, `llm-model`, `settings` (all).
 
 **Example:**
 
@@ -496,6 +532,7 @@ Current Settings:
 ─────────────────────────────────────────────────
 UI:
   Status Messages:  on
+  Render Markdown:  on
   No Color:         no
 
 LLM:

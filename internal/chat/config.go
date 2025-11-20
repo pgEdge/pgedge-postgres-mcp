@@ -29,14 +29,15 @@ type Config struct {
 
 // MCPConfig holds MCP server connection configuration
 type MCPConfig struct {
-	Mode       string `yaml:"mode"`        // stdio or http
-	URL        string `yaml:"url"`         // HTTP URL (for http mode)
-	ServerPath string `yaml:"server_path"` // Path to server binary (for stdio mode)
-	AuthMode   string `yaml:"auth_mode"`   // token or user (for http mode)
-	Token      string `yaml:"token"`       // Authentication token (for token mode)
-	Username   string `yaml:"username"`    // Username (for user mode)
-	Password   string `yaml:"password"`    // Password (for user mode)
-	TLS        bool   `yaml:"tls"`         // Use TLS/HTTPS
+	Mode             string `yaml:"mode"`               // stdio or http
+	URL              string `yaml:"url"`                // HTTP URL (for http mode)
+	ServerPath       string `yaml:"server_path"`        // Path to server binary (for stdio mode)
+	ServerConfigPath string `yaml:"server_config_path"` // Path to server config file (for stdio mode)
+	AuthMode         string `yaml:"auth_mode"`          // token or user (for http mode)
+	Token            string `yaml:"token"`              // Authentication token (for token mode)
+	Username         string `yaml:"username"`           // Username (for user mode)
+	Password         string `yaml:"password"`           // Password (for user mode)
+	TLS              bool   `yaml:"tls"`                // Use TLS/HTTPS
 }
 
 // LLMConfig holds LLM provider configuration
@@ -56,20 +57,22 @@ type LLMConfig struct {
 type UIConfig struct {
 	NoColor               bool `yaml:"no_color"`                // Disable colored output
 	DisplayStatusMessages bool `yaml:"display_status_messages"` // Display status messages during execution
+	RenderMarkdown        bool `yaml:"render_markdown"`         // Render markdown with formatting and syntax highlighting
 }
 
 // LoadConfig loads configuration from file, environment variables, and defaults
 func LoadConfig(configPath string) (*Config, error) {
 	cfg := &Config{
 		MCP: MCPConfig{
-			Mode:       getEnvOrDefault("PGEDGE_MCP_MODE", "stdio"),
-			URL:        os.Getenv("PGEDGE_MCP_URL"),
-			ServerPath: getEnvOrDefault("PGEDGE_MCP_SERVER_PATH", "../../bin/pgedge-pg-mcp-svr"),
-			AuthMode:   getEnvOrDefault("PGEDGE_MCP_AUTH_MODE", "user"),
-			Token:      "", // Will be loaded separately
-			Username:   os.Getenv("PGEDGE_MCP_USERNAME"),
-			Password:   os.Getenv("PGEDGE_MCP_PASSWORD"),
-			TLS:        false,
+			Mode:             getEnvOrDefault("PGEDGE_MCP_MODE", "stdio"),
+			URL:              os.Getenv("PGEDGE_MCP_URL"),
+			ServerPath:       getEnvOrDefault("PGEDGE_MCP_SERVER_PATH", "../../bin/pgedge-pg-mcp-svr"),
+			ServerConfigPath: getEnvOrDefault("PGEDGE_MCP_SERVER_CONFIG_PATH", ""),
+			AuthMode:         getEnvOrDefault("PGEDGE_MCP_AUTH_MODE", "user"),
+			Token:            "", // Will be loaded separately
+			Username:         os.Getenv("PGEDGE_MCP_USERNAME"),
+			Password:         os.Getenv("PGEDGE_MCP_PASSWORD"),
+			TLS:              false,
 		},
 		LLM: LLMConfig{
 			Provider:        getEnvOrDefault("PGEDGE_LLM_PROVIDER", "anthropic"),
@@ -83,6 +86,7 @@ func LoadConfig(configPath string) (*Config, error) {
 		UI: UIConfig{
 			NoColor:               os.Getenv("NO_COLOR") != "",
 			DisplayStatusMessages: true, // Default to showing status messages
+			RenderMarkdown:        true, // Default to rendering markdown
 		},
 		HistoryFile: filepath.Join(os.Getenv("HOME"), ".pgedge-pg-mcp-cli-history"),
 	}

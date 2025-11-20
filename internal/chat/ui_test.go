@@ -21,7 +21,7 @@ import (
 )
 
 func TestUI_Colorize_WithColor(t *testing.T) {
-	ui := NewUI(false) // Enable colors
+	ui := NewUI(false, false) // Enable colors, disable markdown
 
 	colored := ui.colorize(ColorRed, "test")
 	expected := ColorRed + "test" + ColorReset
@@ -32,7 +32,7 @@ func TestUI_Colorize_WithColor(t *testing.T) {
 }
 
 func TestUI_Colorize_NoColor(t *testing.T) {
-	ui := NewUI(true) // Disable colors
+	ui := NewUI(true, false) // Disable colors
 
 	colored := ui.colorize(ColorRed, "test")
 
@@ -42,7 +42,7 @@ func TestUI_Colorize_NoColor(t *testing.T) {
 }
 
 func TestUI_GetPrompt_WithColor(t *testing.T) {
-	ui := NewUI(false)
+	ui := NewUI(false, false)
 
 	prompt := ui.GetPrompt()
 	expected := ColorGreen + ColorBold + "You: " + ColorReset
@@ -53,7 +53,7 @@ func TestUI_GetPrompt_WithColor(t *testing.T) {
 }
 
 func TestUI_GetPrompt_NoColor(t *testing.T) {
-	ui := NewUI(true)
+	ui := NewUI(true, false)
 
 	prompt := ui.GetPrompt()
 
@@ -63,7 +63,7 @@ func TestUI_GetPrompt_NoColor(t *testing.T) {
 }
 
 func TestUI_PrintWelcome(t *testing.T) {
-	ui := NewUI(true)
+	ui := NewUI(true, false)
 
 	// Capture stdout
 	old := os.Stdout
@@ -90,7 +90,7 @@ func TestUI_PrintWelcome(t *testing.T) {
 }
 
 func TestUI_PrintAssistantResponse(t *testing.T) {
-	ui := NewUI(true)
+	ui := NewUI(true, false)
 
 	// Capture stdout
 	old := os.Stdout
@@ -117,7 +117,7 @@ func TestUI_PrintAssistantResponse(t *testing.T) {
 }
 
 func TestUI_PrintSystemMessage(t *testing.T) {
-	ui := NewUI(true)
+	ui := NewUI(true, false)
 
 	// Capture stdout
 	old := os.Stdout
@@ -144,7 +144,7 @@ func TestUI_PrintSystemMessage(t *testing.T) {
 }
 
 func TestUI_PrintError(t *testing.T) {
-	ui := NewUI(true)
+	ui := NewUI(true, false)
 
 	// Capture stdout
 	old := os.Stdout
@@ -171,7 +171,7 @@ func TestUI_PrintError(t *testing.T) {
 }
 
 func TestUI_PrintToolExecution(t *testing.T) {
-	ui := NewUI(true)
+	ui := NewUI(true, false)
 
 	// Capture stdout
 	old := os.Stdout
@@ -198,7 +198,7 @@ func TestUI_PrintToolExecution(t *testing.T) {
 }
 
 func TestUI_PrintToolExecution_WithURI(t *testing.T) {
-	ui := NewUI(true)
+	ui := NewUI(true, false)
 
 	// Capture stdout
 	old := os.Stdout
@@ -231,7 +231,7 @@ func TestUI_PrintToolExecution_WithURI(t *testing.T) {
 }
 
 func TestUI_PrintSeparator(t *testing.T) {
-	ui := NewUI(true)
+	ui := NewUI(true, false)
 
 	// Capture stdout
 	old := os.Stdout
@@ -254,7 +254,7 @@ func TestUI_PrintSeparator(t *testing.T) {
 }
 
 func TestUI_ShowThinking(t *testing.T) {
-	ui := NewUI(true)
+	ui := NewUI(true, false)
 
 	// Capture stdout
 	old := os.Stdout
@@ -291,7 +291,7 @@ func TestUI_ShowThinking(t *testing.T) {
 }
 
 func TestUI_ShowThinking_ContextCancellation(t *testing.T) {
-	ui := NewUI(true)
+	ui := NewUI(true, false)
 
 	// Capture stdout
 	old := os.Stdout
@@ -324,7 +324,7 @@ func TestUI_ShowThinking_ContextCancellation(t *testing.T) {
 }
 
 func TestUI_PrintHelp(t *testing.T) {
-	ui := NewUI(true)
+	ui := NewUI(true, false)
 
 	// Capture stdout
 	old := os.Stdout
@@ -350,7 +350,7 @@ func TestUI_PrintHelp(t *testing.T) {
 }
 
 func TestUI_ClearScreen(t *testing.T) {
-	ui := NewUI(true)
+	ui := NewUI(true, false)
 
 	// Capture stdout
 	old := os.Stdout
@@ -373,7 +373,7 @@ func TestUI_ClearScreen(t *testing.T) {
 }
 
 func TestUI_GetThinkingMaxWidth(t *testing.T) {
-	ui := NewUI(true)
+	ui := NewUI(true, false)
 
 	maxWidth := ui.getThinkingMaxWidth()
 
@@ -392,7 +392,7 @@ func TestUI_GetThinkingMaxWidth(t *testing.T) {
 }
 
 func TestUI_PromptForToken(t *testing.T) {
-	ui := NewUI(true)
+	ui := NewUI(true, false)
 
 	// This test is tricky because it reads from stdin
 	// We'll simulate input by providing a fake stdin
@@ -489,7 +489,7 @@ func TestUI_ColorConstants(t *testing.T) {
 }
 
 func TestUI_PrintUserInput(t *testing.T) {
-	ui := NewUI(true)
+	ui := NewUI(true, false)
 
 	// Capture stdout
 	old := os.Stdout

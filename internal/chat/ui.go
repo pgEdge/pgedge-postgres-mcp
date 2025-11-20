@@ -18,6 +18,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/charmbracelet/glamour"
 	"golang.org/x/term"
 )
 
@@ -38,13 +39,15 @@ const (
 type UI struct {
 	noColor               bool
 	DisplayStatusMessages bool
+	RenderMarkdown        bool
 }
 
 // NewUI creates a new UI instance
-func NewUI(noColor bool) *UI {
+func NewUI(noColor bool, renderMarkdown bool) *UI {
 	return &UI{
 		noColor:               noColor,
 		DisplayStatusMessages: true, // Default to showing status messages
+		RenderMarkdown:        renderMarkdown,
 	}
 }
 
@@ -86,7 +89,46 @@ func (ui *UI) PrintAssistantResponse(text string) {
 	// Clear the thinking animation line and add blank line before response
 	maxWidth := ui.getThinkingMaxWidth()
 	fmt.Print("\r" + strings.Repeat(" ", maxWidth) + "\r\n\n")
-	fmt.Print(ui.colorize(ColorBlue, "Assistant: ") + text + "\n")
+
+	// Print assistant label
+	fmt.Print(ui.colorize(ColorBlue, "Assistant: "))
+
+	// Render markdown if enabled
+	if ui.RenderMarkdown {
+		// Configure glamour renderer based on color settings
+		var style string
+		if ui.noColor {
+			style = "notty"
+		} else {
+			style = "dark" // Default to dark theme for terminal
+		}
+
+		// Get terminal width, but cap at a reasonable maximum for table rendering
+		// This prevents tables from becoming excessively wide on large terminals
+		termWidth := ui.getTerminalWidth()
+		width := termWidth
+		if width > 120 {
+			width = 120 // Cap at 120 columns for better table readability
+		}
+
+		r, err := glamour.NewTermRenderer(
+			glamour.WithAutoStyle(),
+			glamour.WithStylePath(style),
+			glamour.WithWordWrap(width),
+		)
+
+		if err == nil {
+			rendered, err := r.Render(text)
+			if err == nil {
+				fmt.Print(rendered)
+				return
+			}
+			// If rendering fails, fall back to plain text
+		}
+	}
+
+	// Plain text output (fallback or when markdown is disabled)
+	fmt.Print(text + "\n")
 }
 
 // PrintSystemMessage prints a system message
@@ -155,6 +197,22 @@ func (ui *UI) getThinkingMaxWidth() int {
 		}
 	}
 	return maxWidth
+}
+
+// getTerminalWidth returns the maximum width for markdown rendering
+// Tables will render at their natural content width, up to this maximum
+func (ui *UI) getTerminalWidth() int {
+	// Try to get terminal width from stdout
+	if width, _, err := term.GetSize(int(os.Stdout.Fd())); err == nil && width > 0 {
+		// Leave a small margin to prevent awkward wrapping at terminal edge
+		// Subtract 2 characters to account for potential line overflow
+		if width > 2 {
+			return width - 2
+		}
+		return width
+	}
+	// Default to 80 columns if we can't determine terminal width
+	return 80
 }
 
 // ShowThinking displays an animated "thinking" indicator
