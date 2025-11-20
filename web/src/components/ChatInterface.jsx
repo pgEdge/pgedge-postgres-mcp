@@ -391,7 +391,12 @@ const ChatInterface = () => {
             const match = /language-(\w+)/.exec(className || '');
             const language = match ? match[1] : '';
 
-            return !inline ? (
+            // Check if this is truly inline code by checking for newlines
+            // Sometimes react-markdown misidentifies inline code as block code
+            const childText = String(children);
+            const isInline = inline || !childText.includes('\n');
+
+            return !isInline ? (
                 <SyntaxHighlighter
                     style={vscDarkPlus}
                     language={language || 'text'}
@@ -407,14 +412,16 @@ const ChatInterface = () => {
                 </SyntaxHighlighter>
             ) : (
                 <code
+                    {...props}
                     style={{
-                        backgroundColor: 'rgba(0, 0, 0, 0.1)',
+                        display: 'inline',
+                        verticalAlign: 'baseline',
+                        backgroundColor: theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)',
                         padding: '2px 6px',
                         borderRadius: '3px',
                         fontFamily: 'monospace',
                         fontSize: '0.875em',
                     }}
-                    {...props}
                 >
                     {children}
                 </code>
@@ -424,7 +431,18 @@ const ChatInterface = () => {
             return <>{children}</>;
         },
         p({ children }) {
-            return <Typography variant="body1" sx={{ mb: 1 }}>{children}</Typography>;
+            return (
+                <p
+                    style={{
+                        marginBottom: theme.spacing(1),
+                        fontSize: '1rem',
+                        lineHeight: 1.5,
+                        color: theme.palette.text.primary,
+                    }}
+                >
+                    {children}
+                </p>
+            );
         },
         h1({ children }) {
             return <Typography variant="h5" sx={{ mt: 2, mb: 1, fontWeight: 'bold' }}>{children}</Typography>;
@@ -436,13 +454,32 @@ const ChatInterface = () => {
             return <Typography variant="subtitle1" sx={{ mt: 1.5, mb: 1, fontWeight: 'bold' }}>{children}</Typography>;
         },
         ul({ children }) {
-            return <Box component="ul" sx={{ pl: 2, my: 1 }}>{children}</Box>;
+            return (
+                <ul style={{ paddingLeft: theme.spacing(2), marginTop: theme.spacing(1), marginBottom: theme.spacing(1) }}>
+                    {children}
+                </ul>
+            );
         },
         ol({ children }) {
-            return <Box component="ol" sx={{ pl: 2, my: 1 }}>{children}</Box>;
+            return (
+                <ol style={{ paddingLeft: theme.spacing(2), marginTop: theme.spacing(1), marginBottom: theme.spacing(1) }}>
+                    {children}
+                </ol>
+            );
         },
         li({ children }) {
-            return <Typography component="li" variant="body1" sx={{ mb: 0.5 }}>{children}</Typography>;
+            return (
+                <li
+                    style={{
+                        marginBottom: theme.spacing(0.5),
+                        fontSize: '1rem',
+                        lineHeight: 1.5,
+                        color: theme.palette.text.primary,
+                    }}
+                >
+                    {children}
+                </li>
+            );
         },
         a({ href, children }) {
             return (
