@@ -76,20 +76,20 @@ jobs:
 
             - name: Build Docker images
               run: |
-                  echo "Building Docker images with docker-compose..."
-                  docker-compose build --parallel
+                  echo "Building Docker images with docker compose..."
+                  docker compose build --parallel
               timeout-minutes: 15
 
             - name: Verify images were built
               run: |
                   echo "Checking built images..."
                   docker images | grep pgedge-mcp || echo "Warning: No images found"
-                  docker-compose images
+                  docker compose images
 
             - name: Start services
               run: |
-                  echo "Starting services with docker-compose..."
-                  docker-compose up -d
+                  echo "Starting services with docker compose..."
+                  docker compose up -d
                   echo "Services started"
 
             - name: Wait for MCP server health check
@@ -98,7 +98,7 @@ jobs:
                   timeout=60
                   elapsed=0
                   while [ $elapsed -lt $timeout ]; do
-                    if docker-compose ps | grep mcp-server | grep -q "healthy"; then
+                    if docker compose ps | grep mcp-server | grep -q "healthy"; then
                       echo "MCP server is healthy"
                       exit 0
                     fi
@@ -107,8 +107,8 @@ jobs:
                     elapsed=$((elapsed + 2))
                   done
                   echo "ERROR: MCP server failed to become healthy"
-                  docker-compose ps
-                  docker-compose logs mcp-server
+                  docker compose ps
+                  docker compose logs mcp-server
                   exit 1
               timeout-minutes: 2
 
@@ -118,7 +118,7 @@ jobs:
                   timeout=60
                   elapsed=0
                   while [ $elapsed -lt $timeout ]; do
-                    if docker-compose ps | grep web-client | grep -q "healthy"; then
+                    if docker compose ps | grep web-client | grep -q "healthy"; then
                       echo "Web client is healthy"
                       exit 0
                     fi
@@ -127,15 +127,15 @@ jobs:
                     elapsed=$((elapsed + 2))
                   done
                   echo "ERROR: Web client failed to become healthy"
-                  docker-compose ps
-                  docker-compose logs web-client
+                  docker compose ps
+                  docker compose logs web-client
                   exit 1
               timeout-minutes: 2
 
             - name: Check service status
               run: |
                   echo "=== Docker Compose Services Status ==="
-                  docker-compose ps
+                  docker compose ps
                   echo ""
                   echo "=== Docker Container Details ==="
                   docker ps -a
@@ -212,7 +212,7 @@ jobs:
                     echo "✓ Web UI is accessible"
                   else
                     echo "✗ Web UI returned status code: $response"
-                    docker-compose logs web-client
+                    docker compose logs web-client
                     exit 1
                   fi
 
@@ -279,19 +279,19 @@ jobs:
               if: failure()
               run: |
                   echo "=== MCP Server Logs ==="
-                  docker-compose logs mcp-server
+                  docker compose logs mcp-server
                   echo ""
                   echo "=== Web Client Logs ==="
-                  docker-compose logs web-client
+                  docker compose logs web-client
                   echo ""
                   echo "=== Container Status ==="
-                  docker-compose ps
+                  docker compose ps
 
             - name: Cleanup
               if: always()
               run: |
                   echo "Stopping and removing containers..."
-                  docker-compose down -v
+                  docker compose down -v
                   echo "Cleanup complete"
 
     # Test with minimal configuration (no authentication)
@@ -341,13 +341,13 @@ jobs:
 
             - name: Build and start services
               run: |
-                  docker-compose build --parallel
-                  docker-compose up -d
+                  docker compose build --parallel
+                  docker compose up -d
 
             - name: Wait for services
               run: |
                   sleep 30
-                  docker-compose ps
+                  docker compose ps
 
             - name: Test server without authentication
               run: |
@@ -360,10 +360,10 @@ jobs:
                     echo "✓ Server is running"
                   else
                     echo "✗ Server is not accessible"
-                    docker-compose logs mcp-server
+                    docker compose logs mcp-server
                     exit 1
                   fi
 
             - name: Cleanup
               if: always()
-              run: docker-compose down -v
+              run: docker compose down -v
