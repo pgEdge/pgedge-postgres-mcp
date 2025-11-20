@@ -55,7 +55,7 @@ func StartHTTPMCPServer(t *testing.T, connString, apiKey, addr string, useTLS bo
 		buildCmd := exec.Command("go", "build", "-o", binaryPath, "../cmd/pgedge-pg-mcp-svr")
 		buildCmd.Dir = filepath.Dir(binaryPath)
 		if output, err := buildCmd.CombinedOutput(); err != nil {
-			return nil, fmt.Errorf("failed to build binary: %v\nOutput: %s", err, output)
+			return nil, fmt.Errorf("failed to build binary: %w\nOutput: %s", err, output)
 		}
 	}
 
