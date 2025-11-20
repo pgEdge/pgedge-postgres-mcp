@@ -51,28 +51,37 @@ repo_url: https://github.com/pgEdge/pgedge-mcp
 nav:
   - Getting Started:
       - Introduction: index.md
+
   - User Guide:
       - Configuration: configuration.md
       - Authentication: authentication.md
       - Deployment: deployment.md
+      - Docker Deployment: docker-deployment.md
+      - Using the CLI Client: using-cli-client.md
       - Available Tools: tools.md
       - Available Resources: resources.md
       - Query Examples: examples.md
       - Security: security.md
       - Troubleshooting: troubleshooting.md
-  - Chat Clients:
-      - Overview: chatbot-examples.md
-      - Go Chat Client: go-chat-client.md
-      - Python Examples:
-          - Stdio + Anthropic Claude: stdio-anthropic-chatbot.md
-          - HTTP + Ollama: http-ollama-chatbot.md
-  - Developer Guide:
-      - Development: development.md
-      - Architecture: architecture.md
+      - Configuration Examples:
+          - Server Config: config-example.md
+          - API Tokens: api-tokens-example.md
+          - Chat Client Config: chat-client-config-example.md
+
+  - Application Development:
+      - Overview: app-dev-overview.md
+      - MCP Protocol: mcp-protocol.md
+      - Server Architecture: architecture.md
+      - API Reference: api-reference.md
+      - LLM Proxy: llm-proxy.md
+      - Building Chat Clients:
+          - Overview: building-chat-clients.md
+          - Python Examples:
+              - Stdio + Anthropic: stdio-anthropic-chatbot.md
+              - HTTP + Ollama: http-ollama-chatbot.md
+
+  - Project Development:
+      - Development Setup: development.md
+      - Internal Architecture: internal-architecture.md
       - Testing: testing.md
-      - CI/CD: ci_cd.md
-      - MCP Protocol Reference: mcp_protocol.md
-  - Configuration Reference:
-      - Server Config Example: config-example.md
-      - API Tokens Example: api-tokens-example.md
-      - Chat Client Config Example: chat-client-config-example.md
+      - CI/CD: ci-cd.md

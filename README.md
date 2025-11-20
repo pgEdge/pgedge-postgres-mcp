@@ -5,7 +5,8 @@
 [![CI - Web Client](https://github.com/pgEdge/pgedge-postgres-mcp/workflows/CI%20-%20Web%20Client/badge.svg)](https://github.com/pgEdge/pgedge-postgres-mcp/actions/workflows/ci-web-client.yml)
 [![CI - Documentation](https://github.com/pgEdge/pgedge-postgres-mcp/workflows/CI%20-%20Documentation/badge.svg)](https://github.com/pgEdge/pgedge-postgres-mcp/actions/workflows/ci-docs.yml)
 
-A Model Context Protocol (MCP) server that enables **SQL queries** against PostgreSQL databases through MCP-compatible clients like Claude Desktop.
+A Model Context Protocol (MCP) server that enables **SQL queries** against
+PostgreSQL databases through MCP-compatible clients like Claude Desktop.
 
 ```
 SELECT * FROM customers WHERE created_at > CURRENT_DATE - INTERVAL '1 month';
@@ -13,17 +14,22 @@ SELECT product_id, SUM(revenue) as total FROM sales GROUP BY product_id ORDER BY
 SELECT tablename, pg_table_size(tablename::regclass) as size FROM pg_tables WHERE schemaname = 'public' ORDER BY size DESC;
 ```
 
-> 🚧 **WARNING**: This code is in pre-release status and MUST NOT be put into production without thorough testing!
+> 🚧 **WARNING**: This code is in pre-release status and MUST NOT be put
+> into production without thorough testing!
 
 ## Key Features
 
 - 🔒 **Read-Only Protection** - All queries run in read-only transactions
 - 📊 **3 Resources** - Access PostgreSQL statistics
-- 🛠️ **5 Tools** - Query execution, schema analysis, advanced hybrid search (BM25+MMR), embedding generation, resource reading
-- 💬 **Production Chat Client** - Full-featured Go client with Anthropic prompt caching (90% cost reduction)
+- 🛠️ **5 Tools** - Query execution, schema analysis, advanced hybrid search
+  (BM25+MMR), embedding generation, resource reading
+- 💬 **Production Chat Client** - Full-featured Go client with Anthropic
+  prompt caching (90% cost reduction)
 - 🌐 **HTTP/HTTPS Mode** - Direct API access with token authentication
-- 🖥️ **Web Interface** - Modern React-based UI with AI-powered chat for natural language database interaction
-- 🐳 **Docker Support** - Complete containerized deployment with Docker Compose
+- 🖥️ **Web Interface** - Modern React-based UI with AI-powered chat for
+  natural language database interaction
+- 🐳 **Docker Support** - Complete containerized deployment with Docker
+  Compose
 - 🔐 **Secure** - TLS support, token auth, read-only enforcement
 
 ## Quick Start
@@ -52,7 +58,8 @@ make build
 
 ### 3. Connect to Your Database
 
-Update your Claude Desktop configuration to include database connection parameters:
+Update your Claude Desktop configuration to include database connection
+parameters:
 
 ```json
 {
@@ -71,7 +78,8 @@ Update your Claude Desktop configuration to include database connection paramete
 }
 ```
 
-Alternatively, use a `.pgpass` file for password management (recommended for security):
+Alternatively, use a `.pgpass` file for password management (recommended for
+security):
 
 ```bash
 # ~/.pgpass
@@ -96,11 +104,14 @@ Then configure without PGPASSWORD in the config:
 }
 ```
 
-> **Note:** The server connects to the database at startup using standard PostgreSQL environment variables (PG*) or PGEDGE_DB_* variables. Passwords can be stored securely in `.pgpass` files.
+> **Note:** The server connects to the database at startup using standard
+> PostgreSQL environment variables (PG*) or PGEDGE_DB_* variables. Passwords
+> can be stored securely in `.pgpass` files.
 
 ## Example Queries
 
-The MCP client (like Claude Desktop) can translate natural language to SQL, which is then executed by this server.
+The MCP client (like Claude Desktop) can translate natural language to SQL,
+which is then executed by this server.
 
 **Schema Discovery:**
 - Request schema information using the `get_schema_info` tool
@@ -151,7 +162,8 @@ curl -X POST http://localhost:8080/mcp/v1 \
 
 ## Web Client
 
-A web-based management interface is available for monitoring and interacting with the MCP server:
+A web-based management interface is available for monitoring and interacting
+with the MCP server:
 
 ```bash
 # Quick start (starts both MCP server and web interface)
@@ -169,8 +181,6 @@ A web-based management interface is available for monitoring and interacting wit
 - MCP Server API: http://localhost:8080
 
 See [web/README.md](web/README.md) for detailed documentation.
-
-> **Note**: The web client is being migrated to use JSON-RPC direct communication with the MCP server (like the CLI) instead of the Express backend REST APIs. See **[Web Client Architecture Migration Guide](docs/web-client-architecture-migration.md)** for details.
 
 ## Docker Deployment
 
@@ -197,7 +207,8 @@ docker-compose up -d
 - Web Interface: http://localhost:8081
 - MCP API: http://localhost:8080
 
-See **[Docker Deployment Guide](docs/docker-deployment.md)** for complete documentation including:
+See **[Docker Deployment Guide](docs/docker-deployment.md)** for complete
+documentation including:
 - Individual container builds
 - Production deployment with reverse proxy
 - Security hardening
@@ -206,37 +217,54 @@ See **[Docker Deployment Guide](docs/docker-deployment.md)** for complete docume
 
 ## Documentation
 
-📚 **[Complete Documentation](docs/index.md)** - Comprehensive guides and references
+📚 **[Complete Documentation](docs/index.md)** - Comprehensive guides and
+references
 
 ### Essential Guides
-- **[Configuration Guide](docs/configuration.md)** - Config file, environment variables, CLI flags
-- **[Docker Deployment Guide](docs/docker-deployment.md)** - Complete Docker Compose deployment
-- **[Go Chat Client](docs/go-chat-client.md)** - Production-ready chat client with prompt caching
+
+- **[Configuration Guide](docs/configuration.md)** - Config file, environment
+  variables, CLI flags
+- **[Docker Deployment Guide](docs/docker-deployment.md)** - Complete Docker
+  Compose deployment
+- **[Using the CLI Client](docs/using-cli-client.md)** - Production-ready chat
+  client with prompt caching
 - **[Tools Documentation](docs/tools.md)** - All 5 MCP tools reference
-- **[Resources Documentation](docs/resources.md)** - All 3 MCP resources reference
+- **[Resources Documentation](docs/resources.md)** - All 3 MCP resources
+  reference
 - **[Query Examples](docs/examples.md)** - Comprehensive usage examples
-- **[Deployment Guide](docs/deployment.md)** - HTTP/HTTPS production deployment
+- **[Deployment Guide](docs/deployment.md)** - HTTP/HTTPS production
+  deployment
 - **[Authentication Guide](docs/authentication.md)** - API token management
 
 ### Technical Guides
-- **[MCP Protocol Guide](docs/mcp_protocol.md)** - Protocol implementation details
+
+- **[MCP Protocol Guide](docs/mcp-protocol.md)** - Protocol implementation
+  details
 - **[Security Guide](docs/security.md)** - Security best practices
-- **[Architecture Guide](docs/architecture.md)** - Code structure and extension
-- **[Web Client Architecture Migration](docs/web-client-architecture-migration.md)** - Migrating web client to JSON-RPC
+- **[Architecture Guide](docs/architecture.md)** - Code structure and
+  extension
+- **[LLM Proxy](docs/llm-proxy.md)** - LLM proxy for web applications
+- **[API Reference](docs/api-reference.md)** - Complete API documentation
 - **[Testing Guide](docs/testing.md)** - Unit and integration tests
-- **[Troubleshooting Guide](docs/troubleshooting.md)** - Common issues and solutions
+- **[Troubleshooting Guide](docs/troubleshooting.md)** - Common issues and
+  solutions
 
 ## How It Works
 
-1. **Configure** - Set database connection parameters via environment variables, config file, or command-line flags
-2. **Start** - Server starts and connects to PostgreSQL, extracting schema metadata
+1. **Configure** - Set database connection parameters via environment
+   variables, config file, or command-line flags
+2. **Start** - Server starts and connects to PostgreSQL, extracting schema
+   metadata
 3. **Query** - You provide SQL queries via Claude Desktop or API
 4. **Execute** - SQL runs in a **read-only transaction**
 5. **Return** - Results formatted and returned to the client
 
-**Read-Only Protection:** All queries run in read-only mode - no INSERT, UPDATE, DELETE, or DDL operations allowed.
+**Read-Only Protection:** All queries run in read-only mode - no INSERT,
+UPDATE, DELETE, or DDL operations allowed.
 
-**Natural Language Support:** The MCP client (like Claude Desktop with an LLM) can translate your natural language questions into SQL queries that are then executed by this server.
+**Natural Language Support:** The MCP client (like Claude Desktop with an LLM)
+can translate your natural language questions into SQL queries that are then
+executed by this server.
 
 ## Development
 
@@ -254,13 +282,15 @@ The project uses golangci-lint v1.x. Install it with:
 go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
 ```
 
-Note: The configuration file [`.golangci.yml`](.golangci.yml) is compatible with golangci-lint v1.x (not v2).
+Note: The configuration file [`.golangci.yml`](.golangci.yml) is compatible
+with golangci-lint v1.x (not v2).
 
 ### Testing
 
 ```bash
 # Run tests (uses TEST_PGEDGE_POSTGRES_CONNECTION_STRING)
-export TEST_PGEDGE_POSTGRES_CONNECTION_STRING="postgres://localhost/postgres?sslmode=disable"
+export TEST_PGEDGE_POSTGRES_CONNECTION_STRING=\
+  "postgres://localhost/postgres?sslmode=disable"
 go test ./...
 
 # Run with coverage
@@ -271,13 +301,15 @@ make lint
 # or directly:
 golangci-lint run
 
-# Run locally (configure database connection via environment variables or config file)
+# Run locally (configure database connection via environment variables or
+# config file)
 ./bin/pgedge-pg-mcp-svr
 ```
 
 #### Web UI Tests
 
-The web UI has a comprehensive test suite. See [web/TEST_SUMMARY.md](web/TEST_SUMMARY.md) for details.
+The web UI has a comprehensive test suite. See
+[web/TEST_SUMMARY.md](web/TEST_SUMMARY.md) for details.
 
 ```bash
 cd web
@@ -295,7 +327,8 @@ npm run test:coverage   # With coverage
 - ✅ File permission enforcement (0600)
 - ✅ Input validation and sanitization
 
-See **[Security Guide](docs/security.md)** for comprehensive security documentation.
+See **[Security Guide](docs/security.md)** for comprehensive security
+documentation.
 
 ## Troubleshooting
 
@@ -305,11 +338,14 @@ See **[Security Guide](docs/security.md)** for comprehensive security documentat
 - Check JSON syntax
 
 **Database connection errors?**
-- Ensure database connection is configured before starting the server (via environment variables, config file, or command-line flags)
+- Ensure database connection is configured before starting the server (via
+  environment variables, config file, or command-line flags)
 - Verify PostgreSQL is running: `pg_isready`
-- Check connection parameters are correct (host, port, database, user, password)
+- Check connection parameters are correct (host, port, database, user,
+  password)
 
-See **[Troubleshooting Guide](docs/troubleshooting.md)** for detailed solutions.
+See **[Troubleshooting Guide](docs/troubleshooting.md)** for detailed
+solutions.
 
 ## License
 
@@ -318,11 +354,14 @@ This software is released under The PostgreSQL License.
 ## Support
 
 - **📖 Documentation**: [docs/index.md](docs/index.md)
-- **🐛 Issues**: [GitHub Issues](https://github.com/pgEdge/pgedge-postgres-mcp/issues)
+- **🐛 Issues**:
+  [GitHub Issues](https://github.com/pgEdge/pgedge-postgres-mcp/issues)
 - **💡 Examples**: [Query Examples](docs/examples.md)
 
 ## Related Projects
 
-- [Model Context Protocol](https://modelcontextprotocol.io/) - MCP specification
+- [Model Context Protocol](https://modelcontextprotocol.io/) - MCP
+  specification
 - [Claude Desktop](https://claude.ai/) - Anthropic's Claude AI assistant
-- [PostgreSQL](https://www.postgresql.org/) - The world's most advanced open source database
+- [PostgreSQL](https://www.postgresql.org/) - The world's most advanced open
+  source database

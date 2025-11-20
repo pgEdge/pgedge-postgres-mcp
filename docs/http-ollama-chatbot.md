@@ -59,9 +59,12 @@ ollama==0.3.3
 cd ../..
 go build -o bin/pgedge-pg-mcp-svr ./cmd/pgedge-pg-mcp-svr
 
-# Start the server in HTTP mode
-./bin/pgedge-pg-mcp-svr -http -addr :8080
+# Start the server in HTTP mode (with authentication disabled for this example)
+./bin/pgedge-pg-mcp-svr -http -addr :8080 -no-auth
 ```
+
+**Note:** This example uses `-no-auth` for simplicity. For production deployments,
+use token-based or user-based authentication (see [Authentication Guide](authentication.md)).
 
 **5. Set up environment (in a new terminal):**
 
@@ -72,11 +75,11 @@ export PGEDGE_MCP_SERVER_URL="http://localhost:8080/mcp/v1"
 # Optional: Ollama configuration (defaults shown)
 export OLLAMA_BASE_URL="http://localhost:11434"
 export OLLAMA_MODEL="gpt-oss:20b"
-
-# Optional: Database connection string
-# (You can also configure connections through the chatbot)
-export PGEDGE_POSTGRES_CONNECTION_STRING="postgres://user:pass@localhost/mydb"
 ```
+
+**Note:** The MCP server must be configured with database connection information
+before starting. See "Need to configure a database connection?" in the
+Troubleshooting section below.
 
 ## Running the Chatbot
 
@@ -220,10 +223,14 @@ Similar to the stdio example, but adapted for Ollama:
 
 ## Environment Variables
 
+**Client Environment Variables:**
+
 - `PGEDGE_MCP_SERVER_URL` (required): URL of the MCP server running in HTTP mode
 - `OLLAMA_BASE_URL` (optional): URL of the Ollama service (default: `http://localhost:11434`)
 - `OLLAMA_MODEL` (optional): Ollama model to use (default: `gpt-oss:20b`)
-- `PGEDGE_POSTGRES_CONNECTION_STRING` (optional): PostgreSQL connection string
+
+**Server Database Configuration:** See "Need to configure a database connection?"
+in the Troubleshooting section below.
 
 ## Available Ollama Models
 
@@ -250,7 +257,7 @@ export OLLAMA_MODEL="mistral"
 Make sure the MCP server is running in HTTP mode:
 
 ```bash
-./bin/pgedge-pg-mcp-svr -http -addr :8080
+./bin/pgedge-pg-mcp-svr -http -addr :8080 -no-auth
 export PGEDGE_MCP_SERVER_URL="http://localhost:8080/mcp/v1"
 ```
 

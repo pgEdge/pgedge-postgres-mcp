@@ -523,5 +523,5 @@ For more troubleshooting help, see the [Troubleshooting Guide](troubleshooting.m
 - [Configuration Guide](configuration.md) - Configuration file and environment setup
 - [Authentication Guide](authentication.md) - API token management
 - [Security Guide](security.md) - Security best practices
-- [MCP Protocol Guide](mcp_protocol.md) - Protocol implementation details
+- [MCP Protocol Guide](mcp-protocol.md) - Protocol implementation details
 - [Troubleshooting Guide](troubleshooting.md) - Common issues and solutions

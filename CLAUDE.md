@@ -12,7 +12,7 @@
         for the extension). 
     * Markdown files in /docs should have lowercase names.
     * Always ensure markdown files are wrapped at 79 characters or less, 
-        except where it would split a URL or similar.
+        except where it would split a URL or in codes samples or similar.
 
 * Always add tests to exercise new functionality.
     * When running tests to verify changes, always run all tests and check 

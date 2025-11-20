@@ -282,6 +282,6 @@ This file should contain only the token (no newlines or extra whitespace).
 
 ## See Also
 
-- [Go Chat Client Documentation](go-chat-client.md) - Complete usage guide
+- [Go Chat Client Documentation](using-cli-client.md) - Complete usage guide
 - [MCP Server Configuration](config-example.md) - Configure the MCP server
 - [Authentication](authentication.md) - Set up API tokens for HTTP mode

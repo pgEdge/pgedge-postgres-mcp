@@ -1,6 +1,8 @@
 # Docker Deployment
 
-The pgEdge Postgres MCP provides Docker containers for easy deployment of the MCP server and web client. This guide covers building, configuring, and running the containerized services.
+The pgEdge Postgres MCP provides Docker containers for easy deployment of the
+MCP server and web client. This guide covers building, configuring, and running
+the containerized services.
 
 ## Quick Start
 
@@ -24,29 +26,44 @@ open http://localhost:8081
 
 ### MCP Server
 
-The MCP server container provides the backend Model Context Protocol service with PostgreSQL database access.
+The MCP server container provides the backend Model Context Protocol service
+with PostgreSQL database access.
 
-- **Base Image**: `golang:1.23-alpine` (builder), `registry.access.redhat.com/ubi9/ubi-minimal:latest` (runtime)
+- **Base Image**: `golang:1.23-alpine` (builder),
+  `registry.access.redhat.com/ubi9/ubi-minimal:latest` (runtime)
 - **Build**: Multi-stage build with Go 1.23 compilation
-- **Size**: ~177MB (includes shadow-utils for proper volume permission handling)
+- **Size**: ~177MB (includes shadow-utils for proper volume permission
+  handling)
 - **Port**: 8080 (HTTP API)
 - **Dockerfile**: [Dockerfile.server](../Dockerfile.server)
 
 ### Web Client
 
-The web client container provides a browser-based chat interface.
+The web client container provides a browser-based React chat interface that
+communicates with the MCP server via JSON-RPC.
 
-- **Base Image**: `registry.access.redhat.com/ubi9/nodejs-20:latest` (builder), `registry.access.redhat.com/ubi9/nginx-124:latest` (runtime)
+- **Base Image**: `registry.access.redhat.com/ubi9/nodejs-20:latest` (builder),
+  `registry.access.redhat.com/ubi9/nginx-124:latest` (runtime)
 - **Build**: Multi-stage build with Node.js/Vite compilation and nginx serving
 - **Size**: ~501MB (includes nginx, static assets, and dependencies)
 - **Port**: 8081 (HTTP)
+- **Architecture**: Single-page React application with client-side agentic
+  loop
+- **Communication**: JSON-RPC 2.0 to MCP server (via nginx proxy)
 - **Dockerfile**: [Dockerfile.web](../Dockerfile.web)
+
+**Architecture:**
+
+- nginx serves static React files
+- `/mcp/v1` proxied to MCP server for JSON-RPC requests
+- `/api/*` proxied to MCP server for LLM proxy and user info
 
 ### CLI Client
 
 The CLI client container provides an interactive command-line interface.
 
-- **Base Image**: `golang:1.23-alpine` (builder), `registry.access.redhat.com/ubi9/ubi-micro:latest` (runtime)
+- **Base Image**: `golang:1.23-alpine` (builder),
+  `registry.access.redhat.com/ubi9/ubi-micro:latest` (runtime)
 - **Build**: Multi-stage build with Go 1.23 compilation
 - **Size**: Minimal (~48MB)
 - **Usage**: Interactive terminal
@@ -56,7 +73,8 @@ The CLI client container provides an interactive command-line interface.
 
 ### Environment Variables
 
-All configuration is done through environment variables in the `.env` file. Copy [.env.example](../.env.example) to `.env` and customize:
+All configuration is done through environment variables in the `.env` file.
+Copy [.env.example](../.env.example) to `.env` and customize:
 
 ```bash
 cp .env.example .env
@@ -111,14 +129,21 @@ PGEDGE_AUTH_MODE=user
 INIT_USERS=alice:password123,bob:password456
 ```
 
-#### LLM Configuration for Clients
+#### LLM Configuration for Web Client
+
+The MCP server includes an LLM proxy service that allows the web client to chat
+with LLM providers while keeping API keys secure on the server side.
 
 ```bash
 PGEDGE_LLM_PROVIDER=anthropic  # anthropic, openai, or ollama
 PGEDGE_LLM_MODEL=claude-sonnet-4-20250514
 ```
 
-See [.env.example](../.env.example) for complete configuration options and examples.
+**Note:** The `PGEDGE_OLLAMA_URL` variable is used for both embeddings and LLM
+when using Ollama. There is no separate `PGEDGE_LLM_OLLAMA_URL` variable.
+
+See [.env.example](../.env.example) for complete configuration options and
+examples.
 
 ## Building Containers
 
@@ -145,8 +170,10 @@ docker build -f Dockerfile.cli -t pgedge-mcp-cli .
 
 ```bash
 # Tag for your registry
-docker build -f Dockerfile.server -t registry.example.com/pgedge-mcp-server:latest .
-docker build -f Dockerfile.web -t registry.example.com/pgedge-mcp-web:latest .
+docker build -f Dockerfile.server \
+  -t registry.example.com/pgedge-mcp-server:latest .
+docker build -f Dockerfile.web \
+  -t registry.example.com/pgedge-mcp-web:latest .
 
 # Push to registry
 docker push registry.example.com/pgedge-mcp-server:latest
@@ -398,7 +425,8 @@ docker-compose up -d
 
 ### Service Communication
 
-Services communicate via a Docker bridge network named `pgedge-network`. Internal service names:
+Services communicate via a Docker bridge network named `pgedge-network`.
+Internal service names:
 
 - MCP Server: `mcp-server:8080`
 - Web Client: `web-client:8081`
@@ -412,7 +440,8 @@ If your PostgreSQL database is on the host machine:
 PGEDGE_DB_HOST=host.docker.internal
 ```
 
-If using Docker Compose with a PostgreSQL container, add it to `docker-compose.yml`:
+If using Docker Compose with a PostgreSQL container, add it to
+`docker-compose.yml`:
 
 ```yaml
 services:
@@ -439,7 +468,8 @@ volumes:
 
 ## Persistent Data
 
-Token and user data is stored in a Docker volume named `mcp-data`. This ensures data persists across container restarts.
+Token and user data is stored in a Docker volume named `mcp-data`. This
+ensures data persists across container restarts.
 
 ### Backup Data
 
@@ -513,8 +543,10 @@ docker-compose logs web-client
 Common issues:
 
 1. **Database connection failed**: Verify `PGEDGE_DB_*` variables
-2. **Missing API key**: Set `PGEDGE_ANTHROPIC_API_KEY` or `PGEDGE_OPENAI_API_KEY`
-3. **Port already in use**: Change `MCP_SERVER_PORT` or `WEB_CLIENT_PORT` in `.env`
+2. **Missing API key**: Set `PGEDGE_ANTHROPIC_API_KEY` or
+   `PGEDGE_OPENAI_API_KEY`
+3. **Port already in use**: Change `MCP_SERVER_PORT` or `WEB_CLIENT_PORT` in
+   `.env`
 
 ### Can't Connect to Database
 
@@ -539,7 +571,8 @@ docker network inspect pgedge-network
 
 ### Permission Denied Errors
 
-All containers run as non-root user (UID 1001). Ensure volumes have correct permissions:
+All containers run as non-root user (UID 1001). Ensure volumes have correct
+permissions:
 
 ```bash
 # Fix volume permissions
@@ -570,7 +603,8 @@ docker-compose logs -f
 ### Security
 
 1. **Use secrets management**: Don't commit `.env` to version control
-2. **Enable user authentication**: Use `PGEDGE_AUTH_MODE=user` instead of tokens
+2. **Enable user authentication**: Use `PGEDGE_AUTH_MODE=user` instead of
+   tokens
 3. **Use TLS**: Run behind a reverse proxy (nginx, Traefik) with HTTPS
 4. **Network security**: Use Docker networks to isolate services
 5. **Update regularly**: Keep base images and dependencies up to date
@@ -647,4 +681,4 @@ docker stats pgedge-mcp-server pgedge-mcp-web-client
 - [Authentication](authentication.md) - User and token authentication setup
 - [MCP Server](go-mcp-server.md) - MCP server documentation
 - [Web Client](web-client.md) - Web client documentation
-- [CLI Client](go-chat-client.md) - CLI client documentation
+- [CLI Client](using-cli-client.md) - CLI client documentation

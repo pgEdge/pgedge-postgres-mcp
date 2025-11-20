@@ -101,12 +101,12 @@ API token management for HTTP/HTTPS mode including token generation, validation,
 #### [Web Interface](../web/README.md)
 Modern React-based web interface for server monitoring and management. Features secure authentication, real-time PostgreSQL system information, and responsive design. Includes quick start guide and deployment instructions.
 
-#### [Go Chat Client](go-chat-client.md)
+#### [Go Chat Client](using-cli-client.md)
 Production-ready command-line chat client with Anthropic prompt caching (90% cost reduction), support for both stdio and HTTP modes, and comprehensive session management.
 
 ### Technical Guides
 
-#### [MCP Protocol Guide](mcp_protocol.md)
+#### [MCP Protocol Guide](mcp-protocol.md)
 Protocol implementation details covering JSON-RPC 2.0 format, transport layers (stdio, HTTP), tool invocation, and resource access.
 
 #### [Security Guide](security.md)
@@ -118,7 +118,7 @@ Internal architecture documentation covering code organization, package structur
 #### [Testing Guide](testing.md)
 Testing documentation covering unit tests, integration tests, PostgreSQL version compatibility testing, and CI/CD integration.
 
-#### [CI/CD Guide](ci_cd.md)
+#### [CI/CD Guide](ci-cd.md)
 Continuous integration documentation covering GitHub Actions workflows, automated testing, release process, and version management.
 
 #### [Troubleshooting Guide](troubleshooting.md)

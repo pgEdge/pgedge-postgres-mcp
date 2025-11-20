@@ -48,7 +48,7 @@ class PostgresChatbot:
         server_params = StdioServerParameters(
             command=server_path,
             args=[],
-            env=None  # Inherits parent environment (including PGEDGE_POSTGRES_CONNECTION_STRING)
+            env=None  # Inherits parent environment (including PG* or PGEDGE_DB_* variables)
         )
 
         # Connect to server

@@ -45,9 +45,17 @@ mcp>=1.0.0
 # Required: Your Anthropic API key
 export ANTHROPIC_API_KEY="sk-ant-..."
 
-# Optional: Database connection string
-# (You can also configure connections through the chatbot)
-export PGEDGE_POSTGRES_CONNECTION_STRING="postgres://user:pass@localhost/mydb"
+# Optional: Database connection (using PostgreSQL standard environment variables)
+export PGHOST="localhost"
+export PGPORT="5432"
+export PGDATABASE="mydb"
+export PGUSER="myuser"
+export PGPASSWORD="mypass"  # Or use ~/.pgpass file for better security
+```
+
+**Note:** You can also use `PGEDGE_POSTGRES_CONNECTION_STRING` instead:
+```bash
+export PGEDGE_POSTGRES_CONNECTION_STRING="postgres://myuser:mypass@localhost:5432/mydb"
 ```
 
 **4. Build the MCP server** (if not already built):
@@ -127,7 +135,9 @@ async def connect_to_server(self, server_path: str):
     await self.session.initialize()
 ```
 
-This spawns the MCP server process and establishes stdio communication. The server inherits environment variables (like `PGEDGE_POSTGRES_CONNECTION_STRING` if set).
+This spawns the MCP server process and establishes stdio communication. The server
+inherits environment variables for database configuration (like `PGHOST`, `PGPORT`,
+`PGDATABASE`, `PGUSER`, `PGPASSWORD`, or `PGEDGE_POSTGRES_CONNECTION_STRING` if set).
 
 ### 2. Tool Discovery
 
@@ -174,9 +184,19 @@ while True:
 
 ## Environment Variables
 
+**Client Environment Variables:**
+
 - `ANTHROPIC_API_KEY` (required): Your Anthropic API key
-- `PGEDGE_POSTGRES_CONNECTION_STRING` (optional): PostgreSQL connection string
 - `PGEDGE_MCP_SERVER_PATH` (optional): Custom path to the MCP server binary (default: `../../bin/pgedge-pg-mcp-svr`)
+
+**Server Database Configuration:**
+
+The MCP server (launched by the client) inherits the parent environment and uses
+these variables for database configuration:
+
+- `PGHOST`, `PGPORT`, `PGDATABASE`, `PGUSER`, `PGPASSWORD` (standard PostgreSQL variables)
+- Or `PGEDGE_POSTGRES_CONNECTION_STRING` (connection string format)
+- Or `PGEDGE_DB_HOST`, `PGEDGE_DB_PORT`, `PGEDGE_DB_NAME`, `PGEDGE_DB_USER`, `PGEDGE_DB_PASSWORD` (pgEdge variables)
 
 ## Troubleshooting
 

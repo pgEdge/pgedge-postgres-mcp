@@ -2,7 +2,7 @@
 
 The pgEdge Postgres MCP Go Chat Client is a **production-ready, full-featured** native Go implementation that provides an interactive command-line interface for chatting with your PostgreSQL database using natural language.
 
-This is the recommended client for production use and provides significantly more features and polish than the [Python examples](chatbot-examples.md), which are intended as simple reference implementations to demonstrate the MCP protocol.
+This is the recommended client for production use and provides significantly more features and polish than the [Python examples](building-chat-clients.md), which are intended as simple reference implementations to demonstrate the MCP protocol.
 
 ## Features
 
@@ -543,7 +543,7 @@ ollama pull llama3
 
 **For Users:**
 - [Chat Client Config Example](chat-client-config-example.md) - Complete configuration reference
-- [Chatbot Examples Overview](chatbot-examples.md) - Compare different chatbot approaches
+- [Chatbot Examples Overview](building-chat-clients.md) - Compare different chatbot approaches
 - [Stdio + Anthropic Claude Chatbot](stdio-anthropic-chatbot.md) - Python stdio example
 - [HTTP + Ollama Chatbot](http-ollama-chatbot.md) - Python HTTP + Ollama example
 - [MCP Server Configuration](configuration.md) - Configure the MCP server

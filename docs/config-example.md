@@ -70,7 +70,7 @@ http:
 
         # Path to API token configuration file
         # Default: Same directory as binary (pgedge-pg-mcp-svr-tokens.yaml)
-        # Environment variable: PGEDGE_MCP_TOKEN_FILE
+        # Environment variable: PGEDGE_AUTH_TOKEN_FILE
         # Command line flag: -token-file
         token_file: ""
 
@@ -88,7 +88,7 @@ http:
 # IMPORTANT: The secret file must have 0600 permissions (owner read/write only)
 #            The server will refuse to start if permissions are incorrect
 # Environment variable: PGEDGE_SECRET_FILE
-# Command line flag: -secret-file
+# Command line flag: N/A (not available)
 secret_file: ""
 
 # ============================================================================

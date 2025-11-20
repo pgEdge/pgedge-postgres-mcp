@@ -5,104 +5,244 @@
 ```
 pgedge-postgres-mcp/
 ├── cmd/
-│   └── pgedge-postgres-mcp/           # Application entry point
-│       └── main.go           # Main function, initializes and wires components
+│   ├── pgedge-pg-mcp-svr/    # MCP server entry point
+│   │   └── main.go           # HTTP/stdio server, routes, handlers
+│   └── pgedge-pg-mcp-cli/    # Chat CLI client entry point
+│       └── main.go           # Interactive chat client
 │
 ├── internal/                 # Private application code
-│   ├── database/             # PostgreSQL integration
-│   │   ├── types.go          # Database-related types
-│   │   └── connection.go     # Connection management and metadata loading
+│   ├── auth/                 # Authentication
+│   │   ├── token.go          # API token management
+│   │   └── middleware.go     # HTTP auth middleware
 │   │
-│   ├── llm/                  # LLM integration
-│   │   └── client.go         # Claude API client
+│   ├── chat/                 # Chat client implementation
+│   │   ├── client.go         # Main chat client logic
+│   │   ├── llm.go            # LLM client abstraction
+│   │   ├── mcp_client.go     # MCP JSON-RPC client
+│   │   └── commands.go       # Slash commands
+│   │
+│   ├── config/               # Configuration management
+│   │   └── config.go         # YAML config and env vars
+│   │
+│   ├── database/             # PostgreSQL integration
+│   │   ├── connection.go     # Per-session connection pools
+│   │   └── types.go          # Database-related types
+│   │
+│   ├── embedding/            # Embedding generation
+│   │   ├── anthropic.go      # Voyage embeddings
+│   │   ├── openai.go         # OpenAI embeddings
+│   │   └── ollama.go         # Ollama embeddings
+│   │
+│   ├── llmproxy/             # LLM proxy for web client
+│   │   └── proxy.go          # Provider/model/chat endpoints
 │   │
 │   ├── mcp/                  # MCP protocol implementation
 │   │   ├── types.go          # MCP protocol types
-│   │   └── server.go         # Protocol handler and stdio server
+│   │   └── server.go         # JSON-RPC handler
 │   │
-│   └── tools/                # MCP tool implementations
-│       ├── registry.go       # Tool registration and execution
-│       ├── query_database.go # Natural language query tool
-│       └── get_schema_info.go # Schema information tool
+│   ├── tools/                # MCP tool implementations
+│   │   ├── registry.go       # Tool registration
+│   │   ├── query_*.go        # Database query tools
+│   │   ├── schema_*.go       # Schema info tools
+│   │   └── auth_*.go         # Authentication tools
+│   │
+│   └── users/                # User management
+│       └── users.go          # User auth and sessions
+│
+├── web/                      # Web client (React)
+│   ├── src/
+│   │   ├── components/       # React components
+│   │   │   ├── ChatInterface.jsx
+│   │   │   ├── Login.jsx
+│   │   │   └── ...
+│   │   ├── contexts/         # React contexts
+│   │   │   └── AuthContext.jsx
+│   │   ├── lib/              # Client libraries
+│   │   │   └── mcp-client.js # JSON-RPC client
+│   │   └── App.jsx           # Main app component
+│   ├── package.json
+│   └── vite.config.js        # Vite configuration
+│
+├── docker/                   # Docker configuration
+│   ├── Dockerfile.server     # MCP server container
+│   ├── Dockerfile.web        # Web client container
+│   ├── Dockerfile.cli        # CLI client container
+│   ├── docker-compose.yml    # Multi-container deployment
+│   ├── nginx.conf            # nginx proxy config
+│   └── init-server.sh        # Server init script
 │
 ├── docs/                     # Documentation
-│   ├── README.md             # Full documentation
-│   ├── troubleshooting.md    # Troubleshooting guide
-│   └── architecture.md       # This file
-│
-├── configs/                  # Configuration examples
-│   ├── .env.example          # Environment variables
-│   └── pgedge-pg-mcp-svr.yaml.example # Server configuration
+│   ├── index.md              # Getting started
+│   ├── architecture.md       # This file
+│   ├── api-reference.md      # API endpoint documentation
+│   ├── llm-proxy.md          # LLM proxy guide
+│   ├── internal-architecture.md # Technical deep-dive
+│   └── ...                   # Other docs
 │
 ├── bin/                      # Compiled binaries (gitignored)
-│
 ├── go.mod                    # Go module definition
-├── go.sum                    # Go module checksums
 ├── Makefile                  # Build automation
 └── README.md                 # Quick start guide
 ```
 
+## System Overview
+
+The pgEdge Postgres MCP consists of three main components:
+
+1. **MCP Server**: Go-based server providing MCP protocol, LLM proxy, and
+   database tools
+2. **Web Client**: React SPA with client-side agentic loop
+3. **CLI Client**: Go-based interactive command-line chat interface
+
+### Deployment Architecture
+
+```
+┌─────────────┐
+│   Browser   │
+└──────┬──────┘
+       │ HTTP
+       ▼
+┌────────────────┐  nginx proxies  ┌────────────────┐
+│  web-client    │─────────────────▶│  mcp-server    │
+│  (nginx+React) │  /mcp/v1, /api   │  (Go binary)   │
+│  Port 8081     │                  │  Port 8080     │
+└────────────────┘                  └────────┬───────┘
+                                             │
+                    ┌────────────────────────┼────────────────┐
+                    │                        │                │
+                    ▼                        ▼                ▼
+              ┌──────────┐            ┌──────────┐     ┌──────────┐
+              │PostgreSQL│            │Anthropic │     │  Ollama  │
+              │          │            │ OpenAI   │     │(optional)│
+              └──────────┘            └──────────┘     └──────────┘
+```
+
 ## Component Overview
 
-### cmd/pgedge-pg-mcp-svr
-- **Purpose**: Application entry point
-- **Responsibilities**:
+### cmd/pgedge-pg-mcp-svr (MCP Server)
 
-    - Initialize database client
-    - Initialize LLM client
-    - Register tools
-    - Start MCP server
+- **Purpose**: Main MCP server providing tools, authentication, and LLM proxy
+- **Transport Modes**:
+    - stdio mode: For Claude Desktop integration
+    - HTTP mode: For web client, CLI client, and API access
+
+- **Responsibilities**:
+    - Initialize database connection manager
+    - Initialize embedding providers
+    - Register MCP tools
+    - Serve JSON-RPC 2.0 protocol
+    - Provide LLM proxy endpoints for web client
+    - Handle user authentication and sessions
+
+### cmd/pgedge-pg-mcp-cli (CLI Client)
+
+- **Purpose**: Interactive command-line chat interface
+- **Features**:
+    - Client-side agentic loop
+    - Direct LLM integration (Anthropic, OpenAI, Ollama)
+    - Connects to MCP server via stdio or HTTP
+    - Slash commands (/help, /models, /tables, etc.)
+    - Conversation history management
+
+### web/ (Web Client)
+
+- **Purpose**: Browser-based React chat interface
+- **Architecture**: Single-page application (SPA) built with React and
+  Material-UI
+- **Communication**:
+    - JSON-RPC 2.0 to MCP server for tools (`/mcp/v1`)
+    - REST API to MCP server for LLM proxy (`/api/llm/*`)
+    - REST API for user info (`/api/user/info`)
+
+- **Features**:
+    - Client-side agentic loop (matches CLI architecture)
+    - Session-based authentication
+    - Theme switching (light/dark mode)
+    - Real-time tool execution display
+    - Conversation history in React state
+
+### internal/llmproxy (LLM Proxy)
+
+- **Purpose**: Proxy LLM requests from web client to keep API keys secure
+- **Endpoints**:
+    - `GET /api/llm/providers` - List configured providers
+    - `GET /api/llm/models?provider=<name>` - List models for provider
+    - `POST /api/llm/chat` - Proxy chat requests to LLM
+
+- **Supported Providers**:
+    - Anthropic Claude (via Messages API)
+    - OpenAI GPT (via Chat Completions API)
+    - Ollama (local models via HTTP API)
+
+- **Benefits**:
+    - API keys never exposed to browser
+    - Centralized provider configuration
+    - Consistent authentication model
+
+### internal/chat (Chat Client Library)
+
+- **Purpose**: Shared chat client logic for CLI and web
+- **Key Components**:
+    - `LLMClient` interface: Abstraction over LLM providers
+    - `MCPClient`: JSON-RPC 2.0 client for MCP server
+    - Agentic loop implementation
+    - Message history management
 
 ### internal/database
+
 - **Purpose**: PostgreSQL connection and metadata management
-- **Key Components**:
-
-    - `Client`: Manages connection pool and metadata
-    - `TableInfo`, `ColumnInfo`: Metadata types
-
-- **Features**:
-
-    - Asynchronous metadata loading
+- **Key Features**:
+    - Per-session connection pools (one pool per session token)
+    - Connection isolation between users
+    - Async metadata loading (schema, tables, columns)
     - Thread-safe metadata access
-    - Automatic schema discovery from pg_catalog
+    - Automatic schema discovery from `pg_catalog`
 
-### internal/llm
-- **Purpose**: Claude AI integration for natural language processing
-- **Key Components**:
+### internal/embedding
 
-    - `Client`: Manages API requests to Claude
-
-- **Features**:
-
-    - Natural language to SQL conversion
-    - Configurable model selection
-    - Error handling and response parsing
+- **Purpose**: Text embedding generation for semantic search
+- **Supported Providers**:
+    - Anthropic Voyage embeddings
+    - OpenAI embeddings
+    - Ollama local embeddings
 
 ### internal/mcp
-- **Purpose**: Model Context Protocol implementation
+
+- **Purpose**: Model Context Protocol (JSON-RPC 2.0) implementation
 - **Key Components**:
-
-    - `Server`: Handles stdio communication
-    - Protocol types (Request, Response, Tool, etc.)
-
-- **Features**:
-
-    - JSON-RPC 2.0 protocol
-    - Request routing
+    - JSON-RPC request/response handling
     - Protocol version negotiation
+    - Method routing (`initialize`, `tools/list`, `tools/call`, etc.)
+
+- **Transport Support**:
+    - stdio (for Claude Desktop)
+    - HTTP (for web client, CLI, and API access)
 
 ### internal/tools
-- **Purpose**: MCP tool implementations
-- **Key Components**:
 
-    - `Registry`: Tool registration and execution
-    - Individual tool implementations
+- **Purpose**: MCP tool implementations
+- **Available Tools**:
+    - `query_database`: Natural language database queries
+    - `list_tables`: List all database tables
+    - `describe_table`: Get table schema
+    - `execute_sql`: Execute raw SQL
+    - `search_tables_semantic`: Semantic search over tables
+    - `authenticate_user`: User login (returns session token)
+    - And more...
 
 - **Features**:
-
-    - Extensible tool system
-    - Easy to add new tools
+    - Extensible tool registry
     - Consistent error handling
+    - Tool-specific database access
+
+### internal/users
+
+- **Purpose**: User authentication and session management
+- **Features**:
+    - Username/password authentication
+    - Session token generation and validation
+    - Token expiration management
+    - YAML-based user storage
 
 ## Data Flow
 

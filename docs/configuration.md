@@ -18,14 +18,14 @@ The pgEdge MCP Server supports multiple configuration methods with the following
 | `http.tls.key_file` | `-key` | `PGEDGE_TLS_KEY_FILE` | Path to TLS private key file |
 | `http.tls.chain_file` | `-chain` | `PGEDGE_TLS_CHAIN_FILE` | Path to TLS certificate chain file (optional) |
 | `http.auth.enabled` | `-no-auth` | `PGEDGE_AUTH_ENABLED` | Enable API token authentication (default: true) |
-| `http.auth.token_file` | `-token-file` | `PGEDGE_MCP_TOKEN_FILE` | Path to API tokens file |
+| `http.auth.token_file` | `-token-file` | `PGEDGE_AUTH_TOKEN_FILE` | Path to API tokens file |
 | `embedding.enabled` | N/A | N/A | Enable embedding generation (default: false) |
 | `embedding.provider` | N/A | N/A | Embedding provider: "ollama", "voyage", or "openai" |
 | `embedding.model` | N/A | N/A | Embedding model name (provider-specific) |
 | `embedding.ollama_url` | N/A | `PGEDGE_OLLAMA_URL` | Ollama API URL (default: "http://localhost:11434") |
 | `embedding.voyage_api_key` | N/A | `PGEDGE_VOYAGE_API_KEY` | Voyage AI API key for embeddings |
 | `embedding.openai_api_key` | N/A | `PGEDGE_OPENAI_API_KEY` | OpenAI API key for embeddings |
-| `secret_file` | `-secret-file` | `PGEDGE_SECRET_FILE` | Path to encryption secret file (auto-generated if not present) |
+| `secret_file` | N/A | `PGEDGE_SECRET_FILE` | Path to encryption secret file (auto-generated if not present) |
 
 ## Configuration File
 
@@ -75,10 +75,9 @@ The server uses a separate encryption secret file to store the encryption key us
 
 **Configuration Priority** (highest to lowest):
 
-1. Command line flag: `-secret-file /path/to/secret`
-2. Environment variable: `PGEDGE_SECRET_FILE=/path/to/secret`
-3. Configuration file: `secret_file: /path/to/secret`
-4. Default: `pgedge-pg-mcp-svr.secret` (same directory as binary)
+1. Environment variable: `PGEDGE_SECRET_FILE=/path/to/secret`
+2. Configuration file: `secret_file: /path/to/secret`
+3. Default: `pgedge-pg-mcp-svr.secret` (same directory as binary)
 
 ### Auto-Generation
 
@@ -381,7 +380,7 @@ The server supports environment variables for all configuration options. All env
 ### Authentication Variables
 
 - **`PGEDGE_AUTH_ENABLED`**: Enable API token authentication ("true", "1", "yes" to enable)
-- **`PGEDGE_MCP_TOKEN_FILE`**: Path to API token file
+- **`PGEDGE_AUTH_TOKEN_FILE`**: Path to API token file
 
 ### Examples
 
@@ -391,7 +390,7 @@ The server supports environment variables for all configuration options. All env
 export PGEDGE_HTTP_ENABLED="true"
 export PGEDGE_HTTP_ADDRESS=":8080"
 export PGEDGE_AUTH_ENABLED="true"
-export PGEDGE_MCP_TOKEN_FILE="./pgedge-pg-mcp-svr-tokens.yaml"
+export PGEDGE_AUTH_TOKEN_FILE="./pgedge-pg-mcp-svr-tokens.yaml"
 
 ./bin/pgedge-pg-mcp-svr
 ```
