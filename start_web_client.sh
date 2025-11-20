@@ -91,12 +91,23 @@ if [ -z "$PGEDGE_ANTHROPIC_API_KEY" ] && [ -z "$PGEDGE_OPENAI_API_KEY" ]; then
     echo "Embedding generation and chat may not work without API keys"
 fi
 
-# Check if web dependencies are installed
+# Check if web dependencies need updating
 if [ ! -d "$WEB_DIR/node_modules" ]; then
     echo -e "${BLUE}Installing web dependencies...${NC}"
     cd "$WEB_DIR"
     npm install
     cd "$SCRIPT_DIR"
+else
+    echo -e "${BLUE}Checking if web dependencies need updating...${NC}"
+    # Check if package.json or package-lock.json are newer than node_modules
+    if [ "$WEB_DIR/package.json" -nt "$WEB_DIR/node_modules" ] || [ "$WEB_DIR/package-lock.json" -nt "$WEB_DIR/node_modules" ]; then
+        echo -e "${BLUE}Package files changed, running npm install...${NC}"
+        cd "$WEB_DIR"
+        npm install
+        cd "$SCRIPT_DIR"
+    else
+        echo -e "${GREEN}Web dependencies are up to date${NC}"
+    fi
 fi
 
 echo -e "${BLUE}╔════════════════════════════════════════════════════════════╗${NC}"
