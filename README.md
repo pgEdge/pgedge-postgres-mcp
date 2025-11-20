@@ -3,6 +3,7 @@
 [![CI - MCP Server](https://github.com/pgEdge/pgedge-postgres-mcp/workflows/CI%20-%20MCP%20Server/badge.svg)](https://github.com/pgEdge/pgedge-postgres-mcp/actions/workflows/ci-server.yml)
 [![CI - CLI Client](https://github.com/pgEdge/pgedge-postgres-mcp/workflows/CI%20-%20CLI%20Client/badge.svg)](https://github.com/pgEdge/pgedge-postgres-mcp/actions/workflows/ci-cli-client.yml)
 [![CI - Web Client](https://github.com/pgEdge/pgedge-postgres-mcp/workflows/CI%20-%20Web%20Client/badge.svg)](https://github.com/pgEdge/pgedge-postgres-mcp/actions/workflows/ci-web-client.yml)
+[![CI - Docker Compose](https://github.com/pgEdge/pgedge-postgres-mcp/workflows/CI%20-%20Docker/badge.svg)](https://github.com/pgEdge/pgedge-postgres-mcp/actions/workflows/ci-docker.yml)
 [![CI - Documentation](https://github.com/pgEdge/pgedge-postgres-mcp/workflows/CI%20-%20Documentation/badge.svg)](https://github.com/pgEdge/pgedge-postgres-mcp/actions/workflows/ci-docs.yml)
 
 A Model Context Protocol (MCP) server that enables **SQL queries** against

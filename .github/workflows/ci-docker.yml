@@ -1,0 +1,369 @@
+name: CI - Docker
+
+on:
+    push:
+        branches: [ main, develop ]
+    pull_request:
+        branches: [ main, develop ]
+    # Allow manual trigger
+    workflow_dispatch:
+
+jobs:
+    docker-compose:
+        name: Docker Compose Integration Tests
+        runs-on: ubuntu-latest
+        timeout-minutes: 30
+
+        services:
+            # PostgreSQL database for testing
+            postgres:
+                image: postgres:17
+                env:
+                    POSTGRES_PASSWORD: test_password
+                    POSTGRES_USER: test_user
+                    POSTGRES_DB: test_db
+                options: >-
+                    --health-cmd pg_isready
+                    --health-interval 10s
+                    --health-timeout 5s
+                    --health-retries 5
+                ports:
+                    - 5432:5432
+
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v4
+
+            - name: Set up Docker Buildx
+              uses: docker/setup-buildx-action@v3
+
+            - name: Create .env file for testing
+              run: |
+                  cat > .env << 'EOF'
+                  # Service ports
+                  MCP_SERVER_PORT=8080
+                  WEB_CLIENT_PORT=8081
+
+                  # Database connection
+                  PGEDGE_DB_HOST=host.docker.internal
+                  PGEDGE_DB_PORT=5432
+                  PGEDGE_DB_NAME=test_db
+                  PGEDGE_DB_USER=test_user
+                  PGEDGE_DB_PASSWORD=test_password
+                  PGEDGE_DB_SSLMODE=disable
+
+                  # Embedding configuration (dummy for testing)
+                  PGEDGE_EMBEDDING_PROVIDER=anthropic
+                  PGEDGE_EMBEDDING_MODEL=voyage-3
+                  PGEDGE_ANTHROPIC_API_KEY=dummy-key-for-testing
+
+                  # Authentication - both tokens and users
+                  INIT_TOKENS=test-token-1,test-token-2
+                  INIT_USERS=testuser:testpass123,admin:adminpass456
+
+                  # LLM proxy configuration
+                  PGEDGE_LLM_ENABLED=true
+                  PGEDGE_LLM_PROVIDER=anthropic
+                  PGEDGE_LLM_MODEL=claude-sonnet-4-5
+                  PGEDGE_LLM_MAX_TOKENS=4096
+                  PGEDGE_LLM_TEMPERATURE=0.7
+
+                  # Debugging
+                  PGEDGE_DEBUG=false
+                  PGEDGE_DB_LOG_LEVEL=none
+                  PGEDGE_LLM_LOG_LEVEL=none
+                  EOF
+
+            - name: Build Docker images
+              run: |
+                  echo "Building Docker images with docker-compose..."
+                  docker-compose build --parallel
+              timeout-minutes: 15
+
+            - name: Verify images were built
+              run: |
+                  echo "Checking built images..."
+                  docker images | grep pgedge-mcp || echo "Warning: No images found"
+                  docker-compose images
+
+            - name: Start services
+              run: |
+                  echo "Starting services with docker-compose..."
+                  docker-compose up -d
+                  echo "Services started"
+
+            - name: Wait for MCP server health check
+              run: |
+                  echo "Waiting for MCP server to be healthy..."
+                  timeout=60
+                  elapsed=0
+                  while [ $elapsed -lt $timeout ]; do
+                    if docker-compose ps | grep mcp-server | grep -q "healthy"; then
+                      echo "MCP server is healthy"
+                      exit 0
+                    fi
+                    echo "Waiting for MCP server... ($elapsed/$timeout seconds)"
+                    sleep 2
+                    elapsed=$((elapsed + 2))
+                  done
+                  echo "ERROR: MCP server failed to become healthy"
+                  docker-compose ps
+                  docker-compose logs mcp-server
+                  exit 1
+              timeout-minutes: 2
+
+            - name: Wait for Web client health check
+              run: |
+                  echo "Waiting for Web client to be healthy..."
+                  timeout=60
+                  elapsed=0
+                  while [ $elapsed -lt $timeout ]; do
+                    if docker-compose ps | grep web-client | grep -q "healthy"; then
+                      echo "Web client is healthy"
+                      exit 0
+                    fi
+                    echo "Waiting for Web client... ($elapsed/$timeout seconds)"
+                    sleep 2
+                    elapsed=$((elapsed + 2))
+                  done
+                  echo "ERROR: Web client failed to become healthy"
+                  docker-compose ps
+                  docker-compose logs web-client
+                  exit 1
+              timeout-minutes: 2
+
+            - name: Check service status
+              run: |
+                  echo "=== Docker Compose Services Status ==="
+                  docker-compose ps
+                  echo ""
+                  echo "=== Docker Container Details ==="
+                  docker ps -a
+
+            - name: Test MCP server health endpoint
+              run: |
+                  echo "Testing MCP server health endpoint..."
+                  response=$(curl -s http://localhost:8080/health)
+                  echo "Response: $response"
+
+                  # Check if response contains expected fields
+                  if echo "$response" | grep -q '"status"'; then
+                    echo "✓ Health endpoint responded correctly"
+                  else
+                    echo "✗ Health endpoint response invalid"
+                    exit 1
+                  fi
+
+            - name: Test MCP server tools/list endpoint (with token)
+              run: |
+                  echo "Testing MCP server tools/list endpoint with token authentication..."
+                  response=$(curl -s -X POST http://localhost:8080/mcp/v1 \
+                    -H "Authorization: Bearer test-token-1" \
+                    -H "Content-Type: application/json" \
+                    -d '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}')
+
+                  echo "Response: $response"
+
+                  # Check if response contains tools
+                  if echo "$response" | grep -q '"result"'; then
+                    echo "✓ tools/list endpoint responded correctly with token"
+                  else
+                    echo "✗ tools/list endpoint response invalid"
+                    echo "Full response: $response"
+                    exit 1
+                  fi
+
+            - name: Test MCP server user authentication
+              run: |
+                  echo "Testing user authentication..."
+                  response=$(curl -s -X POST http://localhost:8080/mcp/v1 \
+                    -H "Content-Type: application/json" \
+                    -d '{
+                      "jsonrpc":"2.0",
+                      "id":1,
+                      "method":"tools/call",
+                      "params":{
+                        "name":"authenticate_user",
+                        "arguments":{
+                          "username":"testuser",
+                          "password":"testpass123"
+                        }
+                      }
+                    }')
+
+                  echo "Response: $response"
+
+                  # Check if authentication succeeded
+                  if echo "$response" | grep -q 'session_token'; then
+                    echo "✓ User authentication successful"
+                  else
+                    echo "✗ User authentication failed"
+                    echo "Full response: $response"
+                    exit 1
+                  fi
+
+            - name: Test Web UI is accessible
+              run: |
+                  echo "Testing Web UI accessibility..."
+                  response=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8081/)
+                  echo "HTTP status code: $response"
+
+                  if [ "$response" = "200" ]; then
+                    echo "✓ Web UI is accessible"
+                  else
+                    echo "✗ Web UI returned status code: $response"
+                    docker-compose logs web-client
+                    exit 1
+                  fi
+
+            - name: Test Web UI health endpoint
+              run: |
+                  echo "Testing Web UI health endpoint..."
+                  response=$(curl -s http://localhost:8081/health)
+                  echo "Response: $response"
+
+                  if echo "$response" | grep -q '"status"'; then
+                    echo "✓ Web UI health endpoint responded correctly"
+                  else
+                    echo "✗ Web UI health endpoint response invalid"
+                    exit 1
+                  fi
+
+            - name: Test database connectivity through MCP server
+              run: |
+                  echo "Testing database connectivity via query_database tool..."
+                  response=$(curl -s -X POST http://localhost:8080/mcp/v1 \
+                    -H "Authorization: Bearer test-token-1" \
+                    -H "Content-Type: application/json" \
+                    -d '{
+                      "jsonrpc":"2.0",
+                      "id":2,
+                      "method":"tools/call",
+                      "params":{
+                        "name":"query_database",
+                        "arguments":{
+                          "query":"What is the PostgreSQL version?"
+                        }
+                      }
+                    }')
+
+                  echo "Response: $response"
+
+                  # Check if query executed (even if it needs LLM, it should connect to DB)
+                  if echo "$response" | grep -q '"result"\|"error"'; then
+                    echo "✓ Database query endpoint responded"
+                  else
+                    echo "✗ Database query endpoint failed"
+                    echo "Full response: $response"
+                    exit 1
+                  fi
+
+            - name: Test resources endpoint
+              run: |
+                  echo "Testing resources/list endpoint..."
+                  response=$(curl -s -X POST http://localhost:8080/mcp/v1 \
+                    -H "Authorization: Bearer test-token-1" \
+                    -H "Content-Type: application/json" \
+                    -d '{"jsonrpc":"2.0","id":3,"method":"resources/list","params":{}}')
+
+                  echo "Response: $response"
+
+                  if echo "$response" | grep -q '"result"'; then
+                    echo "✓ resources/list endpoint responded correctly"
+                  else
+                    echo "✗ resources/list endpoint response invalid"
+                    exit 1
+                  fi
+
+            - name: View service logs on failure
+              if: failure()
+              run: |
+                  echo "=== MCP Server Logs ==="
+                  docker-compose logs mcp-server
+                  echo ""
+                  echo "=== Web Client Logs ==="
+                  docker-compose logs web-client
+                  echo ""
+                  echo "=== Container Status ==="
+                  docker-compose ps
+
+            - name: Cleanup
+              if: always()
+              run: |
+                  echo "Stopping and removing containers..."
+                  docker-compose down -v
+                  echo "Cleanup complete"
+
+    # Test with minimal configuration (no authentication)
+    docker-compose-no-auth:
+        name: Docker Compose - No Auth Mode
+        runs-on: ubuntu-latest
+        timeout-minutes: 20
+
+        services:
+            postgres:
+                image: postgres:17
+                env:
+                    POSTGRES_PASSWORD: test_password
+                    POSTGRES_USER: test_user
+                    POSTGRES_DB: test_db
+                options: >-
+                    --health-cmd pg_isready
+                    --health-interval 10s
+                    --health-timeout 5s
+                    --health-retries 5
+                ports:
+                    - 5432:5432
+
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v4
+
+            - name: Set up Docker Buildx
+              uses: docker/setup-buildx-action@v3
+
+            - name: Create minimal .env file
+              run: |
+                  cat > .env << 'EOF'
+                  MCP_SERVER_PORT=8080
+                  WEB_CLIENT_PORT=8081
+                  PGEDGE_DB_HOST=host.docker.internal
+                  PGEDGE_DB_PORT=5432
+                  PGEDGE_DB_NAME=test_db
+                  PGEDGE_DB_USER=test_user
+                  PGEDGE_DB_PASSWORD=test_password
+                  PGEDGE_DB_SSLMODE=disable
+                  PGEDGE_EMBEDDING_PROVIDER=anthropic
+                  PGEDGE_EMBEDDING_MODEL=voyage-3
+                  PGEDGE_ANTHROPIC_API_KEY=dummy-key
+                  # No INIT_TOKENS or INIT_USERS - should work with empty auth
+                  EOF
+
+            - name: Build and start services
+              run: |
+                  docker-compose build --parallel
+                  docker-compose up -d
+
+            - name: Wait for services
+              run: |
+                  sleep 30
+                  docker-compose ps
+
+            - name: Test server without authentication
+              run: |
+                  echo "Testing MCP server with no authentication initialized..."
+                  # Server should still start but requests without auth should fail
+                  response=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/health)
+                  echo "Health endpoint status: $response"
+
+                  if [ "$response" = "200" ]; then
+                    echo "✓ Server is running"
+                  else
+                    echo "✗ Server is not accessible"
+                    docker-compose logs mcp-server
+                    exit 1
+                  fi
+
+            - name: Cleanup
+              if: always()
+              run: docker-compose down -v
