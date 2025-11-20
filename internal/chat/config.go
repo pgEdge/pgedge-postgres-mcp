@@ -41,20 +41,20 @@ type MCPConfig struct {
 
 // LLMConfig holds LLM provider configuration
 type LLMConfig struct {
-	Provider             string  `yaml:"provider"`                // anthropic, openai, or ollama
-	Model                string  `yaml:"model"`                   // Model to use
-	AnthropicAPIKey      string  `yaml:"anthropic_api_key"`       // API key for Anthropic (direct - discouraged, use api_key_file or env var)
-	AnthropicAPIKeyFile  string  `yaml:"anthropic_api_key_file"`  // Path to file containing Anthropic API key
-	OpenAIAPIKey         string  `yaml:"openai_api_key"`          // API key for OpenAI (direct - discouraged, use api_key_file or env var)
-	OpenAIAPIKeyFile     string  `yaml:"openai_api_key_file"`     // Path to file containing OpenAI API key
-	OllamaURL            string  `yaml:"ollama_url"`              // Ollama server URL
-	MaxTokens            int     `yaml:"max_tokens"`              // Max tokens for response
-	Temperature          float64 `yaml:"temperature"`             // Temperature for sampling
+	Provider            string  `yaml:"provider"`               // anthropic, openai, or ollama
+	Model               string  `yaml:"model"`                  // Model to use
+	AnthropicAPIKey     string  `yaml:"anthropic_api_key"`      // API key for Anthropic (direct - discouraged, use api_key_file or env var)
+	AnthropicAPIKeyFile string  `yaml:"anthropic_api_key_file"` // Path to file containing Anthropic API key
+	OpenAIAPIKey        string  `yaml:"openai_api_key"`         // API key for OpenAI (direct - discouraged, use api_key_file or env var)
+	OpenAIAPIKeyFile    string  `yaml:"openai_api_key_file"`    // Path to file containing OpenAI API key
+	OllamaURL           string  `yaml:"ollama_url"`             // Ollama server URL
+	MaxTokens           int     `yaml:"max_tokens"`             // Max tokens for response
+	Temperature         float64 `yaml:"temperature"`            // Temperature for sampling
 }
 
 // UIConfig holds UI configuration
 type UIConfig struct {
-	NoColor               bool `yaml:"no_color"`                 // Disable colored output
+	NoColor               bool `yaml:"no_color"`                // Disable colored output
 	DisplayStatusMessages bool `yaml:"display_status_messages"` // Display status messages during execution
 }
 

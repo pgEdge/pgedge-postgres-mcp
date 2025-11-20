@@ -11,67 +11,67 @@
 package chat
 
 import (
-    "context"
-    "fmt"
-    "strings"
+	"context"
+	"fmt"
+	"strings"
 )
 
 // SlashCommand represents a parsed slash command
 type SlashCommand struct {
-    Command string
-    Args    []string
+	Command string
+	Args    []string
 }
 
 // ParseSlashCommand parses a slash command from user input
 func ParseSlashCommand(input string) *SlashCommand {
-    if !strings.HasPrefix(input, "/") {
-        return nil
-    }
+	if !strings.HasPrefix(input, "/") {
+		return nil
+	}
 
-    // Remove the leading slash
-    input = strings.TrimPrefix(input, "/")
+	// Remove the leading slash
+	input = strings.TrimPrefix(input, "/")
 
-    // Split into command and arguments
-    parts := strings.Fields(input)
-    if len(parts) == 0 {
-        return nil
-    }
+	// Split into command and arguments
+	parts := strings.Fields(input)
+	if len(parts) == 0 {
+		return nil
+	}
 
-    return &SlashCommand{
-        Command: parts[0],
-        Args:    parts[1:],
-    }
+	return &SlashCommand{
+		Command: parts[0],
+		Args:    parts[1:],
+	}
 }
 
 // HandleSlashCommand processes slash commands, returns true if handled
 func (c *Client) HandleSlashCommand(ctx context.Context, cmd *SlashCommand) bool {
-    if cmd == nil {
-        return false
-    }
+	if cmd == nil {
+		return false
+	}
 
-    switch cmd.Command {
-    case "help":
-        c.printSlashHelp()
-        return true
+	switch cmd.Command {
+	case "help":
+		c.printSlashHelp()
+		return true
 
-    case "set":
-        return c.handleSetCommand(cmd.Args)
+	case "set":
+		return c.handleSetCommand(cmd.Args)
 
-    case "show":
-        return c.handleShowCommand(cmd.Args)
+	case "show":
+		return c.handleShowCommand(cmd.Args)
 
-    case "list":
-        return c.handleListCommand(ctx, cmd.Args)
+	case "list":
+		return c.handleListCommand(ctx, cmd.Args)
 
-    default:
-        // Unknown slash command, let it be sent to LLM
-        return false
-    }
+	default:
+		// Unknown slash command, let it be sent to LLM
+		return false
+	}
 }
 
 // printSlashHelp prints help for slash commands
 func (c *Client) printSlashHelp() {
-    help := `
+	help := `
 Slash Commands:
   /help                                Show this help message
   /set status-messages <on|off>        Enable or disable status messages
@@ -97,220 +97,220 @@ Examples:
   /list models
   /show settings
 `
-    fmt.Print(help)
+	fmt.Print(help)
 }
 
 // handleSetCommand handles /set commands
 func (c *Client) handleSetCommand(args []string) bool {
-    if len(args) < 2 {
-        c.ui.PrintError("Usage: /set <setting> <value>")
-        c.ui.PrintSystemMessage("Available settings: status-messages, llm-provider, llm-model")
-        return true
-    }
+	if len(args) < 2 {
+		c.ui.PrintError("Usage: /set <setting> <value>")
+		c.ui.PrintSystemMessage("Available settings: status-messages, llm-provider, llm-model")
+		return true
+	}
 
-    setting := args[0]
-    value := args[1]
+	setting := args[0]
+	value := args[1]
 
-    switch setting {
-    case "status-messages":
-        return c.handleSetStatusMessages(value)
+	switch setting {
+	case "status-messages":
+		return c.handleSetStatusMessages(value)
 
-    case "llm-provider":
-        return c.handleSetLLMProvider(value)
+	case "llm-provider":
+		return c.handleSetLLMProvider(value)
 
-    case "llm-model":
-        return c.handleSetLLMModel(value)
+	case "llm-model":
+		return c.handleSetLLMModel(value)
 
-    default:
-        c.ui.PrintError(fmt.Sprintf("Unknown setting: %s", setting))
-        c.ui.PrintSystemMessage("Available settings: status-messages, llm-provider, llm-model")
-        return true
-    }
+	default:
+		c.ui.PrintError(fmt.Sprintf("Unknown setting: %s", setting))
+		c.ui.PrintSystemMessage("Available settings: status-messages, llm-provider, llm-model")
+		return true
+	}
 }
 
 // handleSetStatusMessages handles setting status messages on/off
 func (c *Client) handleSetStatusMessages(value string) bool {
-    value = strings.ToLower(value)
+	value = strings.ToLower(value)
 
-    switch value {
-    case "on", "true", "1", "yes":
-        c.config.UI.DisplayStatusMessages = true
-        c.ui.DisplayStatusMessages = true
-        c.ui.PrintSystemMessage("Status messages enabled")
+	switch value {
+	case "on", "true", "1", "yes":
+		c.config.UI.DisplayStatusMessages = true
+		c.ui.DisplayStatusMessages = true
+		c.ui.PrintSystemMessage("Status messages enabled")
 
-    case "off", "false", "0", "no":
-        c.config.UI.DisplayStatusMessages = false
-        c.ui.DisplayStatusMessages = false
-        c.ui.PrintSystemMessage("Status messages disabled")
+	case "off", "false", "0", "no":
+		c.config.UI.DisplayStatusMessages = false
+		c.ui.DisplayStatusMessages = false
+		c.ui.PrintSystemMessage("Status messages disabled")
 
-    default:
-        c.ui.PrintError(fmt.Sprintf("Invalid value for status-messages: %s (use on or off)", value))
-    }
+	default:
+		c.ui.PrintError(fmt.Sprintf("Invalid value for status-messages: %s (use on or off)", value))
+	}
 
-    return true
+	return true
 }
 
 // handleSetLLMProvider handles setting the LLM provider
 func (c *Client) handleSetLLMProvider(provider string) bool {
-    provider = strings.ToLower(provider)
+	provider = strings.ToLower(provider)
 
-    // Validate provider
-    validProviders := map[string]bool{
-        "anthropic": true,
-        "openai":    true,
-        "ollama":    true,
-    }
+	// Validate provider
+	validProviders := map[string]bool{
+		"anthropic": true,
+		"openai":    true,
+		"ollama":    true,
+	}
 
-    if !validProviders[provider] {
-        c.ui.PrintError(fmt.Sprintf("Invalid LLM provider: %s", provider))
-        c.ui.PrintSystemMessage("Valid providers: anthropic, openai, ollama")
-        return true
-    }
+	if !validProviders[provider] {
+		c.ui.PrintError(fmt.Sprintf("Invalid LLM provider: %s", provider))
+		c.ui.PrintSystemMessage("Valid providers: anthropic, openai, ollama")
+		return true
+	}
 
-    // Update config
-    c.config.LLM.Provider = provider
+	// Update config
+	c.config.LLM.Provider = provider
 
-    // Reinitialize LLM client
-    if err := c.initializeLLM(); err != nil {
-        c.ui.PrintError(fmt.Sprintf("Failed to initialize LLM: %v", err))
-        return true
-    }
+	// Reinitialize LLM client
+	if err := c.initializeLLM(); err != nil {
+		c.ui.PrintError(fmt.Sprintf("Failed to initialize LLM: %v", err))
+		return true
+	}
 
-    c.ui.PrintSystemMessage(fmt.Sprintf("LLM provider set to: %s (model: %s)", provider, c.config.LLM.Model))
-    return true
+	c.ui.PrintSystemMessage(fmt.Sprintf("LLM provider set to: %s (model: %s)", provider, c.config.LLM.Model))
+	return true
 }
 
 // handleSetLLMModel handles setting the LLM model
 func (c *Client) handleSetLLMModel(model string) bool {
-    // Update config
-    c.config.LLM.Model = model
+	// Update config
+	c.config.LLM.Model = model
 
-    // Reinitialize LLM client
-    if err := c.initializeLLM(); err != nil {
-        c.ui.PrintError(fmt.Sprintf("Failed to initialize LLM: %v", err))
-        return true
-    }
+	// Reinitialize LLM client
+	if err := c.initializeLLM(); err != nil {
+		c.ui.PrintError(fmt.Sprintf("Failed to initialize LLM: %v", err))
+		return true
+	}
 
-    c.ui.PrintSystemMessage(fmt.Sprintf("LLM model set to: %s (provider: %s)", model, c.config.LLM.Provider))
-    return true
+	c.ui.PrintSystemMessage(fmt.Sprintf("LLM model set to: %s (provider: %s)", model, c.config.LLM.Provider))
+	return true
 }
 
 // handleShowCommand handles /show commands
 func (c *Client) handleShowCommand(args []string) bool {
-    if len(args) < 1 {
-        c.ui.PrintError("Usage: /show <setting>")
-        c.ui.PrintSystemMessage("Available settings: status-messages, llm-provider, llm-model, settings")
-        return true
-    }
+	if len(args) < 1 {
+		c.ui.PrintError("Usage: /show <setting>")
+		c.ui.PrintSystemMessage("Available settings: status-messages, llm-provider, llm-model, settings")
+		return true
+	}
 
-    setting := args[0]
+	setting := args[0]
 
-    switch setting {
-    case "status-messages":
-        status := "off"
-        if c.config.UI.DisplayStatusMessages {
-            status = "on"
-        }
-        c.ui.PrintSystemMessage(fmt.Sprintf("Status messages: %s", status))
+	switch setting {
+	case "status-messages":
+		status := "off"
+		if c.config.UI.DisplayStatusMessages {
+			status = "on"
+		}
+		c.ui.PrintSystemMessage(fmt.Sprintf("Status messages: %s", status))
 
-    case "llm-provider":
-        c.ui.PrintSystemMessage(fmt.Sprintf("LLM provider: %s", c.config.LLM.Provider))
+	case "llm-provider":
+		c.ui.PrintSystemMessage(fmt.Sprintf("LLM provider: %s", c.config.LLM.Provider))
 
-    case "llm-model":
-        c.ui.PrintSystemMessage(fmt.Sprintf("LLM model: %s", c.config.LLM.Model))
+	case "llm-model":
+		c.ui.PrintSystemMessage(fmt.Sprintf("LLM model: %s", c.config.LLM.Model))
 
-    case "settings":
-        c.printAllSettings()
+	case "settings":
+		c.printAllSettings()
 
-    default:
-        c.ui.PrintError(fmt.Sprintf("Unknown setting: %s", setting))
-        c.ui.PrintSystemMessage("Available settings: status-messages, llm-provider, llm-model, settings")
-    }
+	default:
+		c.ui.PrintError(fmt.Sprintf("Unknown setting: %s", setting))
+		c.ui.PrintSystemMessage("Available settings: status-messages, llm-provider, llm-model, settings")
+	}
 
-    return true
+	return true
 }
 
 // printAllSettings prints all current settings
 func (c *Client) printAllSettings() {
-    fmt.Println("\nCurrent Settings:")
-    fmt.Println("─────────────────────────────────────────────────")
+	fmt.Println("\nCurrent Settings:")
+	fmt.Println("─────────────────────────────────────────────────")
 
-    // UI Settings
-    fmt.Println("\nUI:")
-    statusMsg := "off"
-    if c.config.UI.DisplayStatusMessages {
-        statusMsg = "on"
-    }
-    fmt.Printf("  Status Messages:  %s\n", statusMsg)
-    noColor := "no"
-    if c.config.UI.NoColor {
-        noColor = "yes"
-    }
-    fmt.Printf("  No Color:         %s\n", noColor)
+	// UI Settings
+	fmt.Println("\nUI:")
+	statusMsg := "off"
+	if c.config.UI.DisplayStatusMessages {
+		statusMsg = "on"
+	}
+	fmt.Printf("  Status Messages:  %s\n", statusMsg)
+	noColor := "no"
+	if c.config.UI.NoColor {
+		noColor = "yes"
+	}
+	fmt.Printf("  No Color:         %s\n", noColor)
 
-    // LLM Settings
-    fmt.Println("\nLLM:")
-    fmt.Printf("  Provider:         %s\n", c.config.LLM.Provider)
-    fmt.Printf("  Model:            %s\n", c.config.LLM.Model)
-    fmt.Printf("  Max Tokens:       %d\n", c.config.LLM.MaxTokens)
-    fmt.Printf("  Temperature:      %.2f\n", c.config.LLM.Temperature)
+	// LLM Settings
+	fmt.Println("\nLLM:")
+	fmt.Printf("  Provider:         %s\n", c.config.LLM.Provider)
+	fmt.Printf("  Model:            %s\n", c.config.LLM.Model)
+	fmt.Printf("  Max Tokens:       %d\n", c.config.LLM.MaxTokens)
+	fmt.Printf("  Temperature:      %.2f\n", c.config.LLM.Temperature)
 
-    // MCP Settings
-    fmt.Println("\nMCP:")
-    fmt.Printf("  Mode:             %s\n", c.config.MCP.Mode)
-    if c.config.MCP.Mode == "http" {
-        fmt.Printf("  URL:              %s\n", c.config.MCP.URL)
-        fmt.Printf("  Auth Mode:        %s\n", c.config.MCP.AuthMode)
-    } else {
-        fmt.Printf("  Server Path:      %s\n", c.config.MCP.ServerPath)
-    }
+	// MCP Settings
+	fmt.Println("\nMCP:")
+	fmt.Printf("  Mode:             %s\n", c.config.MCP.Mode)
+	if c.config.MCP.Mode == "http" {
+		fmt.Printf("  URL:              %s\n", c.config.MCP.URL)
+		fmt.Printf("  Auth Mode:        %s\n", c.config.MCP.AuthMode)
+	} else {
+		fmt.Printf("  Server Path:      %s\n", c.config.MCP.ServerPath)
+	}
 
-    fmt.Println("─────────────────────────────────────────────────")
+	fmt.Println("─────────────────────────────────────────────────")
 }
 
 // handleListCommand handles /list commands
 func (c *Client) handleListCommand(ctx context.Context, args []string) bool {
-    if len(args) < 1 {
-        c.ui.PrintError("Usage: /list <what>")
-        c.ui.PrintSystemMessage("Available: models")
-        return true
-    }
+	if len(args) < 1 {
+		c.ui.PrintError("Usage: /list <what>")
+		c.ui.PrintSystemMessage("Available: models")
+		return true
+	}
 
-    what := args[0]
+	what := args[0]
 
-    switch what {
-    case "models":
-        return c.listModels(ctx)
+	switch what {
+	case "models":
+		return c.listModels(ctx)
 
-    default:
-        c.ui.PrintError(fmt.Sprintf("Unknown list target: %s", what))
-        c.ui.PrintSystemMessage("Available: models")
-    }
+	default:
+		c.ui.PrintError(fmt.Sprintf("Unknown list target: %s", what))
+		c.ui.PrintSystemMessage("Available: models")
+	}
 
-    return true
+	return true
 }
 
 // listModels lists available models from the current LLM provider
 func (c *Client) listModels(ctx context.Context) bool {
-    models, err := c.llm.ListModels(ctx)
-    if err != nil {
-        c.ui.PrintError(fmt.Sprintf("Failed to list models: %v", err))
-        return true
-    }
+	models, err := c.llm.ListModels(ctx)
+	if err != nil {
+		c.ui.PrintError(fmt.Sprintf("Failed to list models: %v", err))
+		return true
+	}
 
-    if len(models) == 0 {
-        c.ui.PrintSystemMessage("No models available")
-        return true
-    }
+	if len(models) == 0 {
+		c.ui.PrintSystemMessage("No models available")
+		return true
+	}
 
-    c.ui.PrintSystemMessage(fmt.Sprintf("Available models from %s (%d):", c.config.LLM.Provider, len(models)))
-    for _, model := range models {
-        if model == c.config.LLM.Model {
-            fmt.Printf("  * %s (current)\n", model)
-        } else {
-            fmt.Printf("    %s\n", model)
-        }
-    }
+	c.ui.PrintSystemMessage(fmt.Sprintf("Available models from %s (%d):", c.config.LLM.Provider, len(models)))
+	for _, model := range models {
+		if model == c.config.LLM.Model {
+			fmt.Printf("  * %s (current)\n", model)
+		} else {
+			fmt.Printf("    %s\n", model)
+		}
+	}
 
-    return true
+	return true
 }

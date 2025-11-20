@@ -76,28 +76,28 @@ type DatabaseConfig struct {
 
 // EmbeddingConfig holds embedding generation settings
 type EmbeddingConfig struct {
-	Enabled          bool   `yaml:"enabled"`            // Whether embedding generation is enabled (default: false)
-	Provider         string `yaml:"provider"`           // "voyage", "openai", or "ollama"
-	Model            string `yaml:"model"`              // Provider-specific model name
-	VoyageAPIKey     string `yaml:"voyage_api_key"`     // API key for Voyage AI (direct - discouraged, use api_key_file or env var)
+	Enabled          bool   `yaml:"enabled"`             // Whether embedding generation is enabled (default: false)
+	Provider         string `yaml:"provider"`            // "voyage", "openai", or "ollama"
+	Model            string `yaml:"model"`               // Provider-specific model name
+	VoyageAPIKey     string `yaml:"voyage_api_key"`      // API key for Voyage AI (direct - discouraged, use api_key_file or env var)
 	VoyageAPIKeyFile string `yaml:"voyage_api_key_file"` // Path to file containing Voyage API key
-	OpenAIAPIKey     string `yaml:"openai_api_key"`     // API key for OpenAI (direct - discouraged, use api_key_file or env var)
+	OpenAIAPIKey     string `yaml:"openai_api_key"`      // API key for OpenAI (direct - discouraged, use api_key_file or env var)
 	OpenAIAPIKeyFile string `yaml:"openai_api_key_file"` // Path to file containing OpenAI API key
-	OllamaURL        string `yaml:"ollama_url"`         // URL for Ollama service (default: http://localhost:11434)
+	OllamaURL        string `yaml:"ollama_url"`          // URL for Ollama service (default: http://localhost:11434)
 }
 
 // LLMConfig holds LLM configuration for web client chat proxy
 type LLMConfig struct {
-	Enabled              bool    `yaml:"enabled"`                 // Whether LLM proxy is enabled (default: false)
-	Provider             string  `yaml:"provider"`                // "anthropic", "openai", or "ollama"
-	Model                string  `yaml:"model"`                   // Provider-specific model name
-	AnthropicAPIKey      string  `yaml:"anthropic_api_key"`       // API key for Anthropic (direct - discouraged, use api_key_file or env var instead)
-	AnthropicAPIKeyFile  string  `yaml:"anthropic_api_key_file"`  // Path to file containing Anthropic API key
-	OpenAIAPIKey         string  `yaml:"openai_api_key"`          // API key for OpenAI (direct - discouraged, use api_key_file or env var instead)
-	OpenAIAPIKeyFile     string  `yaml:"openai_api_key_file"`     // Path to file containing OpenAI API key
-	OllamaURL            string  `yaml:"ollama_url"`              // URL for Ollama service (default: http://localhost:11434)
-	MaxTokens            int     `yaml:"max_tokens"`              // Maximum tokens for LLM response (default: 4096)
-	Temperature          float64 `yaml:"temperature"`             // Temperature for LLM sampling (default: 0.7)
+	Enabled             bool    `yaml:"enabled"`                // Whether LLM proxy is enabled (default: false)
+	Provider            string  `yaml:"provider"`               // "anthropic", "openai", or "ollama"
+	Model               string  `yaml:"model"`                  // Provider-specific model name
+	AnthropicAPIKey     string  `yaml:"anthropic_api_key"`      // API key for Anthropic (direct - discouraged, use api_key_file or env var instead)
+	AnthropicAPIKeyFile string  `yaml:"anthropic_api_key_file"` // Path to file containing Anthropic API key
+	OpenAIAPIKey        string  `yaml:"openai_api_key"`         // API key for OpenAI (direct - discouraged, use api_key_file or env var instead)
+	OpenAIAPIKeyFile    string  `yaml:"openai_api_key_file"`    // Path to file containing OpenAI API key
+	OllamaURL           string  `yaml:"ollama_url"`             // URL for Ollama service (default: http://localhost:11434)
+	MaxTokens           int     `yaml:"max_tokens"`             // Maximum tokens for LLM response (default: 4096)
+	Temperature         float64 `yaml:"temperature"`            // Temperature for LLM sampling (default: 0.7)
 }
 
 // LoadConfig loads configuration with proper priority:
