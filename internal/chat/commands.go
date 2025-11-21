@@ -142,15 +142,23 @@ func (c *Client) handleSetStatusMessages(value string) bool {
 	case "on", "true", "1", "yes":
 		c.config.UI.DisplayStatusMessages = true
 		c.ui.DisplayStatusMessages = true
+		c.preferences.UI.DisplayStatusMessages = true
 		c.ui.PrintSystemMessage("Status messages enabled")
 
 	case "off", "false", "0", "no":
 		c.config.UI.DisplayStatusMessages = false
 		c.ui.DisplayStatusMessages = false
+		c.preferences.UI.DisplayStatusMessages = false
 		c.ui.PrintSystemMessage("Status messages disabled")
 
 	default:
 		c.ui.PrintError(fmt.Sprintf("Invalid value for status-messages: %s (use on or off)", value))
+		return true
+	}
+
+	// Save preferences
+	if err := SavePreferences(c.preferences); err != nil {
+		c.ui.PrintError(fmt.Sprintf("Warning: Failed to save preferences: %v", err))
 	}
 
 	return true
@@ -164,15 +172,23 @@ func (c *Client) handleSetMarkdown(value string) bool {
 	case "on", "true", "1", "yes":
 		c.config.UI.RenderMarkdown = true
 		c.ui.RenderMarkdown = true
+		c.preferences.UI.RenderMarkdown = true
 		c.ui.PrintSystemMessage("Markdown rendering enabled")
 
 	case "off", "false", "0", "no":
 		c.config.UI.RenderMarkdown = false
 		c.ui.RenderMarkdown = false
+		c.preferences.UI.RenderMarkdown = false
 		c.ui.PrintSystemMessage("Markdown rendering disabled")
 
 	default:
 		c.ui.PrintError(fmt.Sprintf("Invalid value for markdown: %s (use on or off)", value))
+		return true
+	}
+
+	// Save preferences
+	if err := SavePreferences(c.preferences); err != nil {
+		c.ui.PrintError(fmt.Sprintf("Warning: Failed to save preferences: %v", err))
 	}
 
 	return true
@@ -198,10 +214,23 @@ func (c *Client) handleSetLLMProvider(provider string) bool {
 	// Update config
 	c.config.LLM.Provider = provider
 
+	// Auto-switch to preferred model for this provider
+	if preferredModel := c.preferences.GetModelForProvider(provider); preferredModel != "" {
+		c.config.LLM.Model = preferredModel
+	}
+
+	// Update preferences
+	c.preferences.LastProvider = provider
+
 	// Reinitialize LLM client
 	if err := c.initializeLLM(); err != nil {
 		c.ui.PrintError(fmt.Sprintf("Failed to initialize LLM: %v", err))
 		return true
+	}
+
+	// Save preferences
+	if err := SavePreferences(c.preferences); err != nil {
+		c.ui.PrintError(fmt.Sprintf("Warning: Failed to save preferences: %v", err))
 	}
 
 	c.ui.PrintSystemMessage(fmt.Sprintf("LLM provider set to: %s (model: %s)", provider, c.config.LLM.Model))
@@ -213,10 +242,18 @@ func (c *Client) handleSetLLMModel(model string) bool {
 	// Update config
 	c.config.LLM.Model = model
 
+	// Save model preference for current provider
+	c.preferences.SetModelForProvider(c.config.LLM.Provider, model)
+
 	// Reinitialize LLM client
 	if err := c.initializeLLM(); err != nil {
 		c.ui.PrintError(fmt.Sprintf("Failed to initialize LLM: %v", err))
 		return true
+	}
+
+	// Save preferences
+	if err := SavePreferences(c.preferences); err != nil {
+		c.ui.PrintError(fmt.Sprintf("Warning: Failed to save preferences: %v", err))
 	}
 
 	c.ui.PrintSystemMessage(fmt.Sprintf("LLM model set to: %s (provider: %s)", model, c.config.LLM.Provider))

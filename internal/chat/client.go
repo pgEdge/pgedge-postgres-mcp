@@ -15,6 +15,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"os"
 	"strings"
 
 	"github.com/chzyer/readline"
@@ -23,22 +24,44 @@ import (
 
 // Client is the main chat client
 type Client struct {
-	config   *Config
-	ui       *UI
-	mcp      MCPClient
-	llm      LLMClient
-	messages []Message
-	tools    []mcp.Tool
+	config      *Config
+	ui          *UI
+	mcp         MCPClient
+	llm         LLMClient
+	messages    []Message
+	tools       []mcp.Tool
+	preferences *Preferences
 }
 
 // NewClient creates a new chat client
 func NewClient(cfg *Config) (*Client, error) {
+	// Load user preferences
+	prefs, err := LoadPreferences()
+	if err != nil {
+		// Log error but don't fail - use defaults
+		fmt.Fprintf(os.Stderr, "Warning: Failed to load preferences: %v\n", err)
+		prefs = &Preferences{}
+	}
+
+	// Apply preferences to config
+	cfg.UI.DisplayStatusMessages = prefs.UI.DisplayStatusMessages
+	cfg.UI.RenderMarkdown = prefs.UI.RenderMarkdown
+
+	// If user has a preferred model for the current provider, use it
+	if preferredModel := prefs.GetModelForProvider(cfg.LLM.Provider); preferredModel != "" {
+		cfg.LLM.Model = preferredModel
+	}
+
+	// Update last provider
+	prefs.LastProvider = cfg.LLM.Provider
+
 	ui := NewUI(cfg.UI.NoColor, cfg.UI.RenderMarkdown)
 	ui.DisplayStatusMessages = cfg.UI.DisplayStatusMessages
 	return &Client{
-		config:   cfg,
-		ui:       ui,
-		messages: []Message{},
+		config:      cfg,
+		ui:          ui,
+		messages:    []Message{},
+		preferences: prefs,
 	}, nil
 }
 
