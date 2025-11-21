@@ -46,6 +46,7 @@ const ChatInterface = () => {
 
     const [showActivity, setShowActivity] = useLocalStorageBoolean('show-activity', true);
     const [renderMarkdown, setRenderMarkdown] = useLocalStorageBoolean('render-markdown', true);
+    const [debug, setDebug] = useLocalStorageBoolean('debug', false);
 
     const [input, setInput] = useState('');
     const [loading, setLoading] = useState(false);
@@ -387,6 +388,8 @@ const ChatInterface = () => {
                     onActivityChange={setShowActivity}
                     renderMarkdown={renderMarkdown}
                     onMarkdownChange={setRenderMarkdown}
+                    debug={debug}
+                    onDebugChange={setDebug}
                     disabled={loading}
                     loadingModels={llmProviders.loadingModels}
                 />

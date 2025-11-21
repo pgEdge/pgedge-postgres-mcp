@@ -8,7 +8,7 @@
  *-------------------------------------------------------------------------
  */
 
-import React from 'react';
+import React, { useState } from 'react';
 import PropTypes from 'prop-types';
 import {
     Box,
@@ -16,9 +16,11 @@ import {
     InputLabel,
     Select,
     MenuItem,
-    FormControlLabel,
-    Switch,
+    IconButton,
+    Tooltip,
 } from '@mui/material';
+import { Settings as SettingsIcon } from '@mui/icons-material';
+import PreferencesPopover from './PreferencesPopover';
 
 const ProviderSelector = React.memo(({
     providers,
@@ -31,9 +33,21 @@ const ProviderSelector = React.memo(({
     onActivityChange,
     renderMarkdown,
     onMarkdownChange,
+    debug,
+    onDebugChange,
     disabled,
     loadingModels,
 }) => {
+    const [preferencesAnchor, setPreferencesAnchor] = useState(null);
+
+    const handlePreferencesClick = (event) => {
+        setPreferencesAnchor(event.currentTarget);
+    };
+
+    const handlePreferencesClose = () => {
+        setPreferencesAnchor(null);
+    };
+
     return (
         <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
             {/* Provider Selection */}
@@ -75,30 +89,28 @@ const ProviderSelector = React.memo(({
                 </Select>
             </FormControl>
 
-            {/* Show Activity Toggle */}
-            <FormControlLabel
-                control={
-                    <Switch
-                        checked={showActivity}
-                        onChange={(e) => onActivityChange(e.target.checked)}
-                        size="small"
-                    />
-                }
-                label="Show Activity"
-                sx={{ ml: 1, whiteSpace: 'nowrap' }}
-            />
+            {/* Preferences Button */}
+            <Tooltip title="Preferences">
+                <IconButton
+                    onClick={handlePreferencesClick}
+                    size="small"
+                    sx={{ ml: 1 }}
+                >
+                    <SettingsIcon />
+                </IconButton>
+            </Tooltip>
 
-            {/* Render Markdown Toggle */}
-            <FormControlLabel
-                control={
-                    <Switch
-                        checked={renderMarkdown}
-                        onChange={(e) => onMarkdownChange(e.target.checked)}
-                        size="small"
-                    />
-                }
-                label="Render Markdown"
-                sx={{ ml: 1, whiteSpace: 'nowrap' }}
+            {/* Preferences Popover */}
+            <PreferencesPopover
+                anchorEl={preferencesAnchor}
+                open={Boolean(preferencesAnchor)}
+                onClose={handlePreferencesClose}
+                showActivity={showActivity}
+                onActivityChange={onActivityChange}
+                renderMarkdown={renderMarkdown}
+                onMarkdownChange={onMarkdownChange}
+                debug={debug}
+                onDebugChange={onDebugChange}
             />
         </Box>
     );
@@ -123,6 +135,8 @@ ProviderSelector.propTypes = {
     onActivityChange: PropTypes.func.isRequired,
     renderMarkdown: PropTypes.bool.isRequired,
     onMarkdownChange: PropTypes.func.isRequired,
+    debug: PropTypes.bool.isRequired,
+    onDebugChange: PropTypes.func.isRequired,
     disabled: PropTypes.bool.isRequired,
     loadingModels: PropTypes.bool.isRequired,
 };
