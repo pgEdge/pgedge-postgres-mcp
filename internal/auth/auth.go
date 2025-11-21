@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sync"
 	"time"
 
 	"gopkg.in/yaml.v3"
@@ -33,7 +34,10 @@ type Token struct {
 
 // TokenStore manages API tokens
 type TokenStore struct {
-	Tokens map[string]*Token `yaml:"tokens"` // key is a unique identifier
+	mu      sync.RWMutex          // Protects concurrent access to Tokens
+	Tokens  map[string]*Token     `yaml:"tokens"` // key is a unique identifier
+	path    string                // File path for auto-reloading
+	watcher *FileWatcher          // File watcher for auto-reloading
 }
 
 // GenerateToken creates a new random API token
@@ -71,7 +75,37 @@ func LoadTokenStore(path string) (*TokenStore, error) {
 		store.Tokens = make(map[string]*Token)
 	}
 
+	store.path = path // Store path for auto-reloading
+
 	return &store, nil
+}
+
+// Reload reloads the token store from disk
+func (s *TokenStore) Reload() error {
+	if s.path == "" {
+		return fmt.Errorf("no path set for token store")
+	}
+
+	data, err := os.ReadFile(s.path)
+	if err != nil {
+		return fmt.Errorf("failed to read token file: %w", err)
+	}
+
+	var newStore TokenStore
+	if err := yaml.Unmarshal(data, &newStore); err != nil {
+		return fmt.Errorf("failed to parse token file: %w", err)
+	}
+
+	if newStore.Tokens == nil {
+		newStore.Tokens = make(map[string]*Token)
+	}
+
+	// Update the store with new data (with write lock)
+	s.mu.Lock()
+	s.Tokens = newStore.Tokens
+	s.mu.Unlock()
+
+	return nil
 }
 
 // SaveTokenStore saves tokens to a YAML file
@@ -97,6 +131,9 @@ func SaveTokenStore(path string, store *TokenStore) error {
 
 // AddToken adds a new token to the store
 func (s *TokenStore) AddToken(tokenID, hash, annotation string, expiresAt *time.Time) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	if s.Tokens == nil {
 		s.Tokens = make(map[string]*Token)
 	}
@@ -117,6 +154,9 @@ func (s *TokenStore) AddToken(tokenID, hash, annotation string, expiresAt *time.
 
 // RemoveToken removes a token from the store by ID or hash prefix
 func (s *TokenStore) RemoveToken(identifier string) (bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	if s.Tokens == nil {
 		return false, nil
 	}
@@ -140,6 +180,9 @@ func (s *TokenStore) RemoveToken(identifier string) (bool, error) {
 
 // ValidateToken checks if a token is valid (exists and not expired)
 func (s *TokenStore) ValidateToken(token string) (bool, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
 	if s.Tokens == nil {
 		return false, nil
 	}
@@ -162,6 +205,9 @@ func (s *TokenStore) ValidateToken(token string) (bool, error) {
 
 // ListTokens returns all tokens with their metadata
 func (s *TokenStore) ListTokens() []*TokenInfo {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
 	if s.Tokens == nil {
 		return []*TokenInfo{}
 	}
@@ -216,6 +262,9 @@ func InitializeTokenStore() *TokenStore {
 // CleanupExpiredTokens removes expired tokens from the store
 // Returns the number of tokens removed and their hashes (for connection cleanup)
 func (s *TokenStore) CleanupExpiredTokens() (int, []string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	if s.Tokens == nil {
 		return 0, nil
 	}
@@ -231,4 +280,28 @@ func (s *TokenStore) CleanupExpiredTokens() (int, []string) {
 	}
 
 	return len(removedHashes), removedHashes
+}
+
+// StartWatching starts watching the token file for changes
+func (s *TokenStore) StartWatching() error {
+	if s.path == "" {
+		return fmt.Errorf("no path set for token store")
+	}
+
+	watcher, err := NewFileWatcher(s.path, s.Reload)
+	if err != nil {
+		return err
+	}
+
+	s.watcher = watcher
+	s.watcher.Start()
+	return nil
+}
+
+// StopWatching stops watching the token file for changes
+func (s *TokenStore) StopWatching() {
+	if s.watcher != nil {
+		s.watcher.Stop()
+		s.watcher = nil
+	}
 }

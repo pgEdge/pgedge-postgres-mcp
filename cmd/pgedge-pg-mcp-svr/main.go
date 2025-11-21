@@ -312,6 +312,14 @@ func main() {
 
 		fmt.Fprintf(os.Stderr, "Loaded %d API token(s) from %s\n", len(tokenStore.Tokens), cfg.HTTP.Auth.TokenFile)
 
+		// Start watching the token file for changes
+		if err := tokenStore.StartWatching(); err != nil {
+			fmt.Fprintf(os.Stderr, "WARNING: Failed to start watching token file: %v\n", err)
+			fmt.Fprintf(os.Stderr, "         Token changes will require server restart\n")
+		} else {
+			fmt.Fprintf(os.Stderr, "Watching %s for changes\n", cfg.HTTP.Auth.TokenFile)
+		}
+
 		// Load user store for user authentication
 		// Use custom path if specified, otherwise use default
 		if *userFilePath != "" {
@@ -332,6 +340,14 @@ func main() {
 				os.Exit(1)
 			}
 			fmt.Fprintf(os.Stderr, "Loaded %d user(s) from %s\n", len(userStore.Users), userFilePathForTools)
+
+			// Start watching the user file for changes
+			if err := userStore.StartWatching(); err != nil {
+				fmt.Fprintf(os.Stderr, "WARNING: Failed to start watching user file: %v\n", err)
+				fmt.Fprintf(os.Stderr, "         User changes will require server restart\n")
+			} else {
+				fmt.Fprintf(os.Stderr, "Watching %s for changes\n", userFilePathForTools)
+			}
 		}
 	}
 
@@ -581,5 +597,13 @@ func main() {
 		if err := clientManager.CloseAll(); err != nil {
 			fmt.Fprintf(os.Stderr, "WARNING: Error closing database connections: %v\n", err)
 		}
+	}
+
+	// Stop file watchers
+	if tokenStore != nil {
+		tokenStore.StopWatching()
+	}
+	if userStore != nil {
+		userStore.StopWatching()
 	}
 }

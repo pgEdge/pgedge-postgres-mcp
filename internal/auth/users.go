@@ -16,6 +16,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sync"
 	"time"
 
 	"golang.org/x/crypto/bcrypt"
@@ -41,7 +42,10 @@ type User struct {
 
 // UserStore manages user accounts
 type UserStore struct {
-	Users map[string]*User `yaml:"users"` // key is username
+	mu      sync.RWMutex       // Protects concurrent access to Users
+	Users   map[string]*User   `yaml:"users"` // key is username
+	path    string             // File path for auto-reloading
+	watcher *FileWatcher       // File watcher for auto-reloading
 }
 
 // HashPassword creates a bcrypt hash of the password
@@ -88,7 +92,62 @@ func LoadUserStore(path string) (*UserStore, error) {
 		store.Users = make(map[string]*User)
 	}
 
+	store.path = path // Store path for auto-reloading
+
 	return &store, nil
+}
+
+// Reload reloads the user store from disk
+func (s *UserStore) Reload() error {
+	if s.path == "" {
+		return fmt.Errorf("no path set for user store")
+	}
+
+	data, err := os.ReadFile(s.path)
+	if err != nil {
+		return fmt.Errorf("failed to read user file: %w", err)
+	}
+
+	var newStore UserStore
+	if err := yaml.Unmarshal(data, &newStore); err != nil {
+		return fmt.Errorf("failed to parse user file: %w", err)
+	}
+
+	if newStore.Users == nil {
+		newStore.Users = make(map[string]*User)
+	}
+
+	// Update the store with new data (with write lock)
+	// But preserve session tokens from the current in-memory users
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	// Save current session tokens
+	sessionTokens := make(map[string]struct {
+		token   string
+		expires *time.Time
+	})
+	for username, user := range s.Users {
+		if user.SessionToken != "" {
+			sessionTokens[username] = struct {
+				token   string
+				expires *time.Time
+			}{user.SessionToken, user.SessionExpires}
+		}
+	}
+
+	// Update users
+	s.Users = newStore.Users
+
+	// Restore session tokens for users that still exist
+	for username, session := range sessionTokens {
+		if user, exists := s.Users[username]; exists {
+			user.SessionToken = session.token
+			user.SessionExpires = session.expires
+		}
+	}
+
+	return nil
 }
 
 // SaveUserStore saves users to a YAML file
@@ -114,6 +173,9 @@ func SaveUserStore(path string, store *UserStore) error {
 
 // AddUser adds a new user to the store
 func (s *UserStore) AddUser(username, password, annotation string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	if s.Users == nil {
 		s.Users = make(map[string]*User)
 	}
@@ -142,6 +204,9 @@ func (s *UserStore) AddUser(username, password, annotation string) error {
 
 // UpdateUser updates an existing user's password and/or annotation
 func (s *UserStore) UpdateUser(username, newPassword, newAnnotation string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	user, exists := s.Users[username]
 	if !exists {
 		return fmt.Errorf("user '%s' not found", username)
@@ -164,6 +229,9 @@ func (s *UserStore) UpdateUser(username, newPassword, newAnnotation string) erro
 
 // RemoveUser removes a user from the store
 func (s *UserStore) RemoveUser(username string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	if s.Users == nil {
 		return fmt.Errorf("user '%s' not found", username)
 	}
@@ -179,6 +247,9 @@ func (s *UserStore) RemoveUser(username string) error {
 // AuthenticateUser verifies credentials and returns a session token
 // Returns the token and expiration time on success
 func (s *UserStore) AuthenticateUser(username, password string) (string, time.Time, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	user, exists := s.Users[username]
 	if !exists {
 		return "", time.Time{}, fmt.Errorf("invalid username or password")
@@ -215,6 +286,9 @@ func (s *UserStore) AuthenticateUser(username, password string) (string, time.Ti
 
 // ValidateSessionToken checks if a session token is valid for a user
 func (s *UserStore) ValidateSessionToken(token string) (string, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
 	if s.Users == nil {
 		return "", fmt.Errorf("invalid session token")
 	}
@@ -240,6 +314,9 @@ func (s *UserStore) ValidateSessionToken(token string) (string, error) {
 
 // ListUsers returns all users with their metadata
 func (s *UserStore) ListUsers() []*UserInfo {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
 	if s.Users == nil {
 		return []*UserInfo{}
 	}
@@ -289,6 +366,9 @@ func InitializeUserStore() *UserStore {
 
 // EnableUser enables a user account
 func (s *UserStore) EnableUser(username string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	user, exists := s.Users[username]
 	if !exists {
 		return fmt.Errorf("user '%s' not found", username)
@@ -299,10 +379,37 @@ func (s *UserStore) EnableUser(username string) error {
 
 // DisableUser disables a user account
 func (s *UserStore) DisableUser(username string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	user, exists := s.Users[username]
 	if !exists {
 		return fmt.Errorf("user '%s' not found", username)
 	}
 	user.Enabled = false
 	return nil
+}
+
+// StartWatching starts watching the user file for changes
+func (s *UserStore) StartWatching() error {
+	if s.path == "" {
+		return fmt.Errorf("no path set for user store")
+	}
+
+	watcher, err := NewFileWatcher(s.path, s.Reload)
+	if err != nil {
+		return err
+	}
+
+	s.watcher = watcher
+	s.watcher.Start()
+	return nil
+}
+
+// StopWatching stops watching the user file for changes
+func (s *UserStore) StopWatching() {
+	if s.watcher != nil {
+		s.watcher.Stop()
+		s.watcher = nil
+	}
 }
