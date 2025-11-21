@@ -20,7 +20,7 @@ import {
     Switch,
 } from '@mui/material';
 
-const ProviderSelector = ({
+const ProviderSelector = React.memo(({
     providers,
     selectedProvider,
     onProviderChange,
@@ -102,7 +102,9 @@ const ProviderSelector = ({
             />
         </Box>
     );
-};
+});
+
+ProviderSelector.displayName = 'ProviderSelector';
 
 ProviderSelector.propTypes = {
     providers: PropTypes.arrayOf(PropTypes.shape({

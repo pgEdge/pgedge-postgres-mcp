@@ -47,7 +47,7 @@ const getShortModelName = (modelName) => {
     return firstPart.length <= 15 ? firstPart : modelName.substring(0, 15) + '...';
 };
 
-const Message = ({ message, showActivity, renderMarkdown }) => {
+const Message = React.memo(({ message, showActivity, renderMarkdown }) => {
     const theme = useTheme();
     const markdownComponents = createMarkdownComponents(theme);
 
@@ -169,7 +169,9 @@ const Message = ({ message, showActivity, renderMarkdown }) => {
             </Box>
         </Box>
     );
-};
+});
+
+Message.displayName = 'Message';
 
 Message.propTypes = {
     message: PropTypes.shape({

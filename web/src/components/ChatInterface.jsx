@@ -8,7 +8,7 @@
  *-------------------------------------------------------------------------
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Box, Paper, Alert } from '@mui/material';
 import { useAuth } from '../contexts/AuthContext';
 import { useLocalStorageBoolean } from '../hooks/useLocalStorage';
@@ -71,7 +71,7 @@ const ChatInterface = () => {
     }, [messages]);
 
     // Handle message sending
-    const handleSend = async () => {
+    const handleSend = useCallback(async () => {
         if (!input.trim() || loading || !mcpClient) return;
 
         const userMessage = {
@@ -292,10 +292,10 @@ const ChatInterface = () => {
         } finally {
             setLoading(false);
         }
-    };
+    }, [input, loading, mcpClient, messages, sessionToken, tools, llmProviders.selectedProvider, llmProviders.selectedModel, queryHistory, forceLogout, refreshTools]);
 
     // Handle keyboard shortcuts
-    const handleKeyDown = (e) => {
+    const handleKeyDown = useCallback((e) => {
         if (e.key === 'Enter' && !e.shiftKey) {
             e.preventDefault();
             handleSend();
@@ -308,25 +308,25 @@ const ChatInterface = () => {
             const newInput = queryHistory.navigateDown(input);
             setInput(newInput);
         }
-    };
+    }, [input, queryHistory, handleSend]);
 
     // Handle input change
-    const handleInputChange = (e) => {
+    const handleInputChange = useCallback((e) => {
         setInput(e.target.value);
         // Reset history navigation when user types
         if (queryHistory.isNavigating) {
             queryHistory.resetNavigation();
         }
-    };
+    }, [queryHistory]);
 
     // Handle clear conversation
-    const handleClear = () => {
+    const handleClear = useCallback(() => {
         if (!window.confirm('Clear conversation history?')) return;
 
         setMessages([]);
         queryHistory.clearHistory();
         setError('');
-    };
+    }, [queryHistory]);
 
     return (
         <Box

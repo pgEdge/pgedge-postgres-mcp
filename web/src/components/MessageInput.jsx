@@ -13,7 +13,7 @@ import PropTypes from 'prop-types';
 import { Box, TextField, IconButton } from '@mui/material';
 import { Send as SendIcon } from '@mui/icons-material';
 
-const MessageInput = ({ value, onChange, onSend, onKeyDown, disabled }) => {
+const MessageInput = React.memo(({ value, onChange, onSend, onKeyDown, disabled }) => {
     return (
         <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', mb: 2 }}>
             <TextField
@@ -52,7 +52,9 @@ const MessageInput = ({ value, onChange, onSend, onKeyDown, disabled }) => {
             </IconButton>
         </Box>
     );
-};
+});
+
+MessageInput.displayName = 'MessageInput';
 
 MessageInput.propTypes = {
     value: PropTypes.string.isRequired,

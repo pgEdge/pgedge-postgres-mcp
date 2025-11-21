@@ -14,7 +14,7 @@ import { Box, Paper, Button, Typography } from '@mui/material';
 import { Delete as DeleteIcon, SmartToy as BotIcon } from '@mui/icons-material';
 import Message from './Message';
 
-const MessageList = ({ messages, showActivity, renderMarkdown, onClear }) => {
+const MessageList = React.memo(({ messages, showActivity, renderMarkdown, onClear }) => {
     const messagesEndRef = useRef(null);
 
     const scrollToBottom = () => {
@@ -103,7 +103,9 @@ const MessageList = ({ messages, showActivity, renderMarkdown, onClear }) => {
             )}
         </Paper>
     );
-};
+});
+
+MessageList.displayName = 'MessageList';
 
 MessageList.propTypes = {
     messages: PropTypes.arrayOf(PropTypes.object).isRequired,
