@@ -289,17 +289,23 @@ func (c *anthropicClient) Chat(ctx context.Context, messages []Message, tools in
 			if totalInput > 0 {
 				savePercent = float64(anthropicResp.Usage.CacheReadInputTokens) / float64(totalInput) * 100
 			}
-			fmt.Fprintf(os.Stderr, "[LLM] [DEBUG] Anthropic - Prompt Cache: Created %d tokens, Read %d tokens (saved ~%.0f%% on input)\n",
+			fmt.Fprintf(os.Stderr, "\n[LLM] [DEBUG] Anthropic - Prompt Cache: Created %d tokens, Read %d tokens (saved ~%.0f%% on input)\n",
 				anthropicResp.Usage.CacheCreationInputTokens,
 				anthropicResp.Usage.CacheReadInputTokens,
 				savePercent,
 			)
+			fmt.Fprintf(os.Stderr, "[LLM] [DEBUG] Anthropic - Tokens: Input %d, Output %d, Total %d\n",
+				anthropicResp.Usage.InputTokens,
+				anthropicResp.Usage.OutputTokens,
+				anthropicResp.Usage.InputTokens+anthropicResp.Usage.OutputTokens,
+			)
+		} else {
+			fmt.Fprintf(os.Stderr, "\n[LLM] [DEBUG] Anthropic - Tokens: Input %d, Output %d, Total %d\n",
+				anthropicResp.Usage.InputTokens,
+				anthropicResp.Usage.OutputTokens,
+				anthropicResp.Usage.InputTokens+anthropicResp.Usage.OutputTokens,
+			)
 		}
-		fmt.Fprintf(os.Stderr, "[LLM] [DEBUG] Anthropic - Tokens: Input %d, Output %d, Total %d\n",
-			anthropicResp.Usage.InputTokens,
-			anthropicResp.Usage.OutputTokens,
-			anthropicResp.Usage.InputTokens+anthropicResp.Usage.OutputTokens,
-		)
 	}
 
 	return LLMResponse{
@@ -538,7 +544,7 @@ IMPORTANT INSTRUCTIONS:
 		embedding.LogLLMCall("ollama", c.model, operation, 0, 0, duration, nil) // Ollama doesn't provide token counts
 
 		if c.debug {
-			fmt.Fprintf(os.Stderr, "[LLM] [DEBUG] Ollama - Response: tool_use (Ollama does not provide token counts)\n")
+			fmt.Fprintf(os.Stderr, "\n[LLM] [DEBUG] Ollama - Response: tool_use (Ollama does not provide token counts)\n")
 		}
 
 		return LLMResponse{
@@ -560,7 +566,7 @@ IMPORTANT INSTRUCTIONS:
 	embedding.LogLLMCall("ollama", c.model, operation, 0, 0, duration, nil) // Ollama doesn't provide token counts
 
 	if c.debug {
-		fmt.Fprintf(os.Stderr, "[LLM] [DEBUG] Ollama - Response: end_turn (Ollama does not provide token counts)\n")
+		fmt.Fprintf(os.Stderr, "\n[LLM] [DEBUG] Ollama - Response: end_turn (Ollama does not provide token counts)\n")
 	}
 
 	return LLMResponse{
@@ -1023,7 +1029,7 @@ func (c *openaiClient) Chat(ctx context.Context, messages []Message, tools inter
 			embedding.LogLLMCall("openai", c.model, operation, openaiResp.Usage.PromptTokens, openaiResp.Usage.CompletionTokens, duration, nil)
 
 			if c.debug {
-				fmt.Fprintf(os.Stderr, "[LLM] [DEBUG] OpenAI - Tokens: Prompt %d, Completion %d, Total %d\n",
+				fmt.Fprintf(os.Stderr, "\n[LLM] [DEBUG] OpenAI - Tokens: Prompt %d, Completion %d, Total %d\n",
 					openaiResp.Usage.PromptTokens,
 					openaiResp.Usage.CompletionTokens,
 					openaiResp.Usage.TotalTokens,
@@ -1089,7 +1095,7 @@ func (c *openaiClient) Chat(ctx context.Context, messages []Message, tools inter
 	embedding.LogLLMCall("openai", c.model, operation, openaiResp.Usage.PromptTokens, openaiResp.Usage.CompletionTokens, duration, nil)
 
 	if c.debug {
-		fmt.Fprintf(os.Stderr, "[LLM] [DEBUG] OpenAI - Tokens: Prompt %d, Completion %d, Total %d\n",
+		fmt.Fprintf(os.Stderr, "\n[LLM] [DEBUG] OpenAI - Tokens: Prompt %d, Completion %d, Total %d\n",
 			openaiResp.Usage.PromptTokens,
 			openaiResp.Usage.CompletionTokens,
 			openaiResp.Usage.TotalTokens,

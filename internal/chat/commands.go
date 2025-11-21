@@ -220,6 +220,12 @@ func (c *Client) handleSetDebug(value string) bool {
 		return true
 	}
 
+	// Reinitialize LLM client with new debug setting
+	if err := c.initializeLLM(); err != nil {
+		c.ui.PrintError(fmt.Sprintf("Failed to reinitialize LLM: %v", err))
+		return true
+	}
+
 	// Save preferences
 	if err := SavePreferences(c.preferences); err != nil {
 		c.ui.PrintError(fmt.Sprintf("Warning: Failed to save preferences: %v", err))

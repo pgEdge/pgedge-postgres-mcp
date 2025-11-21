@@ -104,7 +104,7 @@ func TestOllamaClient_ToolCall(t *testing.T) {
 	defer server.Close()
 
 	// Create client
-	client := NewOllamaClient(server.URL, "test-model")
+	client := NewOllamaClient(server.URL, "test-model", false)
 
 	// Test tool call
 	ctx := context.Background()
@@ -172,7 +172,7 @@ func TestOllamaClient_TextResponse(t *testing.T) {
 	defer server.Close()
 
 	// Create client
-	client := NewOllamaClient(server.URL, "test-model")
+	client := NewOllamaClient(server.URL, "test-model", false)
 
 	// Test text response
 	ctx := context.Background()
