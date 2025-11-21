@@ -164,6 +164,11 @@ const ChatInterface = () => {
 
                 const llmData = await llmResponse.json();
                 console.log('LLM response:', llmData);
+                console.log('Loop iteration:', loopCount, 'Stop reason:', llmData.stop_reason);
+                if (llmData.stop_reason === 'tool_use') {
+                    const toolUseCount = llmData.content.filter(c => c.type === 'tool_use').length;
+                    console.log('Number of tool_use blocks in this response:', toolUseCount);
+                }
 
                 // Check stop reason
                 if (llmData.stop_reason === 'end_turn' || loopCount >= MAX_AGENTIC_LOOPS) {
@@ -181,6 +186,8 @@ const ChatInterface = () => {
                     const finalContent = textContent || 'No response received';
 
                     // Replace thinking message with final response
+                    console.log('Final activity array:', activity);
+                    console.log('Total tool uses tracked:', activity.length);
                     setMessages(prev => {
                         const newMessages = prev.slice(0, -1);
                         return [...newMessages, {
