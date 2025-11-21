@@ -347,6 +347,10 @@ Slash commands (type /help for full slash command help):
   /show <setting>              - Show current settings
   /list models                 - List available models from current LLM provider
 
+History navigation:
+  Up/Down   - Navigate through command history
+  Ctrl+R    - Reverse search history (type to filter, Ctrl+R for next match)
+
 You can ask questions naturally, and the assistant will use available tools and resources to help you.
 `
 	fmt.Println(ui.colorize(ColorCyan, help))

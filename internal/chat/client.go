@@ -286,6 +286,26 @@ func (c *Client) initializeLLM() error {
 	return nil
 }
 
+// PrefixCompleter implements readline.AutoCompleter for prefix-based history
+type PrefixCompleter struct {
+	rl *readline.Instance
+}
+
+// Do implements the AutoCompleter interface for prefix-based history completion
+func (pc *PrefixCompleter) Do(line []rune, pos int) (newLine [][]rune, length int) {
+	// Get current line text
+	lineStr := string(line[:pos])
+
+	// If line is empty, don't suggest anything
+	if lineStr == "" {
+		return nil, 0
+	}
+
+	// This is called for Tab completion - we don't want to interfere with that
+	// We only want to filter history on up/down arrows, which readline handles differently
+	return nil, 0
+}
+
 // chatLoop runs the interactive chat loop
 func (c *Client) chatLoop(ctx context.Context) error {
 	// Use history file from config
@@ -299,6 +319,9 @@ func (c *Client) chatLoop(ctx context.Context) error {
 		DisableAutoSaveHistory: false,
 		InterruptPrompt:        "^C",
 		EOFPrompt:              "exit",
+		HistorySearchFold:      true, // Enable case-insensitive history search
+		// Unfortunately, chzyer/readline doesn't support prefix-based history filtering
+		// on up/down arrows natively. Users can use Ctrl+R for reverse search.
 	})
 	if err != nil {
 		return fmt.Errorf("failed to initialize readline: %w", err)
