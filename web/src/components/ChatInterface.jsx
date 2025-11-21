@@ -8,10 +8,10 @@
  *-------------------------------------------------------------------------
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Box, Paper, Alert } from '@mui/material';
 import { useAuth } from '../contexts/AuthContext';
-import { useLocalStorage, useLocalStorageBoolean } from '../hooks/useLocalStorage';
+import { useLocalStorageBoolean } from '../hooks/useLocalStorage';
 import { useQueryHistory } from '../hooks/useQueryHistory';
 import { useMCPClient } from '../hooks/useMCPClient';
 import { useLLMProviders } from '../hooks/useLLMProviders';
@@ -25,7 +25,25 @@ const ChatInterface = () => {
     const { sessionToken, forceLogout } = useAuth();
 
     // State management using custom hooks
-    const [messages, setMessages] = useLocalStorage('chat-messages', []);
+    // Initialize messages with fromPreviousSession flag for loaded messages
+    const [messages, setMessages] = useState(() => {
+        try {
+            const savedMessages = localStorage.getItem('chat-messages');
+            if (savedMessages) {
+                const parsed = JSON.parse(savedMessages);
+                // Mark all loaded messages as from previous session and ensure content is a string
+                return parsed.map(msg => ({
+                    ...msg,
+                    content: typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content),
+                    fromPreviousSession: true
+                }));
+            }
+        } catch (error) {
+            console.error('Error loading chat messages:', error);
+        }
+        return [];
+    });
+
     const [showActivity, setShowActivity] = useLocalStorageBoolean('show-activity', true);
     const [renderMarkdown, setRenderMarkdown] = useLocalStorageBoolean('render-markdown', true);
 
@@ -37,6 +55,20 @@ const ChatInterface = () => {
     const queryHistory = useQueryHistory();
     const { mcpClient, tools, refreshTools } = useMCPClient(sessionToken);
     const llmProviders = useLLMProviders(sessionToken);
+
+    // Save messages to localStorage when they change
+    useEffect(() => {
+        try {
+            // Don't save if messages array is empty
+            if (messages.length > 0) {
+                // Remove the fromPreviousSession flag before saving
+                const messagesToSave = messages.map(({ fromPreviousSession, ...msg }) => msg);
+                localStorage.setItem('chat-messages', JSON.stringify(messagesToSave));
+            }
+        } catch (error) {
+            console.error('Error saving chat messages:', error);
+        }
+    }, [messages]);
 
     // Handle message sending
     const handleSend = async () => {
@@ -120,6 +152,7 @@ const ChatInterface = () => {
                     console.log('Session invalidated, logging out...');
                     forceLogout();
                     setError('Your session has expired. Please log in again.');
+                    // Remove thinking message (keep user message for context)
                     setMessages(prev => prev.slice(0, -1));
                     return;
                 }
@@ -185,9 +218,12 @@ const ChatInterface = () => {
                         // Update thinking message with new activity
                         setMessages(prev => {
                             const newMessages = [...prev];
-                            const lastMsg = newMessages[newMessages.length - 1];
-                            if (lastMsg && lastMsg.isThinking) {
-                                lastMsg.activity = [...activity];
+                            if (newMessages.length > 0 && newMessages[newMessages.length - 1].isThinking) {
+                                // Create a new message object instead of mutating
+                                newMessages[newMessages.length - 1] = {
+                                    ...newMessages[newMessages.length - 1],
+                                    activity: [...activity]
+                                };
                             }
                             return newMessages;
                         });
@@ -244,7 +280,7 @@ const ChatInterface = () => {
         } catch (err) {
             console.error('Chat error:', err);
 
-            // Remove thinking message
+            // Remove thinking message (keep user message for context)
             setMessages(prev => prev.slice(0, -1));
 
             // Network errors
