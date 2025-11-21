@@ -32,6 +32,8 @@ SELECT tablename, pg_table_size(tablename::regclass) as size FROM pg_tables WHER
 - 🐳 **Docker Support** - Complete containerized deployment with Docker
   Compose
 - 🔐 **Secure** - TLS support, token auth, read-only enforcement
+- 🔄 **Hot Reload** - Automatic reload of authentication files without server
+  restart
 
 ## Quick Start
 

@@ -11,6 +11,7 @@ The pgEdge MCP Server includes built-in authentication with two methods: API tok
 - **Token expiration** with automatic cleanup
 - **Per-token connection isolation** for multi-user security
 - **Bearer token authentication** using HTTP Authorization header
+- **Auto-reload** of token and user files without server restart
 - **Not required** for stdio mode (Claude Desktop)
 
 ### Connection Isolation
@@ -448,6 +449,156 @@ Expired tokens are automatically removed when the server starts:
 Loaded 3 API token(s) from pgedge-pg-mcp-svr-tokens.yaml
 Removed 1 expired token(s)
 ```
+
+## Automatic File Reloading
+
+The pgEdge MCP Server automatically detects and reloads changes to token
+and user files without requiring a server restart. This enables hot updates
+to authentication credentials while the server is running.
+
+### How It Works
+
+The server uses file system notifications (via `fsnotify`) to monitor the
+token and user files for changes. When a file is modified, the server
+automatically reloads the credentials:
+
+- **Instant updates**: Changes take effect within 100ms
+- **No downtime**: Server continues running during reload
+- **Thread-safe**: Uses read-write locks to prevent race conditions
+- **Editor-friendly**: Handles file deletion/recreation during saves
+- **Session preservation**: Active user sessions remain valid during reload
+- **Debouncing**: Batches rapid file changes to avoid excessive reloads
+
+### Technical Details
+
+#### File Watching
+
+The server watches the directory containing the auth files (not the files
+directly) because many editors delete and recreate files when saving. This
+ensures that the watcher continues working after file edits.
+
+#### Reload Process
+
+1. File system event detected (Write or Create)
+2. Debounce timer (100ms) starts to batch rapid changes
+3. Reload function executes with write lock
+4. New credentials loaded from disk
+5. Old credentials replaced atomically
+6. Active sessions preserved (for user files)
+7. Confirmation logged to server output
+
+#### Thread Safety
+
+All reload operations use read-write locks (`sync.RWMutex`) to ensure:
+
+- Multiple concurrent read operations (authentication checks) can proceed
+- Write operations (reloads) block all other operations temporarily
+- No race conditions between authentication and reload
+- Atomic replacement of credential data
+
+### Use Cases
+
+#### Adding Tokens While Server Runs
+
+```bash
+# Terminal 1: Server is running
+./bin/pgedge-pg-mcp-svr -http
+
+# Terminal 2: Add a new token without stopping server
+./bin/pgedge-pg-mcp-svr -add-token \
+  -token-note "New Client" \
+  -token-expiry "30d"
+
+# Server output shows:
+# [AUTH] Reloaded /path/to/pgedge-pg-mcp-svr-tokens.yaml
+
+# New token is immediately usable
+```
+
+#### Removing Compromised Tokens
+
+```bash
+# Server is running in production
+# Security team detects compromised token
+
+# Remove the token immediately
+./bin/pgedge-pg-mcp-svr -remove-token b3f805a4
+
+# Token is revoked within 100ms
+# No server restart needed
+```
+
+#### Updating User Passwords
+
+```bash
+# Server running with active user sessions
+
+# Update user password
+./bin/pgedge-pg-mcp-svr -update-user \
+  -username alice \
+  -password "NewSecurePassword456!"
+
+# Server reloads user file
+# Alice's active session remains valid
+# New password required for next login
+```
+
+#### Bulk Updates
+
+```bash
+# Edit token file directly for bulk changes
+nano pgedge-pg-mcp-svr-tokens.yaml
+
+# On save, server automatically detects change:
+# [AUTH] Reloaded /path/to/pgedge-pg-mcp-svr-tokens.yaml
+```
+
+### Monitoring Reload Events
+
+Server logs show reload events:
+
+```
+[AUTH] Reloaded /path/to/pgedge-pg-mcp-svr-tokens.yaml
+[AUTH] Reloaded /path/to/pgedge-pg-mcp-svr-users.yaml
+```
+
+Failed reloads are also logged:
+
+```
+[AUTH] Failed to reload /path/to/pgedge-pg-mcp-svr-tokens.yaml:
+permission denied
+```
+
+### Limitations
+
+- **File must exist**: Deleting the file entirely will cause errors
+- **Valid YAML required**: Syntax errors prevent reload (old data retained)
+- **Same location**: Moving the file to a different path requires restart
+- **No cascade**: Changing token file path in config requires restart
+
+### Best Practices
+
+1. **Test in development**: Verify file edits before production changes
+2. **Monitor logs**: Watch for reload confirmations and errors
+3. **Atomic edits**: Use tools that write atomically (most editors do)
+4. **Backup first**: Keep backups before bulk edits
+5. **Verify changes**: Use `-list-tokens` or `-list-users` to confirm
+
+### Implementation
+
+The auto-reload feature is implemented using:
+
+- **fsnotify**: Cross-platform file system notifications
+- **Watcher goroutine**: Background monitoring in separate thread
+- **Debounce timer**: 100ms delay to batch rapid changes
+- **RWMutex locks**: Thread-safe data structure access
+- **Reload callbacks**: TokenStore.Reload() and UserStore.Reload()
+
+For implementation details, see:
+
+- [internal/auth/watcher.go](../internal/auth/watcher.go) - File watching
+- [internal/auth/auth.go](../internal/auth/auth.go) - Token store reload
+- [internal/auth/users.go](../internal/auth/users.go) - User store reload
 
 ## Authentication Behavior
 
