@@ -79,7 +79,7 @@ public.users (TABLE)
 5. **Intelligent Chunking**: Breaks retrieved documents into overlapping chunks (default: 100 tokens per chunk, 25 token overlap)
 6. **BM25 Re-ranking**: Scores chunks using BM25 lexical matching for precision
 7. **MMR Diversity**: Applies Maximal Marginal Relevance to avoid returning too many chunks from the same document
-8. **Token Budget**: Returns as many relevant chunks as possible within the token limit (default: 2500 tokens)
+8. **Token Budget**: Returns as many relevant chunks as possible within the token limit (default: 1000 tokens)
 
 **Prerequisites**:
 
@@ -94,7 +94,7 @@ public.users (TABLE)
 - `top_n` (optional): Number of rows from vector search (default: 10)
 - `chunk_size_tokens` (optional): Maximum tokens per chunk (default: 100)
 - `lambda` (optional): MMR diversity parameter - 0.0=max diversity, 1.0=max relevance (default: 0.6)
-- `max_output_tokens` (optional): Maximum total tokens to return (default: 2500)
+- `max_output_tokens` (optional): Maximum total tokens to return (default: 1000)
 - `distance_metric` (optional): `'cosine'`, `'l2'`, or `'inner_product'` (default: `'cosine'`)
 
 **Example** - Wikipedia Search:

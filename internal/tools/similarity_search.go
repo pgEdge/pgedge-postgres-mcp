@@ -53,7 +53,7 @@ func SimilaritySearchTool(dbClient *database.Client, cfg *config.Config) Tool {
 					},
 					"max_output_tokens": map[string]interface{}{
 						"type":        "integer",
-						"description": "Maximum total tokens to return (default: 2500)",
+						"description": "Maximum total tokens to return (default: 1000)",
 					},
 					"distance_metric": map[string]interface{}{
 						"type":        "string",

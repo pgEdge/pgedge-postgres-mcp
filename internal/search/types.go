@@ -54,7 +54,7 @@ func DefaultSearchConfig() SearchConfig {
 		ChunkSizeTokens: 100,
 		OverlapTokens:   25, // 25% overlap
 		Lambda:          0.6,
-		MaxOutputTokens: 2500,
+		MaxOutputTokens: 1000,
 		DistanceMetric:  "cosine",
 	}
 }
