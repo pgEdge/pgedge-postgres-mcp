@@ -1,6 +1,6 @@
 # GitHub Actions CI Workflows
 
-This directory contains CI workflows for the pgEdge Postgres MCP Server project.
+This directory contains CI workflows for the pgEdge Natural Language Agent project.
 
 ## Workflows
 

@@ -1,7 +1,7 @@
 # API Reference
 
 This document provides a complete reference for all API endpoints exposed by
-the pgEdge Postgres MCP Server.
+the pgEdge Natural Language Agent.
 
 ## MCP JSON-RPC Endpoints
 

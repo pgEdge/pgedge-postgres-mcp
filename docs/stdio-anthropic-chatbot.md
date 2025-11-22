@@ -1,6 +1,6 @@
 # Stdio + Anthropic Claude Chatbot
 
-A chatbot example that uses Anthropic's Claude and connects to the pgEdge Postgres MCP Server via stdio to answer questions about your PostgreSQL database using natural language.
+A chatbot example that uses Anthropic's Claude and connects to the pgEdge Natural Language Agent via stdio to answer questions about your PostgreSQL database using natural language.
 
 ## Overview
 
@@ -15,7 +15,7 @@ This example demonstrates:
 
 - Python 3.10+
 - An Anthropic API key ([get one here](https://console.anthropic.com/))
-- The pgEdge Postgres MCP Server binary built and available
+- The pgEdge Natural Language Agent binary built and available
 - A PostgreSQL database (connections can be configured via environment variable or through the chatbot)
 
 ## Installation
@@ -85,7 +85,7 @@ python chatbot.py
 You should see:
 
 ```
-✓ Connected to pgEdge Postgres MCP Server
+✓ Connected to pgEdge Natural Language Agent
 
 PostgreSQL Chatbot (type 'quit' or 'exit' to stop)
 ============================================================
@@ -127,7 +127,7 @@ The chatbot connects to the MCP server by spawning it as a subprocess and commun
 
 ```python
 async def connect_to_server(self, server_path: str):
-    """Connect to the pgEdge Postgres MCP Server via stdio."""
+    """Connect to the pgEdge Natural Language Agent via stdio."""
     server_params = StdioServerParameters(
         command=server_path,
         args=[],

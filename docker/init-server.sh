@@ -1,10 +1,10 @@
 #!/bin/sh
 set -e
 
-# pgEdge Postgres MCP Server Initialization Script
+# pgEdge Natural Language Agent Initialization Script
 # This script initializes users and tokens from environment variables
 
-echo "Starting pgEdge Postgres MCP Server..."
+echo "Starting pgEdge Natural Language Agent..."
 
 # Build command line arguments
 ARGS=""

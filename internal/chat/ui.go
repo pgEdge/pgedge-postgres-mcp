@@ -64,7 +64,7 @@ func (ui *UI) colorize(color, text string) string {
 func (ui *UI) PrintWelcome() {
 	elephant := `
           _
-   ______/ \-.   _           pgEdge Postgres MCP Chat Client
+   ______/ \-.   _           pgEdge Natural Language Agent
 .-/     (    o\_//           Type 'quit' or 'exit' to leave, 'help' for commands
  |  ___  \_/\---'
  |_||  |_||

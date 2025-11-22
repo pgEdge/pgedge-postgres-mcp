@@ -1,6 +1,6 @@
 /*-------------------------------------------------------------------------
  *
- * pgEdge Postgres MCP Server - LLM Proxy
+ * pgEdge Natural Language Agent - LLM Proxy
  *
  * Portions copyright (c) 2025, pgEdge, Inc.
  * This software is released under The PostgreSQL License

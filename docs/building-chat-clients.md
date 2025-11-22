@@ -1,10 +1,10 @@
 # Building Chatbot Clients
 
-This guide shows how to build chatbot applications that use the pgEdge Postgres MCP Server to interact with PostgreSQL databases through natural language.
+This guide shows how to build chatbot applications that use the pgEdge Natural Language Agent to interact with PostgreSQL databases through natural language.
 
 ## Overview
 
-An MCP chatbot client connects to the pgEdge Postgres MCP Server and uses an LLM to translate natural language queries into database operations. The basic architecture looks like this:
+An MCP chatbot client connects to the pgEdge Natural Language Agent and uses an LLM to translate natural language queries into database operations. The basic architecture looks like this:
 
 ```
 User Query → Your Client → LLM API → MCP Server → PostgreSQL
@@ -74,7 +74,7 @@ A simple Python example that connects to the MCP server via HTTP and uses Ollama
 
 **For all examples:**
 
-- The pgEdge Postgres MCP Server built and available
+- The pgEdge Natural Language Agent built and available
 - A PostgreSQL database (connections can be configured via environment variable or through the chatbot)
 
 **Example-specific requirements:**

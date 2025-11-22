@@ -1,4 +1,4 @@
-# Multi-stage build for pgEdge Postgres MCP Server
+# Multi-stage build for pgEdge Natural Language Agent
 # Stage 1: Build the Go binary
 FROM golang:1.23-alpine AS builder
 
@@ -25,7 +25,7 @@ FROM registry.access.redhat.com/ubi9/ubi-minimal:latest
 LABEL name="pgedge-postgres-mcp-server" \
       vendor="pgEdge" \
       version="1.0" \
-      summary="pgEdge Postgres MCP Server" \
+      summary="pgEdge Natural Language Agent" \
       description="Model Context Protocol server for PostgreSQL database interaction"
 
 # Install util-linux for runuser command (needed for user switching in init script)

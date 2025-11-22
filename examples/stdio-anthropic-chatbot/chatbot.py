@@ -43,7 +43,7 @@ class PostgresChatbot:
         self.exit_stack = AsyncExitStack()
 
     async def connect_to_server(self, server_path: str):
-        """Connect to the pgEdge Postgres MCP Server via stdio."""
+        """Connect to the pgEdge Natural Language Agent via stdio."""
         # Configure server parameters
         server_params = StdioServerParameters(
             command=server_path,
@@ -65,7 +65,7 @@ class PostgresChatbot:
         # Initialize the connection
         await self.session.initialize()
 
-        print("✓ Connected to pgEdge Postgres MCP Server")
+        print("✓ Connected to pgEdge Natural Language Agent")
 
     async def list_available_tools(self):
         """Retrieve and display available tools from the server."""
@@ -222,7 +222,7 @@ class PostgresChatbot:
 
 async def main():
     """Main entry point."""
-    # Path to your pgEdge Postgres MCP Server binary
+    # Path to your pgEdge Natural Language Agent binary
     # Adjust this path as needed
     server_path = os.getenv("PGEDGE_MCP_SERVER_PATH", "../../bin/pgedge-pg-mcp-svr")
 

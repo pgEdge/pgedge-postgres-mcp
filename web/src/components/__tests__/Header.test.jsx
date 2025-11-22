@@ -57,8 +57,8 @@ describe('Header Component', () => {
         renderHeader();
 
         await waitFor(() => {
-            expect(screen.getByAltText('pgEdge MCP Client')).toBeInTheDocument();
-            expect(screen.getByText('MCP Client')).toBeInTheDocument();
+            expect(screen.getByAltText('pgEdge Natural Language Agent')).toBeInTheDocument();
+            expect(screen.getByText('Natural Language Agent')).toBeInTheDocument();
         });
     });
 
@@ -66,7 +66,7 @@ describe('Header Component', () => {
         const { rerender } = renderHeader('light');
 
         await waitFor(() => {
-            const logo = screen.getByAltText('pgEdge MCP Client');
+            const logo = screen.getByAltText('pgEdge Natural Language Agent');
             expect(logo).toHaveAttribute('src', 'logo-light.png');
         });
 
@@ -82,7 +82,7 @@ describe('Header Component', () => {
         );
 
         await waitFor(() => {
-            const logo = screen.getByAltText('pgEdge MCP Client');
+            const logo = screen.getByAltText('pgEdge Natural Language Agent');
             expect(logo).toHaveAttribute('src', 'logo-dark.png');
         });
     });

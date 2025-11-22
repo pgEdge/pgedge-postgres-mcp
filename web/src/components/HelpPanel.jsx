@@ -52,7 +52,7 @@ const HelpPanel = ({ open, onClose }) => {
                     Getting Started
                 </Typography>
                 <Typography variant="body2" paragraph>
-                    The pgEdge MCP Client allows you to interact with your PostgreSQL database using natural language.
+                    The pgEdge Natural Language Agent allows you to interact with your PostgreSQL database using natural language.
                     Ask questions about your data, run queries, and get insights without writing SQL.
                 </Typography>
 
@@ -207,7 +207,7 @@ const HelpPanel = ({ open, onClose }) => {
 
                 {/* Version Info */}
                 <Typography variant="body2" color="text.secondary" sx={{ mt: 4 }}>
-                    pgEdge MCP Client
+                    pgEdge Natural Language Agent
                     <br />
                     Copyright &copy; 2025, pgEdge, Inc.
                 </Typography>

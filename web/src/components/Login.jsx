@@ -306,7 +306,7 @@ const Login = () => {
                 gutterBottom
                 sx={{ fontWeight: 600 }}
               >
-                MCP Client
+                Natural Language Agent
               </Typography>
               <Typography variant="body2" color="text.secondary">
                 Sign in to continue

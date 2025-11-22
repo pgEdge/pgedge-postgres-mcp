@@ -290,7 +290,7 @@ async def main():
     chatbot = PostgresChatbot()
 
     try:
-        print("✓ Connected to pgEdge Postgres MCP Server")
+        print("✓ Connected to pgEdge Natural Language Agent")
 
         # Run chat loop
         await chatbot.chat_loop()

@@ -79,7 +79,7 @@ describe('HelpPanel Component', () => {
     it('displays copyright information', () => {
         render(<HelpPanel open={true} onClose={mockOnClose} />);
 
-        // More specific check for copyright text (using getAllByText since "pgEdge MCP Client" appears multiple times)
+        // More specific check for copyright text (using getAllByText since "pgEdge Natural Language Agent" appears multiple times)
         const copyrightText = screen.getByText(/Copyright © 2025, pgEdge, Inc\./i);
         expect(copyrightText).toBeInTheDocument();
     });

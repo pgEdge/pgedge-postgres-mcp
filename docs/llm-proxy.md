@@ -212,7 +212,7 @@ API keys are loaded in the following order (highest to lowest):
 The web client communicates directly with the MCP server via JSON-RPC 2.0 over
 HTTP, matching the CLI client architecture.
 
-### MCP Client Implementation
+### Natural Language Agent Client Implementation
 
 **File:** [web/src/lib/mcp-client.js](../web/src/lib/mcp-client.js)
 

@@ -1,7 +1,7 @@
 # Internal Architecture
 
 This guide covers the internal architecture, implementation details, and
-development workflows for contributors to the pgEdge Postgres MCP Server
+development workflows for contributors to the pgEdge Natural Language Agent
 project.
 
 ## Request Flow

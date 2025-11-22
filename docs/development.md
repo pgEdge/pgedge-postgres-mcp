@@ -1,6 +1,6 @@
 # Development Guide
 
-This guide covers building, testing, and developing the pgEdge Postgres MCP Server and Chat Client.
+This guide covers building, testing, and developing the pgEdge Natural Language Agent and Chat Client.
 
 ## Prerequisites
 

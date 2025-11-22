@@ -1,6 +1,6 @@
 # HTTP + Ollama Chatbot Example
 
-A simple chatbot that uses Ollama and connects to the pgEdge Postgres MCP Server via HTTP to answer questions about your PostgreSQL database using natural language.
+A simple chatbot that uses Ollama and connects to the pgEdge Natural Language Agent via HTTP to answer questions about your PostgreSQL database using natural language.
 
 ## Quick Start
 
@@ -59,7 +59,7 @@ python chatbot.py
 ```
 Using Ollama model: gpt-oss:20b
 MCP Server: http://localhost:8080/mcp/v1
-✓ Connected to pgEdge Postgres MCP Server
+✓ Connected to pgEdge Natural Language Agent
 
 PostgreSQL Chatbot (type 'quit' or 'exit' to stop)
 ============================================================
