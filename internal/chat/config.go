@@ -27,6 +27,12 @@ type Config struct {
 	HistoryFile string    `yaml:"history_file"` // Path to chat history file
 }
 
+// ConfigOverrides tracks which config values were explicitly set via command-line flags
+type ConfigOverrides struct {
+	ProviderSet bool // LLM provider was explicitly set via flag
+	ModelSet    bool // LLM model was explicitly set via flag
+}
+
 // MCPConfig holds MCP server connection configuration
 type MCPConfig struct {
 	Mode             string `yaml:"mode"`               // stdio or http

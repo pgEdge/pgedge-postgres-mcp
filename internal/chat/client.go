@@ -38,7 +38,7 @@ type Client struct {
 }
 
 // NewClient creates a new chat client
-func NewClient(cfg *Config) (*Client, error) {
+func NewClient(cfg *Config, overrides *ConfigOverrides) (*Client, error) {
 	// Load user preferences
 	prefs, err := LoadPreferences()
 	if err != nil {
@@ -47,14 +47,22 @@ func NewClient(cfg *Config) (*Client, error) {
 		prefs = getDefaultPreferences()
 	}
 
-	// Apply preferences to config
+	// Apply preferences to config (unless explicitly overridden by command-line flags)
+	// Priority: flags > preferences > env vars > config > defaults
 	cfg.UI.DisplayStatusMessages = prefs.UI.DisplayStatusMessages
 	cfg.UI.RenderMarkdown = prefs.UI.RenderMarkdown
 	cfg.UI.Debug = prefs.UI.Debug
 
-	// If user has a preferred model for the current provider, use it
-	if preferredModel := prefs.GetModelForProvider(cfg.LLM.Provider); preferredModel != "" {
-		cfg.LLM.Model = preferredModel
+	// Apply preferred provider if not explicitly set via flag
+	if !overrides.ProviderSet && prefs.LastProvider != "" {
+		cfg.LLM.Provider = prefs.LastProvider
+	}
+
+	// Apply preferred model for the current provider if not explicitly set via flag
+	if !overrides.ModelSet {
+		if preferredModel := prefs.GetModelForProvider(cfg.LLM.Provider); preferredModel != "" {
+			cfg.LLM.Model = preferredModel
+		}
 	}
 
 	// Update last provider
@@ -620,4 +628,17 @@ func (c *Client) processQuery(ctx context.Context, query string) error {
 
 	close(thinkingDone)
 	return fmt.Errorf("reached maximum number of tool calls (10)")
+}
+
+// SavePreferences saves the current preferences to disk
+func (c *Client) SavePreferences() error {
+	if c.preferences == nil {
+		return nil
+	}
+
+	// Update preferences with current provider and model
+	c.preferences.LastProvider = c.config.LLM.Provider
+	c.preferences.SetModelForProvider(c.config.LLM.Provider, c.config.LLM.Model)
+
+	return SavePreferences(c.preferences)
 }

@@ -58,6 +58,12 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Track which flags were explicitly set
+	overrides := &chat.ConfigOverrides{
+		ProviderSet: (*llmProvider != ""),
+		ModelSet:    (*llmModel != ""),
+	}
+
 	// Override config with command line flags
 	if *mcpMode != "" {
 		cfg.MCP.Mode = *mcpMode
@@ -119,11 +125,18 @@ func main() {
 	}()
 
 	// Create and run chat client
-	client, err := chat.NewClient(cfg)
+	client, err := chat.NewClient(cfg, overrides)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error creating chat client: %v\n", err)
 		os.Exit(1)
 	}
+
+	// Save preferences on exit (normal or interrupted)
+	defer func() {
+		if err := client.SavePreferences(); err != nil {
+			fmt.Fprintf(os.Stderr, "Warning: Failed to save preferences: %v\n", err)
+		}
+	}()
 
 	if err := client.Run(ctx); err != nil {
 		fmt.Fprintf(os.Stderr, "Error running chat client: %v\n", err)
