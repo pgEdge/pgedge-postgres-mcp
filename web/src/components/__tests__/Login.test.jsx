@@ -36,7 +36,7 @@ describe('Login Component', () => {
         renderLogin();
 
         await waitFor(() => {
-            expect(screen.getByRole('heading', { name: /mcp client/i })).toBeInTheDocument();
+            expect(screen.getByRole('heading', { name: /natural language agent/i })).toBeInTheDocument();
         });
 
         expect(screen.getByText(/sign in to continue/i)).toBeInTheDocument();
@@ -74,6 +74,11 @@ describe('Login Component', () => {
             expect(submitButton).toBeDisabled();
             expect(screen.getByText(/signing in\.\.\./i)).toBeInTheDocument();
         });
+
+        // Wait for the async operation to complete to avoid act() warnings
+        await waitFor(() => {
+            expect(submitButton).not.toBeDisabled();
+        }, { timeout: 200 });
     });
 
     it('shows error message on login failure', async () => {
