@@ -3,6 +3,11 @@
 This document provides guidelines for Claude Code when working on this
 project. These rules ensure consistency, quality, and maintainability.
 
+## General
+
+- ALways kill the MCP server and Vite server when no longer needed if they 
+    have been started to test something.
+
 ## Code Style
 
 ### Indentation
