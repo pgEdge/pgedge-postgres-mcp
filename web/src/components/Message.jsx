@@ -107,7 +107,18 @@ const Message = React.memo(({ message, showActivity, renderMarkdown, debug }) =>
             </Box>
 
             {/* Message Content */}
-            <Box sx={{ flex: 1 }}>
+            <Box sx={{
+                flex: 1,
+                ...(message.isError && {
+                    borderLeft: '3px solid',
+                    borderColor: 'error.main',
+                    paddingLeft: 2,
+                    backgroundColor: 'error.light',
+                    opacity: 0.9,
+                    borderRadius: 1,
+                    padding: 1
+                })
+            }}>
                 {/* Header */}
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
                     <Typography
@@ -137,6 +148,18 @@ const Message = React.memo(({ message, showActivity, renderMarkdown, debug }) =>
                             }}
                         />
                     )}
+                    {message.isError && (
+                        <Chip
+                            label="Error"
+                            size="small"
+                            color="error"
+                            variant="filled"
+                            sx={{
+                                height: 20,
+                                fontSize: '0.65rem',
+                            }}
+                        />
+                    )}
                 </Box>
 
                 {/* Activity Log */}
@@ -159,6 +182,9 @@ const Message = React.memo(({ message, showActivity, renderMarkdown, debug }) =>
                                 )}
                                 {activity.type === 'resource' && (
                                     <>📄 {activity.uri}</>
+                                )}
+                                {activity.type === 'compaction' && (
+                                    <>📦 Compacting history: {activity.originalCount} → {activity.compactedCount} messages{activity.tokensSaved ? ` (saved ${activity.tokensSaved} tokens)` : ''}{activity.local ? ' [local]' : ''}</>
                                 )}
                             </Typography>
                         ))}
@@ -261,6 +287,7 @@ Message.propTypes = {
             uri: PropTypes.string,
         })),
         isThinking: PropTypes.bool,
+        isError: PropTypes.bool,
         fromPreviousSession: PropTypes.bool,
         tokenUsage: PropTypes.shape({
             provider: PropTypes.string,

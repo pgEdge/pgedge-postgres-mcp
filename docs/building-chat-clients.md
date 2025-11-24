@@ -87,7 +87,11 @@ A simple Python example that connects to the MCP server via HTTP and uses Ollama
 
 1. **Error Handling**: Always handle connection errors, tool execution failures, and LLM API errors gracefully
 
-2. **Token Management**: Be mindful of context window limits - summarize conversation history if needed
+2. **Token Management**: Be mindful of context window limits. The server
+   provides a smart compaction endpoint at `POST /api/chat/compact` that
+   intelligently compresses chat history while preserving important context
+   (schema changes, errors, tool results). See [API
+   Reference](api-reference.md#post-apichatcompact) for details.
 
 3. **Security**: Never commit API keys or database credentials to version control
 

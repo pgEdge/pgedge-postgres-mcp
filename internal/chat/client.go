@@ -11,10 +11,12 @@
 package chat
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"io"
+	"net/http"
 	"os"
 	"strings"
 	"time"
@@ -475,20 +477,163 @@ func (c *Client) handleCommand(ctx context.Context, input string) bool {
 	}
 }
 
-// processQuery processes a user query through the agentic loop
-// compactMessages reduces the message history to prevent token overflow
-// by keeping only the most recent messages while preserving the initial context
-func (c *Client) compactMessages(messages []Message) []Message {
-	// Configuration: keep the last N messages
-	const maxRecentMessages = 10
+// CompactionRequest represents a request to compact chat history.
+type CompactionRequest struct {
+	Messages     []Message `json:"messages"`
+	MaxTokens    int       `json:"max_tokens,omitempty"`
+	RecentWindow int       `json:"recent_window,omitempty"`
+	KeepAnchors  bool      `json:"keep_anchors"`
+}
 
-	// If we have fewer messages than the limit, return all
-	if len(messages) <= maxRecentMessages {
+// CompactionResponse contains the compacted messages and statistics.
+type CompactionResponse struct {
+	Messages       []Message      `json:"messages"`
+	TokenEstimate  int            `json:"token_estimate"`
+	CompactionInfo CompactionInfo `json:"compaction_info"`
+}
+
+// CompactionInfo provides statistics about the compaction operation.
+type CompactionInfo struct {
+	OriginalCount    int     `json:"original_count"`
+	CompactedCount   int     `json:"compacted_count"`
+	DroppedCount     int     `json:"dropped_count"`
+	TokensSaved      int     `json:"tokens_saved"`
+	CompressionRatio float64 `json:"compression_ratio"`
+}
+
+// compactMessages reduces the message history to prevent token overflow.
+// It tries to use the server-side smart compaction if available in HTTP mode,
+// falling back to local basic compaction if needed.
+func (c *Client) compactMessages(messages []Message) []Message {
+	const maxRecentMessages = 10
+	const maxTokens = 100000
+
+	const minMessagesForCompaction = 30 // Don't compact unless we have at least 30 messages
+	const minSavingsThreshold = 5       // Only compact if we can save at least 5 messages
+
+	// If we have fewer messages than the minimum threshold, return all
+	if len(messages) < minMessagesForCompaction {
 		return messages
 	}
 
-	// Strategy: Keep the first user message and the last N messages
-	// This preserves the original query context while maintaining recent conversation flow
+	// Estimate if compaction would be worthwhile
+	// With recentWindow=10 and keepAnchors=true, we keep at least: 1 (first) + 10 (recent) = 11
+	// So we need at least 11 + minSavingsThreshold messages to make it worthwhile
+	if len(messages) < (11 + minSavingsThreshold) {
+		return messages
+	}
+
+	// Try server-side smart compaction if in HTTP mode
+	if compacted, ok := c.tryServerCompaction(messages, maxTokens, maxRecentMessages, minSavingsThreshold); ok {
+		return compacted
+	}
+
+	// Fall back to local basic compaction
+	localCompacted := c.localCompactMessages(messages, maxRecentMessages)
+	messagesSaved := len(messages) - len(localCompacted)
+
+	// Only use local compaction if it actually saves enough messages
+	if messagesSaved < minSavingsThreshold {
+		if c.config.UI.Debug {
+			fmt.Fprintf(os.Stderr, "[DEBUG] Local compaction skipped - only saved %d messages (threshold: %d)\n",
+				messagesSaved, minSavingsThreshold)
+		}
+		return messages
+	}
+
+	return localCompacted
+}
+
+// tryServerCompaction attempts to use the server's smart compaction endpoint.
+func (c *Client) tryServerCompaction(messages []Message, maxTokens, recentWindow, minSavingsThreshold int) ([]Message, bool) {
+	// Only available in HTTP mode
+	httpClient, ok := c.mcp.(*httpClient)
+	if !ok {
+		return nil, false
+	}
+
+	// Build compaction request
+	reqBody := CompactionRequest{
+		Messages:     messages,
+		MaxTokens:    maxTokens,
+		RecentWindow: recentWindow,
+		KeepAnchors:  true,
+	}
+
+	jsonData, err := json.Marshal(reqBody)
+	if err != nil {
+		if c.config.UI.Debug {
+			fmt.Fprintf(os.Stderr, "[DEBUG] Failed to marshal compaction request: %v\n", err)
+		}
+		return nil, false
+	}
+
+	// Call the compaction endpoint
+	req, err := http.NewRequest("POST", httpClient.url+"/api/chat/compact", bytes.NewBuffer(jsonData))
+	if err != nil {
+		if c.config.UI.Debug {
+			fmt.Fprintf(os.Stderr, "[DEBUG] Failed to create compaction request: %v\n", err)
+		}
+		return nil, false
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+	if httpClient.token != "" {
+		req.Header.Set("Authorization", "Bearer "+httpClient.token)
+	}
+
+	resp, err := httpClient.client.Do(req)
+	if err != nil {
+		if c.config.UI.Debug {
+			fmt.Fprintf(os.Stderr, "[DEBUG] Compaction request failed: %v\n", err)
+		}
+		return nil, false
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		if c.config.UI.Debug {
+			fmt.Fprintf(os.Stderr, "[DEBUG] Compaction returned status %d\n", resp.StatusCode)
+		}
+		return nil, false
+	}
+
+	// Parse response
+	var compactResp CompactionResponse
+	if err := json.NewDecoder(resp.Body).Decode(&compactResp); err != nil {
+		if c.config.UI.Debug {
+			fmt.Fprintf(os.Stderr, "[DEBUG] Failed to decode compaction response: %v\n", err)
+		}
+		return nil, false
+	}
+
+	// Check if compaction actually saved enough messages
+	info := compactResp.CompactionInfo
+	messagesSaved := info.OriginalCount - info.CompactedCount
+	if messagesSaved < minSavingsThreshold {
+		if c.config.UI.Debug {
+			fmt.Fprintf(os.Stderr, "[DEBUG] Server compaction skipped - only saved %d messages (threshold: %d)\n",
+				messagesSaved, minSavingsThreshold)
+		}
+		return nil, false
+	}
+
+	// Show compaction status to user (only when actually using it)
+	fmt.Fprintf(os.Stderr, "Compacting chat history...\n")
+
+	if c.config.UI.Debug {
+		fmt.Fprintf(os.Stderr, "[DEBUG] Server compaction: %d -> %d messages (dropped %d, saved %d tokens, ratio %.2f)\n",
+			info.OriginalCount, info.CompactedCount, info.DroppedCount,
+			info.TokensSaved, info.CompressionRatio)
+	}
+
+	return compactResp.Messages, true
+}
+
+// localCompactMessages performs basic local compaction.
+// Strategy: Keep the first user message and the last N messages.
+// This preserves the original query context while maintaining recent conversation flow.
+func (c *Client) localCompactMessages(messages []Message, maxRecentMessages int) []Message {
 	compacted := make([]Message, 0, maxRecentMessages+1)
 
 	// Keep the first user message (original query)
@@ -504,7 +649,7 @@ func (c *Client) compactMessages(messages []Message) []Message {
 	compacted = append(compacted, messages[startIdx:]...)
 
 	if c.config.UI.Debug {
-		fmt.Fprintf(os.Stderr, "[DEBUG] Compacted messages: %d -> %d (kept first + last %d)\n",
+		fmt.Fprintf(os.Stderr, "[DEBUG] Local compaction: %d -> %d (kept first + last %d)\n",
 			len(messages), len(compacted), maxRecentMessages)
 	}
 
@@ -512,6 +657,8 @@ func (c *Client) compactMessages(messages []Message) []Message {
 }
 
 func (c *Client) processQuery(ctx context.Context, query string) error {
+	const maxAgenticLoops = 50 // Maximum iterations to prevent infinite loops
+
 	// Add user message to conversation history (skip if empty, used for prompts)
 	if query != "" {
 		c.messages = append(c.messages, Message{
@@ -524,8 +671,8 @@ func (c *Client) processQuery(ctx context.Context, query string) error {
 	thinkingDone := make(chan struct{})
 	go c.ui.ShowThinking(ctx, thinkingDone)
 
-	// Agentic loop (max 10 iterations to prevent infinite loops)
-	for iteration := 0; iteration < 10; iteration++ {
+	// Agentic loop (allow up to maxAgenticLoops iterations for complex queries)
+	for iteration := 0; iteration < maxAgenticLoops; iteration++ {
 		// Compact message history to prevent token overflow
 		compactedMessages := c.compactMessages(c.messages)
 
@@ -627,7 +774,7 @@ func (c *Client) processQuery(ctx context.Context, query string) error {
 	}
 
 	close(thinkingDone)
-	return fmt.Errorf("reached maximum number of tool calls (10)")
+	return fmt.Errorf("reached maximum number of tool calls (%d)", maxAgenticLoops)
 }
 
 // SavePreferences saves the current preferences to disk

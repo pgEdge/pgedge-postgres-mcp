@@ -615,8 +615,8 @@ func TestClient_ProcessQuery_MaxIterations(t *testing.T) {
 	mockLLM := &mockLLMClient{
 		responses: []LLMResponse{},
 	}
-	// Create 15 responses that all trigger tool use (more than the limit of 10)
-	for i := 0; i < 15; i++ {
+	// Create 55 responses that all trigger tool use (more than the limit of 50)
+	for i := 0; i < 55; i++ {
 		mockLLM.responses = append(mockLLM.responses, LLMResponse{
 			Content: []interface{}{
 				ToolUse{

@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"pgedge-postgres-mcp/internal/auth"
+	"pgedge-postgres-mcp/internal/compactor"
 	"pgedge-postgres-mcp/internal/config"
 	"pgedge-postgres-mcp/internal/database"
 	"pgedge-postgres-mcp/internal/llmproxy"
@@ -503,6 +504,9 @@ func main() {
 
 		// Setup additional HTTP handlers
 		httpConfig.SetupHandlers = func(mux *http.ServeMux) error {
+			// Chat history compaction endpoint - always available
+			mux.HandleFunc("/api/chat/compact", compactor.HandleCompact)
+
 			// User info endpoint - always available
 			mux.HandleFunc("/api/user/info", func(w http.ResponseWriter, r *http.Request) {
 				// Extract session token from Authorization header

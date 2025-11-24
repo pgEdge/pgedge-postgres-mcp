@@ -279,6 +279,221 @@ func RegisterTools(registry *Registry, db *database.Client, llm *llm.Client) {
 - Scan images for vulnerabilities
 - Use secrets management for production (not `.env` file)
 
+## Chat History Compaction
+
+The server provides smart chat history compaction to manage token usage in
+long conversations. The compaction system is PostgreSQL and MCP-aware,
+intelligently preserving important context while reducing token count.
+
+### Architecture
+
+```
+Client → POST /api/chat/compact → Compactor
+                                      ↓
+                        ┌─────────────┴──────────────┐
+                        │                            │
+                   Classifier                  TokenEstimator
+                        │                            │
+                        ↓                            ↓
+                  5-tier classes            Provider-specific
+                  (Anchor→Transient)        token counting
+```
+
+**Implementation:** [internal/compactor/](../internal/compactor/)
+
+### Message Classification
+
+Messages are classified into 5 tiers based on semantic importance:
+
+1. **Anchor** (1.0) - Critical context that must always be kept
+    - Schema changes: `CREATE TABLE`, `ALTER TABLE`, `DROP TABLE`
+    - User corrections: "actually", "instead", "wrong"
+    - Tool schemas: `get_schema_info`, `list_tables`
+
+2. **Important** (0.8) - High-value messages to keep if possible
+    - Query analysis: `EXPLAIN`, query plans, execution times
+    - Error messages: SQL errors, permission denied
+    - Insights: "key finding", "important", "warning"
+    - Documentation references
+
+3. **Contextual** (0.6) - Useful context, keep if space allows
+    - Regular queries and responses
+    - Tool results (when `preserve_tool_results=true`)
+
+4. **Routine** (0.4) - Standard messages that can be compressed
+    - Simple queries
+    - Confirmations with content
+
+5. **Transient** (0.2) - Low-value messages that can be dropped
+    - Short acknowledgments: "ok", "yes", "thanks"
+
+**Implementation:** [internal/compactor/classifier.go](../internal/compactor/classifier.go)
+
+### Compaction Algorithm
+
+```go
+// internal/compactor/compactor.go
+
+func (c *Compactor) Compact(messages []Message) CompactResponse {
+    // 1. Check cache for previous result
+    if cached := c.cache.Get(messages, maxTokens, recentWindow); cached {
+        return cached
+    }
+
+    // 2. Estimate token usage with provider-specific counter
+    originalTokens := c.estimateTokens(messages)
+
+    // 3. Always keep: first message + recent window
+    anchors := []Message{messages[0]}
+    recent := messages[len(messages)-recentWindow:]
+
+    // 4. Classify and keep important middle messages
+    middle := messages[1 : len(messages)-recentWindow]
+    important := c.classifyAndKeepImportant(middle)
+
+    // 5. Build compacted list
+    compacted := append(anchors, important...)
+    compacted = append(compacted, recent...)
+
+    // 6. If still over budget, create summary
+    if tokenEstimate > maxTokens || enableSummarization {
+        summary := c.createSummary(middle, important)
+        // Insert summary message after first anchor
+        compacted = insertSummary(compacted, summary)
+    }
+
+    // 7. Cache result and record analytics
+    c.cache.Set(messages, result)
+    c.analytics.RecordCompaction(result)
+
+    return result
+}
+```
+
+### Token Counting Strategies
+
+Provider-specific token estimation for accurate budget management:
+
+```go
+// internal/compactor/token_counter.go
+
+type TokenCounterType string
+
+const (
+    TokenCounterGeneric   = "generic"   // 4.0 chars/token
+    TokenCounterOpenAI    = "openai"    // 4.0 chars/token, GPT-4 optimized
+    TokenCounterAnthropic = "anthropic" // 3.8 chars/token, Claude optimized
+    TokenCounterOllama    = "ollama"    // 4.5 chars/token, conservative
+)
+```
+
+**Content-type multipliers:**
+
+- SQL: 1.2x (dense token usage)
+- JSON: 1.15x (structured data)
+- Code: 1.1x (syntax tokens)
+- Natural language: 1.0x
+
+**Provider adjustments:**
+
+- OpenAI: +5% penalty for excessive whitespace
+- Anthropic: -5% bonus for natural language
+- Ollama: +10% conservative estimate (varies by model)
+
+### Enhanced Features
+
+**1. Caching** (`enable_caching: true`)
+
+```go
+// SHA256-based cache key from messages + config
+// TTL-based expiration with background cleanup
+cache.Set(messages, maxTokens, recentWindow, result)
+```
+
+**2. LLM Summarization** (`enable_llm_summarization: true`)
+
+```go
+// Extract actions, entities, queries, errors
+summary := llmSummarizer.GenerateSummary(ctx, messages, basicSummary)
+// Returns: "[Enhanced context: Actions: show, create, Entities: users,
+//           products, 2 SQL operations, Tables: users, Tools: query_database,
+//           5 messages compressed]"
+```
+
+**3. Analytics** (`enable_analytics: true`)
+
+```go
+// Track compression metrics
+metrics := analytics.GetMetrics()
+// Returns: total compactions, messages in/out, tokens saved,
+//          average compression ratio, average duration
+```
+
+### Client Integration
+
+Both CLI and web clients use server compaction with local fallback:
+
+**Go CLI Client:**
+
+```go
+// internal/chat/client.go
+
+func (c *Client) compactMessages(messages []Message) []Message {
+    // Try server compaction
+    if result, ok := c.tryServerCompaction(messages, maxTokens, recentWindow); ok {
+        return result
+    }
+    // Fallback to local (keep first + last 10)
+    return c.localCompactMessages(messages, recentWindow)
+}
+```
+
+**Web Client:**
+
+```javascript
+// web/src/components/ChatInterface.jsx
+
+const compactMessages = async (messages, sessionToken, maxTokens, recentWindow) => {
+    try {
+        const response = await fetch('/api/chat/compact', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${sessionToken}`
+            },
+            body: JSON.stringify({ messages, max_tokens: maxTokens, recent_window: recentWindow })
+        });
+        if (response.ok) {
+            const data = await response.json();
+            return data.messages;
+        }
+    } catch (error) {
+        console.warn('Server compaction failed, using local:', error);
+    }
+    return localCompactMessages(messages, recentWindow);
+};
+```
+
+### Testing
+
+Comprehensive test coverage (69 tests):
+
+```bash
+# Run compactor tests
+go test ./internal/compactor/...
+
+# Test categories:
+# - Message classification (12 tests)
+# - Token estimation (14 tests)
+# - Compaction algorithm (10 tests)
+# - Provider token counting (8 tests)
+# - Caching (7 tests)
+# - Analytics (7 tests)
+# - LLM summarization (8 tests)
+```
+
+**Implementation:** [internal/compactor/](../internal/compactor/)
+
 ## Performance Optimization
 
 ### Database Connection Pooling

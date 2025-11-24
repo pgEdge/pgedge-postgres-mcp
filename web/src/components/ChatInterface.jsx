@@ -20,24 +20,16 @@ import MessageInput from './MessageInput';
 import ProviderSelector from './ProviderSelector';
 import PromptPopover from './PromptPopover';
 
-const MAX_AGENTIC_LOOPS = 10;
+const MAX_AGENTIC_LOOPS = 50;
 
 /**
- * Compacts message history to prevent token overflow by keeping only
- * the most recent messages while preserving the initial context
+ * Performs basic local compaction as a fallback.
+ * Strategy: Keep the first user message and the last N messages.
  * @param {Array} messages - The full message history
+ * @param {number} maxRecentMessages - Number of recent messages to keep
  * @returns {Array} - Compacted message history
  */
-const compactMessages = (messages) => {
-    const MAX_RECENT_MESSAGES = 10;
-
-    // If we have fewer messages than the limit, return all
-    if (messages.length <= MAX_RECENT_MESSAGES) {
-        return messages;
-    }
-
-    // Strategy: Keep the first user message and the last N messages
-    // This preserves the original query context while maintaining recent conversation flow
+const localCompactMessages = (messages, maxRecentMessages = 10) => {
     const compacted = [];
 
     // Keep the first user message (original query)
@@ -46,12 +38,99 @@ const compactMessages = (messages) => {
     }
 
     // Keep the last N messages
-    const startIdx = Math.max(1, messages.length - MAX_RECENT_MESSAGES);
+    const startIdx = Math.max(1, messages.length - maxRecentMessages);
     compacted.push(...messages.slice(startIdx));
 
-    console.log(`[Compaction] Reduced messages from ${messages.length} to ${compacted.length} (kept first + last ${MAX_RECENT_MESSAGES})`);
+    console.log(`[Local Compaction] Reduced messages from ${messages.length} to ${compacted.length} (kept first + last ${maxRecentMessages})`);
 
     return compacted;
+};
+
+/**
+ * Attempts to use server-side smart compaction endpoint.
+ * Falls back to local compaction if server call fails.
+ * @param {Array} messages - The full message history
+ * @param {string} sessionToken - Authentication token
+ * @param {number} maxTokens - Maximum tokens allowed
+ * @param {number} recentWindow - Number of recent messages to keep
+ * @returns {Promise<Array>} - Compacted message history
+ */
+const compactMessages = async (messages, sessionToken, maxTokens = 100000, recentWindow = 10) => {
+    const MAX_RECENT_MESSAGES = recentWindow;
+    const MIN_MESSAGES_FOR_COMPACTION = 30; // Don't compact unless we have at least 30 messages
+    const MIN_SAVINGS_THRESHOLD = 5; // Only compact if we can save at least 5 messages
+
+    // If we have fewer messages than the minimum threshold, return all
+    if (messages.length < MIN_MESSAGES_FOR_COMPACTION) {
+        return { messages, compacted: false };
+    }
+
+    // Estimate if compaction would be worthwhile
+    // With recentWindow=10 and keepAnchors=true, we keep at least: 1 (first) + 10 (recent) = 11
+    // So we need at least 11 + MIN_SAVINGS_THRESHOLD messages to make it worthwhile
+    if (messages.length < (11 + MIN_SAVINGS_THRESHOLD)) {
+        return { messages, compacted: false };
+    }
+
+    // Try server-side smart compaction
+    try {
+        const response = await fetch('/api/chat/compact', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${sessionToken}`
+            },
+            body: JSON.stringify({
+                messages: messages,
+                max_tokens: maxTokens,
+                recent_window: recentWindow,
+                keep_anchors: true
+            })
+        });
+
+        if (response.ok) {
+            const data = await response.json();
+            console.log(`[Server Compaction] ${data.compaction_info.original_count} -> ${data.compaction_info.compacted_count} messages (dropped ${data.compaction_info.dropped_count}, saved ${data.compaction_info.tokens_saved} tokens, ratio ${data.compaction_info.compression_ratio.toFixed(2)})`);
+
+            // Check if compaction actually saved any messages
+            const messagesSaved = data.compaction_info.original_count - data.compaction_info.compacted_count;
+            if (messagesSaved < MIN_SAVINGS_THRESHOLD) {
+                // Compaction didn't save enough, return original messages without tracking
+                console.log(`[Server Compaction] Skipped - only saved ${messagesSaved} messages (threshold: ${MIN_SAVINGS_THRESHOLD})`);
+                return { messages, compacted: false };
+            }
+
+            return {
+                messages: data.messages,
+                compacted: true,
+                originalCount: data.compaction_info.original_count,
+                compactedCount: data.compaction_info.compacted_count,
+                tokensSaved: data.compaction_info.tokens_saved
+            };
+        } else {
+            console.warn(`[Server Compaction] Failed with status ${response.status}, using local fallback`);
+        }
+    } catch (error) {
+        console.warn('[Server Compaction] Error occurred, using local fallback:', error.message);
+    }
+
+    // Fall back to local compaction
+    const compactedMsgs = localCompactMessages(messages, MAX_RECENT_MESSAGES);
+    const messagesSaved = messages.length - compactedMsgs.length;
+
+    // Check if local compaction actually saved enough messages
+    if (messagesSaved < MIN_SAVINGS_THRESHOLD) {
+        console.log(`[Local Compaction] Skipped - only saved ${messagesSaved} messages (threshold: ${MIN_SAVINGS_THRESHOLD})`);
+        return { messages, compacted: false };
+    }
+
+    return {
+        messages: compactedMsgs,
+        compacted: true,
+        originalCount: messages.length,
+        compactedCount: compactedMsgs.length,
+        local: true
+    };
 };
 
 const ChatInterface = () => {
@@ -177,7 +256,31 @@ const ChatInterface = () => {
                 loopCount++;
 
                 // Compact message history to prevent token overflow
-                const compactedMessages = compactMessages(conversationMessages);
+                const compactionResult = await compactMessages(conversationMessages, sessionToken);
+                const compactedMessages = compactionResult.messages;
+
+                // Track compaction activity if it occurred
+                if (compactionResult.compacted) {
+                    activity.push({
+                        type: 'compaction',
+                        originalCount: compactionResult.originalCount,
+                        compactedCount: compactionResult.compactedCount,
+                        tokensSaved: compactionResult.tokensSaved,
+                        local: compactionResult.local || false
+                    });
+
+                    // Update thinking message with compaction activity
+                    setMessages(prev => {
+                        const newMessages = [...prev];
+                        if (newMessages.length > 0) {
+                            newMessages[newMessages.length - 1] = {
+                                ...newMessages[newMessages.length - 1],
+                                activity: [...activity]
+                            };
+                        }
+                        return newMessages;
+                    });
+                }
 
                 // Call LLM with compacted history
                 const llmResponse = await fetch('/api/llm/chat', {
@@ -337,8 +440,23 @@ const ChatInterface = () => {
         } catch (err) {
             console.error('Chat error:', err);
 
-            // Remove thinking message (keep user message for context)
-            setMessages(prev => prev.slice(0, -1));
+            // Convert thinking message to error message (preserve activity for debugging)
+            setMessages(prev => {
+                const newMessages = [...prev];
+                if (newMessages.length > 0 && newMessages[newMessages.length - 1].isThinking) {
+                    const thinkingMsg = newMessages[newMessages.length - 1];
+                    newMessages[newMessages.length - 1] = {
+                        role: 'assistant',
+                        content: `Error: ${err.message || 'Failed to send message'}`,
+                        timestamp: new Date().toISOString(),
+                        provider: thinkingMsg.provider,
+                        model: thinkingMsg.model,
+                        activity: thinkingMsg.activity || [],
+                        isError: true
+                    };
+                }
+                return newMessages;
+            });
 
             // Network errors
             if (err.name === 'TypeError' && err.message.includes('fetch')) {
@@ -466,7 +584,31 @@ const ChatInterface = () => {
                 loopCount++;
 
                 // Compact message history to prevent token overflow
-                const compactedMessages = compactMessages(conversationMessages);
+                const compactionResult = await compactMessages(conversationMessages, sessionToken);
+                const compactedMessages = compactionResult.messages;
+
+                // Track compaction activity if it occurred
+                if (compactionResult.compacted) {
+                    activity.push({
+                        type: 'compaction',
+                        originalCount: compactionResult.originalCount,
+                        compactedCount: compactionResult.compactedCount,
+                        tokensSaved: compactionResult.tokensSaved,
+                        local: compactionResult.local || false
+                    });
+
+                    // Update thinking message with compaction activity
+                    setMessages(prev => {
+                        const newMessages = [...prev];
+                        if (newMessages.length > 0) {
+                            newMessages[newMessages.length - 1] = {
+                                ...newMessages[newMessages.length - 1],
+                                activity: [...activity]
+                            };
+                        }
+                        return newMessages;
+                    });
+                }
 
                 // Make LLM request with compacted history
                 const response = await fetch('/api/llm/chat', {
@@ -598,12 +740,22 @@ const ChatInterface = () => {
         } catch (err) {
             console.error('Prompt execution error:', err);
 
-            // Remove thinking message if present
+            // Convert thinking message to error message (preserve activity for debugging)
             setMessages(prev => {
-                if (prev.length > 0 && prev[prev.length - 1].isThinking) {
-                    return prev.slice(0, -1);
+                const newMessages = [...prev];
+                if (newMessages.length > 0 && newMessages[newMessages.length - 1].isThinking) {
+                    const thinkingMsg = newMessages[newMessages.length - 1];
+                    newMessages[newMessages.length - 1] = {
+                        role: 'assistant',
+                        content: `Error: ${err.message || 'Failed to execute prompt'}`,
+                        timestamp: new Date().toISOString(),
+                        provider: thinkingMsg.provider,
+                        model: thinkingMsg.model,
+                        activity: thinkingMsg.activity || [],
+                        isError: true
+                    };
                 }
-                return prev;
+                return newMessages;
             });
 
             // Network errors
