@@ -9,12 +9,6 @@
 A Model Context Protocol (MCP) server that enables **SQL queries** against
 PostgreSQL databases through MCP-compatible clients like Claude Desktop.
 
-```
-SELECT * FROM customers WHERE created_at > CURRENT_DATE - INTERVAL '1 month';
-SELECT product_id, SUM(revenue) as total FROM sales GROUP BY product_id ORDER BY total DESC LIMIT 10;
-SELECT tablename, pg_table_size(tablename::regclass) as size FROM pg_tables WHERE schemaname = 'public' ORDER BY size DESC;
-```
-
 > 🚧 **WARNING**: This code is in pre-release status and MUST NOT be put
 > into production without thorough testing!
 
