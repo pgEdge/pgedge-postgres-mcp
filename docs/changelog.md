@@ -59,11 +59,12 @@ and this project adheres to
 
 - Renamed the project to *pgEdge Natural Language Agent*
 - Renamed all binaries and configuration files for consistency:
-    - Server: `pgedge-pg-mcp-svr`
-    - CLI: `pgedge-pg-mcp-cli`
-    - Web UI: `pgedge-mcp-web`
-    - KB Builder: `kb-builder`
-- Default configuration files now use `pgedge-nla-server-*.yaml` naming
+    - Server: `pgedge-pg-mcp-svr` -> `pgedge-nla-server`
+    - CLI: `pgedge-pg-mcp-cli` -> `pgedge-nla-cli`
+    - Web UI: `pgedge-mcp-web` -> `pgedge-nla-web`
+    - KB Builder: `kb-builder` -> `pgedge-nla-kb-builder`
+- Default server configuration files now use `pgedge-nla-server-*.yaml` naming
+- Default CLI configuration files now uses `pgedge-nla-cli.yaml` naming
 - Custom definitions file: `pgedge-nla-server-custom.yaml`
 - Updated all documentation and examples to reflect new naming
 
