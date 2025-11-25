@@ -10,10 +10,6 @@ jobs:
     cli-client:
         name: CLI Client
         runs-on: ubuntu-latest
-        strategy:
-            matrix:
-                go-version: ['1.21', '1.22', '1.23']
-            fail-fast: false
 
         steps:
             - name: Checkout code
@@ -22,7 +18,7 @@ jobs:
             - name: Set up Go
               uses: actions/setup-go@v5
               with:
-                  go-version: ${{ matrix.go-version }}
+                  go-version: '1.24'
                   cache: false
 
             - name: Cache Go modules
@@ -31,9 +27,9 @@ jobs:
                   path: |
                       ~/go/pkg/mod
                       ~/.cache/go-build
-                  key: ${{ runner.os }}-go-${{ matrix.go-version }}-${{ hashFiles('**/go.sum') }}
+                  key: ${{ runner.os }}-go-1.24-${{ hashFiles('**/go.sum') }}
                   restore-keys: |
-                      ${{ runner.os }}-go-${{ matrix.go-version }}-
+                      ${{ runner.os }}-go-1.24-
 
             - name: Verify dependencies
               run: go mod verify
@@ -42,7 +38,6 @@ jobs:
               run: go mod download
 
             - name: Lint client code
-              if: matrix.go-version == '1.23'
               run: |
                   # Install latest v1.x version (config is NOT compatible with v2)
                   go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
@@ -50,11 +45,9 @@ jobs:
                   golangci-lint run ./internal/chat/... ./cmd/pgedge-pg-mcp-cli/...
 
             - name: Run go vet
-              if: matrix.go-version == '1.23'
               run: go vet ./internal/chat/... ./cmd/pgedge-pg-mcp-cli/...
 
             - name: Check formatting
-              if: matrix.go-version == '1.23'
               run: |
                   gofmt -l ./internal/chat ./cmd/pgedge-pg-mcp-cli > /tmp/gofmt.out
                   if [ -s /tmp/gofmt.out ]; then
@@ -77,13 +70,11 @@ jobs:
               run: go test -v -race -coverprofile=coverage.out -covermode=atomic ./internal/chat/... ./cmd/pgedge-pg-mcp-cli/...
 
             - name: Generate coverage report
-              if: matrix.go-version == '1.23'
               run: |
                   go tool cover -html=coverage.out -o coverage-client.html
                   go tool cover -func=coverage.out
 
             - name: Upload build artifact
-              if: matrix.go-version == '1.23'
               uses: actions/upload-artifact@v4
               with:
                   name: pgedge-nla-cli-linux-amd64
@@ -91,7 +82,6 @@ jobs:
                   retention-days: 7
 
             - name: Upload coverage artifact
-              if: matrix.go-version == '1.23'
               uses: actions/upload-artifact@v4
               with:
                   name: coverage-client

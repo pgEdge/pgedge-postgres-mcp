@@ -1,10 +1,10 @@
 module pgedge-postgres-mcp
 
-go 1.23
+go 1.24.0
 
 require (
 	github.com/JohannesKaufmann/html-to-markdown v1.6.0
-	github.com/PuerkitoBio/goquery v1.11.0
+	github.com/PuerkitoBio/goquery v1.9.3
 	github.com/charmbracelet/glamour v0.10.0
 	github.com/chzyer/readline v1.5.1
 	github.com/fsnotify/fsnotify v1.9.0

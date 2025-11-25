@@ -12,8 +12,7 @@ jobs:
         runs-on: ubuntu-latest
         strategy:
             matrix:
-                go-version: ['1.21', '1.22', '1.23']
-                postgres-version: ['14', '15', '16', '17']
+                postgres-version: ['14', '15', '16', '17', '18']
             fail-fast: false
 
         services:
@@ -37,7 +36,7 @@ jobs:
             - name: Set up Go
               uses: actions/setup-go@v5
               with:
-                  go-version: ${{ matrix.go-version }}
+                  go-version: '1.24'
                   cache: false
 
             - name: Cache Go modules
@@ -46,9 +45,9 @@ jobs:
                   path: |
                       ~/go/pkg/mod
                       ~/.cache/go-build
-                  key: ${{ runner.os }}-go-${{ matrix.go-version }}-${{ hashFiles('**/go.sum') }}
+                  key: ${{ runner.os }}-go-1.24-${{ hashFiles('**/go.sum') }}
                   restore-keys: |
-                      ${{ runner.os }}-go-${{ matrix.go-version }}-
+                      ${{ runner.os }}-go-1.24-
 
             - name: Verify dependencies
               run: go mod verify
@@ -57,7 +56,7 @@ jobs:
               run: go mod download
 
             - name: Lint server code
-              if: matrix.go-version == '1.23' && matrix.postgres-version == '17'
+              if: matrix.postgres-version == '18'
               run: |
                   # Install latest v1.x version (config is NOT compatible with v2)
                   go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
@@ -65,11 +64,11 @@ jobs:
                   golangci-lint run ./internal/mcp/... ./internal/auth/... ./internal/config/... ./internal/crypto/... ./internal/database/... ./internal/resources/... ./internal/tools/... ./cmd/pgedge-pg-mcp-svr/...
 
             - name: Run go vet
-              if: matrix.go-version == '1.23' && matrix.postgres-version == '17'
+              if: matrix.postgres-version == '18'
               run: go vet ./internal/mcp/... ./internal/auth/... ./internal/config/... ./internal/crypto/... ./internal/database/... ./internal/resources/... ./internal/tools/... ./cmd/pgedge-pg-mcp-svr/...
 
             - name: Check formatting
-              if: matrix.go-version == '1.23' && matrix.postgres-version == '17'
+              if: matrix.postgres-version == '18'
               run: |
                   gofmt -l ./internal/mcp ./internal/auth ./internal/config ./internal/crypto ./internal/database ./internal/resources ./internal/tools ./cmd/pgedge-pg-mcp-svr > /tmp/gofmt.out
                   if [ -s /tmp/gofmt.out ]; then
@@ -92,7 +91,7 @@ jobs:
               run: go test -v -race -coverprofile=coverage.out -covermode=atomic ./internal/mcp/... ./internal/auth/... ./internal/config/... ./internal/crypto/... ./internal/database/... ./internal/resources/... ./internal/tools/... ./cmd/pgedge-pg-mcp-svr/...
 
             - name: Generate coverage report
-              if: matrix.go-version == '1.23' && matrix.postgres-version == '17'
+              if: matrix.postgres-version == '18'
               run: |
                   go tool cover -html=coverage.out -o coverage-server.html
                   go tool cover -func=coverage.out
@@ -118,7 +117,7 @@ jobs:
               continue-on-error: true
 
             - name: Upload build artifact
-              if: matrix.go-version == '1.23' && matrix.postgres-version == '17'
+              if: matrix.postgres-version == '18'
               uses: actions/upload-artifact@v4
               with:
                   name: pgedge-nla-server-linux-amd64
@@ -126,7 +125,7 @@ jobs:
                   retention-days: 7
 
             - name: Upload coverage artifact
-              if: matrix.go-version == '1.23' && matrix.postgres-version == '17'
+              if: matrix.postgres-version == '18'
               uses: actions/upload-artifact@v4
               with:
                   name: coverage-server
