@@ -1,11 +1,12 @@
-//-------------------------------------------------------------------------
-//
-// pgEdge PostgreSQL MCP - Knowledgebase Builder
-//
-// Portions copyright (c) 2025, pgEdge, Inc.
-// This software is released under The PostgreSQL License
-//
-//-------------------------------------------------------------------------
+/*-------------------------------------------------------------------------
+ *
+ * pgEdge Natural Language Agent
+ *
+ * Portions copyright (c) 2025, pgEdge, Inc.
+ * This software is released under The PostgreSQL License
+ *
+ *-------------------------------------------------------------------------
+ */
 
 package kbembed
 
@@ -237,7 +238,7 @@ func (eg *EmbeddingGenerator) generateOpenAIEmbeddings(chunks []*kbtypes.Chunk) 
 		var validChunks []*kbtypes.Chunk
 		var texts []string
 		for _, chunk := range batch {
-			if len(strings.TrimSpace(chunk.Text)) > 0 {
+			if strings.TrimSpace(chunk.Text) != "" {
 				validChunks = append(validChunks, chunk)
 				texts = append(texts, chunk.Text)
 			}
@@ -359,7 +360,7 @@ func (eg *EmbeddingGenerator) generateVoyageEmbeddings(chunks []*kbtypes.Chunk) 
 		var validChunks []*kbtypes.Chunk
 		var texts []string
 		for _, chunk := range batch {
-			if len(strings.TrimSpace(chunk.Text)) > 0 {
+			if strings.TrimSpace(chunk.Text) != "" {
 				validChunks = append(validChunks, chunk)
 				texts = append(texts, chunk.Text)
 			}
@@ -449,7 +450,7 @@ func (eg *EmbeddingGenerator) generateOllamaEmbeddings(chunks []*kbtypes.Chunk) 
 	// Filter chunks that need Ollama embeddings
 	var chunksToProcess []*kbtypes.Chunk
 	for _, chunk := range chunks {
-		if len(chunk.OllamaEmbedding) == 0 && len(strings.TrimSpace(chunk.Text)) > 0 {
+		if len(chunk.OllamaEmbedding) == 0 && strings.TrimSpace(chunk.Text) != "" {
 			chunksToProcess = append(chunksToProcess, chunk)
 		}
 	}

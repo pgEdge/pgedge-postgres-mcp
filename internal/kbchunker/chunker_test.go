@@ -1,11 +1,12 @@
-//-------------------------------------------------------------------------
-//
-// pgEdge PostgreSQL MCP - Knowledgebase Builder
-//
-// Portions copyright (c) 2025, pgEdge, Inc.
-// This software is released under The PostgreSQL License
-//
-//-------------------------------------------------------------------------
+/*-------------------------------------------------------------------------
+ *
+ * pgEdge Natural Language Agent
+ *
+ * Portions copyright (c) 2025, pgEdge, Inc.
+ * This software is released under The PostgreSQL License
+ *
+ *-------------------------------------------------------------------------
+ */
 
 package kbchunker
 
@@ -186,7 +187,7 @@ func TestTokenize(t *testing.T) {
 		{
 			name:          "text with punctuation",
 			text:          "Hello, world! How are you?",
-			expectedCount: 6, // Hello, , world, !, How, are, you, ?
+			expectedCount: 5, // "Hello,", "world!", "How", "are", "you?" (Fields splits on whitespace)
 		},
 	}
 

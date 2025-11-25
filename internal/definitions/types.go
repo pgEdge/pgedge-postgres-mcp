@@ -1,3 +1,13 @@
+/*-------------------------------------------------------------------------
+ *
+ * pgEdge Natural Language Agent
+ *
+ * Portions copyright (c) 2025, pgEdge, Inc.
+ * This software is released under The PostgreSQL License
+ *
+ *-------------------------------------------------------------------------
+ */
+
 package definitions
 
 // Definitions contains user-defined prompts and resources loaded from a file

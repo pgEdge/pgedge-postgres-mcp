@@ -1,12 +1,12 @@
 /*-------------------------------------------------------------------------
- *
- * Tests for LLM Client
- *
- * Portions copyright (c) 2025, pgEdge, Inc.
- * This software is released under The PostgreSQL License
- *
- *-------------------------------------------------------------------------
- */
+*
+ * pgEdge Natural Language Agent
+*
+* Portions copyright (c) 2025, pgEdge, Inc.
+* This software is released under The PostgreSQL License
+*
+*-------------------------------------------------------------------------
+*/
 
 package chat
 

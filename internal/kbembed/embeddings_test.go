@@ -1,11 +1,12 @@
-//-------------------------------------------------------------------------
-//
-// pgEdge PostgreSQL MCP - Knowledgebase Builder
-//
-// Portions copyright (c) 2025, pgEdge, Inc.
-// This software is released under The PostgreSQL License
-//
-//-------------------------------------------------------------------------
+/*-------------------------------------------------------------------------
+ *
+ * pgEdge Natural Language Agent
+ *
+ * Portions copyright (c) 2025, pgEdge, Inc.
+ * This software is released under The PostgreSQL License
+ *
+ *-------------------------------------------------------------------------
+ */
 
 package kbembed
 
@@ -30,7 +31,7 @@ func TestNewEmbeddingGenerator(t *testing.T) {
 		},
 	}
 
-	eg := NewEmbeddingGenerator(config)
+	eg := NewEmbeddingGenerator(config, nil)
 
 	if eg == nil {
 		t.Fatal("Expected embedding generator, got nil")
@@ -244,7 +245,7 @@ func TestGenerateEmbeddings_NoProvidersEnabled(t *testing.T) {
 		},
 	}
 
-	eg := NewEmbeddingGenerator(config)
+	eg := NewEmbeddingGenerator(config, nil)
 
 	chunks := []*kbtypes.Chunk{
 		{
@@ -255,9 +256,9 @@ func TestGenerateEmbeddings_NoProvidersEnabled(t *testing.T) {
 	}
 
 	// Should not error when no providers are enabled, just skip generation
-	err := eg.GenerateEmbeddings(chunks)
-	if err != nil {
-		t.Errorf("Expected no error with no providers enabled, got: %v", err)
+	errs := eg.GenerateEmbeddings(chunks)
+	if len(errs) != 0 {
+		t.Errorf("Expected no errors with no providers enabled, got: %v", errs)
 	}
 }
 
@@ -272,17 +273,17 @@ func TestGenerateEmbeddings_EmptyChunks(t *testing.T) {
 		},
 	}
 
-	eg := NewEmbeddingGenerator(config)
+	eg := NewEmbeddingGenerator(config, nil)
 
 	chunks := []*kbtypes.Chunk{}
 
 	// Should not error with empty chunks
 	// (will fail when actually calling API, but that's expected in test environment)
-	err := eg.GenerateEmbeddings(chunks)
-	if err != nil {
+	errs := eg.GenerateEmbeddings(chunks)
+	if len(errs) != 0 {
 		// API call will fail without valid key, which is expected
 		// Just verify the error is from API call, not from our code
-		t.Logf("Expected API error in test environment: %v", err)
+		t.Logf("Expected API error in test environment: %v", errs)
 	}
 }
 

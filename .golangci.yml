@@ -66,9 +66,13 @@ issues:
         - gocritic
   exclude-dirs:
     - vendor
+    - bin/doc-source
   exclude-files:
     - ".*\\.pb\\.go$"
 
 run:
   timeout: 5m
   tests: true
+  skip-dirs:
+    - bin/doc-source
+    - vendor

@@ -1,3 +1,13 @@
+/*-------------------------------------------------------------------------
+ *
+ * pgEdge Natural Language Agent
+ *
+ * Portions copyright (c) 2025, pgEdge, Inc.
+ * This software is released under The PostgreSQL License
+ *
+ *-------------------------------------------------------------------------
+ */
+
 // Package compactor provides smart chat history compaction for MCP clients.
 // It implements PostgreSQL and MCP-aware message classification to optimize
 // token usage while preserving semantically important context.
