@@ -47,7 +47,7 @@ type HTTPMCPServer struct {
 // StartHTTPMCPServer starts the MCP server in HTTP mode for testing
 func StartHTTPMCPServer(t *testing.T, connString, apiKey, addr string, useTLS bool) (*HTTPMCPServer, error) {
 	// Find the binary
-	binaryPath := filepath.Join("..", "bin", "pgedge-pg-mcp-svr")
+	binaryPath := filepath.Join("..", "bin", "pgedge-nla-server")
 
 	// Check if binary exists, if not try to build it
 	if _, err := os.Stat(binaryPath); os.IsNotExist(err) {
@@ -688,7 +688,7 @@ func testHTTPSTLSConnection(t *testing.T, server *HTTPMCPServer) {
 
 // TestHTTPCommandLineFlags tests command line flag validation
 func TestHTTPCommandLineFlags(t *testing.T) {
-	binaryPath := filepath.Join("..", "bin", "pgedge-pg-mcp-svr")
+	binaryPath := filepath.Join("..", "bin", "pgedge-nla-server")
 
 	// Check if binary exists
 	if _, err := os.Stat(binaryPath); os.IsNotExist(err) {

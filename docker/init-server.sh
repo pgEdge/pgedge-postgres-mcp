@@ -121,7 +121,7 @@ if [ -n "$INIT_USERS" ]; then
         password=$(echo "$user_entry" | cut -d: -f2-)
 
         # Add user using the server's built-in command (which hashes the password)
-        /app/pgedge-pg-mcp-svr -add-user -username "$username" -password "$password" -user-file "$USERS_FILE" -user-note "Auto-generated user"
+        /app/pgedge-nla-server -add-user -username "$username" -password "$password" -user-file "$USERS_FILE" -user-note "Auto-generated user"
         USER_COUNT=$((USER_COUNT + 1))
     done
 
@@ -140,4 +140,4 @@ fi
 echo "Starting MCP server with arguments: $ARGS"
 
 # Switch to mcp user and exec the server (use runuser which is available in ubi9-minimal)
-exec runuser mcp /bin/sh -c "exec /app/pgedge-pg-mcp-svr $ARGS"
+exec runuser mcp /bin/sh -c "exec /app/pgedge-nla-server $ARGS"

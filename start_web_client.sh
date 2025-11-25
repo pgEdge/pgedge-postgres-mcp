@@ -28,7 +28,7 @@ WEB_DIR="$SCRIPT_DIR/web"
 
 # Configuration files
 SERVER_CONFIG="$BIN_DIR/pgedge-nla-server-http.yaml"
-SERVER_BIN="$BIN_DIR/pgedge-pg-mcp-svr"
+SERVER_BIN="$BIN_DIR/pgedge-nla-server"
 
 # PID files for cleanup
 MCP_SERVER_PID=""
@@ -66,7 +66,7 @@ if [ ! -f "$SERVER_BIN" ]; then
 else
     echo -e "${BLUE}Checking if server binary needs rebuilding...${NC}"
     # Check if any Go source files are newer than the binary
-    if [ -n "$(find "$SCRIPT_DIR/cmd/pgedge-pg-mcp-svr" "$SCRIPT_DIR/internal" -name "*.go" -newer "$SERVER_BIN" 2>/dev/null)" ]; then
+    if [ -n "$(find "$SCRIPT_DIR/cmd/pgedge-nla-server" "$SCRIPT_DIR/internal" -name "*.go" -newer "$SERVER_BIN" 2>/dev/null)" ]; then
         echo -e "${BLUE}Source files changed, rebuilding MCP server...${NC}"
         cd "$SCRIPT_DIR"
         make build-server
@@ -118,7 +118,7 @@ echo ""
 # Start MCP server
 echo -e "${GREEN}[1/2] Starting MCP Server (HTTP mode with auth and LLM proxy)...${NC}"
 cd "$BIN_DIR"
-"$SERVER_BIN" --config "$SERVER_CONFIG" > /tmp/pgedge-mcp-server.log 2>&1 &
+"$SERVER_BIN" --config "$SERVER_CONFIG" > /tmp/pgedge-nla-server.log 2>&1 &
 MCP_SERVER_PID=$!
 cd "$SCRIPT_DIR"
 
