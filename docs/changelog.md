@@ -11,23 +11,90 @@ and this project adheres to
 
 ### Added
 
-- Knowledge base system with similarity search for documentation and
-  resources
-- Support for custom user-defined prompts in `resources/prompts/`
-- Support for custom user-defined resources in `resources/`
+#### Knowledgebase System
+
+- Complete knowledgebase system with SQLite backend for offline
+  documentation search
+- `search_knowledgebase` MCP tool for semantic similarity search across
+  pre-built documentation
+- KB builder utility for creating knowledgebase from markdown, HTML,
+  SGML, and DocBook XML sources
+- Support for multiple embedding providers (Voyage AI, OpenAI, Ollama)
+  in knowledgebase
+- Project name and version filtering for targeted documentation search
+- Independent API key configuration for knowledgebase (separate from
+  embedding and LLM sections)
+- DocBook XML format support for PostGIS and similar documentation
+- Optional project version field in documentation sources
+
+#### LLM Provider Management
+
+- Dynamic Ollama model selection with automatic fallback to available
+  models
+- Per-provider model persistence in CLI (remembers last-used model for
+  each provider)
+- Per-provider model persistence in Web UI (using localStorage)
+- Automatic preference validation and sanitization on load
+- Default provider priority order (Anthropic → OpenAI → Ollama)
+- Preferred Ollama models list with tool-calling support verification
+
+#### Security & Authentication
+
+- Rate limiting for failed authentication attempts (configurable window
+  and max attempts)
+- Account lockout after repeated failed login attempts
+- Per-IP rate limiting to prevent brute force attacks
+
+#### Tools & Resources
+
+- Support for custom user-defined prompts in
+  `examples/pgedge-nla-server-custom.yaml`
+- Support for custom user-defined resources in custom definitions file
 - New `execute_explain` tool for query performance analysis
-- Enhanced context management with smarter token budget allocation
-- Improved LLM system prompts for better tool usage guidance
+- Enhanced tool descriptions with usage examples and best practices
 
 ### Changed
 
+#### Naming & Organization
+
+- Renamed the project to *pgEdge Natural Language Agent*
+- Renamed all binaries and configuration files for consistency:
+    - Server: `pgedge-pg-mcp-svr`
+    - CLI: `pgedge-pg-mcp-cli`
+    - Web UI: `pgedge-mcp-web`
+    - KB Builder: `kb-builder`
+- Default configuration files now use `pgedge-nla-server-*.yaml` naming
+- Custom definitions file: `pgedge-nla-server-custom.yaml`
+- Updated all documentation and examples to reflect new naming
+
+#### Configuration
+
 - Reduced default similarity_search token budget from 2500 to 1000
-- Enhanced tool descriptions to provide better LLM guidance
+- Default OpenAI model changed from `gpt-5-main` to `gpt-5.1`
+- Independent API key configuration for knowledgebase, embedding, and
+  LLM sections
+- Support for KB-specific environment variables:
+  `PGEDGE_KB_VOYAGE_API_KEY`, `PGEDGE_KB_OPENAI_API_KEY`
+
+#### UI/UX Improvements
+
+- Enhanced LLM system prompts for better tool usage guidance
+- CLI now saves current model when switching providers
+- Web UI correctly remembers per-provider model selections
+- Improved error messages and warnings for invalid configurations
 
 ### Fixed
 
+- **Critical**: Fixed Voyage AI API response parsing (was expecting flat
+  `embedding` field, actual API returns `data[].embedding`)
+- CLI no longer randomly switches to wrong provider/model on startup
+- Invalid provider/model combinations in preferences now automatically
+  corrected with warnings
+- Web UI model selection now persists correctly across provider switches
 - Integration tests updated for new tool count (6 tools)
 - Applied consistent code formatting with `gofmt`
+- Removed unused kb-dedup utility
+- Fixed gocritic lint warnings
 
 ## [1.0.0-alpha1] - 2025-11-21
 
