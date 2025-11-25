@@ -152,6 +152,7 @@ embeddings:
 #   - HTML (.html, .htm)
 #   - reStructuredText (.rst)
 #   - SGML (.sgml, .sgm)
+#   - DocBook XML (.xml)
 #
 # Documents are converted to Markdown, chunked intelligently, and embedded.
 

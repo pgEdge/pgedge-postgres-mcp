@@ -47,4 +47,4 @@ embeddings:
 # - The MCP server will use embeddings from the configured provider(s)
 # - For Git sources, you can specify either 'branch' or 'tag', not both
 # - Supported document formats: Markdown (.md), HTML (.html, .htm),
-#   reStructuredText (.rst), SGML (.sgml, .sgm)
+#   reStructuredText (.rst), SGML (.sgml, .sgm), DocBook XML (.xml)

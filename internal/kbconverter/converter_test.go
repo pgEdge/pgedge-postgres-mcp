@@ -28,6 +28,7 @@ func TestDetectDocumentType(t *testing.T) {
 		{"test.rst", kbtypes.TypeReStructuredText},
 		{"test.sgml", kbtypes.TypeSGML},
 		{"test.sgm", kbtypes.TypeSGML},
+		{"test.xml", kbtypes.TypeSGML},
 		{"test.txt", kbtypes.TypeUnknown},
 		{"test", kbtypes.TypeUnknown},
 	}
@@ -279,7 +280,7 @@ func TestConvertUnsupportedFormat(t *testing.T) {
 func TestGetSupportedExtensions(t *testing.T) {
 	extensions := GetSupportedExtensions()
 
-	expectedExtensions := []string{".html", ".htm", ".md", ".rst", ".sgml", ".sgm"}
+	expectedExtensions := []string{".html", ".htm", ".md", ".rst", ".sgml", ".sgm", ".xml"}
 
 	if len(extensions) != len(expectedExtensions) {
 		t.Errorf("Expected %d extensions, got %d", len(expectedExtensions), len(extensions))

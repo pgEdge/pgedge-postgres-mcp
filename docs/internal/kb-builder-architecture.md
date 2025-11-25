@@ -123,6 +123,7 @@ embeddings:
 - Markdown (`.md`)
 - reStructuredText (`.rst`)
 - SGML/DocBook (`.sgml`, `.sgm`)
+- DocBook XML (`.xml`)
 
 **Key algorithms**:
 

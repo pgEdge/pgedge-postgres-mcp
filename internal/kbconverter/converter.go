@@ -50,7 +50,7 @@ func DetectDocumentType(filename string) kbtypes.DocumentType {
 		return kbtypes.TypeMarkdown
 	case ".rst":
 		return kbtypes.TypeReStructuredText
-	case ".sgml", ".sgm":
+	case ".sgml", ".sgm", ".xml":
 		return kbtypes.TypeSGML
 	default:
 		return kbtypes.TypeUnknown
@@ -434,7 +434,7 @@ func IsSupported(filename string) bool {
 
 // GetSupportedExtensions returns a list of supported file extensions
 func GetSupportedExtensions() []string {
-	return []string{".html", ".htm", ".md", ".rst", ".sgml", ".sgm"}
+	return []string{".html", ".htm", ".md", ".rst", ".sgml", ".sgm", ".xml"}
 }
 
 // ReadAll reads all content from a reader
