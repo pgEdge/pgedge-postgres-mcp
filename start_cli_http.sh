@@ -31,6 +31,12 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$SCRIPT_DIR"
 BIN_DIR="$PROJECT_DIR/bin"
 
+# Source directories
+CMD_CLI_DIR="$PROJECT_DIR/cmd/pgedge-pg-mcp-cli"
+CMD_SERVER_DIR="$PROJECT_DIR/cmd/pgedge-pg-mcp-svr"
+INTERNAL_DIR="$PROJECT_DIR/internal"
+INTERNAL_CHAT_DIR="$PROJECT_DIR/internal/chat"
+
 # Binaries
 CLI_BIN="$BIN_DIR/pgedge-pg-mcp-cli"
 SERVER_BIN="$BIN_DIR/pgedge-pg-mcp-svr"
@@ -38,6 +44,9 @@ SERVER_BIN="$BIN_DIR/pgedge-pg-mcp-svr"
 # Configuration files
 SERVER_CONFIG="$BIN_DIR/pgedge-nla-server-http.yaml"
 CLI_CONFIG="${CONFIG_FILE:-$BIN_DIR/pgedge-nla-cli-http.yaml}"
+
+# Log files
+SERVER_LOG="/tmp/pgedge-nla-server.log"
 
 # PID file for cleanup
 MCP_SERVER_PID=""
@@ -81,7 +90,7 @@ if [ ! -f "$SERVER_BIN" ]; then
 else
     echo -e "${BLUE}Checking if server binary needs rebuilding...${NC}"
     # Check if any Go source files are newer than the binary
-    if [ -n "$(find "$PROJECT_DIR/cmd/pgedge-pg-mcp-svr" "$PROJECT_DIR/internal" -name "*.go" -newer "$SERVER_BIN" 2>/dev/null)" ]; then
+    if [ -n "$(find "$CMD_SERVER_DIR" "$INTERNAL_DIR" -name "*.go" -newer "$SERVER_BIN" 2>/dev/null)" ]; then
         echo -e "${BLUE}Source files changed, rebuilding MCP server...${NC}"
         cd "$PROJECT_DIR"
         make build-server
@@ -106,7 +115,7 @@ if [ ! -f "$CLI_BIN" ]; then
 else
     echo -e "${BLUE}Checking if CLI binary needs rebuilding...${NC}"
     # Check if any Go source files are newer than the binary
-    if [ -n "$(find "$PROJECT_DIR/cmd/pgedge-pg-mcp-cli" "$PROJECT_DIR/internal/chat" -name "*.go" -newer "$CLI_BIN" 2>/dev/null)" ]; then
+    if [ -n "$(find "$CMD_CLI_DIR" "$INTERNAL_CHAT_DIR" -name "*.go" -newer "$CLI_BIN" 2>/dev/null)" ]; then
         echo -e "${BLUE}Source files changed, rebuilding CLI client...${NC}"
         cd "$PROJECT_DIR"
         make build-client
@@ -166,13 +175,13 @@ fi
 # Start MCP server
 echo -e "${GREEN}[1/2] Starting MCP Server (HTTP mode with auth and LLM proxy)...${NC}"
 cd "$BIN_DIR"
-"$SERVER_BIN" --config "$SERVER_CONFIG" > /tmp/pgedge-mcp-server.log 2>&1 &
+"$SERVER_BIN" --config "$SERVER_CONFIG" > "$SERVER_LOG" 2>&1 &
 MCP_SERVER_PID=$!
 cd "$PROJECT_DIR"
 
 echo "      PID: $MCP_SERVER_PID"
 echo "      Config: $SERVER_CONFIG"
-echo "      Log: /tmp/pgedge-mcp-server.log"
+echo "      Log: $SERVER_LOG"
 
 # Wait a moment for process to stabilize
 sleep 1
@@ -181,8 +190,8 @@ sleep 1
 if ! kill -0 $MCP_SERVER_PID 2>/dev/null; then
     echo -e "${RED}Error: MCP Server process exited immediately${NC}"
     echo "This usually means the port is already in use or there's a configuration error."
-    echo "Check the log file: /tmp/pgedge-mcp-server.log"
-    tail -20 /tmp/pgedge-mcp-server.log
+    echo "Check the log file: $SERVER_LOG"
+    tail -20 "$SERVER_LOG"
     exit 1
 fi
 
@@ -199,8 +208,8 @@ while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
     # Check if process is still running
     if ! kill -0 $MCP_SERVER_PID 2>/dev/null; then
         echo -e "${RED}Error: MCP Server process died during startup${NC}"
-        echo "Check the log file: /tmp/pgedge-mcp-server.log"
-        tail -20 /tmp/pgedge-mcp-server.log
+        echo "Check the log file: $SERVER_LOG"
+        tail -20 "$SERVER_LOG"
         exit 1
     fi
 
@@ -210,8 +219,8 @@ done
 
 if [ $RETRY_COUNT -eq $MAX_RETRIES ]; then
     echo -e "${RED}Error: MCP Server failed to start within 30 seconds${NC}"
-    echo "Check the log file: /tmp/pgedge-mcp-server.log"
-    tail -20 /tmp/pgedge-mcp-server.log
+    echo "Check the log file: $SERVER_LOG"
+    tail -20 "$SERVER_LOG"
     exit 1
 fi
 

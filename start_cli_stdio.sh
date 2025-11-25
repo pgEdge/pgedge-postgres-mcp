@@ -31,13 +31,23 @@ NC='\033[0m' # No Color
 # Get script directory (should be project root)
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$SCRIPT_DIR"
+BIN_DIR="$PROJECT_DIR/bin"
+
+# Source directories
+CMD_CLI_DIR="$PROJECT_DIR/cmd/pgedge-pg-mcp-cli"
+CMD_SERVER_DIR="$PROJECT_DIR/cmd/pgedge-pg-mcp-svr"
+INTERNAL_DIR="$PROJECT_DIR/internal"
+INTERNAL_CHAT_DIR="$PROJECT_DIR/internal/chat"
 
 # Binaries
-CLI_BIN="$PROJECT_DIR/bin/pgedge-nla-cli"
-SERVER_BIN="$PROJECT_DIR/bin/pgedge-nla-server"
+CLI_BIN="$BIN_DIR/pgedge-nla-cli"
+SERVER_BIN="$BIN_DIR/pgedge-nla-server"
 
 # Configuration file (can be overridden with CONFIG_FILE env var)
-CONFIG_FILE="${CONFIG_FILE:-$PROJECT_DIR/bin/pgedge-nla-cli-stdio.yaml}"
+CONFIG_FILE="${CONFIG_FILE:-$BIN_DIR/pgedge-nla-cli-stdio.yaml}"
+
+# Server config
+SERVER_CONFIG="$BIN_DIR/pgedge-nla-server-stdio.yaml"
 
 echo -e "${BLUE}╔════════════════════════════════════════════════════════════╗${NC}"
 echo -e "${BLUE}║     pgEdge MCP CLI Client Startup (Stdio Mode)             ║${NC}"
@@ -56,7 +66,7 @@ if [ ! -f "$CLI_BIN" ]; then
 else
     echo -e "${BLUE}Checking if CLI binary needs rebuilding...${NC}"
     # Check if any Go source files are newer than the binary
-    if [ -n "$(find "$PROJECT_DIR/cmd/pgedge-pg-mcp-cli" "$PROJECT_DIR/internal/chat" -name "*.go" -newer "$CLI_BIN" 2>/dev/null)" ]; then
+    if [ -n "$(find "$CMD_CLI_DIR" "$INTERNAL_CHAT_DIR" -name "*.go" -newer "$CLI_BIN" 2>/dev/null)" ]; then
         echo -e "${BLUE}Source files changed, rebuilding CLI client...${NC}"
         cd "$PROJECT_DIR"
         make build-client
@@ -81,7 +91,7 @@ if [ ! -f "$SERVER_BIN" ]; then
 else
     echo -e "${BLUE}Checking if server binary needs rebuilding...${NC}"
     # Check if any Go source files are newer than the binary
-    if [ -n "$(find "$PROJECT_DIR/cmd/pgedge-pg-mcp-svr" "$PROJECT_DIR/internal" -name "*.go" -newer "$SERVER_BIN" 2>/dev/null)" ]; then
+    if [ -n "$(find "$CMD_SERVER_DIR" "$INTERNAL_DIR" -name "*.go" -newer "$SERVER_BIN" 2>/dev/null)" ]; then
         echo -e "${BLUE}Source files changed, rebuilding MCP server...${NC}"
         cd "$PROJECT_DIR"
         make build-server
@@ -99,7 +109,7 @@ if [ ! -f "$CONFIG_FILE" ]; then
     echo -e "${RED}Error: CLI config file not found at $CONFIG_FILE${NC}"
     echo ""
     echo "Please ensure the CLI configuration file exists:"
-    echo "  $PROJECT_DIR/bin/pgedge-nla-cli-stdio.yaml"
+    echo "  $BIN_DIR/pgedge-nla-cli-stdio.yaml"
     echo ""
     echo "Or specify a custom config file:"
     echo "  CONFIG_FILE=/path/to/config.yaml $0"
@@ -107,16 +117,15 @@ if [ ! -f "$CONFIG_FILE" ]; then
 fi
 
 # Check if server config file exists
-SERVER_CONFIG="$PROJECT_DIR/bin/pgedge-nla-server-stdio.yaml"
 if [ ! -f "$SERVER_CONFIG" ]; then
     echo -e "${RED}Error: Server config file not found at $SERVER_CONFIG${NC}"
     echo ""
     echo "The MCP server requires a configuration file with database settings."
     echo "Please ensure the server configuration file exists:"
-    echo "  $PROJECT_DIR/bin/pgedge-nla-server-stdio.yaml"
+    echo "  $SERVER_CONFIG"
     echo ""
     echo "You can copy the example config file:"
-    echo "  cp $PROJECT_DIR/bin/pgedge-nla-server.yaml.example $SERVER_CONFIG"
+    echo "  cp $BIN_DIR/pgedge-nla-server.yaml.example $SERVER_CONFIG"
     exit 1
 fi
 
@@ -156,7 +165,7 @@ echo -e "${BLUE}Configuration:${NC}"
 echo "  • CLI config:    $CONFIG_FILE"
 echo "  • CLI binary:    $CLI_BIN"
 echo "  • Server binary: $SERVER_BIN"
-echo "  • Server config: $PROJECT_DIR/bin/pgedge-nla-server-stdio.yaml"
+echo "  • Server config: $SERVER_CONFIG"
 echo "  • Mode:          stdio (MCP server spawned as subprocess)"
 echo ""
 echo -e "${BLUE}Features:${NC}"

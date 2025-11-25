@@ -26,9 +26,17 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BIN_DIR="$SCRIPT_DIR/bin"
 WEB_DIR="$SCRIPT_DIR/web"
 
+# Source directories
+CMD_SERVER_DIR="$SCRIPT_DIR/cmd/pgedge-pg-mcp-svr"
+INTERNAL_DIR="$SCRIPT_DIR/internal"
+
 # Configuration files
 SERVER_CONFIG="$BIN_DIR/pgedge-nla-server-http.yaml"
 SERVER_BIN="$BIN_DIR/pgedge-nla-server"
+
+# Log files
+SERVER_LOG="/tmp/pgedge-nla-server.log"
+VITE_LOG="/tmp/pgedge-nla-vite.log"
 
 # PID files for cleanup
 MCP_SERVER_PID=""
@@ -66,7 +74,7 @@ if [ ! -f "$SERVER_BIN" ]; then
 else
     echo -e "${BLUE}Checking if server binary needs rebuilding...${NC}"
     # Check if any Go source files are newer than the binary
-    if [ -n "$(find "$SCRIPT_DIR/cmd/pgedge-nla-server" "$SCRIPT_DIR/internal" -name "*.go" -newer "$SERVER_BIN" 2>/dev/null)" ]; then
+    if [ -n "$(find "$CMD_SERVER_DIR" "$INTERNAL_DIR" -name "*.go" -newer "$SERVER_BIN" 2>/dev/null)" ]; then
         echo -e "${BLUE}Source files changed, rebuilding MCP server...${NC}"
         cd "$SCRIPT_DIR"
         make build-server
@@ -118,13 +126,13 @@ echo ""
 # Start MCP server
 echo -e "${GREEN}[1/2] Starting MCP Server (HTTP mode with auth and LLM proxy)...${NC}"
 cd "$BIN_DIR"
-"$SERVER_BIN" --config "$SERVER_CONFIG" > /tmp/pgedge-nla-server.log 2>&1 &
+"$SERVER_BIN" --config "$SERVER_CONFIG" > "$SERVER_LOG" 2>&1 &
 MCP_SERVER_PID=$!
 cd "$SCRIPT_DIR"
 
 echo "      PID: $MCP_SERVER_PID"
 echo "      Config: $SERVER_CONFIG"
-echo "      Log: /tmp/pgedge-mcp-server.log"
+echo "      Log: $SERVER_LOG"
 
 # Wait a moment for process to stabilize
 sleep 1
@@ -133,8 +141,8 @@ sleep 1
 if ! kill -0 $MCP_SERVER_PID 2>/dev/null; then
     echo -e "${RED}Error: MCP Server process exited immediately${NC}"
     echo "This usually means the port is already in use or there's a configuration error."
-    echo "Check the log file: /tmp/pgedge-mcp-server.log"
-    tail -20 /tmp/pgedge-mcp-server.log
+    echo "Check the log file: $SERVER_LOG"
+    tail -20 "$SERVER_LOG"
     exit 1
 fi
 
@@ -151,8 +159,8 @@ while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
     # Check if process is still running
     if ! kill -0 $MCP_SERVER_PID 2>/dev/null; then
         echo -e "${RED}Error: MCP Server process died during startup${NC}"
-        echo "Check the log file: /tmp/pgedge-mcp-server.log"
-        tail -20 /tmp/pgedge-mcp-server.log
+        echo "Check the log file: $SERVER_LOG"
+        tail -20 "$SERVER_LOG"
         exit 1
     fi
 
@@ -162,21 +170,21 @@ done
 
 if [ $RETRY_COUNT -eq $MAX_RETRIES ]; then
     echo -e "${RED}Error: MCP Server failed to start within 30 seconds${NC}"
-    echo "Check the log file: /tmp/pgedge-mcp-server.log"
-    tail -20 /tmp/pgedge-mcp-server.log
+    echo "Check the log file: $SERVER_LOG"
+    tail -20 "$SERVER_LOG"
     exit 1
 fi
 
 # Start Vite dev server
 echo -e "${GREEN}[2/2] Starting Vite Dev Server (Frontend)...${NC}"
 cd "$WEB_DIR"
-npm run dev > /tmp/pgedge-mcp-vite.log 2>&1 &
+npm run dev > "$VITE_LOG" 2>&1 &
 WEB_SERVER_PID=$!
 cd "$SCRIPT_DIR"
 
 echo "      PID: $WEB_SERVER_PID"
 echo "      Port: 5173 (Vite default)"
-echo "      Log: /tmp/pgedge-mcp-vite.log"
+echo "      Log: $VITE_LOG"
 
 # Wait a moment for process to stabilize
 sleep 1
@@ -185,8 +193,8 @@ sleep 1
 if ! kill -0 $WEB_SERVER_PID 2>/dev/null; then
     echo -e "${RED}Error: Vite Server process exited immediately${NC}"
     echo "This usually means port 5173 is already in use or there's a configuration error."
-    echo "Check the log file: /tmp/pgedge-mcp-vite.log"
-    tail -20 /tmp/pgedge-mcp-vite.log
+    echo "Check the log file: $VITE_LOG"
+    tail -20 "$VITE_LOG"
     exit 1
 fi
 
@@ -195,15 +203,15 @@ echo -e "${GREEN}Waiting for Vite Server to be ready...${NC}"
 MAX_RETRIES=30
 RETRY_COUNT=0
 while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
-    if grep -q "Local:" /tmp/pgedge-mcp-vite.log 2>/dev/null; then
+    if grep -q "Local:" "$VITE_LOG" 2>/dev/null; then
         break
     fi
 
     # Check if process is still running
     if ! kill -0 $WEB_SERVER_PID 2>/dev/null; then
         echo -e "${RED}Error: Vite Server process died during startup${NC}"
-        echo "Check the log file: /tmp/pgedge-mcp-vite.log"
-        tail -20 /tmp/pgedge-mcp-vite.log
+        echo "Check the log file: $VITE_LOG"
+        tail -20 "$VITE_LOG"
         exit 1
     fi
 
@@ -213,8 +221,8 @@ done
 
 if [ $RETRY_COUNT -eq $MAX_RETRIES ]; then
     echo -e "${RED}Error: Vite Server failed to start within 30 seconds${NC}"
-    echo "Check the log file: /tmp/pgedge-mcp-vite.log"
-    tail -20 /tmp/pgedge-mcp-vite.log
+    echo "Check the log file: $VITE_LOG"
+    tail -20 "$VITE_LOG"
     exit 1
 fi
 
@@ -228,8 +236,8 @@ echo "  • MCP Server:     http://localhost:8080"
 echo "  • Web Interface:  http://localhost:5173"
 echo ""
 echo -e "${BLUE}Logs:${NC}"
-echo "  • MCP Server:     /tmp/pgedge-mcp-server.log"
-echo "  • Vite Dev:       /tmp/pgedge-mcp-vite.log"
+echo "  • MCP Server:     $SERVER_LOG"
+echo "  • Vite Dev:       $VITE_LOG"
 echo ""
 echo -e "${BLUE}Login Credentials (for web interface):${NC}"
 echo "  • Username: dpage"
