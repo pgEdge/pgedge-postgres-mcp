@@ -272,7 +272,7 @@ jobs:
       run: go build -v -o pgedge-pg-mcp-svr ./cmd/pgedge-pg-mcp-svr
 
     - name: Verify binary
-      run: ./pgedge-pg-mcp-svr -h
+      run: ./pgedge-nla-server -h
 ```
 
 ### Test Workflow Example
@@ -380,10 +380,10 @@ git commit --no-verify
 3. **Build binaries**:
    ```bash
    # Build for multiple platforms
-   GOOS=linux GOARCH=amd64 go build -o bin/pgedge-pg-mcp-svr-linux-amd64 ./cmd/pgedge-pg-mcp-svr
-   GOOS=darwin GOARCH=amd64 go build -o bin/pgedge-pg-mcp-svr-darwin-amd64 ./cmd/pgedge-pg-mcp-svr
-   GOOS=darwin GOARCH=arm64 go build -o bin/pgedge-pg-mcp-svr-darwin-arm64 ./cmd/pgedge-pg-mcp-svr
-   GOOS=windows GOARCH=amd64 go build -o bin/pgedge-pg-mcp-svr-windows-amd64.exe ./cmd/pgedge-pg-mcp-svr
+   GOOS=linux GOARCH=amd64 go build -o bin/pgedge-nla-server-linux-amd64 ./cmd/pgedge-pg-mcp-svr
+   GOOS=darwin GOARCH=amd64 go build -o bin/pgedge-nla-server-darwin-amd64 ./cmd/pgedge-pg-mcp-svr
+   GOOS=darwin GOARCH=arm64 go build -o bin/pgedge-nla-server-darwin-arm64 ./cmd/pgedge-pg-mcp-svr
+   GOOS=windows GOARCH=amd64 go build -o bin/pgedge-nla-server-windows-amd64.exe ./cmd/pgedge-pg-mcp-svr
    ```
 
 4. **Create GitHub release**:
@@ -418,10 +418,10 @@ jobs:
 
     - name: Build binaries
       run: |
-        GOOS=linux GOARCH=amd64 go build -o bin/pgedge-pg-mcp-svr-linux-amd64 ./cmd/pgedge-pg-mcp-svr
-        GOOS=darwin GOARCH=amd64 go build -o bin/pgedge-pg-mcp-svr-darwin-amd64 ./cmd/pgedge-pg-mcp-svr
-        GOOS=darwin GOARCH=arm64 go build -o bin/pgedge-pg-mcp-svr-darwin-arm64 ./cmd/pgedge-pg-mcp-svr
-        GOOS=windows GOARCH=amd64 go build -o bin/pgedge-pg-mcp-svr-windows-amd64.exe ./cmd/pgedge-pg-mcp-svr
+        GOOS=linux GOARCH=amd64 go build -o bin/pgedge-nla-server-linux-amd64 ./cmd/pgedge-pg-mcp-svr
+        GOOS=darwin GOARCH=amd64 go build -o bin/pgedge-nla-server-darwin-amd64 ./cmd/pgedge-pg-mcp-svr
+        GOOS=darwin GOARCH=arm64 go build -o bin/pgedge-nla-server-darwin-arm64 ./cmd/pgedge-pg-mcp-svr
+        GOOS=windows GOARCH=amd64 go build -o bin/pgedge-nla-server-windows-amd64.exe ./cmd/pgedge-pg-mcp-svr
 
     - name: Create Release
       uses: softprops/action-gh-release@v1

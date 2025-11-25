@@ -56,7 +56,7 @@ http:
     chain_file: ""
   auth:
     enabled: true
-    token_file: ""  # defaults to {binary_dir}/pgedge-pg-mcp-svr-tokens.yaml
+    token_file: ""  # defaults to {binary_dir}/pgedge-nla-server-tokens.yaml
     max_failed_attempts_before_lockout: 5  # Lock account after N failed attempts (0 = disabled)
     rate_limit_window_minutes: 15  # Time window for rate limiting
     rate_limit_max_attempts: 10  # Max failed attempts per IP per window
@@ -105,7 +105,7 @@ The secret file is automatically generated on first run if it doesn't exist:
 
 ```bash
 # First run - secret file will be auto-generated
-./bin/pgedge-pg-mcp-svr
+./bin/pgedge-nla-server
 
 # Output:
 # Generating new encryption key at /path/to/pgedge-pg-mcp-svr.secret
@@ -316,7 +316,7 @@ export PGEDGE_DB_LOG_LEVEL="debug"   # Detailed: pool config, schema counts, que
 export PGEDGE_DB_LOG_LEVEL="trace"   # Very detailed: full queries, row counts, timings
 
 # Run the server
-./bin/pgedge-pg-mcp-svr
+./bin/pgedge-nla-server
 ```
 
 **Log Levels**:
@@ -344,7 +344,7 @@ export PGEDGE_LLM_LOG_LEVEL="debug"   # Detailed: text length, dimensions, timin
 export PGEDGE_LLM_LOG_LEVEL="trace"   # Very detailed: full request/response details
 
 # Run the server
-./bin/pgedge-pg-mcp-svr
+./bin/pgedge-nla-server
 ```
 
 **Log Levels**:
@@ -366,13 +366,13 @@ export PGEDGE_LLM_LOG_LEVEL="trace"   # Very detailed: full request/response det
 
 ```bash
 # Copy the example to the binary directory
-cp configs/pgedge-pg-mcp-svr.yaml.example bin/pgedge-pg-mcp-svr.yaml
+cp configs/pgedge-pg-mcp-svr.yaml.example bin/pgedge-nla-server.yaml
 
 # Edit with your settings
-vim bin/pgedge-pg-mcp-svr.yaml
+vim bin/pgedge-nla-server.yaml
 
 # Run the server (automatically loads config from default location)
-./bin/pgedge-pg-mcp-svr
+./bin/pgedge-nla-server
 ```
 
 ## Command Line Flags
@@ -397,7 +397,7 @@ See [Deployment Guide](deployment.md) for details on HTTP/HTTPS server setup.
 ### Authentication Options
 
 - `-no-auth` - Disable API token authentication
-- `-token-file` - Path to token file (default: {binary_dir}/pgedge-pg-mcp-svr-tokens.yaml)
+- `-token-file` - Path to token file (default: {binary_dir}/pgedge-nla-server-tokens.yaml)
 - `-add-token` - Add a new API token
 - `-remove-token` - Remove token by ID or hash prefix
 - `-list-tokens` - List all API tokens
@@ -411,13 +411,13 @@ See [Authentication Guide](authentication.md) for details on API token managemen
 **Running in stdio mode:**
 ```bash
 # Configure database connection via environment variables, config file, or flags
-./bin/pgedge-pg-mcp-svr
+./bin/pgedge-nla-server
 ```
 
 **Running in HTTP mode:**
 ```bash
 # Configure database connection via environment variables, config file, or flags
-./bin/pgedge-pg-mcp-svr \
+./bin/pgedge-nla-server \
   -http \
   -addr ":9090"
 ```
@@ -451,9 +451,9 @@ The server supports environment variables for all configuration options. All env
 export PGEDGE_HTTP_ENABLED="true"
 export PGEDGE_HTTP_ADDRESS=":8080"
 export PGEDGE_AUTH_ENABLED="true"
-export PGEDGE_AUTH_TOKEN_FILE="./pgedge-pg-mcp-svr-tokens.yaml"
+export PGEDGE_AUTH_TOKEN_FILE="./pgedge-nla-server-tokens.yaml"
 
-./bin/pgedge-pg-mcp-svr
+./bin/pgedge-nla-server
 ```
 
 **HTTPS server:**
@@ -464,7 +464,7 @@ export PGEDGE_TLS_ENABLED="true"
 export PGEDGE_TLS_CERT_FILE="./server.crt"
 export PGEDGE_TLS_KEY_FILE="./server.key"
 
-./bin/pgedge-pg-mcp-svr
+./bin/pgedge-nla-server
 ```
 
 **For Tests:**
@@ -492,7 +492,7 @@ To use this MCP server with Claude Desktop, add it to your MCP configuration fil
 {
   "mcpServers": {
     "pgedge": {
-      "command": "/absolute/path/to/pgedge-postgres-mcp/bin/pgedge-pg-mcp-svr"
+      "command": "/absolute/path/to/pgedge-postgres-mcp/bin/pgedge-nla-server"
     }
   }
 }
@@ -512,7 +512,7 @@ You can also use a YAML configuration file instead of environment variables:
 {
   "mcpServers": {
     "pgedge": {
-      "command": "/absolute/path/to/pgedge-postgres-mcp/bin/pgedge-pg-mcp-svr",
+      "command": "/absolute/path/to/pgedge-postgres-mcp/bin/pgedge-nla-server",
       "args": ["-config", "/absolute/path/to/your-config.yaml"]
     }
   }
@@ -529,7 +529,7 @@ Understanding how configuration priority works:
 # Config file has: address: ":8080"
 # Environment has: PGEDGE_HTTP_ENABLED="true"
 
-./bin/pgedge-pg-mcp-svr \
+./bin/pgedge-nla-server \
   -http \
   -addr ":3000"
 
@@ -544,7 +544,7 @@ Understanding how configuration priority works:
 # Config file has: http.address: ":8080"
 export PGEDGE_HTTP_ADDRESS=":9090"
 
-./bin/pgedge-pg-mcp-svr
+./bin/pgedge-nla-server
 
 # Result:
 # - Address: :9090 (environment overrides config file)
@@ -556,7 +556,7 @@ export PGEDGE_HTTP_ADDRESS=":9090"
 # No command line flags, no environment variables
 # Config file has partial settings
 
-./bin/pgedge-pg-mcp-svr -config myconfig.yaml
+./bin/pgedge-nla-server -config myconfig.yaml
 
 # Result:
 # - Values from config file where present
@@ -577,13 +577,13 @@ export PGEDGE_HTTP_ADDRESS=":9090"
 
 ```bash
 # Check if config file exists
-ls -la bin/pgedge-pg-mcp-svr.yaml
+ls -la bin/pgedge-nla-server.yaml
 
 # Use explicit path
-./bin/pgedge-pg-mcp-svr -config /full/path/to/config.yaml
+./bin/pgedge-nla-server -config /full/path/to/config.yaml
 
 # Check file permissions
-chmod 600 bin/pgedge-pg-mcp-svr.yaml  # Should be readable
+chmod 600 bin/pgedge-nla-server.yaml  # Should be readable
 ```
 
 ### Environment Variables Not Working

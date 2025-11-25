@@ -26,17 +26,17 @@ mcp:
     # Stdio Mode Configuration
     # -------------------------
     # Path to MCP server binary (for stdio mode)
-    # Default: ./bin/pgedge-pg-mcp-svr
+    # Default: ./bin/pgedge-nla-server
     # Environment variable: PGEDGE_MCP_SERVER_PATH
     # Command line flag: -mcp-server-path
-    server_path: ./bin/pgedge-pg-mcp-svr
+    server_path: ./bin/pgedge-nla-server
 
     # Path to MCP server config file (for stdio mode)
     # If specified, the --config flag will be passed to the server binary
     # If not specified, the server will use its default config file lookup
     # Default: (none - server uses default config lookup)
     # Environment variable: PGEDGE_MCP_SERVER_CONFIG_PATH
-    server_config_path: ./bin/pgedge-pg-mcp-svr-stdio.yaml
+    server_config_path: ./bin/pgedge-nla-server-stdio.yaml
 
     # -------------------------
     # HTTP Mode Configuration
@@ -177,8 +177,8 @@ ui:
 ```yaml
 mcp:
     mode: stdio
-    server_path: ./bin/pgedge-pg-mcp-svr
-    server_config_path: ./bin/pgedge-pg-mcp-svr-stdio.yaml
+    server_path: ./bin/pgedge-nla-server
+    server_config_path: ./bin/pgedge-nla-server-stdio.yaml
 
 llm:
     provider: anthropic
@@ -190,7 +190,7 @@ Then run:
 
 ```bash
 export PGEDGE_ANTHROPIC_API_KEY="your-key-here"
-./bin/pgedge-pg-mcp-cli
+./bin/pgedge-nla-cli
 ```
 
 ### Stdio Mode with OpenAI
@@ -198,8 +198,8 @@ export PGEDGE_ANTHROPIC_API_KEY="your-key-here"
 ```yaml
 mcp:
     mode: stdio
-    server_path: ./bin/pgedge-pg-mcp-svr
-    server_config_path: ./bin/pgedge-pg-mcp-svr-stdio.yaml
+    server_path: ./bin/pgedge-nla-server
+    server_config_path: ./bin/pgedge-nla-server-stdio.yaml
 
 llm:
     provider: openai
@@ -211,7 +211,7 @@ Then run:
 
 ```bash
 export PGEDGE_OPENAI_API_KEY="your-key-here"
-./bin/pgedge-pg-mcp-cli
+./bin/pgedge-nla-cli
 ```
 
 ### HTTP Mode with Authentication
@@ -232,7 +232,7 @@ Then run:
 ```bash
 export PGEDGE_ANTHROPIC_API_KEY="your-key-here"
 export PGEDGE_MCP_TOKEN="your-mcp-token"
-./bin/pgedge-pg-mcp-cli
+./bin/pgedge-nla-cli
 ```
 
 ### Local Setup with Ollama
@@ -240,8 +240,8 @@ export PGEDGE_MCP_TOKEN="your-mcp-token"
 ```yaml
 mcp:
     mode: stdio
-    server_path: ./bin/pgedge-pg-mcp-svr
-    server_config_path: ./bin/pgedge-pg-mcp-svr-stdio.yaml
+    server_path: ./bin/pgedge-nla-server
+    server_config_path: ./bin/pgedge-nla-server-stdio.yaml
 
 llm:
     provider: ollama
@@ -254,7 +254,7 @@ Then run:
 ```bash
 # Make sure Ollama is running with the model pulled
 ollama pull llama3
-./bin/pgedge-pg-mcp-cli
+./bin/pgedge-nla-cli
 ```
 
 ### Remote HTTP Server with Ollama
@@ -296,7 +296,7 @@ The chat client supports the following environment variables (in order of preced
 All configuration options can be overridden with command line flags:
 
 ```bash
-./bin/pgedge-pg-mcp-cli \
+./bin/pgedge-nla-cli \
     -config /path/to/config.yaml \
     -mcp-mode http \
     -mcp-url https://mcp.example.com:8080 \
@@ -306,7 +306,7 @@ All configuration options can be overridden with command line flags:
     -no-color
 ```
 
-Run `./bin/pgedge-pg-mcp-cli --help` to see all available flags.
+Run `./bin/pgedge-nla-cli --help` to see all available flags.
 
 ## Token File Location
 

@@ -525,7 +525,7 @@ We need to create a standalone tool called kb-builder (that will not be shipped 
 
 ## Configuration
 
-It will take the path to a configuration file on the command line, or default to kb-builder.yaml in the same directory as the binary.
+It will take the path to a configuration file on the command line, or default to pgedge-nla-kb-builder.yaml in the same directory as the binary.
 
 It will also take the path to the output SQLite database (with sqlite-vec) as a command line option, or from the configuration file, or defaulting to pgedge-nla-kb.db in the same directory as the binary (in order of priority).
 

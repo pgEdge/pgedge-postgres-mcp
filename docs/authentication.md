@@ -65,7 +65,7 @@ Add these settings to your server configuration file:
 http:
     auth:
         enabled: true
-        token_file: "./pgedge-pg-mcp-svr-tokens.yaml"
+        token_file: "./pgedge-nla-server-tokens.yaml"
         # Rate limiting settings
         rate_limit_window_minutes: 15  # Time window for rate limiting
         rate_limit_max_attempts: 10  # Max attempts per IP per window
@@ -79,7 +79,7 @@ http:
 http:
     auth:
         enabled: true
-        token_file: "./pgedge-pg-mcp-svr-tokens.yaml"
+        token_file: "./pgedge-nla-server-tokens.yaml"
         max_failed_attempts_before_lockout: 5
         rate_limit_window_minutes: 15
         rate_limit_max_attempts: 10
@@ -95,7 +95,7 @@ With this configuration:
 
 ```bash
 # Re-enable a locked account
-./bin/pgedge-pg-mcp-svr -enable-user -username alice
+./bin/pgedge-nla-server -enable-user -username alice
 
 # Reset failed attempts counter
 # (automatically reset on successful login)
@@ -126,7 +126,7 @@ User accounts provide interactive authentication with session-based access. User
 
 ```bash
 # Add user with prompts
-./bin/pgedge-pg-mcp-svr -add-user
+./bin/pgedge-nla-server -add-user
 ```
 
 You'll be prompted for:
@@ -139,7 +139,7 @@ You'll be prompted for:
 
 ```bash
 # Add user with all details specified
-./bin/pgedge-pg-mcp-svr -add-user \
+./bin/pgedge-nla-server -add-user \
   -username alice \
   -password "SecurePassword123!" \
   -user-note "Alice Smith - Developer"
@@ -148,7 +148,7 @@ You'll be prompted for:
 ### Listing Users
 
 ```bash
-./bin/pgedge-pg-mcp-svr -list-users
+./bin/pgedge-nla-server -list-users
 ```
 
 Output:
@@ -167,15 +167,15 @@ charlie              2024-09-01 08:00          2024-10-10 16:45     DISABLED    
 
 ```bash
 # Update password
-./bin/pgedge-pg-mcp-svr -update-user -username alice
+./bin/pgedge-nla-server -update-user -username alice
 
 # Update with new password from command line (less secure)
-./bin/pgedge-pg-mcp-svr -update-user \
+./bin/pgedge-nla-server -update-user \
   -username alice \
   -password "NewPassword456!"
 
 # Update annotation only
-./bin/pgedge-pg-mcp-svr -update-user \
+./bin/pgedge-nla-server -update-user \
   -username alice \
   -user-note "Alice Smith - Senior Developer"
 ```
@@ -184,29 +184,29 @@ charlie              2024-09-01 08:00          2024-10-10 16:45     DISABLED    
 
 ```bash
 # Disable a user account (prevents login)
-./bin/pgedge-pg-mcp-svr -disable-user -username charlie
+./bin/pgedge-nla-server -disable-user -username charlie
 
 # Re-enable a user account
-./bin/pgedge-pg-mcp-svr -enable-user -username charlie
+./bin/pgedge-nla-server -enable-user -username charlie
 ```
 
 ### Deleting Users
 
 ```bash
 # Delete user (with confirmation prompt)
-./bin/pgedge-pg-mcp-svr -delete-user -username charlie
+./bin/pgedge-nla-server -delete-user -username charlie
 ```
 
 ### Custom User File Location
 
 ```bash
 # Specify custom user file path
-./bin/pgedge-pg-mcp-svr -user-file /etc/pgedge-mcp/users.yaml -list-users
+./bin/pgedge-nla-server -user-file /etc/pgedge-mcp/users.yaml -list-users
 ```
 
 ### User Storage
 
-- **Default location**: `pgedge-pg-mcp-svr-users.yaml` in the same directory as the binary
+- **Default location**: `pgedge-nla-server-users.yaml` in the same directory as the binary
 - **Storage format**: YAML with bcrypt-hashed passwords (cost factor 12)
 - **File permissions**: Automatically set to 0600 (owner read/write only)
 - **Session tokens**: Generated with crypto/rand (32 bytes, 24-hour validity)
@@ -219,7 +219,7 @@ charlie              2024-09-01 08:00          2024-10-10 16:45     DISABLED    
 
 ```bash
 # Add token with prompts
-./bin/pgedge-pg-mcp-svr -add-token
+./bin/pgedge-nla-server -add-token
 ```
 
 You'll be prompted for:
@@ -231,12 +231,12 @@ You'll be prompted for:
 
 ```bash
 # Add token with all details specified
-./bin/pgedge-pg-mcp-svr -add-token \
+./bin/pgedge-nla-server -add-token \
   -token-note "Production API" \
   -token-expiry "1y"
 
 # Add token with no expiration
-./bin/pgedge-pg-mcp-svr -add-token \
+./bin/pgedge-nla-server -add-token \
   -token-note "CI/CD Pipeline" \
   -token-expiry "never"
 ```
@@ -257,7 +257,7 @@ Store this token securely. It cannot be retrieved later.
 ### Listing Tokens
 
 ```bash
-./bin/pgedge-pg-mcp-svr -list-tokens
+./bin/pgedge-nla-server -list-tokens
 ```
 
 Output:
@@ -288,13 +288,13 @@ You can remove tokens by ID or hash prefix:
 
 ```bash
 # Remove by full token ID
-./bin/pgedge-pg-mcp-svr -remove-token token-1234567890
+./bin/pgedge-nla-server -remove-token token-1234567890
 
 # Remove by hash prefix (minimum 8 characters)
-./bin/pgedge-pg-mcp-svr -remove-token b3f805a4
+./bin/pgedge-nla-server -remove-token b3f805a4
 
 # Remove by partial hash (at least 8 chars)
-./bin/pgedge-pg-mcp-svr -remove-token b3f805a4c2
+./bin/pgedge-nla-server -remove-token b3f805a4c2
 ```
 
 ## Token Expiry Formats
@@ -316,16 +316,16 @@ You can remove tokens by ID or hash prefix:
 
 ```bash
 # Short-lived token for testing
-./bin/pgedge-pg-mcp-svr -add-token -token-note "Test" -token-expiry "1h"
+./bin/pgedge-nla-server -add-token -token-note "Test" -token-expiry "1h"
 
 # Standard token for applications
-./bin/pgedge-pg-mcp-svr -add-token -token-note "API Client" -token-expiry "90d"
+./bin/pgedge-nla-server -add-token -token-note "API Client" -token-expiry "90d"
 
 # Long-lived token for services
-./bin/pgedge-pg-mcp-svr -add-token -token-note "Monitoring" -token-expiry "1y"
+./bin/pgedge-nla-server -add-token -token-note "Monitoring" -token-expiry "1y"
 
 # Permanent token (requires explicit renewal)
-./bin/pgedge-pg-mcp-svr -add-token -token-note "Admin" -token-expiry "never"
+./bin/pgedge-nla-server -add-token -token-note "Admin" -token-expiry "never"
 ```
 
 ## Using Tokens
@@ -479,7 +479,7 @@ func main() {
 
 ```bash
 # Specify custom token file path
-./bin/pgedge-pg-mcp-svr -http -token-file /etc/pgedge-mcp/tokens.yaml
+./bin/pgedge-nla-server -http -token-file /etc/pgedge-mcp/tokens.yaml
 ```
 
 ### Disable Authentication (Development Only)
@@ -487,7 +487,7 @@ func main() {
 **Warning**: Never use this in production!
 
 ```bash
-./bin/pgedge-pg-mcp-svr -http -no-auth
+./bin/pgedge-nla-server -http -no-auth
 ```
 
 ### Configuration File
@@ -500,14 +500,14 @@ http:
   address: ":8080"
   auth:
     enabled: true
-    token_file: "/path/to/pgedge-pg-mcp-svr-tokens.yaml"
+    token_file: "/path/to/pgedge-nla-server-tokens.yaml"
 ```
 
 ## Token Storage
 
 ### Storage Location
 
-- **Default**: `pgedge-pg-mcp-svr-tokens.yaml` in the same directory as the binary
+- **Default**: `pgedge-nla-server-tokens.yaml` in the same directory as the binary
 - **Custom**: Specified via `-token-file` flag or config file
 
 ### Storage Format
@@ -532,7 +532,7 @@ tokens:
 Expired tokens are automatically removed when the server starts:
 
 ```
-Loaded 3 API token(s) from pgedge-pg-mcp-svr-tokens.yaml
+Loaded 3 API token(s) from pgedge-nla-server-tokens.yaml
 Removed 1 expired token(s)
 ```
 
@@ -588,15 +588,15 @@ All reload operations use read-write locks (`sync.RWMutex`) to ensure:
 
 ```bash
 # Terminal 1: Server is running
-./bin/pgedge-pg-mcp-svr -http
+./bin/pgedge-nla-server -http
 
 # Terminal 2: Add a new token without stopping server
-./bin/pgedge-pg-mcp-svr -add-token \
+./bin/pgedge-nla-server -add-token \
   -token-note "New Client" \
   -token-expiry "30d"
 
 # Server output shows:
-# [AUTH] Reloaded /path/to/pgedge-pg-mcp-svr-tokens.yaml
+# [AUTH] Reloaded /path/to/pgedge-nla-server-tokens.yaml
 
 # New token is immediately usable
 ```
@@ -608,7 +608,7 @@ All reload operations use read-write locks (`sync.RWMutex`) to ensure:
 # Security team detects compromised token
 
 # Remove the token immediately
-./bin/pgedge-pg-mcp-svr -remove-token b3f805a4
+./bin/pgedge-nla-server -remove-token b3f805a4
 
 # Token is revoked within 100ms
 # No server restart needed
@@ -620,7 +620,7 @@ All reload operations use read-write locks (`sync.RWMutex`) to ensure:
 # Server running with active user sessions
 
 # Update user password
-./bin/pgedge-pg-mcp-svr -update-user \
+./bin/pgedge-nla-server -update-user \
   -username alice \
   -password "NewSecurePassword456!"
 
@@ -633,10 +633,10 @@ All reload operations use read-write locks (`sync.RWMutex`) to ensure:
 
 ```bash
 # Edit token file directly for bulk changes
-nano pgedge-pg-mcp-svr-tokens.yaml
+nano pgedge-nla-server-tokens.yaml
 
 # On save, server automatically detects change:
-# [AUTH] Reloaded /path/to/pgedge-pg-mcp-svr-tokens.yaml
+# [AUTH] Reloaded /path/to/pgedge-nla-server-tokens.yaml
 ```
 
 ### Monitoring Reload Events
@@ -644,14 +644,14 @@ nano pgedge-pg-mcp-svr-tokens.yaml
 Server logs show reload events:
 
 ```
-[AUTH] Reloaded /path/to/pgedge-pg-mcp-svr-tokens.yaml
-[AUTH] Reloaded /path/to/pgedge-pg-mcp-svr-users.yaml
+[AUTH] Reloaded /path/to/pgedge-nla-server-tokens.yaml
+[AUTH] Reloaded /path/to/pgedge-nla-server-users.yaml
 ```
 
 Failed reloads are also logged:
 
 ```
-[AUTH] Failed to reload /path/to/pgedge-pg-mcp-svr-tokens.yaml:
+[AUTH] Failed to reload /path/to/pgedge-nla-server-tokens.yaml:
 permission denied
 ```
 
@@ -766,12 +766,12 @@ HTTP Status: `401 Unauthorized`
 
 ```bash
 # Good: Short-lived tokens with rotation
-./bin/pgedge-pg-mcp-svr -add-token \
+./bin/pgedge-nla-server -add-token \
   -token-note "Web App - Q4 2024" \
   -token-expiry "90d"
 
 # Bad: Never-expiring tokens
-./bin/pgedge-pg-mcp-svr -add-token \
+./bin/pgedge-nla-server -add-token \
   -token-note "Web App" \
   -token-expiry "never"
 ```
@@ -781,13 +781,13 @@ HTTP Status: `401 Unauthorized`
 **Development**:
 ```bash
 # Use -no-auth for local development (localhost only)
-./bin/pgedge-pg-mcp-svr -http -addr "localhost:8080" -no-auth
+./bin/pgedge-nla-server -http -addr "localhost:8080" -no-auth
 ```
 
 **Production**:
 ```bash
 # Always use authentication with HTTPS
-./bin/pgedge-pg-mcp-svr -http -tls \
+./bin/pgedge-nla-server -http -tls \
   -cert /path/to/cert.pem \
   -key /path/to/key.pem
 ```
@@ -1032,28 +1032,28 @@ result = client.call_tool("query_database", {...})
 
 ```bash
 # Error message:
-ERROR: Token file not found: /path/to/pgedge-pg-mcp-svr-tokens.yaml
-Create tokens with: ./pgedge-pg-mcp-svr -add-token
+ERROR: Token file not found: /path/to/pgedge-nla-server-tokens.yaml
+Create tokens with: ./pgedge-nla-server -add-token
 Or disable authentication with: -no-auth
 ```
 
 **Solution**:
 ```bash
 # Create first token
-./bin/pgedge-pg-mcp-svr -add-token
+./bin/pgedge-nla-server -add-token
 ```
 
 ### Token Authentication Fails
 
 ```bash
 # Check token file exists and has correct permissions
-ls -la pgedge-pg-mcp-svr-tokens.yaml  # Should show -rw------- (600)
+ls -la pgedge-nla-server-tokens.yaml  # Should show -rw------- (600)
 
 # List tokens to verify token exists
-./bin/pgedge-pg-mcp-svr -list-tokens
+./bin/pgedge-nla-server -list-tokens
 
 # Check for expired tokens
-./bin/pgedge-pg-mcp-svr -list-tokens | grep "Status: Expired"
+./bin/pgedge-nla-server -list-tokens | grep "Status: Expired"
 ```
 
 ### Cannot Remove Token
@@ -1061,8 +1061,8 @@ ls -la pgedge-pg-mcp-svr-tokens.yaml  # Should show -rw------- (600)
 ```bash
 # Error: Token not found
 # Solution: Use at least 8 characters of the hash
-./bin/pgedge-pg-mcp-svr -list-tokens  # Get the hash
-./bin/pgedge-pg-mcp-svr -remove-token b3f805a4  # Use 8+ chars
+./bin/pgedge-nla-server -list-tokens  # Get the hash
+./bin/pgedge-nla-server -remove-token b3f805a4  # Use 8+ chars
 ```
 
 ### Server Won't Start (Auth Enabled)
@@ -1071,10 +1071,10 @@ If auth is enabled but no token file exists:
 
 ```bash
 # Option 1: Create a token file
-./bin/pgedge-pg-mcp-svr -add-token
+./bin/pgedge-nla-server -add-token
 
 # Option 2: Disable auth temporarily
-./bin/pgedge-pg-mcp-svr -http -no-auth
+./bin/pgedge-nla-server -http -no-auth
 ```
 
 ## Security Considerations

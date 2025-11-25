@@ -9,7 +9,7 @@
 #   2. Configuration file values (this file)
 #   3. Hard-coded defaults
 #
-# Copy this file to kb-builder.yaml and customize as needed.
+# Copy this file to pgedge-nla-kb-builder.yaml and customize as needed.
 # By default, kb-builder looks for config in the same directory as the binary.
 
 # ============================================================================
@@ -160,21 +160,21 @@ embeddings:
 # COMMAND LINE USAGE
 # ============================================================================
 # Basic usage:
-#   ./kb-builder --config kb-builder.yaml
+#   ./pgedge-nla-kb-builder --config pgedge-nla-kb-builder.yaml
 #
 # Override database path:
-#   ./kb-builder --config kb-builder.yaml --database /path/to/output.db
+#   ./pgedge-nla-kb-builder --config pgedge-nla-kb-builder.yaml --database /path/to/output.db
 #
 # Skip git pull for existing repos (faster for development):
-#   ./kb-builder --config kb-builder.yaml --skip-updates
+#   ./pgedge-nla-kb-builder --config pgedge-nla-kb-builder.yaml --skip-updates
 #
 # Add missing embeddings to existing database:
-#   ./kb-builder --config kb-builder.yaml --add-missing-embeddings
+#   ./pgedge-nla-kb-builder --config pgedge-nla-kb-builder.yaml --add-missing-embeddings
 #
 # Clear embeddings for a specific provider:
-#   ./kb-builder --config kb-builder.yaml --clear-embeddings openai
-#   ./kb-builder --config kb-builder.yaml --clear-embeddings voyage
-#   ./kb-builder --config kb-builder.yaml --clear-embeddings ollama
+#   ./pgedge-nla-kb-builder --config pgedge-nla-kb-builder.yaml --clear-embeddings openai
+#   ./pgedge-nla-kb-builder --config pgedge-nla-kb-builder.yaml --clear-embeddings voyage
+#   ./pgedge-nla-kb-builder --config pgedge-nla-kb-builder.yaml --clear-embeddings ollama
 ```
 
 ## Configuration Examples
@@ -281,7 +281,7 @@ Then run:
 ollama pull nomic-embed-text
 
 # Build the knowledgebase
-./kb-builder --config kb-builder.yaml
+./pgedge-nla-kb-builder --config pgedge-nla-kb-builder.yaml
 ```
 
 ### Multiple Embedding Providers (Recommended for Flexibility)
@@ -352,14 +352,14 @@ The kb-builder supports the following environment variables:
 3. **Create Configuration**:
 
    ```bash
-   cp kb-builder.yaml.example kb-builder.yaml
-   # Edit kb-builder.yaml to configure sources and embedding providers
+   cp pgedge-nla-kb-builder.yaml.example pgedge-nla-kb-builder.yaml
+   # Edit pgedge-nla-kb-builder.yaml to configure sources and embedding providers
    ```
 
 4. **Build the Knowledgebase**:
 
    ```bash
-   ./kb-builder --config kb-builder.yaml
+   ./pgedge-nla-kb-builder --config pgedge-nla-kb-builder.yaml
    ```
 
 5. **Configure MCP Server**:
@@ -388,10 +388,10 @@ Example:
 
 ```bash
 # Initial build (full processing)
-./kb-builder --config kb-builder.yaml
+./pgedge-nla-kb-builder --config pgedge-nla-kb-builder.yaml
 
 # Later update (only changed files)
-./kb-builder --config kb-builder.yaml
+./pgedge-nla-kb-builder --config pgedge-nla-kb-builder.yaml
 ```
 
 ## Managing Embeddings
@@ -401,7 +401,7 @@ Example:
 If a build fails or you enable a new provider later:
 
 ```bash
-./kb-builder --config kb-builder.yaml --add-missing-embeddings
+./pgedge-nla-kb-builder --config pgedge-nla-kb-builder.yaml --add-missing-embeddings
 ```
 
 This will only generate embeddings that are missing, skipping files that
@@ -413,19 +413,19 @@ To clear embeddings for a specific provider:
 
 ```bash
 # Clear OpenAI embeddings
-./kb-builder --config kb-builder.yaml --clear-embeddings openai
+./pgedge-nla-kb-builder --config pgedge-nla-kb-builder.yaml --clear-embeddings openai
 
 # Clear Voyage embeddings
-./kb-builder --config kb-builder.yaml --clear-embeddings voyage
+./pgedge-nla-kb-builder --config pgedge-nla-kb-builder.yaml --clear-embeddings voyage
 
 # Clear Ollama embeddings
-./kb-builder --config kb-builder.yaml --clear-embeddings ollama
+./pgedge-nla-kb-builder --config pgedge-nla-kb-builder.yaml --clear-embeddings ollama
 ```
 
 After clearing, you can rebuild with:
 
 ```bash
-./kb-builder --config kb-builder.yaml --add-missing-embeddings
+./pgedge-nla-kb-builder --config pgedge-nla-kb-builder.yaml --add-missing-embeddings
 ```
 
 ## See Also

@@ -272,8 +272,8 @@ type Chunk struct {
 
 ### typical workflow
 
-1. **Configure sources** in `kb-builder.yaml`
-2. **Run builder**: `./bin/kb-builder --config kb-builder.yaml`
+1. **Configure sources** in `pgedge-nla-kb-builder.yaml`
+2. **Run builder**: `./bin/pgedge-nla-kb-builder --config pgedge-nla-kb-builder.yaml`
 3. **Process executes**:
    - Fetch all sources (git clone/pull or local scan)
    - For each source:
@@ -362,7 +362,7 @@ const (
 ### rebuilding databases
 
 To update documentation:
-1. Edit `kb-builder.yaml` (update branch/tag or local paths)
+1. Edit `pgedge-nla-kb-builder.yaml` (update branch/tag or local paths)
 2. Run `kb-builder` again
 3. Replace old database file with new one
 4. Restart MCP server to use new database
@@ -415,4 +415,4 @@ For large documentation sets:
 
 - `docs/knowledgebase.md` - User-facing documentation
 - `KB-README.md` - Quick start guide
-- `kb-builder.yaml.example` - Example configuration
+- `pgedge-nla-kb-builder.yaml.example` - Example configuration

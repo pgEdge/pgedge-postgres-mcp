@@ -24,13 +24,13 @@ the server configuration:
 
 ```yaml
 # In pgedge-pg-mcp-svr.yaml
-custom_definitions_path: "/path/to/custom-prompts-resources.yaml"
+custom_definitions_path: "/path/to/pgedge-nla-server-custom.yaml"
 ```
 
 ### Environment Variable
 
 ```bash
-export PGEDGE_CUSTOM_DEFINITIONS_PATH="/path/to/custom-prompts-resources.yaml"
+export PGEDGE_CUSTOM_DEFINITIONS_PATH="/path/to/pgedge-nla-server-custom.yaml"
 ```
 
 ### Supported Format
@@ -332,15 +332,15 @@ Protect your definitions file:
 
 ## Complete Example
 
-See `examples/custom-prompts-resources.yaml` for a comprehensive example
+See `examples/pgedge-nla-server-custom.yaml` for a comprehensive example
 demonstrating all features:
 
 ```bash
 # View the example file
-cat examples/custom-prompts-resources.yaml
+cat examples/pgedge-nla-server-custom.yaml
 
 # Use it in your configuration
-custom_definitions_path: "./examples/custom-prompts-resources.yaml"
+custom_definitions_path: "./examples/pgedge-nla-server-custom.yaml"
 ```
 
 ## Usage

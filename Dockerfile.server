@@ -15,7 +15,7 @@ RUN go mod download
 COPY . .
 
 # Build the server binary
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -installsuffix cgo -o pgedge-pg-mcp-svr ./cmd/pgedge-pg-mcp-svr
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -installsuffix cgo -o pgedge-nla-server ./cmd/pgedge-pg-mcp-svr
 
 # Stage 2: Create minimal runtime image
 # Note: Using ubi9-minimal instead of ubi9-micro to get shadow-utils for user switching
@@ -38,7 +38,7 @@ RUN useradd -u 1001 -r -s /bin/sh -d /app -c "MCP Server User" mcp
 WORKDIR /app
 
 # Copy the binary from builder
-COPY --from=builder --chown=1001:1001 /workspace/pgedge-pg-mcp-svr /app/pgedge-pg-mcp-svr
+COPY --from=builder --chown=1001:1001 /workspace/pgedge-nla-server /app/pgedge-nla-server
 
 # Copy initialization script (must be executable and owned by root to create directories)
 COPY --chmod=755 docker/init-server.sh /app/init-server.sh

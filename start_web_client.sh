@@ -27,7 +27,7 @@ BIN_DIR="$SCRIPT_DIR/bin"
 WEB_DIR="$SCRIPT_DIR/web"
 
 # Configuration files
-SERVER_CONFIG="$BIN_DIR/pgedge-pg-mcp-svr-http.yaml"
+SERVER_CONFIG="$BIN_DIR/pgedge-nla-server-http.yaml"
 SERVER_BIN="$BIN_DIR/pgedge-pg-mcp-svr"
 
 # PID files for cleanup
@@ -233,7 +233,7 @@ echo "  • Vite Dev:       /tmp/pgedge-mcp-vite.log"
 echo ""
 echo -e "${BLUE}Login Credentials (for web interface):${NC}"
 echo "  • Username: dpage"
-echo "  • Password: (as configured in bin/pgedge-pg-mcp-svr-users.yaml)"
+echo "  • Password: (as configured in bin/pgedge-nla-server-users.yaml)"
 echo ""
 echo -e "${BLUE}Architecture:${NC}"
 echo "  • Web client communicates directly with MCP server via JSON-RPC"

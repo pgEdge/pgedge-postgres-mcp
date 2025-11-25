@@ -361,7 +361,7 @@ Configure in Claude Desktop's MCP config file:
 {
   "mcpServers": {
     "pgedge": {
-      "command": "/path/to/bin/pgedge-pg-mcp-svr",
+      "command": "/path/to/bin/pgedge-nla-server",
       "env": {
         "PGEDGE_POSTGRES_CONNECTION_STRING": "...",
         "ANTHROPIC_API_KEY": "..."
@@ -394,10 +394,10 @@ export PGEDGE_POSTGRES_CONNECTION_STRING="..."
 export ANTHROPIC_API_KEY="..."
 
 # Run server
-./bin/pgedge-pg-mcp-svr
+./bin/pgedge-nla-server
 
 # Send test request
-echo '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test","version":"1.0"}}}' | ./bin/pgedge-pg-mcp-svr
+echo '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test","version":"1.0"}}}' | ./bin/pgedge-nla-server
 ```
 
 ## Dependencies

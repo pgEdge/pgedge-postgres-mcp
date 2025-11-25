@@ -23,7 +23,7 @@ Build the chat client from source:
 
 ```bash
 # Using Go directly
-go build -o bin/pgedge-pg-mcp-cli ./cmd/pgedge-pg-mcp-cli
+go build -o bin/pgedge-nla-cli ./cmd/pgedge-pg-mcp-cli
 
 # Or using Make
 make client
@@ -32,7 +32,7 @@ make client
 make build
 ```
 
-The binary will be created at `bin/pgedge-pg-mcp-cli`.
+The binary will be created at `bin/pgedge-nla-cli`.
 
 ## Quick Start
 
@@ -120,8 +120,8 @@ Example configuration:
 ```yaml
 mcp:
     mode: stdio
-    server_path: ./bin/pgedge-pg-mcp-svr
-    server_config_path: ./bin/pgedge-pg-mcp-svr-stdio.yaml
+    server_path: ./bin/pgedge-nla-server
+    server_config_path: ./bin/pgedge-nla-server-stdio.yaml
     # For HTTP mode:
     # url: http://localhost:8080
     # token: your-token-here
@@ -255,7 +255,7 @@ This is the simplest setup for local development.
 export PGEDGE_ANTHROPIC_API_KEY="your-api-key-here"
 
 # Run the chat client
-./bin/pgedge-pg-mcp-cli
+./bin/pgedge-nla-cli
 ```
 
 The client will:
@@ -275,7 +275,7 @@ echo "sk-ant-your-key-here" > ~/.anthropic-api-key
 chmod 600 ~/.anthropic-api-key
 
 # Run the chat client (will read from file automatically)
-./bin/pgedge-pg-mcp-cli
+./bin/pgedge-nla-cli
 ```
 
 **Benefits of using API key files:**
@@ -294,7 +294,7 @@ Use OpenAI's GPT models for natural language processing.
 export PGEDGE_OPENAI_API_KEY="your-api-key-here"
 
 # Run the chat client with OpenAI
-./bin/pgedge-pg-mcp-cli \
+./bin/pgedge-nla-cli \
   -llm-provider openai \
   -llm-model gpt-4o
 ```
@@ -333,7 +333,7 @@ export PGEDGE_MCP_URL="http://localhost:8080"
 export PGEDGE_MCP_TOKEN="your-token-here"
 
 # Run the chat client
-./bin/pgedge-pg-mcp-cli -mcp-mode http
+./bin/pgedge-nla-cli -mcp-mode http
 ```
 
 Or, if you don't set the token, the client will prompt you for it.
@@ -350,7 +350,7 @@ ollama serve
 ollama pull llama3
 
 # Run the chat client
-./bin/pgedge-pg-mcp-cli \
+./bin/pgedge-nla-cli \
   -llm-provider ollama \
   -llm-model llama3
 ```
@@ -374,7 +374,7 @@ llm:
 EOF
 
 # Run with config file
-./bin/pgedge-pg-mcp-cli -config .pgedge-pg-mcp-cli.yaml
+./bin/pgedge-nla-cli -config .pgedge-pg-mcp-cli.yaml
 ```
 
 ## Interactive Commands
@@ -543,7 +543,7 @@ LLM:
 
 MCP:
   Mode:             stdio
-  Server Path:      ./bin/pgedge-pg-mcp-svr
+  Server Path:      ./bin/pgedge-nla-server
 ─────────────────────────────────────────────────
 ```
 
@@ -624,7 +624,7 @@ System: Goodbye!
 
 **Solutions**:
 
-- In stdio mode, verify the server path is correct: `-mcp-server-path ./bin/pgedge-pg-mcp-svr`
+- In stdio mode, verify the server path is correct: `-mcp-server-path ./bin/pgedge-nla-server`
 - In HTTP mode, verify the URL is correct: `-mcp-url http://localhost:8080`
 - Check if the MCP server is running (in HTTP mode)
 - Verify authentication token is set (in HTTP mode with auth enabled)

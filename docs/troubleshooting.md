@@ -74,7 +74,7 @@ macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`
 {
   "mcpServers": {
     "pgedge": {
-      "command": "/absolute/path/to/bin/pgedge-pg-mcp-svr",
+      "command": "/absolute/path/to/bin/pgedge-nla-server",
       "env": {
         "ANTHROPIC_API_KEY": "sk-ant-your-key-here"
       }
@@ -142,7 +142,7 @@ If your database is empty (no user tables), the server will still start but won'
     {
         "mcpServers": {
         "pgedge": {
-            "command": "/full/path/to/bin/pgedge-pg-mcp-svr",
+            "command": "/full/path/to/bin/pgedge-nla-server",
             "env": {
             "ANTHROPIC_API_KEY": "..."
             }
@@ -160,7 +160,7 @@ If your database is empty (no user tables), the server will still start but won'
     ```bash
     export ANTHROPIC_API_KEY="..."
     # Configure database connection via environment variables or config file before running
-    echo '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}' | ./bin/pgedge-pg-mcp-svr
+    echo '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}' | ./bin/pgedge-nla-server
     ```
 
 ## Natural Language Queries Not Working
@@ -295,7 +295,7 @@ make clean
 make build
 # or
 go clean
-go build -o bin/pgedge-pg-mcp-svr ./cmd/pgedge-pg-mcp-svr
+go build -o bin/pgedge-nla-server ./cmd/pgedge-pg-mcp-svr
 ```
 
 ## Testing the Server
@@ -311,10 +311,10 @@ go build -o bin/pgedge-pg-mcp-svr ./cmd/pgedge-pg-mcp-svr
 export ANTHROPIC_API_KEY="sk-ant-..."
 
 # Test initialize
-echo '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test","version":"1.0"}}}' | ./bin/pgedge-pg-mcp-svr
+echo '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test","version":"1.0"}}}' | ./bin/pgedge-nla-server
 
 # Test tools list (in another terminal, or after initialize response)
-echo '{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}' | ./bin/pgedge-pg-mcp-svr
+echo '{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}' | ./bin/pgedge-nla-server
 ```
 
 ## Common Error Messages
@@ -365,7 +365,7 @@ export PGEDGE_LLM_LOG_LEVEL="debug"   # Detailed: text length, dimensions, timin
 export PGEDGE_LLM_LOG_LEVEL="trace"   # Very detailed: full request/response
 
 # Run the server
-./bin/pgedge-pg-mcp-svr
+./bin/pgedge-nla-server
 ```
 
 **Log output will show**:
@@ -437,7 +437,7 @@ c) **Use embedding logging to identify high usage**:
 
 ```bash
 export PGEDGE_LLM_LOG_LEVEL="info"
-./bin/pgedge-pg-mcp-svr
+./bin/pgedge-nla-server
 ```
 
 Review logs to see:

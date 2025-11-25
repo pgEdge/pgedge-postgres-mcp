@@ -66,7 +66,7 @@ jobs:
             - name: Build client
               run: |
                   mkdir -p bin
-                  go build -v -o bin/pgedge-pg-mcp-cli ./cmd/pgedge-pg-mcp-cli
+                  go build -v -o bin/pgedge-nla-cli ./cmd/pgedge-pg-mcp-cli
 
             - name: Verify binary
               run: |
@@ -86,8 +86,8 @@ jobs:
               if: matrix.go-version == '1.23'
               uses: actions/upload-artifact@v4
               with:
-                  name: pgedge-pg-mcp-cli-linux-amd64
-                  path: bin/pgedge-pg-mcp-cli
+                  name: pgedge-nla-cli-linux-amd64
+                  path: bin/pgedge-nla-cli
                   retention-days: 7
 
             - name: Upload coverage artifact

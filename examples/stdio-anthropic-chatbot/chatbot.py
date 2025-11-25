@@ -224,13 +224,13 @@ async def main():
     """Main entry point."""
     # Path to your pgEdge Natural Language Agent binary
     # Adjust this path as needed
-    server_path = os.getenv("PGEDGE_MCP_SERVER_PATH", "../../bin/pgedge-pg-mcp-svr")
+    server_path = os.getenv("PGEDGE_MCP_SERVER_PATH", "../../bin/pgedge-nla-server")
 
     # Check if server exists
     if not os.path.exists(server_path):
         print(f"Error: Server not found at {server_path}")
         print("\nPlease either:")
-        print("  1. Build the server: cd ../.. && go build -o bin/pgedge-pg-mcp-svr ./cmd/pgedge-pg-mcp-svr")
+        print("  1. Build the server: cd ../.. && go build -o bin/pgedge-nla-server ./cmd/pgedge-pg-mcp-svr")
         print("  2. Set PGEDGE_MCP_SERVER_PATH environment variable to the correct path")
         return
 

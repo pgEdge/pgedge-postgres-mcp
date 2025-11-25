@@ -36,8 +36,8 @@ CLI_BIN="$BIN_DIR/pgedge-pg-mcp-cli"
 SERVER_BIN="$BIN_DIR/pgedge-pg-mcp-svr"
 
 # Configuration files
-SERVER_CONFIG="$BIN_DIR/pgedge-pg-mcp-svr-http.yaml"
-CLI_CONFIG="${CONFIG_FILE:-$BIN_DIR/pgedge-pg-mcp-cli-http.yaml}"
+SERVER_CONFIG="$BIN_DIR/pgedge-nla-server-http.yaml"
+CLI_CONFIG="${CONFIG_FILE:-$BIN_DIR/pgedge-nla-cli-http.yaml}"
 
 # PID file for cleanup
 MCP_SERVER_PID=""

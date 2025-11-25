@@ -28,13 +28,13 @@ make build-server
 
 **Binary Location:**
 ```
-bin/pgedge-pg-mcp-svr
+bin/pgedge-nla-server
 ```
 
 **Files to Include:**
 
 ```
-/usr/bin/pgedge-pg-mcp-svr                  # Main server binary
+/usr/bin/pgedge-nla-server                  # Main server binary
 /etc/pgedge/nla-server.yaml                 # Default configuration
 /etc/pgedge/nla-server.env                  # Environment variables template
 /usr/lib/systemd/system/pgedge-nla-server.service  # Systemd unit
@@ -133,7 +133,7 @@ Group=pgedge
 WorkingDirectory=/var/lib/pgedge/nla-server
 
 # Main executable
-ExecStart=/usr/bin/pgedge-pg-mcp-svr -config /etc/pgedge/nla-server.yaml
+ExecStart=/usr/bin/pgedge-nla-server -config /etc/pgedge/nla-server.yaml
 
 # Environment
 Environment="PGEDGE_POSTGRES_CONNECTION_STRING=postgres://postgres@localhost/postgres?sslmode=prefer"
@@ -187,7 +187,7 @@ chmod 750 /var/lib/pgedge/nla-server
 chmod 750 /var/log/pgedge/nla-server
 
 # Set binary permissions
-chmod 755 /usr/bin/pgedge-pg-mcp-svr
+chmod 755 /usr/bin/pgedge-nla-server
 
 # Reload systemd
 systemctl daemon-reload
@@ -214,13 +214,13 @@ make build-client
 
 **Binary Location:**
 ```
-bin/pgedge-pg-mcp-cli
+bin/pgedge-nla-cli
 ```
 
 **Files to Include:**
 
 ```
-/usr/bin/pgedge-pg-mcp-cli                  # Main CLI binary
+/usr/bin/pgedge-nla-cli                  # Main CLI binary
 /etc/pgedge/nla-cli.yaml                    # Default configuration (optional)
 /usr/share/doc/pgedge-nla-cli/README.md     # Documentation
 /usr/share/doc/pgedge-nla-cli/LICENSE       # License file
@@ -259,7 +259,7 @@ ui:
 **Post-Install Script Actions:**
 ```bash
 # Set binary permissions
-chmod 755 /usr/bin/pgedge-pg-mcp-cli
+chmod 755 /usr/bin/pgedge-nla-cli
 
 # Create config directory template
 mkdir -p /etc/skel/.config/pgedge
@@ -479,7 +479,7 @@ make build-kb-builder
 # This requires valid API keys for embedding providers (OpenAI, Voyage, AND Ollama)
 # Note that Ollama may need to run on a g4dn.xlarge instance on AWS to keep up.
 # The example config below should be maintained with the standard list of repos.
-./bin/kb-builder -config examples/kb-builder.yaml
+./bin/pgedge-nla-kb-builder -config examples/pgedge-nla-kb-builder.yaml
 
 # The generated database will be: kb.db
 ```
@@ -655,7 +655,7 @@ Before packaging, verify builds are production-ready:
 
 ```bash
 # 1. Verify binaries are stripped and optimized
-file bin/pgedge-pg-mcp-svr
+file bin/pgedge-nla-server
 # Should show: "ELF 64-bit LSB executable ... stripped"
 
 # 2. Verify web build is minified
@@ -663,7 +663,7 @@ ls -lh web/dist/assets/
 # JS files should be small (minified and gzipped)
 
 # 3. Check for debug symbols (should be removed)
-nm bin/pgedge-pg-mcp-svr | grep -i debug
+nm bin/pgedge-nla-server | grep -i debug
 # Should return nothing
 
 # 4. Verify no test files in distribution
@@ -866,8 +866,8 @@ semodule_package -o pgedge-nla-server.pp -m pgedge-nla-server.mod
 semodule -i pgedge-nla-server.pp
 
 # Label the binary
-semanage fcontext -a -t pgedge_mcp_exec_t '/usr/bin/pgedge-pg-mcp-svr'
-restorecon -v /usr/bin/pgedge-pg-mcp-svr
+semanage fcontext -a -t pgedge_mcp_exec_t '/usr/bin/pgedge-nla-server'
+restorecon -v /usr/bin/pgedge-nla-server
 
 # Label data directories
 semanage fcontext -a -t var_lib_t '/var/lib/pgedge/nla-server(/.*)?'
@@ -883,8 +883,8 @@ if [ -x /usr/sbin/selinuxenabled ] && /usr/sbin/selinuxenabled; then
     /usr/sbin/semodule -i /usr/share/selinux/packages/pgedge-nla-server.pp 2>/dev/null || true
 
     # Set file contexts
-    /usr/sbin/semanage fcontext -a -t pgedge_mcp_exec_t '/usr/bin/pgedge-pg-mcp-svr' 2>/dev/null || true
-    /usr/sbin/restorecon -v /usr/bin/pgedge-pg-mcp-svr 2>/dev/null || true
+    /usr/sbin/semanage fcontext -a -t pgedge_mcp_exec_t '/usr/bin/pgedge-nla-server' 2>/dev/null || true
+    /usr/sbin/restorecon -v /usr/bin/pgedge-nla-server 2>/dev/null || true
 
     /usr/sbin/semanage fcontext -a -t var_lib_t '/var/lib/pgedge/nla-server(/.*)?'  2>/dev/null || true
     /usr/sbin/restorecon -Rv /var/lib/pgedge/nla-server 2>/dev/null || true
@@ -908,13 +908,13 @@ For systems with AppArmor enabled, provide a profile to confine the MCP server.
 ```apparmor
 #include <tunables/global>
 
-/usr/bin/pgedge-pg-mcp-svr {
+/usr/bin/pgedge-nla-server {
   #include <abstractions/base>
   #include <abstractions/nameservice>
   #include <abstractions/openssl>
 
   # Binary execution
-  /usr/bin/pgedge-pg-mcp-svr mr,
+  /usr/bin/pgedge-nla-server mr,
 
   # Configuration files
   /etc/pgedge/** r,
@@ -992,7 +992,7 @@ fi
 
 ```bash
 # Load in complain mode first (logs violations but doesn't block)
-aa-complain /usr/bin/pgedge-pg-mcp-svr
+aa-complain /usr/bin/pgedge-nla-server
 
 # Test the service
 systemctl start pgedge-nla-server
@@ -1002,7 +1002,7 @@ systemctl status pgedge-nla-server
 aa-logprof
 
 # Once satisfied, switch to enforce mode
-aa-enforce /usr/bin/pgedge-pg-mcp-svr
+aa-enforce /usr/bin/pgedge-nla-server
 ```
 
 **Include in Package:**

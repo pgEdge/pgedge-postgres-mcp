@@ -50,7 +50,7 @@ Voyage, Ollama), and stores everything in an optimized SQLite database.`,
 }
 
 func init() {
-	rootCmd.Flags().StringVarP(&configFile, "config", "c", "kb-builder.yaml",
+	rootCmd.Flags().StringVarP(&configFile, "config", "c", "pgedge-nla-kb-builder.yaml",
 		"Path to configuration file")
 	rootCmd.Flags().StringVarP(&databasePath, "database", "d", "",
 		"Path to output SQLite database (overrides config file)")
@@ -81,7 +81,7 @@ func run(cmd *cobra.Command, args []string) error {
 		if err != nil {
 			return fmt.Errorf("failed to get executable path: %w", err)
 		}
-		configFile = filepath.Join(filepath.Dir(exePath), "kb-builder.yaml")
+		configFile = filepath.Join(filepath.Dir(exePath), "pgedge-nla-kb-builder.yaml")
 	}
 
 	fmt.Printf("Loading configuration from: %s\n", configFile)

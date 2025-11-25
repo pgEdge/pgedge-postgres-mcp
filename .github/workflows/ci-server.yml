@@ -81,7 +81,7 @@ jobs:
             - name: Build server
               run: |
                   mkdir -p bin
-                  go build -v -o bin/pgedge-pg-mcp-svr ./cmd/pgedge-pg-mcp-svr
+                  go build -v -o bin/pgedge-nla-server ./cmd/pgedge-pg-mcp-svr
 
             - name: Verify binary
               run: |
@@ -121,8 +121,8 @@ jobs:
               if: matrix.go-version == '1.23' && matrix.postgres-version == '17'
               uses: actions/upload-artifact@v4
               with:
-                  name: pgedge-pg-mcp-svr-linux-amd64
-                  path: bin/pgedge-pg-mcp-svr
+                  name: pgedge-nla-server-linux-amd64
+                  path: bin/pgedge-nla-server
                   retention-days: 7
 
             - name: Upload coverage artifact

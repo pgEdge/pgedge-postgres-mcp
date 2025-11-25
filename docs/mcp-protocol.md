@@ -24,7 +24,7 @@ The server supports two transport modes:
 
 **Starting in stdio mode**:
 ```bash
-./bin/pgedge-pg-mcp-svr
+./bin/pgedge-nla-server
 ```
 
 ### 2. HTTP/HTTPS Mode
@@ -47,7 +47,7 @@ The server supports two transport modes:
 
 **Starting in HTTP mode**:
 ```bash
-./bin/pgedge-pg-mcp-svr -http -addr ":8080"
+./bin/pgedge-nla-server -http -addr ":8080"
 ```
 
 For deployment details, see [Deployment Guide](deployment.md).
@@ -511,7 +511,7 @@ In production, errors are logged but sanitized in responses.
 ### With MCP Inspector
 
 ```bash
-npx @modelcontextprotocol/inspector /path/to/bin/pgedge-pg-mcp-svr
+npx @modelcontextprotocol/inspector /path/to/bin/pgedge-nla-server
 ```
 
 The MCP Inspector provides a web UI for testing:
@@ -525,7 +525,7 @@ The MCP Inspector provides a web UI for testing:
 
 ```bash
 # Start server
-./bin/pgedge-pg-mcp-svr -http -no-auth
+./bin/pgedge-nla-server -http -no-auth
 
 # Initialize
 curl -X POST http://localhost:8080/mcp/v1 \

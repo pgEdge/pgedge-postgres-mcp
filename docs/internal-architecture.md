@@ -21,7 +21,7 @@ project.
 
 **Server-side:**
 
-- User accounts stored in `pgedge-pg-mcp-svr-users.yaml`
+- User accounts stored in `pgedge-nla-server-users.yaml`
 - Session tokens stored in memory only (not persisted to disk)
 - Each authenticated user receives a session token with 24-hour expiration
 - Tokens validated on every request via `Authorization: Bearer <token>` header
@@ -184,7 +184,7 @@ CMD ["/app/init-server.sh"]
 ```bash
 # Terminal 1: Start MCP server
 cd bin
-./pgedge-pg-mcp-svr -http -addr :8080 -config pgedge-pg-mcp-web.yaml
+./pgedge-nla-server -http -addr :8080 -config pgedge-pg-mcp-web.yaml
 
 # Terminal 2: Start Vite dev server
 cd web

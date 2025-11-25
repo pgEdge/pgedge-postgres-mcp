@@ -15,7 +15,7 @@ RUN go mod download
 COPY . .
 
 # Build the CLI binary
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -installsuffix cgo -o pgedge-pg-mcp-cli ./cmd/pgedge-pg-mcp-cli
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -installsuffix cgo -o pgedge-nla-cli ./cmd/pgedge-pg-mcp-cli
 
 # Stage 2: Create minimal runtime image
 FROM registry.access.redhat.com/ubi9/ubi-micro:latest
@@ -34,10 +34,10 @@ USER 1001
 WORKDIR /app
 
 # Copy the binary from builder
-COPY --from=builder --chown=1001:1001 /workspace/pgedge-pg-mcp-cli /app/pgedge-pg-mcp-cli
+COPY --from=builder --chown=1001:1001 /workspace/pgedge-nla-cli /app/pgedge-nla-cli
 
 # Set entrypoint
-ENTRYPOINT ["/app/pgedge-pg-mcp-cli"]
+ENTRYPOINT ["/app/pgedge-nla-cli"]
 
 # Default arguments (can be overridden)
 CMD ["-mcp-mode", "http", "-mcp-url", "http://mcp-server:8080"]

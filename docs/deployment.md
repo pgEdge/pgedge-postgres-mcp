@@ -27,7 +27,7 @@ export PGUSER="myuser"
 export PGPASSWORD="mypass"
 
 # Start HTTP server on default port 8080
-./bin/pgedge-pg-mcp-svr -http
+./bin/pgedge-nla-server -http
 ```
 
 **Alternative:** Store API keys in files (recommended for production):
@@ -38,7 +38,7 @@ echo "sk-ant-your-key" > ~/.anthropic-api-key
 chmod 600 ~/.anthropic-api-key
 
 # Start server (will read from file automatically)
-./bin/pgedge-pg-mcp-svr -http
+./bin/pgedge-nla-server -http
 ```
 
 See the [Configuration Guide](configuration.md) for details on API key
@@ -47,13 +47,13 @@ management.
 ### With Custom Port
 
 ```bash
-./bin/pgedge-pg-mcp-svr -http -addr ":3000"
+./bin/pgedge-nla-server -http -addr ":3000"
 ```
 
 ### Production HTTPS Server
 
 ```bash
-./bin/pgedge-pg-mcp-svr -http -tls \
+./bin/pgedge-nla-server -http -tls \
   -cert /path/to/server.crt \
   -key /path/to/server.key \
   -chain /path/to/ca-chain.crt
@@ -62,7 +62,7 @@ management.
 ## Command Line Options
 
 ```bash
-./bin/pgedge-pg-mcp-svr [options]
+./bin/pgedge-nla-server [options]
 
 HTTP/HTTPS Options:
   -http              Enable HTTP transport mode (default: stdio)
@@ -72,7 +72,7 @@ HTTP/HTTPS Options:
   -key string        Path to TLS key file
   -chain string      Path to TLS certificate chain file (optional)
   -no-auth           Disable API token authentication
-  -token-file        Path to API token file (default: {binary_dir}/pgedge-pg-mcp-svr-tokens.yaml)
+  -token-file        Path to API token file (default: {binary_dir}/pgedge-nla-server-tokens.yaml)
 ```
 
 **Note**: TLS options (`-tls`, `-cert`, `-key`, `-chain`) require the `-http` flag.
@@ -108,7 +108,7 @@ Response:
 First, create an API token (see [Authentication Guide](authentication.md) for details):
 
 ```bash
-./bin/pgedge-pg-mcp-svr -add-token -token-note "Test" -token-expiry "30d"
+./bin/pgedge-nla-server -add-token -token-note "Test" -token-expiry "30d"
 ```
 
 Then make requests with the token:
@@ -165,7 +165,7 @@ curl -X POST http://localhost:8080/mcp/v1 \
 **Warning**: Only use this for local development. Never in production.
 
 ```bash
-./bin/pgedge-pg-mcp-svr -http -no-auth
+./bin/pgedge-nla-server -http -no-auth
 ```
 
 ## HTTPS Mode (TLS)
@@ -182,7 +182,7 @@ openssl req -x509 -newkey rsa:4096 -keyout server.key -out server.crt \
 Start HTTPS server:
 
 ```bash
-./bin/pgedge-pg-mcp-svr -http -tls \
+./bin/pgedge-nla-server -http -tls \
   -cert server.crt \
   -key server.key
 ```
@@ -213,7 +213,7 @@ sudo certbot certonly --standalone -d yourdomain.com
 #### Start Server with Let's Encrypt Certificates
 
 ```bash
-./bin/pgedge-pg-mcp-svr -http -tls \
+./bin/pgedge-nla-server -http -tls \
   -cert /etc/letsencrypt/live/yourdomain.com/fullchain.pem \
   -key /etc/letsencrypt/live/yourdomain.com/privkey.pem
 ```
@@ -223,7 +223,7 @@ sudo certbot certonly --standalone -d yourdomain.com
 For CA-signed certificates from a certificate authority:
 
 ```bash
-./bin/pgedge-pg-mcp-svr -http -tls \
+./bin/pgedge-nla-server -http -tls \
   -cert /path/to/server.crt \
   -key /path/to/server.key \
   -chain /path/to/ca-chain.crt
@@ -266,7 +266,7 @@ Type=simple
 User=pgedge
 Group=pgedge
 WorkingDirectory=/opt/pgedge-mcp
-ExecStart=/opt/pgedge-mcp/bin/pgedge-pg-mcp-svr -config /etc/pgedge-mcp/config.yaml
+ExecStart=/opt/pgedge-mcp/bin/pgedge-nla-server -config /etc/pgedge-mcp/config.yaml
 Restart=always
 RestartSec=10
 
@@ -307,7 +307,7 @@ COPY --from=builder /build/pgedge-pg-mcp-svr .
 COPY configs/pgedge-pg-mcp-svr.yaml.example config.yaml
 
 EXPOSE 8080
-ENTRYPOINT ["./pgedge-pg-mcp-svr"]
+ENTRYPOINT ["./pgedge-nla-server"]
 CMD ["-config", "config.yaml", "-http"]
 ```
 
@@ -470,7 +470,7 @@ journalctl -u pgedge-mcp -f
 docker logs -f pgedge-mcp
 
 # File logging (redirect stderr)
-./bin/pgedge-pg-mcp-svr -http 2>> /var/log/pgedge-mcp/server.log
+./bin/pgedge-nla-server -http 2>> /var/log/pgedge-mcp/server.log
 ```
 
 ## Security Best Practices
@@ -494,11 +494,11 @@ lsof -i :8080
 netstat -tlnp | grep 8080
 
 # Check file permissions
-ls -la bin/pgedge-pg-mcp-svr
+ls -la bin/pgedge-nla-server
 ls -la /path/to/server.key  # Should be 600
 
 # Test with verbose logging
-./bin/pgedge-pg-mcp-svr -http -addr ":8080" 2>&1 | tee debug.log
+./bin/pgedge-nla-server -http -addr ":8080" 2>&1 | tee debug.log
 ```
 
 ### Connection Refused

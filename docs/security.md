@@ -52,7 +52,7 @@ export PGPASSWORD=$(vault kv get -field=password secret/pgedge-mcp)
 
 ```bash
 # Never hardcode in scripts
-./bin/pgedge-pg-mcp-svr -db "postgres://admin:SuperSecret123@prod.example.com/maindb"
+./bin/pgedge-nla-server -db "postgres://admin:SuperSecret123@prod.example.com/maindb"
 
 # Never commit secret files
 git add pgedge-pg-mcp-svr.secret  # DON'T DO THIS
@@ -246,7 +246,7 @@ cp /var/lib/postgresql/data/postgresql.auto.conf /backup/
 
 ```bash
 # Apply to staging environment
-./bin/pgedge-pg-mcp-svr -db "postgres://staging/db"
+./bin/pgedge-nla-server -db "postgres://staging/db"
 # Tool: set_pg_configuration with test values
 # Monitor impact before applying to production
 ```
@@ -330,7 +330,7 @@ host     all   all           0.0.0.0/0      reject
 ```bash
 # Use TLS 1.2 or higher
 # Server automatically enforces this
-./bin/pgedge-pg-mcp-svr -http -tls \
+./bin/pgedge-nla-server -http -tls \
   -cert /path/to/cert.pem \
   -key /path/to/key.pem
 ```
@@ -355,10 +355,10 @@ See [Authentication Guide](authentication.md) for detailed token management.
 
     ```bash
     # Good: 90-day expiration
-    ./bin/pgedge-pg-mcp-svr -add-token -token-expiry "90d"
+    ./bin/pgedge-nla-server -add-token -token-expiry "90d"
 
     # Avoid: Never-expiring tokens
-    ./bin/pgedge-pg-mcp-svr -add-token -token-expiry "never"
+    ./bin/pgedge-nla-server -add-token -token-expiry "never"
     ```
 
 2. **Rotate tokens regularly:**
@@ -388,10 +388,10 @@ See [Authentication Guide](authentication.md) for detailed token management.
 
     ```bash
     # Verify file permissions
-    ls -la pgedge-pg-mcp-svr-tokens.yaml  # Should be -rw------- (600)
+    ls -la pgedge-nla-server-tokens.yaml  # Should be -rw------- (600)
 
     # Fix if needed
-    chmod 600 pgedge-pg-mcp-svr-tokens.yaml
+    chmod 600 pgedge-nla-server-tokens.yaml
     ```
 
 ### Connection Isolation
@@ -418,7 +418,7 @@ When authentication is enabled in HTTP/HTTPS mode, the MCP server implements **p
 
 ```bash
 # Start server with authentication enabled
-./bin/pgedge-pg-mcp-svr -http -tls \
+./bin/pgedge-nla-server -http -tls \
   -cert /path/to/cert.pem \
   -key /path/to/key.pem
 
@@ -533,11 +533,11 @@ sudo systemctl list-timers | grep certbot
 
     ```bash
     # Binary: 755 (executable by all, writable by owner)
-    chmod 755 /opt/pgedge-mcp/bin/pgedge-pg-mcp-svr
+    chmod 755 /opt/pgedge-mcp/bin/pgedge-nla-server
 
     # Config files: 600 (readable/writable by owner only)
     chmod 600 /etc/pgedge-mcp/config.yaml
-    chmod 600 /etc/pgedge-mcp/pgedge-pg-mcp-svr-tokens.yaml
+    chmod 600 /etc/pgedge-mcp/pgedge-nla-server-tokens.yaml
 
     # Secret file: 600 (CRITICAL - contains encryption key)
     chmod 600 /etc/pgedge-mcp/pgedge-pg-mcp-svr.secret
@@ -616,7 +616,7 @@ SELECT pg_reload_conf();
 
 ```bash
 # Log to file with timestamps
-./bin/pgedge-pg-mcp-svr -http 2>&1 | tee -a /var/log/pgedge-mcp/server.log
+./bin/pgedge-nla-server -http 2>&1 | tee -a /var/log/pgedge-mcp/server.log
 ```
 
 ## Incident Response
@@ -627,10 +627,10 @@ SELECT pg_reload_conf();
 
     ```bash
     # Remove compromised token
-    ./bin/pgedge-pg-mcp-svr -remove-token <token-id>
+    ./bin/pgedge-nla-server -remove-token <token-id>
 
     # Create new token
-    ./bin/pgedge-pg-mcp-svr -add-token -token-expiry "30d"
+    ./bin/pgedge-nla-server -add-token -token-expiry "30d"
 
     # Update application with new token
     ```

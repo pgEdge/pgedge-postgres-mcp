@@ -7,8 +7,9 @@ bin/
 
 # Test binary
 *.test
-/pgedge-pg-mcp-svr
-/pgedge-pg-mcp-cli
+/pgedge-nla-server
+/pgedge-nla-cli
+/pgedge-nla-kb-builder
 
 # Output of the go coverage tool
 *.out

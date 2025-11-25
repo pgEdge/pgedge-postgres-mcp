@@ -24,8 +24,8 @@ make build
 ```
 
 This creates:
-- `bin/pgedge-pg-mcp-svr` - MCP server
-- `bin/pgedge-pg-mcp-cli` - Go chat client
+- `bin/pgedge-nla-server` - MCP server
+- `bin/pgedge-nla-cli` - Go chat client
 
 ### Building Individual Components
 
@@ -34,7 +34,7 @@ Build only the server:
 ```bash
 make server
 # or
-go build -o bin/pgedge-pg-mcp-svr ./cmd/pgedge-pg-mcp-svr
+go build -o bin/pgedge-nla-server ./cmd/pgedge-pg-mcp-svr
 ```
 
 Build only the client:
@@ -42,7 +42,7 @@ Build only the client:
 ```bash
 make client
 # or
-go build -o bin/pgedge-pg-mcp-cli ./cmd/pgedge-pg-mcp-cli
+go build -o bin/pgedge-nla-cli ./cmd/pgedge-pg-mcp-cli
 ```
 
 ### Building for Multiple Platforms
@@ -244,8 +244,8 @@ make lint
 make build
 
 # Test the binary
-./bin/pgedge-pg-mcp-svr --version
-./bin/pgedge-pg-mcp-cli --version
+./bin/pgedge-nla-server --version
+./bin/pgedge-nla-cli --version
 ```
 
 ## Package Management
@@ -289,7 +289,7 @@ go mod download
 Enable debug logging:
 
 ```bash
-./bin/pgedge-pg-mcp-svr -debug
+./bin/pgedge-nla-server -debug
 ```
 
 Debug with specific log levels for different components:
@@ -306,7 +306,7 @@ export PGEDGE_LLM_LOG_LEVEL="debug"  # Detailed: text length, dimensions, timing
 export PGEDGE_LLM_LOG_LEVEL="trace"  # Very detailed: full request/response details
 
 # Run with logging enabled
-./bin/pgedge-pg-mcp-svr
+./bin/pgedge-nla-server
 ```
 
 ### Client Debugging
@@ -314,7 +314,7 @@ export PGEDGE_LLM_LOG_LEVEL="trace"  # Very detailed: full request/response deta
 The chat client outputs to stdout/stderr. Use verbose flags if available:
 
 ```bash
-./bin/pgedge-pg-mcp-cli --help
+./bin/pgedge-nla-cli --help
 ```
 
 ### Using Delve Debugger

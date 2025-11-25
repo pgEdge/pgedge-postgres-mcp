@@ -55,7 +55,7 @@ make build
 {
   "mcpServers": {
     "pgedge": {
-      "command": "/absolute/path/to/bin/pgedge-pg-mcp-svr"
+      "command": "/absolute/path/to/bin/pgedge-nla-server"
     }
   }
 }
@@ -70,7 +70,7 @@ parameters:
 {
   "mcpServers": {
     "pgedge": {
-      "command": "/absolute/path/to/bin/pgedge-pg-mcp-svr",
+      "command": "/absolute/path/to/bin/pgedge-nla-server",
       "env": {
         "PGHOST": "localhost",
         "PGPORT": "5432",
@@ -97,7 +97,7 @@ Then configure without PGPASSWORD in the config:
 {
   "mcpServers": {
     "pgedge": {
-      "command": "/absolute/path/to/bin/pgedge-pg-mcp-svr",
+      "command": "/absolute/path/to/bin/pgedge-nla-server",
       "env": {
         "PGHOST": "localhost",
         "PGPORT": "5432",
@@ -137,10 +137,10 @@ Run as a standalone HTTP server for direct API access:
 
 ```bash
 # HTTP
-./bin/pgedge-pg-mcp-svr -http
+./bin/pgedge-nla-server -http
 
 # HTTPS with TLS
-./bin/pgedge-pg-mcp-svr -http -tls \
+./bin/pgedge-nla-server -http -tls \
   -cert server.crt \
   -key server.key
 ```
@@ -358,7 +358,7 @@ golangci-lint run
 
 # Run locally (configure database connection via environment variables or
 # config file)
-./bin/pgedge-pg-mcp-svr
+./bin/pgedge-nla-server
 ```
 
 #### Web UI Tests

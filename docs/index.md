@@ -57,7 +57,7 @@ A Model Context Protocol (MCP) server written in Go that enables natural languag
     {
         "mcpServers": {
         "pgedge": {
-            "command": "/absolute/path/to/bin/pgedge-pg-mcp-svr",
+            "command": "/absolute/path/to/bin/pgedge-nla-server",
             "env": {
             "PGHOST": "localhost",
             "PGPORT": "5432",
@@ -157,10 +157,10 @@ Run as a standalone HTTP server:
 
 ```bash
 # HTTP
-./bin/pgedge-pg-mcp-svr -http
+./bin/pgedge-nla-server -http
 
 # HTTPS
-./bin/pgedge-pg-mcp-svr -http -tls -cert server.crt -key server.key
+./bin/pgedge-nla-server -http -tls -cert server.crt -key server.key
 ```
 
 See **[Deployment Guide](deployment.md)** and **[Authentication Guide](authentication.md)** for details.

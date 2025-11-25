@@ -28,10 +28,10 @@ pip install -r requirements.txt
 
 ```bash
 cd ../..
-go build -o bin/pgedge-pg-mcp-svr ./cmd/pgedge-pg-mcp-svr
+go build -o bin/pgedge-nla-server ./cmd/pgedge-pg-mcp-svr
 
 # Start the server in HTTP mode (with authentication disabled for this example)
-./bin/pgedge-pg-mcp-svr -http -addr :8080 -no-auth
+./bin/pgedge-nla-server -http -addr :8080 -no-auth
 ```
 
 **Note:** This example uses `-no-auth` for simplicity. For production deployments,
@@ -128,7 +128,7 @@ export OLLAMA_MODEL="mistral"
 Make sure the MCP server is running in HTTP mode:
 
 ```bash
-./bin/pgedge-pg-mcp-svr -http -addr :8080 -no-auth
+./bin/pgedge-nla-server -http -addr :8080 -no-auth
 export PGEDGE_MCP_SERVER_URL="http://localhost:8080/mcp/v1"
 ```
 
@@ -148,7 +148,7 @@ export PGEDGE_MCP_SERVER_URL="http://localhost:8080/mcp/v1"
 
 The MCP server connects to the database at startup. You can configure the connection using:
 
-- Command-line flags: `./bin/pgedge-pg-mcp-svr -http -addr :8080 -no-auth -db-host localhost -db-port 5432 -db-name mydb -db-user myuser -db-password mypass`
+- Command-line flags: `./bin/pgedge-nla-server -http -addr :8080 -no-auth -db-host localhost -db-port 5432 -db-name mydb -db-user myuser -db-password mypass`
 - Config file: Create a `pgedge-pg-mcp-svr.yaml` file with database connection parameters
 - Environment variables: Set `PGHOST`, `PGPORT`, `PGDATABASE`, `PGUSER`, `PGPASSWORD` before starting the server
 

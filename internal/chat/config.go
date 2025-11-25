@@ -106,9 +106,9 @@ func LoadConfig(configPath string) (*Config, error) {
 	} else {
 		// Try default locations
 		defaultPaths := []string{
-			".pgedge-pg-mcp-cli.yaml",
-			filepath.Join(os.Getenv("HOME"), ".pgedge-pg-mcp-cli.yaml"),
-			"/etc/pgedge/postgres-mcp/pgedge-pg-mcp-cli.yaml",
+			".pgedge-nla-cli.yaml",
+			filepath.Join(os.Getenv("HOME"), ".pgedge-nla-cli.yaml"),
+			"/etc/pgedge/postgres-mcp/pgedge-nla-cli.yaml",
 		}
 		for _, path := range defaultPaths {
 			if _, err := os.Stat(path); err == nil {

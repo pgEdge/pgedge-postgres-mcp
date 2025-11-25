@@ -12,7 +12,7 @@ Usage:
        ollama serve
 
     2. Start the MCP server in HTTP mode:
-       ./bin/pgedge-pg-mcp-svr -http -addr :8080
+       ./bin/pgedge-nla-server -http -addr :8080
 
     3. Set environment variables:
        export OLLAMA_BASE_URL="http://localhost:11434"  # Default Ollama URL
@@ -278,7 +278,7 @@ async def main():
     if not mcp_server_url:
         print("Error: PGEDGE_MCP_SERVER_URL environment variable is required")
         print("\nPlease start the MCP server in HTTP mode and set the URL:")
-        print("  1. Start server: ./bin/pgedge-pg-mcp-svr -http -addr :8080")
+        print("  1. Start server: ./bin/pgedge-nla-server -http -addr :8080")
         print("  2. Set URL: export PGEDGE_MCP_SERVER_URL='http://localhost:8080/mcp/v1'")
         return
 

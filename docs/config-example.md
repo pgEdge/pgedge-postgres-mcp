@@ -69,7 +69,7 @@ http:
         enabled: true
 
         # Path to API token configuration file
-        # Default: Same directory as binary (pgedge-pg-mcp-svr-tokens.yaml)
+        # Default: Same directory as binary (pgedge-nla-server-tokens.yaml)
         # Environment variable: PGEDGE_AUTH_TOKEN_FILE
         # Command line flag: -token-file
         token_file: ""
@@ -91,9 +91,9 @@ http:
         rate_limit_max_attempts: 10
 
         # Token management commands (no database connection required):
-        # - Create token: ./bin/pgedge-pg-mcp-svr -add-token
-        # - List tokens:  ./bin/pgedge-pg-mcp-svr -list-tokens
-        # - Remove token: ./bin/pgedge-pg-mcp-svr -remove-token <id>
+        # - Create token: ./bin/pgedge-nla-server -add-token
+        # - List tokens:  ./bin/pgedge-nla-server -list-tokens
+        # - Remove token: ./bin/pgedge-nla-server -remove-token <id>
 
 # ============================================================================
 # ENCRYPTION SECRET FILE (Optional)
@@ -144,7 +144,7 @@ secret_file: ""
 #         enabled: false
 #     auth:
 #         enabled: true
-#         token_file: "./pgedge-pg-mcp-svr-tokens.yaml"
+#         token_file: "./pgedge-nla-server-tokens.yaml"
 
 # Example 4: Production HTTPS deployment with authentication
 # http:
