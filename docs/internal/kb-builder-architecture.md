@@ -415,4 +415,4 @@ For large documentation sets:
 
 - `docs/knowledgebase.md` - User-facing documentation
 - `KB-README.md` - Quick start guide
-- `pgedge-nla-kb-builder.yaml.example` - Example configuration
+- `examples/pgedge-nla-kb-builder.yaml` - Example configuration

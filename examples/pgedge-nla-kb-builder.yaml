@@ -1,7 +1,7 @@
 # pgEdge Knowledgebase Builder Configuration Example
 
 # Output database path (optional, defaults to pgedge-mcp-kb.db in same directory as config)
-database_path: "pgedge-mcp-kb.db"
+database_path: "pgedge-nla-kb.db"
 
 # Directory for storing downloaded/processed documentation (optional, defaults to doc-source)
 doc_source_path: "doc-source"
@@ -56,6 +56,28 @@ sources:
       project_name: "pgAdmin 4"
       project_version: "7.8"
 
+    - git_url: "git@github.com:pgEdge/pgedge-docs.git"
+      branch: "main"
+      doc_path: "docs/cloud"
+      project_name: "pgEdge Cloud"
+      project_version: ""
+
+    - git_url: "git@github.com:pgEdge/pgedge-docs.git"
+      branch: "main"
+      doc_path: "docs/platform"
+      project_name: "pgEdge Platform"
+
+    - git_url: "git@github.com:pgEdge/pgedge-docs.git"
+      branch: "main"
+      doc_path: "docs/enterprise"
+      project_name: "pgEdge Enterprise"
+
+    - git_url: "https://github.com/pgEdge/pgedge-postgres-mcp.git"
+      branch: "v1.0.0-alpha1"
+      doc_path: "docs"
+      project_name: "pgEdge Natural Language Agent"
+      project_version: "1.0.0-alpha1"
+
     - git_url: "https://github.com/pgEdge/spock.git"
       branch: "v5_STABLE"
       doc_path: "docs"
@@ -97,6 +119,42 @@ sources:
       doc_path: "docs"
       project_name: "pgEdge Vectorizer"
       project_version: "1.0-alpha1"
+
+    - git_url: "https://github.com/pgbouncer/pgbouncer.git"
+      branch: "pgbouncer_1_25_0"
+      doc_path: "doc"
+      project_name: "PgBouncer"
+      project_version: "1.25.0"
+
+    - git_url: "https://github.com/pgbackrest/pgbackrest.git"
+      branch: "release/2.57.0"
+      doc_path: "doc"
+      project_name: "pgBackRest"
+      project_version: "2.57.0"
+
+    - git_url: "https://github.com/postgis/postgis.git"
+      branch: "3.6.1"
+      doc_path: "doc"
+      project_name: "PostGIS"
+      project_version: "3.6.1"
+
+    - git_url: "https://github.com/pgvector/pgvector.git"
+      branch: "v0.8.1"
+      doc_path: ""
+      project_name: "pgvector"
+      project_version: "0.8.1"
+
+    - git_url: "https://github.com/pgaudit/pgaudit.git"
+      branch: "18.0"
+      doc_path: ""
+      project_name: "pgAudit"
+      project_version: "18.0"
+
+    - git_url: "https://github.com/psycopg/psycopg.git"
+      branch: "3.2.13"
+      doc_path: "docs"
+      project_name: "psycopg3"
+      project_version: "3.2.13"
 
     # Example: Local documentation
     # - local_path: "~/projects/my-docs"
