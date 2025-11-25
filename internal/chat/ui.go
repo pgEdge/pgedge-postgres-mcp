@@ -349,6 +349,7 @@ Available commands:
   clear     - Clear the screen
   tools     - List available MCP tools
   resources - List available MCP resources
+  prompts   - List available MCP prompts
 
 Slash commands (type /help for full slash command help):
   /help                        - Show slash command help

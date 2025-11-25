@@ -62,6 +62,8 @@ nav:
       - Available Tools: tools.md
       - Available Resources: resources.md
       - Available Prompts: prompts.md
+      - Custom Prompts and Resources: custom-definitions.md
+      - Knowledgebase: knowledgebase.md
       - Query Examples: examples.md
       - Security: security.md
       - Troubleshooting: troubleshooting.md
@@ -69,6 +71,7 @@ nav:
           - Server Config: config-example.md
           - API Tokens: api-tokens-example.md
           - Chat Client Config: chat-client-config-example.md
+          - KB Builder Config: kb-builder-config-example.md
 
   - Application Development:
       - Overview: app-dev-overview.md
@@ -85,6 +88,8 @@ nav:
   - Project Development:
       - Development Setup: development.md
       - Internal Architecture: internal-architecture.md
+      - KB Builder Architecture: internal/kb-builder-architecture.md
+      - MCP Design Recommendations: mcp-design-recommendations.md
       - Testing: testing.md
       - CI/CD: ci-cd.md
 

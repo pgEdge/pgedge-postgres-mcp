@@ -470,7 +470,7 @@ Current limitations (may be addressed in future versions):
 
 ## Related Documentation
 
-- [Getting Started](getting-started.md) - Server setup
+- [Introduction](index.md) - Getting started with the server
 - [API Reference](api-reference.md) - MCP protocol details
 - [Built-in Resources](resources.md) - Available built-in resources
 - [Built-in Prompts](prompts.md) - Available built-in prompts

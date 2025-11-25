@@ -35,7 +35,7 @@ with PostgreSQL database access.
 - **Size**: ~177MB (includes shadow-utils for proper volume permission
   handling)
 - **Port**: 8080 (HTTP API)
-- **Dockerfile**: [Dockerfile.server](../Dockerfile.server)
+- **Dockerfile**: [Dockerfile.server](https://github.com/pgEdge/pgedge-mcp/blob/main/Dockerfile.server)
 
 ### Web Client
 
@@ -50,7 +50,7 @@ communicates with the MCP server via JSON-RPC.
 - **Architecture**: Single-page React application with client-side agentic
   loop
 - **Communication**: JSON-RPC 2.0 to MCP server (via nginx proxy)
-- **Dockerfile**: [Dockerfile.web](../Dockerfile.web)
+- **Dockerfile**: [Dockerfile.web](https://github.com/pgEdge/pgedge-mcp/blob/main/Dockerfile.web)
 
 **Architecture:**
 
@@ -67,14 +67,14 @@ The CLI client container provides an interactive command-line interface.
 - **Build**: Multi-stage build with Go 1.23 compilation
 - **Size**: Minimal (~48MB)
 - **Usage**: Interactive terminal
-- **Dockerfile**: [Dockerfile.cli](../Dockerfile.cli)
+- **Dockerfile**: [Dockerfile.cli](https://github.com/pgEdge/pgedge-mcp/blob/main/Dockerfile.cli)
 
 ## Configuration
 
 ### Environment Variables
 
 All configuration is done through environment variables in the `.env` file.
-Copy [.env.example](../.env.example) to `.env` and customize:
+Copy [.env.example](https://github.com/pgEdge/pgedge-mcp/blob/main/.env.example) to `.env` and customize:
 
 ```bash
 cp .env.example .env
@@ -181,7 +181,7 @@ PGEDGE_LLM_MODEL=claude-sonnet-4-20250514
 **Note:** The `PGEDGE_OLLAMA_URL` variable is used for both embeddings and LLM
 when using Ollama. There is no separate `PGEDGE_LLM_OLLAMA_URL` variable.
 
-See [.env.example](../.env.example) for complete configuration options and
+See [.env.example](https://github.com/pgEdge/pgedge-mcp/blob/main/.env.example) for complete configuration options and
 examples.
 
 ## Building Containers
@@ -714,6 +714,6 @@ docker stats pgedge-mcp-server pgedge-mcp-web-client
 
 - [Configuration Reference](configuration.md) - Detailed configuration options
 - [Authentication](authentication.md) - User and token authentication setup
-- [MCP Server](go-mcp-server.md) - MCP server documentation
-- [Web Client](web-client.md) - Web client documentation
+- [Server Architecture](architecture.md) - MCP server architecture
+- [Building Chat Clients](building-chat-clients.md) - Web client development
 - [CLI Client](using-cli-client.md) - CLI client documentation

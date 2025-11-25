@@ -110,6 +110,15 @@ type LLMConfig struct {
 type KnowledgebaseConfig struct {
 	Enabled      bool   `yaml:"enabled"`       // Whether knowledgebase search is enabled (default: false)
 	DatabasePath string `yaml:"database_path"` // Path to SQLite knowledgebase database
+
+	// Embedding provider configuration for KB similarity search (independent of generate_embeddings tool)
+	EmbeddingProvider         string `yaml:"embedding_provider"`            // "voyage", "openai", or "ollama"
+	EmbeddingModel            string `yaml:"embedding_model"`               // Provider-specific model name
+	EmbeddingVoyageAPIKey     string `yaml:"embedding_voyage_api_key"`      // API key for Voyage AI
+	EmbeddingVoyageAPIKeyFile string `yaml:"embedding_voyage_api_key_file"` // Path to file containing Voyage API key
+	EmbeddingOpenAIAPIKey     string `yaml:"embedding_openai_api_key"`      // API key for OpenAI
+	EmbeddingOpenAIAPIKeyFile string `yaml:"embedding_openai_api_key_file"` // Path to file containing OpenAI API key
+	EmbeddingOllamaURL        string `yaml:"embedding_ollama_url"`          // URL for Ollama service (default: http://localhost:11434)
 }
 
 // LoadConfig loads configuration with proper priority:
@@ -240,6 +249,15 @@ func defaultConfig() *Config {
 			OllamaURL:       "http://localhost:11434", // Default Ollama URL
 			MaxTokens:       4096,                     // Default max tokens
 			Temperature:     0.7,                      // Default temperature
+		},
+		Knowledgebase: KnowledgebaseConfig{
+			Enabled:               false,                    // Disabled by default (opt-in)
+			DatabasePath:          "",                       // Must be provided if enabled
+			EmbeddingProvider:     "ollama",                 // Default provider for KB embeddings
+			EmbeddingModel:        "nomic-embed-text",       // Default Ollama model
+			EmbeddingOllamaURL:    "http://localhost:11434", // Default Ollama URL
+			EmbeddingVoyageAPIKey: "",                       // Must be provided if using Voyage
+			EmbeddingOpenAIAPIKey: "",                       // Must be provided if using OpenAI
 		},
 		SecretFile: "", // Will be set to default path if not specified
 	}
@@ -375,6 +393,35 @@ func mergeConfig(dest, src *Config) {
 		}
 		if src.LLM.Temperature != 0 {
 			dest.LLM.Temperature = src.LLM.Temperature
+		}
+	}
+
+	// Knowledgebase - merge if any KB fields are set
+	if src.Knowledgebase.DatabasePath != "" || src.Knowledgebase.Enabled {
+		dest.Knowledgebase.Enabled = src.Knowledgebase.Enabled
+		if src.Knowledgebase.DatabasePath != "" {
+			dest.Knowledgebase.DatabasePath = src.Knowledgebase.DatabasePath
+		}
+		if src.Knowledgebase.EmbeddingProvider != "" {
+			dest.Knowledgebase.EmbeddingProvider = src.Knowledgebase.EmbeddingProvider
+		}
+		if src.Knowledgebase.EmbeddingModel != "" {
+			dest.Knowledgebase.EmbeddingModel = src.Knowledgebase.EmbeddingModel
+		}
+		if src.Knowledgebase.EmbeddingVoyageAPIKey != "" {
+			dest.Knowledgebase.EmbeddingVoyageAPIKey = src.Knowledgebase.EmbeddingVoyageAPIKey
+		}
+		if src.Knowledgebase.EmbeddingVoyageAPIKeyFile != "" {
+			dest.Knowledgebase.EmbeddingVoyageAPIKeyFile = src.Knowledgebase.EmbeddingVoyageAPIKeyFile
+		}
+		if src.Knowledgebase.EmbeddingOpenAIAPIKey != "" {
+			dest.Knowledgebase.EmbeddingOpenAIAPIKey = src.Knowledgebase.EmbeddingOpenAIAPIKey
+		}
+		if src.Knowledgebase.EmbeddingOpenAIAPIKeyFile != "" {
+			dest.Knowledgebase.EmbeddingOpenAIAPIKeyFile = src.Knowledgebase.EmbeddingOpenAIAPIKeyFile
+		}
+		if src.Knowledgebase.EmbeddingOllamaURL != "" {
+			dest.Knowledgebase.EmbeddingOllamaURL = src.Knowledgebase.EmbeddingOllamaURL
 		}
 	}
 

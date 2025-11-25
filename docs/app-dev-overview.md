@@ -153,7 +153,7 @@ print(result)
   - HTTP + Ollama
 - **[Go CLI Client](using-cli-client.md)** - Full-featured reference
   implementation
-- **[Web Client](../web/README.md)** - React-based web interface
+- **[Web Client](https://github.com/pgEdge/pgedge-mcp/blob/main/web/README.md)** - React-based web interface
 
 ### Configuration
 

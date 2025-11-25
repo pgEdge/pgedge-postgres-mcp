@@ -25,6 +25,10 @@ The pgEdge MCP Server supports multiple configuration methods with the following
 | `embedding.ollama_url` | N/A | `PGEDGE_OLLAMA_URL` | Ollama API URL (default: "http://localhost:11434") |
 | `embedding.voyage_api_key` | N/A | `PGEDGE_VOYAGE_API_KEY` | Voyage AI API key for embeddings |
 | `embedding.openai_api_key` | N/A | `PGEDGE_OPENAI_API_KEY` | OpenAI API key for embeddings |
+| `knowledgebase.enabled` | N/A | N/A | Enable knowledgebase search (default: false) |
+| `knowledgebase.database_path` | N/A | N/A | Path to knowledgebase SQLite database |
+| `knowledgebase.embedding_provider` | N/A | N/A | Embedding provider for KB search: "openai", "voyage", or "ollama" |
+| `knowledgebase.embedding_model` | N/A | N/A | Embedding model for KB search (must match KB build) |
 | `secret_file` | N/A | `PGEDGE_SECRET_FILE` | Path to encryption secret file (auto-generated if not present) |
 
 ## Configuration File
@@ -59,6 +63,16 @@ embedding:
   ollama_url: "http://localhost:11434"  # Ollama API URL (for ollama provider)
   # voyage_api_key: "pa-..."  # Voyage AI API key (for voyage provider)
   # openai_api_key: "sk-..."  # OpenAI API key (for openai provider)
+
+# Knowledgebase configuration (optional)
+knowledgebase:
+  enabled: false  # Enable knowledgebase search
+  database_path: ""  # Path to knowledgebase SQLite database
+  embedding_provider: "ollama"  # Provider for KB search: "openai", "voyage", or "ollama"
+  embedding_model: "nomic-embed-text"  # Model for KB search (must match KB build)
+  # embedding_ollama_url: "http://localhost:11434"  # For ollama provider
+  # embedding_voyage_api_key_file: "~/.voyage-api-key"  # For voyage provider
+  # embedding_openai_api_key_file: "~/.openai-api-key"  # For openai provider
 
 # Encryption secret file path (optional)
 secret_file: ""  # defaults to pgedge-pg-mcp-svr.secret, auto-generated if not present

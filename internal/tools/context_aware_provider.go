@@ -51,6 +51,11 @@ func (p *ContextAwareProvider) registerStatelessTools(registry *Registry) {
 
 	// Embedding generation tool (stateless, only requires config)
 	registry.Register("generate_embedding", GenerateEmbeddingTool(p.cfg))
+
+	// Knowledgebase search tool (if enabled)
+	if p.cfg.Knowledgebase.Enabled && p.cfg.Knowledgebase.DatabasePath != "" {
+		registry.Register("search_knowledgebase", SearchKnowledgebaseTool(p.cfg.Knowledgebase.DatabasePath, p.cfg))
+	}
 }
 
 // registerDatabaseTools registers all database-dependent tools

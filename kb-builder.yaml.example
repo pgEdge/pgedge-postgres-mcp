@@ -1,0 +1,50 @@
+# pgEdge Knowledgebase Builder Configuration Example
+
+# Output database path (optional, defaults to pgedge-mcp-kb.db in same directory as config)
+database_path: "pgedge-mcp-kb.db"
+
+# Directory for storing downloaded/processed documentation (optional, defaults to doc-source)
+doc_source_path: "doc-source"
+
+# Documentation sources
+sources:
+    # Example: PostgreSQL documentation from Git
+    - git_url: "https://github.com/postgres/postgres.git"
+      branch: "REL_17_STABLE"
+      doc_path: "doc/src/sgml"
+      project_name: "PostgreSQL"
+      project_version: "17"
+
+    # Example: Local documentation
+    # - local_path: "~/projects/my-docs"
+    #   doc_path: "docs"  # Optional subdirectory within local_path
+    #   project_name: "My Project"
+    #   project_version: "1.0"
+
+# Embedding provider configurations
+embeddings:
+    # OpenAI embeddings
+    openai:
+        enabled: true
+        api_key_file: "~/.openai-api-key"  # Defaults to ~/.openai-api-key
+        model: "text-embedding-3-small"     # Defaults to text-embedding-3-small
+        dimensions: 1536                     # Model-specific, defaults to 1536
+
+    # Voyage AI embeddings
+    voyage:
+        enabled: false
+        api_key_file: "~/.voyage-api-key"   # Defaults to ~/.voyage-api-key
+        model: "voyage-3"                    # Defaults to voyage-3
+
+    # Ollama local embeddings
+    ollama:
+        enabled: false
+        endpoint: "http://localhost:11434"  # Defaults to http://localhost:11434
+        model: "nomic-embed-text"            # Defaults to nomic-embed-text
+
+# Notes:
+# - At least one embedding provider must be enabled
+# - The MCP server will use embeddings from the configured provider(s)
+# - For Git sources, you can specify either 'branch' or 'tag', not both
+# - Supported document formats: Markdown (.md), HTML (.html, .htm),
+#   reStructuredText (.rst), SGML (.sgml, .sgm)

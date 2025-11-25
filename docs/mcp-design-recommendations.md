@@ -734,4 +734,4 @@ on execution costs.
 - [MCP Tool Design: From APIs to AI-First](https://useai.substack.com/p/mcp-tool-design-from-apis-to-ai-first)
 - [Writing Effective MCP Tools](https://modelcontextprotocol.info/docs/tutorials/writing-effective-tools/)
 - [Prompt Design Principles](https://cursor.com/blog/prompt-design)
-- Internal: [.claude/prompts-tools-resources-chat.md](.claude/prompts-tools-resources-chat.md)
+- Internal: [.claude/prompts-tools-resources-chat.md](https://github.com/pgEdge/pgedge-mcp/blob/main/.claude/prompts-tools-resources-chat.md)

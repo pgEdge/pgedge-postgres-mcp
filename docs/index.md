@@ -8,8 +8,9 @@ A Model Context Protocol (MCP) server written in Go that enables natural languag
 
 - **[Configuration Guide](configuration.md)** - Setup and configuration
 - **[Docker Deployment](docker-deployment.md)** - Complete Docker Compose deployment
-- **[Tools Reference](tools.md)** - All 5 MCP tools
-- **[Resources Reference](resources.md)** - All 3 MCP resources
+- **[Tools Reference](tools.md)** - All 6 MCP tools
+- **[Resources Reference](resources.md)** - All 2 MCP resources
+- **[Prompts Reference](prompts.md)** - All 3 MCP prompts
 - **[Query Examples](examples.md)** - Usage examples
 - **[Deployment Guide](deployment.md)** - HTTP/HTTPS deployment
 - **[Troubleshooting](troubleshooting.md)** - Common issues and solutions
@@ -19,8 +20,9 @@ A Model Context Protocol (MCP) server written in Go that enables natural languag
 - ✨ **Natural Language to SQL** - Convert plain English questions into SQL queries
 - 🔒 **Read-Only Protection** - All queries execute in read-only transactions
 - 🤖 **Multiple LLM Support** - Anthropic Claude, OpenAI (GPT-4o, GPT-5), or Ollama (local/free)
-- 📊 **3 Resources** - PostgreSQL statistics (pg_stat_*, pg://system_info)
-- 🛠️ **5 Tools** - Query execution, schema analysis, advanced hybrid search, embedding generation, resource reading
+- 📊 **2 Resources** - PostgreSQL system info and database schema
+- 🛠️ **6 Tools** - Query execution, schema analysis, hybrid search, embedding generation, knowledgebase search, resource reading
+- 🧠 **3 Prompts** - Guided workflows for semantic search, database exploration, and query diagnostics
 - 🌐 **HTTP/HTTPS Mode** - Direct API access with token authentication
 - 🖥️ **Web Interface** - Modern React-based UI for server monitoring and management
 - 💬 **Production Chat Client** - Full-featured Go client with Anthropic prompt caching
@@ -95,10 +97,13 @@ Complete configuration reference covering config files, environment variables, c
 Complete guide for deploying with Docker and Docker Compose. Includes containerized MCP server and web client setup, environment configuration, production deployment with reverse proxy, security hardening, and troubleshooting.
 
 #### [Tools Documentation](tools.md)
-Reference for all 5 MCP tools including `query_database`, `get_schema_info`, `similarity_search`, `generate_embedding`, and `read_resource`.
+Reference for all 6 MCP tools including `query_database`, `get_schema_info`, `similarity_search`, `generate_embedding`, `search_knowledgebase`, and `read_resource`.
 
 #### [Resources Documentation](resources.md)
-Reference for MCP resources providing access to PostgreSQL system information and database schema overview.
+Reference for all 2 MCP resources providing access to PostgreSQL system information and database schema overview.
+
+#### [Prompts Documentation](prompts.md)
+Reference for all 3 MCP prompts including `setup-semantic-search`, `explore-database`, and `diagnose-query-issue`. Prompts are guided workflows that help LLMs navigate complex multi-step processes efficiently.
 
 #### [Query Examples](examples.md)
 Comprehensive collection of example queries covering schema discovery, data analysis, system monitoring, and multi-database operations.
@@ -109,7 +114,7 @@ Production deployment guide for HTTP/HTTPS mode including TLS setup, reverse pro
 #### [Authentication Guide](authentication.md)
 API token management for HTTP/HTTPS mode including token generation, validation, expiration, and security best practices.
 
-#### [Web Interface](../web/README.md)
+#### [Web Interface](https://github.com/pgEdge/pgedge-mcp/blob/main/web/README.md)
 Modern React-based web interface for server monitoring and management. Features secure authentication, real-time PostgreSQL system information, and responsive design. Includes quick start guide and deployment instructions.
 
 #### [Go Chat Client](using-cli-client.md)

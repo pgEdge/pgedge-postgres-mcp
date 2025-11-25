@@ -429,6 +429,28 @@ func (c *Client) chatLoop(ctx context.Context) error {
 	}
 }
 
+// getBriefDescription extracts the first line or sentence from a description
+func getBriefDescription(desc string) string {
+	// Split by newlines and take first non-empty line
+	lines := strings.Split(desc, "\n")
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line != "" {
+			// If line ends with period, return it
+			if strings.HasSuffix(line, ".") {
+				return line
+			}
+			// Otherwise, find first sentence (period followed by space or end)
+			if idx := strings.Index(line, ". "); idx != -1 {
+				return line[:idx+1]
+			}
+			// No period found, return the whole line
+			return line
+		}
+	}
+	return desc
+}
+
 // handleCommand handles special commands, returns true if command was handled
 func (c *Client) handleCommand(ctx context.Context, input string) bool {
 	switch input {
@@ -444,7 +466,9 @@ func (c *Client) handleCommand(ctx context.Context, input string) bool {
 	case "tools":
 		c.ui.PrintSystemMessage(fmt.Sprintf("Available tools (%d):", len(c.tools)))
 		for _, tool := range c.tools {
-			fmt.Printf("  - %s: %s\n", tool.Name, tool.Description)
+			// Extract just the first line/sentence for a brief description
+			desc := getBriefDescription(tool.Description)
+			fmt.Printf("  - %s: %s\n", tool.Name, desc)
 		}
 		return true
 
@@ -459,16 +483,6 @@ func (c *Client) handleCommand(ctx context.Context, input string) bool {
 		c.ui.PrintSystemMessage(fmt.Sprintf("Available prompts (%d):", len(c.prompts)))
 		for _, prompt := range c.prompts {
 			fmt.Printf("  - %s: %s\n", prompt.Name, prompt.Description)
-			if len(prompt.Arguments) > 0 {
-				fmt.Printf("    Arguments:\n")
-				for _, arg := range prompt.Arguments {
-					required := ""
-					if arg.Required {
-						required = " (required)"
-					}
-					fmt.Printf("      - %s: %s%s\n", arg.Name, arg.Description, required)
-				}
-			}
 		}
 		return true
 

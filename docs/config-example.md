@@ -143,4 +143,190 @@ secret_file: ""
 #         enabled: true
 #         token_file: "/etc/pgedge-mcp/tokens.yaml"
 # secret_file: "/etc/pgedge-mcp/secret.key"
+
+# ============================================================================
+# DATABASE CONFIGURATION
+# ============================================================================
+# Configure the PostgreSQL database connection.
+# All settings can be overridden via environment variables or command line flags.
+#
+# Environment variables:
+#   PGEDGE_DB_HOST or PGHOST
+#   PGEDGE_DB_PORT or PGPORT
+#   PGEDGE_DB_DATABASE or PGDATABASE
+#   PGEDGE_DB_USER or PGUSER
+#   PGEDGE_DB_PASSWORD or PGPASSWORD (or use .pgpass file)
+#   PGEDGE_DB_SSLMODE or PGSSLMODE
+#
+# Command line flags:
+#   -host, -port, -database, -user, -password, -sslmode
+database:
+    # Database host
+    # Default: localhost
+    host: "localhost"
+
+    # Database port
+    # Default: 5432
+    port: 5432
+
+    # Database name
+    # Default: postgres
+    database: "postgres"
+
+    # Database user
+    # Default: postgres
+    user: "postgres"
+
+    # Database password
+    # Leave empty to use .pgpass file
+    # Default: ""
+    password: ""
+
+    # SSL mode: disable, allow, prefer, require, verify-ca, verify-full
+    # Default: prefer
+    sslmode: "prefer"
+
+    # Connection pool settings
+    # Default: 10 max connections, 2 min connections, 5m idle time
+    pool_max_conns: 10
+    pool_min_conns: 2
+    pool_max_conn_idle_time: "5m"
+
+# ============================================================================
+# EMBEDDING GENERATION CONFIGURATION
+# ============================================================================
+# Enable text-to-vector embedding generation using various providers
+# Used by the generate_embedding tool for creating embeddings from text
+embedding:
+    # Enable embedding generation
+    # Default: false
+    enabled: true
+
+    # Embedding provider: "openai", "voyage", or "ollama"
+    # Default: ollama
+    provider: "openai"
+
+    # Model name (provider-specific)
+    # OpenAI: text-embedding-3-small (1536 dim), text-embedding-3-large (3072 dim)
+    # Voyage: voyage-3 (1024 dim), voyage-3-lite (512 dim)
+    # Ollama: nomic-embed-text (768 dim), mxbai-embed-large (1024 dim)
+    # Default: nomic-embed-text (ollama), text-embedding-3-small (openai),
+    #          voyage-3 (voyage)
+    model: "text-embedding-3-small"
+
+    # API key configuration (see notes below for priority)
+    # For OpenAI
+    openai_api_key_file: "~/.openai-api-key"
+    # openai_api_key: ""  # Not recommended - use file or env var
+
+    # For Voyage AI
+    voyage_api_key_file: "~/.voyage-api-key"
+    # voyage_api_key: ""  # Not recommended - use file or env var
+
+    # For Ollama
+    ollama_url: "http://localhost:11434"
+
+# ============================================================================
+# LLM CONFIGURATION (for web client chat proxy)
+# ============================================================================
+# This is only needed when running in HTTP mode for the web client
+# When running in stdio mode (CLI), this is not used - the CLI client
+# manages its own LLM connection
+llm:
+    # Enable LLM proxy for web clients
+    # Default: false (disabled for stdio mode)
+    enabled: false
+
+    # LLM provider: "anthropic", "openai", or "ollama"
+    # Default: anthropic
+    provider: "anthropic"
+
+    # Model name (provider-specific)
+    # Anthropic: claude-sonnet-4-5, claude-opus-4-5
+    # OpenAI: gpt-5, gpt-4o, gpt-4-turbo
+    # Ollama: llama3, llama3.1, mistral
+    # Default: claude-sonnet-4-5 (anthropic), gpt-5 (openai), llama3 (ollama)
+    model: "claude-sonnet-4-5"
+
+    # API key configuration (see notes below for priority)
+    # For Anthropic
+    anthropic_api_key_file: "~/.anthropic-api-key"
+    # anthropic_api_key: ""  # Not recommended - use file or env var
+
+    # For OpenAI
+    openai_api_key_file: "~/.openai-api-key"
+    # openai_api_key: ""  # Not recommended - use file or env var
+
+    # For Ollama
+    ollama_url: "http://localhost:11434"
+
+    # LLM generation settings
+    max_tokens: 4096
+    temperature: 0.7
+
+# ============================================================================
+# KNOWLEDGEBASE CONFIGURATION
+# ============================================================================
+# Enable semantic search over pre-built documentation databases
+# Provides the search_knowledgebase tool for querying PostgreSQL and pgEdge
+# documentation
+knowledgebase:
+    # Enable knowledgebase search
+    # Default: false
+    enabled: true
+
+    # Path to knowledgebase SQLite database
+    # Default: ""
+    database_path: "./pgedge-mcp-kb.db"
+
+    # Embedding provider for knowledgebase similarity search
+    # Must match the provider used to build the knowledgebase
+    # Options: "openai", "voyage", or "ollama"
+    # Default: ollama
+    embedding_provider: "voyage"
+
+    # Embedding model (provider-specific)
+    # Must match the model used to build the knowledgebase
+    # Default: nomic-embed-text (ollama), text-embedding-3-small (openai),
+    #          voyage-3 (voyage)
+    embedding_model: "voyage-3"
+
+    # API keys for knowledgebase embeddings (independent of generate_embeddings)
+    # For Voyage AI
+    # embedding_voyage_api_key_file: "~/.voyage-api-key"
+    # embedding_voyage_api_key: ""  # Not recommended
+
+    # For OpenAI
+    # embedding_openai_api_key_file: "~/.openai-api-key"
+    # embedding_openai_api_key: ""  # Not recommended
+
+    # For Ollama
+    embedding_ollama_url: "http://localhost:11434"
+
+# ============================================================================
+# CUSTOM DEFINITIONS
+# ============================================================================
+# Path to custom prompts and resources definition file
+# Default: "" (no custom definitions)
+custom_definitions_path: ""
+
+# ============================================================================
+# API KEY CONFIGURATION NOTES
+# ============================================================================
+# API keys can be configured in three ways (priority order):
+#
+# 1. Environment variables (HIGHEST PRIORITY):
+#    - PGEDGE_OPENAI_API_KEY or OPENAI_API_KEY
+#    - PGEDGE_ANTHROPIC_API_KEY or ANTHROPIC_API_KEY
+#    - PGEDGE_VOYAGE_API_KEY or VOYAGE_API_KEY
+#    - PGEDGE_OLLAMA_URL
+#
+# 2. API key files (RECOMMENDED):
+#    - Store API keys in files with appropriate permissions
+#    - Example: echo "sk-..." > ~/.openai-api-key && chmod 600 ~/.openai-api-key
+#    - Supports ~ expansion for home directory
+#
+# 3. Direct configuration values (NOT RECOMMENDED):
+#    - Store keys directly in this config file
+#    - Less secure than environment variables or key files
 ```
