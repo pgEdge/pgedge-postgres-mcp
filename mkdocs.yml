@@ -89,7 +89,6 @@ nav:
       - Development Setup: development.md
       - Internal Architecture: internal-architecture.md
       - KB Builder Architecture: internal/kb-builder-architecture.md
-      - MCP Design Recommendations: mcp-design-recommendations.md
       - Testing: testing.md
       - CI/CD: ci-cd.md
 
