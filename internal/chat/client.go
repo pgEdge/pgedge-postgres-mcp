@@ -141,6 +141,12 @@ func (c *Client) Run(ctx context.Context) error {
 	c.ui.PrintWelcome()
 	c.ui.PrintSystemMessage(fmt.Sprintf("Connected to MCP server (%d tools, %d resources, %d prompts available)", len(c.tools), len(c.resources), len(c.prompts)))
 	c.ui.PrintSystemMessage(fmt.Sprintf("Using LLM: %s (%s)", c.config.LLM.Provider, c.config.LLM.Model))
+
+	// Display current database
+	if databases, current, err := c.mcp.ListDatabases(ctx); err == nil && len(databases) > 0 {
+		c.ui.PrintSystemMessage(fmt.Sprintf("Database: %s", current))
+	}
+
 	c.ui.PrintSeparator()
 
 	// Start chat loop
@@ -467,27 +473,17 @@ func (c *Client) chatLoop(ctx context.Context) error {
 			continue
 		}
 
-		// Check for slash commands first (e.g., /help, /set, /show, /list)
+		// Check for slash commands (all CLI commands start with /)
 		if cmd := ParseSlashCommand(userInput); cmd != nil {
 			if c.HandleSlashCommand(ctx, cmd) {
 				continue // Command was handled
 			}
-			// If HandleSlashCommand returns false, command is unknown
-			// Fall through to send to LLM
-		}
-
-		// Handle special commands (help, clear, tools, resources)
-		if c.handleCommand(ctx, userInput) {
+			// Unknown slash command - inform user
+			c.ui.PrintError(fmt.Sprintf("Unknown command: /%s (type /help for available commands)", cmd.Command))
 			continue
 		}
 
-		// Check for quit command
-		if userInput == "quit" || userInput == "exit" {
-			c.ui.PrintSystemMessage("Goodbye!")
-			return nil
-		}
-
-		// Process the query
+		// Everything else goes to the LLM
 		if err := c.processQuery(ctx, userInput); err != nil {
 			c.ui.PrintError(err.Error())
 		}
@@ -517,46 +513,6 @@ func getBriefDescription(desc string) string {
 		}
 	}
 	return desc
-}
-
-// handleCommand handles special commands, returns true if command was handled
-func (c *Client) handleCommand(ctx context.Context, input string) bool {
-	switch input {
-	case "help":
-		c.ui.PrintHelp()
-		return true
-
-	case "clear":
-		c.ui.ClearScreen()
-		c.ui.PrintWelcome()
-		return true
-
-	case "tools":
-		c.ui.PrintSystemMessage(fmt.Sprintf("Available tools (%d):", len(c.tools)))
-		for _, tool := range c.tools {
-			// Extract just the first line/sentence for a brief description
-			desc := getBriefDescription(tool.Description)
-			fmt.Printf("  - %s: %s\n", tool.Name, desc)
-		}
-		return true
-
-	case "resources":
-		c.ui.PrintSystemMessage(fmt.Sprintf("Available resources (%d):", len(c.resources)))
-		for _, resource := range c.resources {
-			fmt.Printf("  - %s: %s\n", resource.Name, resource.Description)
-		}
-		return true
-
-	case "prompts":
-		c.ui.PrintSystemMessage(fmt.Sprintf("Available prompts (%d):", len(c.prompts)))
-		for _, prompt := range c.prompts {
-			fmt.Printf("  - %s: %s\n", prompt.Name, prompt.Description)
-		}
-		return true
-
-	default:
-		return false
-	}
 }
 
 // CompactionRequest represents a request to compact chat history.

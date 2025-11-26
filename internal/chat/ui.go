@@ -65,7 +65,7 @@ func (ui *UI) PrintWelcome() {
 	elephant := `
           _
    ______/ \-.   _           pgEdge Natural Language Agent
-.-/     (    o\_//           Type 'quit' or 'exit' to leave, 'help' for commands
+.-/     (    o\_//           Type /quit to leave, /help for commands
  |  ___  \_/\---'
  |_||  |_||
 `
@@ -138,10 +138,13 @@ func (ui *UI) PrintSystemMessage(text string) {
 
 // PrintError prints an error message
 func (ui *UI) PrintError(text string) {
-	// Clear any thinking animation line and add blank line before error
+	// Clear any thinking animation that might be on the current line
 	maxWidth := ui.getThinkingMaxWidth()
-	fmt.Print("\r" + strings.Repeat(" ", maxWidth) + "\r\n\n")
+	fmt.Print("\r" + strings.Repeat(" ", maxWidth) + "\r")
+	// Print error immediately (no blank lines before)
 	fmt.Println(ui.colorize(ColorRed, "Error: ") + text)
+	// Add blank line after error, before next prompt
+	fmt.Println()
 }
 
 // PrintToolExecution prints a tool execution message on the same line as the thinking animation
@@ -342,17 +345,13 @@ func (ui *UI) PromptForPassword(ctx context.Context) (string, error) {
 // PrintHelp prints the help message
 func (ui *UI) PrintHelp() {
 	help := `
-Available commands:
-  help      - Show this help message
-  quit      - Exit the chat client
-  exit      - Exit the chat client
-  clear     - Clear the screen
-  tools     - List available MCP tools
-  resources - List available MCP resources
-  prompts   - List available MCP prompts
-
-Slash commands (type /help for full slash command help):
-  /help                        - Show slash command help
+Commands (all commands start with /):
+  /help                        - Show this help message
+  /quit or /exit               - Exit the chat client
+  /clear                       - Clear the screen
+  /tools                       - List available MCP tools
+  /resources                   - List available MCP resources
+  /prompts                     - List available MCP prompts
   /set <setting> <value>       - Change settings (status-messages, llm-provider, llm-model)
   /show <setting>              - Show current settings
   /list models                 - List available models from current LLM provider
@@ -361,7 +360,7 @@ History navigation:
   Up/Down   - Navigate through command history
   Ctrl+R    - Reverse search history (type to filter, Ctrl+R for next match)
 
-You can ask questions naturally, and the assistant will use available tools and resources to help you.
+Everything else is sent to the LLM as a natural language query.
 `
 	fmt.Println(ui.colorize(ColorCyan, help))
 }

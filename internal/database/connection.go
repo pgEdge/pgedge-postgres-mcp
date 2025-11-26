@@ -36,15 +36,15 @@ type ConnectionInfo struct {
 
 // Client manages multiple PostgreSQL connections and metadata
 type Client struct {
-	connections    map[string]*ConnectionInfo // keyed by connection string
-	defaultConnStr string                     // current default connection string
-	initialConnStr string                     // original connection string from env
-	dbConfig       *config.DatabaseConfig     // database configuration for pool settings
+	connections    map[string]*ConnectionInfo  // keyed by connection string
+	defaultConnStr string                      // current default connection string
+	initialConnStr string                      // original connection string from env
+	dbConfig       *config.NamedDatabaseConfig // database configuration for pool settings
 	mu             sync.RWMutex
 }
 
 // NewClient creates a new database client with optional database configuration
-func NewClient(dbConfig *config.DatabaseConfig) *Client {
+func NewClient(dbConfig *config.NamedDatabaseConfig) *Client {
 	return &Client{
 		connections: make(map[string]*ConnectionInfo),
 		dbConfig:    dbConfig,
@@ -52,7 +52,7 @@ func NewClient(dbConfig *config.DatabaseConfig) *Client {
 }
 
 // NewClientWithConnectionString creates a new client with a specific connection string and database configuration
-func NewClientWithConnectionString(connStr string, dbConfig *config.DatabaseConfig) *Client {
+func NewClientWithConnectionString(connStr string, dbConfig *config.NamedDatabaseConfig) *Client {
 	c := &Client{
 		connections:    make(map[string]*ConnectionInfo),
 		initialConnStr: connStr,

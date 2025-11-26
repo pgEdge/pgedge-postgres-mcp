@@ -29,6 +29,12 @@ const (
 	// IPAddressContextKey is the context key for storing the client IP address
 	IPAddressContextKey contextKey = "ip_address"
 
+	// UsernameContextKey is the context key for storing the session username
+	UsernameContextKey contextKey = "username"
+
+	// IsAPITokenContextKey is the context key for indicating if auth was via API token
+	IsAPITokenContextKey contextKey = "is_api_token"
+
 	// HealthCheckPath is the path for the health check endpoint (bypasses authentication)
 	HealthCheckPath = "/health"
 
@@ -52,6 +58,24 @@ func GetIPAddressFromContext(ctx context.Context) string {
 		return ip
 	}
 	return ""
+}
+
+// GetUsernameFromContext retrieves the session username from the request context
+// Returns empty string if no username is found (e.g., API token or unauthenticated request)
+func GetUsernameFromContext(ctx context.Context) string {
+	if username, ok := ctx.Value(UsernameContextKey).(string); ok {
+		return username
+	}
+	return ""
+}
+
+// IsAPITokenFromContext checks if the request was authenticated via API token
+// Returns false if not set (e.g., session token or unauthenticated request)
+func IsAPITokenFromContext(ctx context.Context) bool {
+	if isAPIToken, ok := ctx.Value(IsAPITokenContextKey).(bool); ok {
+		return isAPIToken
+	}
+	return false
 }
 
 // ExtractIPAddress extracts the client IP address from an HTTP request
@@ -127,6 +151,7 @@ func AuthMiddleware(tokenStore *TokenStore, userStore *UserStore, enabled bool) 
 				// Valid API token - use token hash for connection isolation
 				tokenHash := HashToken(token)
 				ctx := context.WithValue(r.Context(), TokenHashContextKey, tokenHash)
+				ctx = context.WithValue(ctx, IsAPITokenContextKey, true)
 				r = r.WithContext(ctx)
 				next.ServeHTTP(w, r)
 				return
@@ -139,6 +164,8 @@ func AuthMiddleware(tokenStore *TokenStore, userStore *UserStore, enabled bool) 
 					// Valid session token - use token hash for connection isolation
 					tokenHash := HashToken(token)
 					ctx := context.WithValue(r.Context(), TokenHashContextKey, tokenHash)
+					ctx = context.WithValue(ctx, UsernameContextKey, username)
+					ctx = context.WithValue(ctx, IsAPITokenContextKey, false)
 					r = r.WithContext(ctx)
 					next.ServeHTTP(w, r)
 					return

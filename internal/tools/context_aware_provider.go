@@ -30,12 +30,13 @@ type ContextAwareProvider struct {
 	clientManager     *database.ClientManager
 	resourceReg       *resources.ContextAwareRegistry
 	authEnabled       bool
-	fallbackClient    *database.Client  // Used when auth is disabled
-	cfg               *config.Config    // Server configuration (for embedding settings)
-	userStore         *auth.UserStore   // User store for authentication
-	userFilePath      string            // Path to user file for persisting updates
-	rateLimiter       *auth.RateLimiter // Rate limiter for authentication attempts
-	maxFailedAttempts int               // Maximum failed attempts before account lockout
+	fallbackClient    *database.Client            // Used when auth is disabled
+	cfg               *config.Config              // Server configuration (for embedding settings)
+	userStore         *auth.UserStore             // User store for authentication
+	userFilePath      string                      // Path to user file for persisting updates
+	rateLimiter       *auth.RateLimiter           // Rate limiter for authentication attempts
+	maxFailedAttempts int                         // Maximum failed attempts before account lockout
+	accessChecker     *auth.DatabaseAccessChecker // Database access control checker
 
 	// Cache of registries per client to avoid re-creating tools on every Execute()
 	mu               sync.RWMutex
@@ -69,7 +70,7 @@ func (p *ContextAwareProvider) registerDatabaseTools(registry *Registry, client 
 }
 
 // NewContextAwareProvider creates a new context-aware tool provider
-func NewContextAwareProvider(clientManager *database.ClientManager, resourceReg *resources.ContextAwareRegistry, authEnabled bool, fallbackClient *database.Client, cfg *config.Config, userStore *auth.UserStore, userFilePath string, rateLimiter *auth.RateLimiter, maxFailedAttempts int) *ContextAwareProvider {
+func NewContextAwareProvider(clientManager *database.ClientManager, resourceReg *resources.ContextAwareRegistry, authEnabled bool, fallbackClient *database.Client, cfg *config.Config, userStore *auth.UserStore, userFilePath string, rateLimiter *auth.RateLimiter, maxFailedAttempts int, accessChecker *auth.DatabaseAccessChecker) *ContextAwareProvider {
 	provider := &ContextAwareProvider{
 		baseRegistry:      NewRegistry(),
 		clientManager:     clientManager,
@@ -81,6 +82,7 @@ func NewContextAwareProvider(clientManager *database.ClientManager, resourceReg 
 		userFilePath:      userFilePath,
 		rateLimiter:       rateLimiter,
 		maxFailedAttempts: maxFailedAttempts,
+		accessChecker:     accessChecker,
 		clientRegistries:  make(map[*database.Client]*Registry),
 		hiddenRegistry:    NewRegistry(),
 	}
@@ -224,6 +226,8 @@ func (p *ContextAwareProvider) Execute(ctx context.Context, name string, args ma
 	// Get the appropriate database client for this request
 	dbClient, err := p.getClient(ctx)
 	if err != nil {
+		// Log the error for debugging
+		fmt.Fprintf(os.Stderr, "ERROR: Failed to get database client for tool '%s': %v\n", name, err)
 		return mcp.ToolResponse{
 			Content: []mcp.ContentItem{
 				{
@@ -244,11 +248,17 @@ func (p *ContextAwareProvider) Execute(ctx context.Context, name string, args ma
 }
 
 // getClient returns the appropriate database client based on authentication state
+// and the currently selected database for the token
 func (p *ContextAwareProvider) getClient(ctx context.Context) (*database.Client, error) {
 	if !p.authEnabled {
 		// Authentication disabled - use "default" key in ClientManager
-		// Don't auto-connect - user must call set_database_connection first
-		client, err := p.clientManager.GetOrCreateClient("default", false)
+		// Get the current database for this session
+		currentDB := p.clientManager.GetCurrentDatabase("default")
+		if currentDB == "" {
+			currentDB = p.clientManager.GetDefaultDatabaseName()
+		}
+
+		client, err := p.clientManager.GetClientForDatabase("default", currentDB)
 		if err != nil {
 			return nil, fmt.Errorf("no database connection configured: %w", err)
 		}
@@ -261,9 +271,46 @@ func (p *ContextAwareProvider) getClient(ctx context.Context) (*database.Client,
 		return nil, fmt.Errorf("no authentication token found in request context")
 	}
 
-	// Get or create client for this token
-	// Auto-connect if database is configured (authenticated users get automatic database access)
-	client, err := p.clientManager.GetOrCreateClient(tokenHash, true)
+	// Get the current database for this token
+	currentDB := p.clientManager.GetCurrentDatabase(tokenHash)
+
+	// Check if current database is accessible, otherwise find first accessible one
+	if p.accessChecker != nil {
+		allConfigs := p.clientManager.GetDatabaseConfigs()
+		accessibleConfigs := p.accessChecker.GetAccessibleDatabases(ctx, allConfigs)
+
+		if len(accessibleConfigs) == 0 {
+			username := auth.GetUsernameFromContext(ctx)
+			if username != "" {
+				return nil, fmt.Errorf("no databases are configured for user '%s' - contact your administrator", username)
+			}
+			return nil, fmt.Errorf("no accessible databases for this user")
+		}
+
+		// Check if current database is in accessible list
+		currentAccessible := false
+		for i := range accessibleConfigs {
+			if accessibleConfigs[i].Name == currentDB {
+				currentAccessible = true
+				break
+			}
+		}
+
+		// If current is not accessible, use first accessible database
+		if !currentAccessible {
+			currentDB = accessibleConfigs[0].Name
+			// Update the current database for this token (best effort - operation continues regardless)
+			_ = p.clientManager.SetCurrentDatabase(tokenHash, currentDB) //nolint:errcheck // preference update, doesn't affect operation
+		}
+	}
+
+	// Fallback to default if still empty
+	if currentDB == "" {
+		currentDB = p.clientManager.GetDefaultDatabaseName()
+	}
+
+	// Get or create client for this token's current database
+	client, err := p.clientManager.GetClientForDatabase(tokenHash, currentDB)
 	if err != nil {
 		return nil, fmt.Errorf("no database connection configured for this token: %w", err)
 	}

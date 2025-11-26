@@ -21,7 +21,9 @@ import (
 )
 
 // addTokenCommand handles the add-token command
-func addTokenCommand(tokenFile, annotation string, expiresIn time.Duration) error {
+// database parameter specifies the database this token is bound to (empty = prompt or use first)
+// availableDatabases is the list of configured database names for interactive selection
+func addTokenCommand(tokenFile, annotation, database string, expiresIn time.Duration, availableDatabases []string) error {
 	// Load or create token store
 	var store *auth.TokenStore
 	var err error
@@ -45,12 +47,53 @@ func addTokenCommand(tokenFile, annotation string, expiresIn time.Duration) erro
 	// Hash token
 	hash := auth.HashToken(token)
 
+	reader := bufio.NewReader(os.Stdin)
+
 	// Prompt for annotation if not provided
 	if annotation == "" {
 		fmt.Print("Enter annotation/note for this token (optional): ")
-		reader := bufio.NewReader(os.Stdin)
 		if input, err := reader.ReadString('\n'); err == nil {
 			annotation = strings.TrimSpace(input)
+		}
+	}
+
+	// Prompt for database binding if not provided
+	if database == "" && len(availableDatabases) > 0 {
+		fmt.Println("\nAvailable databases:")
+		for i, db := range availableDatabases {
+			if i == 0 {
+				fmt.Printf("  %d. %s (default)\n", i+1, db)
+			} else {
+				fmt.Printf("  %d. %s\n", i+1, db)
+			}
+		}
+		fmt.Print("Bind token to database (enter name or number, blank for default): ")
+		if input, err := reader.ReadString('\n'); err == nil {
+			input = strings.TrimSpace(input)
+			if input != "" {
+				// Check if it's a number
+				var num int
+				if _, err := fmt.Sscanf(input, "%d", &num); err == nil {
+					if num >= 1 && num <= len(availableDatabases) {
+						database = availableDatabases[num-1]
+					} else {
+						return fmt.Errorf("invalid database number: %d (must be 1-%d)", num, len(availableDatabases))
+					}
+				} else {
+					// Check if it's a valid database name
+					found := false
+					for _, db := range availableDatabases {
+						if db == input {
+							database = input
+							found = true
+							break
+						}
+					}
+					if !found {
+						return fmt.Errorf("unknown database: %s", input)
+					}
+				}
+			}
 		}
 	}
 
@@ -62,7 +105,6 @@ func addTokenCommand(tokenFile, annotation string, expiresIn time.Duration) erro
 	} else if expiresIn == 0 {
 		// Prompt for expiry
 		fmt.Print("Enter expiry duration (e.g., '30d', '1y', or 'never'): ")
-		reader := bufio.NewReader(os.Stdin)
 		input := ""
 		if userInput, err := reader.ReadString('\n'); err == nil {
 			input = strings.TrimSpace(userInput)
@@ -82,7 +124,7 @@ func addTokenCommand(tokenFile, annotation string, expiresIn time.Duration) erro
 	tokenID := fmt.Sprintf("token-%d", time.Now().Unix())
 
 	// Add token to store
-	if err := store.AddToken(tokenID, hash, annotation, expiresAt); err != nil {
+	if err := store.AddToken(tokenID, hash, annotation, expiresAt, database); err != nil {
 		return fmt.Errorf("failed to add token: %w", err)
 	}
 
@@ -100,6 +142,11 @@ func addTokenCommand(tokenFile, annotation string, expiresIn time.Duration) erro
 	fmt.Printf("ID:    %s\n", tokenID)
 	if annotation != "" {
 		fmt.Printf("Note:  %s\n", annotation)
+	}
+	if database != "" {
+		fmt.Printf("Database: %s\n", database)
+	} else {
+		fmt.Println("Database: (first configured)")
 	}
 	if expiresAt != nil {
 		fmt.Printf("Expires: %s\n", expiresAt.Format(time.RFC3339))
@@ -156,9 +203,9 @@ func listTokensCommand(tokenFile string) error {
 	}
 
 	fmt.Println("\nAPI Tokens:")
-	fmt.Println(strings.Repeat("=", 80))
-	fmt.Printf("%-20s %-16s %-25s %-10s %s\n", "ID", "Hash Prefix", "Expires", "Status", "Annotation")
-	fmt.Println(strings.Repeat("-", 80))
+	fmt.Println(strings.Repeat("=", 100))
+	fmt.Printf("%-20s %-14s %-15s %-18s %-10s %s\n", "ID", "Hash Prefix", "Database", "Expires", "Status", "Annotation")
+	fmt.Println(strings.Repeat("-", 100))
 
 	for _, token := range tokens {
 		status := "Active"
@@ -171,19 +218,27 @@ func listTokensCommand(tokenFile string) error {
 			expiryStr = token.ExpiresAt.Format("2006-01-02 15:04")
 		}
 
+		database := token.Database
+		if database == "" {
+			database = "(default)"
+		} else if len(database) > 13 {
+			database = database[:10] + "..."
+		}
+
 		annotation := token.Annotation
 		if len(annotation) > 20 {
 			annotation = annotation[:17] + "..."
 		}
 
-		fmt.Printf("%-20s %-16s %-25s %-10s %s\n",
+		fmt.Printf("%-20s %-14s %-15s %-18s %-10s %s\n",
 			token.ID,
 			token.HashPrefix,
+			database,
 			expiryStr,
 			status,
 			annotation)
 	}
-	fmt.Println(strings.Repeat("=", 80) + "\n")
+	fmt.Println(strings.Repeat("=", 100) + "\n")
 
 	return nil
 }

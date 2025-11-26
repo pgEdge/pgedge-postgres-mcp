@@ -12,7 +12,10 @@ package chat
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
+	"os"
 	"strings"
 )
 
@@ -107,11 +110,43 @@ func (c *Client) HandleSlashCommand(ctx context.Context, cmd *SlashCommand) bool
 		c.printSlashHelp()
 		return true
 
+	case "clear":
+		c.ui.ClearScreen()
+		c.ui.PrintWelcome()
+		return true
+
+	case "tools":
+		c.ui.PrintSystemMessage(fmt.Sprintf("Available tools (%d):", len(c.tools)))
+		for _, tool := range c.tools {
+			desc := getBriefDescription(tool.Description)
+			fmt.Printf("  - %s: %s\n", tool.Name, desc)
+		}
+		return true
+
+	case "resources":
+		c.ui.PrintSystemMessage(fmt.Sprintf("Available resources (%d):", len(c.resources)))
+		for _, resource := range c.resources {
+			fmt.Printf("  - %s: %s\n", resource.Name, resource.Description)
+		}
+		return true
+
+	case "prompts":
+		c.ui.PrintSystemMessage(fmt.Sprintf("Available prompts (%d):", len(c.prompts)))
+		for _, prompt := range c.prompts {
+			fmt.Printf("  - %s: %s\n", prompt.Name, prompt.Description)
+		}
+		return true
+
+	case "quit", "exit":
+		c.ui.PrintSystemMessage("Goodbye!")
+		os.Exit(0)
+		return true
+
 	case "set":
-		return c.handleSetCommand(cmd.Args)
+		return c.handleSetCommand(ctx, cmd.Args)
 
 	case "show":
-		return c.handleShowCommand(cmd.Args)
+		return c.handleShowCommand(ctx, cmd.Args)
 
 	case "list":
 		return c.handleListCommand(ctx, cmd.Args)
@@ -128,49 +163,53 @@ func (c *Client) HandleSlashCommand(ctx context.Context, cmd *SlashCommand) bool
 // printSlashHelp prints help for slash commands
 func (c *Client) printSlashHelp() {
 	help := `
-Slash Commands:
+Commands:
   /help                                Show this help message
+  /clear                               Clear screen
+  /tools                               List available MCP tools
+  /resources                           List available MCP resources
+  /prompts                             List available MCP prompts
+  /quit, /exit                         Exit the chat client
+
+Settings:
   /set status-messages <on|off>        Enable or disable status messages
   /set markdown <on|off>               Enable or disable markdown rendering
   /set debug <on|off>                  Enable or disable debug messages
   /set llm-provider <provider>         Set LLM provider (anthropic, openai, ollama)
   /set llm-model <model>               Set LLM model to use
+  /set database <name>                 Select a database connection
   /show status-messages                Show current status messages setting
   /show markdown                       Show current markdown rendering setting
   /show debug                          Show current debug setting
   /show llm-provider                   Show current LLM provider
   /show llm-model                      Show current LLM model
+  /show database                       Show current database connection
   /show settings                       Show all current settings
   /list models                         List available models from current LLM provider
+  /list databases                      List available database connections
+
+Prompts:
   /prompt <name> [arg=value ...]       Execute an MCP prompt with optional arguments
 
-Other Commands:
-  help                                 Show general help
-  clear                                Clear screen
-  tools                                List available MCP tools
-  resources                            List available MCP resources
-  prompts                              List available MCP prompts
-  quit, exit                           Exit the chat client
-
 Examples:
-  /set status-messages off
-  /set markdown on
-  /set debug on
   /set llm-provider openai
   /set llm-model gpt-4-turbo
+  /set database mydb
   /list models
-  /show settings
+  /list databases
   /prompt explore-database
   /prompt setup-semantic-search query_text="product search"
+
+Anything else you type will be sent to the LLM.
 `
 	fmt.Print(help)
 }
 
 // handleSetCommand handles /set commands
-func (c *Client) handleSetCommand(args []string) bool {
+func (c *Client) handleSetCommand(ctx context.Context, args []string) bool {
 	if len(args) < 2 {
 		c.ui.PrintError("Usage: /set <setting> <value>")
-		c.ui.PrintSystemMessage("Available settings: status-messages, markdown, debug, llm-provider, llm-model")
+		c.ui.PrintSystemMessage("Available settings: status-messages, markdown, debug, llm-provider, llm-model, database")
 		return true
 	}
 
@@ -193,9 +232,12 @@ func (c *Client) handleSetCommand(args []string) bool {
 	case "llm-model":
 		return c.handleSetLLMModel(value)
 
+	case "database":
+		return c.handleSetDatabase(ctx, value)
+
 	default:
 		c.ui.PrintError(fmt.Sprintf("Unknown setting: %s", setting))
-		c.ui.PrintSystemMessage("Available settings: status-messages, markdown, debug, llm-provider, llm-model")
+		c.ui.PrintSystemMessage("Available settings: status-messages, markdown, debug, llm-provider, llm-model, database")
 		return true
 	}
 }
@@ -373,10 +415,10 @@ func (c *Client) handleSetLLMModel(model string) bool {
 }
 
 // handleShowCommand handles /show commands
-func (c *Client) handleShowCommand(args []string) bool {
+func (c *Client) handleShowCommand(ctx context.Context, args []string) bool {
 	if len(args) < 1 {
 		c.ui.PrintError("Usage: /show <setting>")
-		c.ui.PrintSystemMessage("Available settings: status-messages, markdown, debug, llm-provider, llm-model, settings")
+		c.ui.PrintSystemMessage("Available settings: status-messages, markdown, debug, llm-provider, llm-model, database, settings")
 		return true
 	}
 
@@ -410,12 +452,15 @@ func (c *Client) handleShowCommand(args []string) bool {
 	case "llm-model":
 		c.ui.PrintSystemMessage(fmt.Sprintf("LLM model: %s", c.config.LLM.Model))
 
+	case "database":
+		return c.handleShowDatabase(ctx)
+
 	case "settings":
 		c.printAllSettings()
 
 	default:
 		c.ui.PrintError(fmt.Sprintf("Unknown setting: %s", setting))
-		c.ui.PrintSystemMessage("Available settings: status-messages, markdown, debug, llm-provider, llm-model, settings")
+		c.ui.PrintSystemMessage("Available settings: status-messages, markdown, debug, llm-provider, llm-model, database, settings")
 	}
 
 	return true
@@ -473,7 +518,7 @@ func (c *Client) printAllSettings() {
 func (c *Client) handleListCommand(ctx context.Context, args []string) bool {
 	if len(args) < 1 {
 		c.ui.PrintError("Usage: /list <what>")
-		c.ui.PrintSystemMessage("Available: models")
+		c.ui.PrintSystemMessage("Available: models, databases")
 		return true
 	}
 
@@ -483,9 +528,12 @@ func (c *Client) handleListCommand(ctx context.Context, args []string) bool {
 	case "models":
 		return c.listModels(ctx)
 
+	case "databases":
+		return c.handleListDatabases(ctx)
+
 	default:
 		c.ui.PrintError(fmt.Sprintf("Unknown list target: %s", what))
-		c.ui.PrintSystemMessage("Available: models")
+		c.ui.PrintSystemMessage("Available: models, databases")
 	}
 
 	return true
@@ -583,4 +631,142 @@ func (c *Client) handlePromptCommand(ctx context.Context, args []string) bool {
 	}
 
 	return true
+}
+
+// DatabaseInfo represents a database connection in API responses
+type DatabaseInfo struct {
+	Name     string `json:"name"`
+	Host     string `json:"host"`
+	Port     int    `json:"port"`
+	Database string `json:"database"`
+	User     string `json:"user"`
+	SSLMode  string `json:"sslmode"`
+}
+
+// ListDatabasesResponse is the response from GET /api/databases
+type ListDatabasesResponse struct {
+	Databases []DatabaseInfo `json:"databases"`
+	Current   string         `json:"current"`
+}
+
+// SelectDatabaseRequest is the request body for POST /api/databases/select
+type SelectDatabaseRequest struct {
+	Name string `json:"name"`
+}
+
+// SelectDatabaseResponse is the response from POST /api/databases/select
+type SelectDatabaseResponse struct {
+	Success bool   `json:"success"`
+	Current string `json:"current,omitempty"`
+	Message string `json:"message,omitempty"`
+	Error   string `json:"error,omitempty"`
+}
+
+// getServerKey returns a unique identifier for the current server connection
+// Used for storing per-server preferences like selected database
+func (c *Client) getServerKey() string {
+	if c.config.MCP.Mode == "http" {
+		// For HTTP mode, hash the server URL
+		hash := sha256.Sum256([]byte(c.config.MCP.URL))
+		return hex.EncodeToString(hash[:8]) // First 8 bytes = 16 hex chars
+	}
+	// For STDIO mode, use "local" or hash of binary path
+	if c.config.MCP.ServerPath != "" {
+		hash := sha256.Sum256([]byte(c.config.MCP.ServerPath))
+		return "local-" + hex.EncodeToString(hash[:4])
+	}
+	return "local"
+}
+
+// handleListDatabases handles /list databases command - lists available databases
+func (c *Client) handleListDatabases(ctx context.Context) bool {
+	// Use the MCPClient interface method (works for both HTTP and STDIO modes)
+	databases, current, err := c.mcp.ListDatabases(ctx)
+	if err != nil {
+		c.ui.PrintError(fmt.Sprintf("Failed to list databases: %v", err))
+		return true
+	}
+
+	if len(databases) == 0 {
+		c.ui.PrintSystemMessage("No databases available")
+		return true
+	}
+
+	c.ui.PrintSystemMessage(fmt.Sprintf("Available databases (%d):", len(databases)))
+	for _, db := range databases {
+		currentMarker := ""
+		if db.Name == current {
+			currentMarker = " (current)"
+		}
+		fmt.Printf("  %s%s - %s@%s:%d/%s\n",
+			db.Name, currentMarker, db.User, db.Host, db.Port, db.Database)
+	}
+
+	return true
+}
+
+// handleShowDatabase handles /show database command - shows current database
+func (c *Client) handleShowDatabase(ctx context.Context) bool {
+	// Use the MCPClient interface method (works for both HTTP and STDIO modes)
+	_, current, err := c.mcp.ListDatabases(ctx)
+	if err != nil {
+		c.ui.PrintError(fmt.Sprintf("Failed to get current database: %v", err))
+		return true
+	}
+
+	if current == "" {
+		c.ui.PrintSystemMessage("No database currently selected")
+	} else {
+		c.ui.PrintSystemMessage(fmt.Sprintf("Current database: %s", current))
+	}
+
+	return true
+}
+
+// handleSetDatabase handles /set database <name> command - selects a database
+func (c *Client) handleSetDatabase(ctx context.Context, dbName string) bool {
+	// Use the MCPClient interface method (works for both HTTP and STDIO modes)
+	if err := c.mcp.SelectDatabase(ctx, dbName); err != nil {
+		c.ui.PrintError(fmt.Sprintf("Failed to select database: %v", err))
+		return true
+	}
+
+	// Save the preference for this server
+	serverKey := c.getServerKey()
+	c.preferences.SetDatabaseForServer(serverKey, dbName)
+	if err := SavePreferences(c.preferences); err != nil {
+		c.ui.PrintError(fmt.Sprintf("Warning: Failed to save preference: %v", err))
+	}
+
+	c.ui.PrintSystemMessage(fmt.Sprintf("Database switched to: %s", dbName))
+
+	// Refresh tools since they may be database-specific
+	if err := c.refreshCapabilities(ctx); err != nil {
+		c.ui.PrintError(fmt.Sprintf("Warning: Failed to refresh capabilities: %v", err))
+	}
+
+	return true
+}
+
+// refreshCapabilities refreshes tools, resources, and prompts from the server
+func (c *Client) refreshCapabilities(ctx context.Context) error {
+	tools, err := c.mcp.ListTools(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to list tools: %w", err)
+	}
+	c.tools = tools
+
+	resources, err := c.mcp.ListResources(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to list resources: %w", err)
+	}
+	c.resources = resources
+
+	prompts, err := c.mcp.ListPrompts(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to list prompts: %w", err)
+	}
+	c.prompts = prompts
+
+	return nil
 }

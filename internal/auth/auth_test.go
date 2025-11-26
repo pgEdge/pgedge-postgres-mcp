@@ -99,7 +99,7 @@ func TestAddToken(t *testing.T) {
 		note := "Test token"
 		expiry := time.Now().Add(24 * time.Hour)
 
-		store.AddToken(tokenID, hash, note, &expiry)
+		store.AddToken(tokenID, hash, note, &expiry, "")
 
 		if len(store.Tokens) != 1 {
 			t.Fatalf("Expected 1 token, got %d", len(store.Tokens))
@@ -129,7 +129,7 @@ func TestAddToken(t *testing.T) {
 		hash := "test-hash"
 		note := "Test token"
 
-		store.AddToken(tokenID, hash, note, nil)
+		store.AddToken(tokenID, hash, note, nil, "")
 
 		token, exists := store.Tokens[tokenID]
 		if !exists {
@@ -139,13 +139,31 @@ func TestAddToken(t *testing.T) {
 			t.Fatal("ExpiresAt should be nil for never-expiring token")
 		}
 	})
+
+	t.Run("adds token with database binding", func(t *testing.T) {
+		store := InitializeTokenStore()
+		tokenID := "token-db"
+		hash := "test-hash-db"
+		note := "Database-bound token"
+		database := "production"
+
+		store.AddToken(tokenID, hash, note, nil, database)
+
+		token, exists := store.Tokens[tokenID]
+		if !exists {
+			t.Fatal("Token not found in store")
+		}
+		if token.Database != database {
+			t.Errorf("Database mismatch: got %s, expected %s", token.Database, database)
+		}
+	})
 }
 
 func TestRemoveToken(t *testing.T) {
 	t.Run("removes token by ID", func(t *testing.T) {
 		store := InitializeTokenStore()
 		tokenID := "token-123"
-		store.AddToken(tokenID, "hash", "note", nil)
+		store.AddToken(tokenID, "hash", "note", nil, "")
 
 		removed, err := store.RemoveToken(tokenID)
 		if err != nil {
@@ -164,7 +182,7 @@ func TestRemoveToken(t *testing.T) {
 		store := InitializeTokenStore()
 		// Use a properly-sized hash (minimum 12 characters for display)
 		hash := "abcdef1234567890abcdef1234567890"
-		store.AddToken("token-123", hash, "note", nil)
+		store.AddToken("token-123", hash, "note", nil, "")
 
 		// Use at least 8 characters for prefix matching
 		removed, err := store.RemoveToken("abcdef12")
@@ -194,8 +212,8 @@ func TestRemoveToken(t *testing.T) {
 	t.Run("prefix too short returns false", func(t *testing.T) {
 		store := InitializeTokenStore()
 		// Use properly-sized hashes
-		store.AddToken("token-1", "abc1234567890123456789012345678901234567890123456789012345678901", "note1", nil)
-		store.AddToken("token-2", "abc4567890123456789012345678901234567890123456789012345678901234", "note2", nil)
+		store.AddToken("token-1", "abc1234567890123456789012345678901234567890123456789012345678901", "note1", nil, "")
+		store.AddToken("token-2", "abc4567890123456789012345678901234567890123456789012345678901234", "note2", nil, "")
 
 		// Prefix less than 8 characters should return false
 		removed, err := store.RemoveToken("abc")
@@ -214,7 +232,7 @@ func TestValidateToken(t *testing.T) {
 		token := "test-token"
 		hash := HashToken(token)
 		expiry := time.Now().Add(24 * time.Hour)
-		store.AddToken("token-123", hash, "note", &expiry)
+		store.AddToken("token-123", hash, "note", &expiry, "")
 
 		valid, err := store.ValidateToken(token)
 		if err != nil {
@@ -229,7 +247,7 @@ func TestValidateToken(t *testing.T) {
 		store := InitializeTokenStore()
 		token := "test-token"
 		hash := HashToken(token)
-		store.AddToken("token-123", hash, "note", nil)
+		store.AddToken("token-123", hash, "note", nil, "")
 
 		valid, err := store.ValidateToken(token)
 		if err != nil {
@@ -245,7 +263,7 @@ func TestValidateToken(t *testing.T) {
 		token := "test-token"
 		hash := HashToken(token)
 		expiry := time.Now().Add(-1 * time.Hour) // Expired 1 hour ago
-		store.AddToken("token-123", hash, "note", &expiry)
+		store.AddToken("token-123", hash, "note", &expiry, "")
 
 		valid, err := store.ValidateToken(token)
 		if err == nil {
@@ -258,7 +276,7 @@ func TestValidateToken(t *testing.T) {
 
 	t.Run("rejects invalid token", func(t *testing.T) {
 		store := InitializeTokenStore()
-		store.AddToken("token-123", HashToken("correct-token"), "note", nil)
+		store.AddToken("token-123", HashToken("correct-token"), "note", nil, "")
 
 		valid, err := store.ValidateToken("wrong-token")
 		if err != nil {
@@ -288,10 +306,10 @@ func TestCleanupExpiredTokens(t *testing.T) {
 		expiredTime := time.Now().Add(-1 * time.Hour)
 		validTime := time.Now().Add(1 * time.Hour)
 
-		store.AddToken("expired-1", "hash1", "note1", &expiredTime)
-		store.AddToken("expired-2", "hash2", "note2", &expiredTime)
-		store.AddToken("valid-1", "hash3", "note3", &validTime)
-		store.AddToken("valid-2", "hash4", "note4", nil) // Never expires
+		store.AddToken("expired-1", "hash1", "note1", &expiredTime, "")
+		store.AddToken("expired-2", "hash2", "note2", &expiredTime, "")
+		store.AddToken("valid-1", "hash3", "note3", &validTime, "")
+		store.AddToken("valid-2", "hash4", "note4", nil, "") // Never expires
 
 		removed, hashes := store.CleanupExpiredTokens()
 		if removed != 2 {
@@ -315,8 +333,8 @@ func TestCleanupExpiredTokens(t *testing.T) {
 	t.Run("does nothing when no expired tokens", func(t *testing.T) {
 		store := InitializeTokenStore()
 		validTime := time.Now().Add(1 * time.Hour)
-		store.AddToken("valid-1", "hash1", "note1", &validTime)
-		store.AddToken("valid-2", "hash2", "note2", nil)
+		store.AddToken("valid-1", "hash1", "note1", &validTime, "")
+		store.AddToken("valid-2", "hash2", "note2", nil, "")
 
 		removed, hashes := store.CleanupExpiredTokens()
 		if removed != 0 {
@@ -338,18 +356,25 @@ func TestListTokens(t *testing.T) {
 		// Use properly-sized hashes (SHA256 produces 64 chars)
 		hash1 := "abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890"
 		hash2 := "123456789012345678901234567890123456789012345678901234567890abcd"
-		store.AddToken("token-1", hash1, "First token", &expiry)
-		store.AddToken("token-2", hash2, "Second token", nil)
+		store.AddToken("token-1", hash1, "First token", &expiry, "production")
+		store.AddToken("token-2", hash2, "Second token", nil, "")
 
 		tokens := store.ListTokens()
 		if len(tokens) != 2 {
 			t.Fatalf("Expected 2 tokens, got %d", len(tokens))
 		}
 
-		// Verify hash prefix is correctly truncated
+		// Verify hash prefix is correctly truncated and database binding
 		for _, token := range tokens {
 			if len(token.HashPrefix) != 12 {
 				t.Errorf("Expected hash prefix length 12, got %d", len(token.HashPrefix))
+			}
+			// Verify database field is returned
+			if token.ID == "token-1" && token.Database != "production" {
+				t.Errorf("Expected database 'production' for token-1, got %s", token.Database)
+			}
+			if token.ID == "token-2" && token.Database != "" {
+				t.Errorf("Expected empty database for token-2, got %s", token.Database)
 			}
 		}
 	})
@@ -373,8 +398,8 @@ func TestSaveAndLoadTokenStore(t *testing.T) {
 		expiry := time.Now().Add(24 * time.Hour)
 		hash1 := "abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890"
 		hash2 := "123456789012345678901234567890123456789012345678901234567890abcd"
-		store.AddToken("token-123", hash1, "Test token", &expiry)
-		store.AddToken("token-456", hash2, "Never expires", nil)
+		store.AddToken("token-123", hash1, "Test token", &expiry, "production")
+		store.AddToken("token-456", hash2, "Never expires", nil, "")
 
 		err := SaveTokenStore(tokenFile, store)
 		if err != nil {
@@ -405,6 +430,9 @@ func TestSaveAndLoadTokenStore(t *testing.T) {
 		if token1.ExpiresAt == nil {
 			t.Fatal("ExpiresAt should not be nil")
 		}
+		if token1.Database != "production" {
+			t.Errorf("Database mismatch: got %s, expected 'production'", token1.Database)
+		}
 
 		token2, exists := loadedStore.Tokens["token-456"]
 		if !exists {
@@ -412,6 +440,9 @@ func TestSaveAndLoadTokenStore(t *testing.T) {
 		}
 		if token2.ExpiresAt != nil {
 			t.Fatal("ExpiresAt should be nil for never-expiring token")
+		}
+		if token2.Database != "" {
+			t.Errorf("Database should be empty, got %s", token2.Database)
 		}
 	})
 
@@ -421,7 +452,7 @@ func TestSaveAndLoadTokenStore(t *testing.T) {
 
 		store := InitializeTokenStore()
 		hash := "abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890"
-		store.AddToken("token-123", hash, "note", nil)
+		store.AddToken("token-123", hash, "note", nil, "")
 
 		err := SaveTokenStore(tokenFile, store)
 		if err != nil {
@@ -475,7 +506,7 @@ func TestTokenExpirationEdgeCases(t *testing.T) {
 		token := "test-token"
 		hash := HashToken(token)
 		expiry := time.Now().Add(1 * time.Second)
-		store.AddToken("token-123", hash, "note", &expiry)
+		store.AddToken("token-123", hash, "note", &expiry, "")
 
 		// Should be valid now
 		valid, err := store.ValidateToken(token)
@@ -501,7 +532,7 @@ func TestTokenExpirationEdgeCases(t *testing.T) {
 		token := "test-token"
 		hash := HashToken(token)
 		expiry := time.Now()
-		store.AddToken("token-123", hash, "note", &expiry)
+		store.AddToken("token-123", hash, "note", &expiry, "")
 
 		// Token expiring at current time should be treated as expired
 		valid, err := store.ValidateToken(token)

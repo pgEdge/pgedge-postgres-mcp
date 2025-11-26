@@ -17,9 +17,12 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"os/signal"
 	"strings"
+	"syscall"
 	"time"
 
+	"pgedge-postgres-mcp/internal/api"
 	"pgedge-postgres-mcp/internal/auth"
 	"pgedge-postgres-mcp/internal/compactor"
 	"pgedge-postgres-mcp/internal/config"
@@ -73,6 +76,7 @@ func main() {
 	listTokensCmd := flag.Bool("list-tokens", false, "List all API tokens")
 	tokenNote := flag.String("token-note", "", "Annotation for the new token (used with -add-token)")
 	tokenExpiry := flag.String("token-expiry", "", "Token expiry duration: '30d', '1y', '2w', '12h', 'never' (used with -add-token)")
+	tokenDatabase := flag.String("token-database", "", "Bind token to specific database name (used with -add-token, empty = first configured database)")
 
 	// User management commands
 	userFilePath := flag.String("user-file", "", "Path to user file")
@@ -112,7 +116,36 @@ func main() {
 				expiry = -1 // Never expires
 			}
 
-			if err := addTokenCommand(tokenFile, *tokenNote, expiry); err != nil {
+			// Load config to get database names for selection
+			var availableDatabases []string
+			configPath := *configFile
+
+			// Require config file to exist for database binding
+			if !config.ConfigFileExists(configPath) {
+				fmt.Fprintf(os.Stderr, "ERROR: Configuration file not found: %s\n", configPath)
+				fmt.Fprintf(os.Stderr, "To bind tokens to specific databases, specify your configuration file:\n")
+				fmt.Fprintf(os.Stderr, "  %s -config <path-to-config.yaml> -add-token\n", os.Args[0])
+				os.Exit(1)
+			}
+
+			// Load config to get database names
+			cfg, loadErr := config.LoadConfig(configPath, config.CLIFlags{})
+			if loadErr != nil {
+				fmt.Fprintf(os.Stderr, "ERROR: Failed to load configuration: %v\n", loadErr)
+				os.Exit(1)
+			}
+
+			if len(cfg.Databases) == 0 {
+				fmt.Fprintf(os.Stderr, "ERROR: No databases configured in %s\n", configPath)
+				fmt.Fprintf(os.Stderr, "Add at least one database configuration before creating tokens.\n")
+				os.Exit(1)
+			}
+
+			for i := range cfg.Databases {
+				availableDatabases = append(availableDatabases, cfg.Databases[i].Name)
+			}
+
+			if err := addTokenCommand(tokenFile, *tokenNote, *tokenDatabase, expiry, availableDatabases); err != nil {
 				fmt.Fprintf(os.Stderr, "ERROR: %v\n", err)
 				os.Exit(1)
 			}
@@ -375,8 +408,14 @@ func main() {
 		defer rateLimiter.Stop()
 	}
 
-	// Initialize client manager for database connections with database configuration
-	clientManager := database.NewClientManager(&cfg.Database)
+	// Get the first database configuration (if any)
+	var firstDB *config.NamedDatabaseConfig
+	if len(cfg.Databases) > 0 {
+		firstDB = &cfg.Databases[0]
+	}
+
+	// Initialize client manager for database connections with all database configurations
+	clientManager := database.NewClientManager(cfg.Databases)
 
 	// Determine authentication mode
 	authEnabled := cfg.HTTP.Enabled && cfg.HTTP.Auth.Enabled
@@ -384,10 +423,10 @@ func main() {
 	// Create fallback database client for stdio and HTTP-no-auth modes
 	// This will be used as the "default" connection if database is configured
 	var fallbackClient *database.Client
-	if !authEnabled && cfg.Database.User != "" {
+	if !authEnabled && firstDB != nil && firstDB.User != "" {
 		// Create connection to database using config
-		connStr := cfg.Database.BuildConnectionString()
-		fallbackClient = database.NewClientWithConnectionString(connStr, &cfg.Database)
+		connStr := firstDB.BuildConnectionString()
+		fallbackClient = database.NewClientWithConnectionString(connStr, firstDB)
 
 		// Connect to database
 		if err := fallbackClient.Connect(); err != nil {
@@ -410,25 +449,32 @@ func main() {
 		}
 
 		fmt.Fprintf(os.Stderr, "Connected to database: %s@%s:%d/%s\n",
-			cfg.Database.User, cfg.Database.Host, cfg.Database.Port, cfg.Database.Database)
-	} else if authEnabled && cfg.Database.User != "" {
+			firstDB.User, firstDB.Host, firstDB.Port, firstDB.Database)
+	} else if authEnabled && firstDB != nil && firstDB.User != "" {
 		// Auth mode - connections will be created per-session on-demand
 		// Create a template client that won't be connected
-		connStr := cfg.Database.BuildConnectionString()
-		fallbackClient = database.NewClientWithConnectionString(connStr, &cfg.Database)
+		connStr := firstDB.BuildConnectionString()
+		fallbackClient = database.NewClientWithConnectionString(connStr, firstDB)
 		fmt.Fprintf(os.Stderr, "Database configured: %s@%s:%d/%s (per-session connections)\n",
-			cfg.Database.User, cfg.Database.Host, cfg.Database.Port, cfg.Database.Database)
+			firstDB.User, firstDB.Host, firstDB.Port, firstDB.Database)
 	} else {
 		// No database configured
-		fallbackClient = database.NewClient(&cfg.Database)
+		fallbackClient = database.NewClient(nil)
 		fmt.Fprintf(os.Stderr, "Database: Not configured\n")
 	}
 
+	// Create access checker for database access control (used by providers and database provider)
+	// In STDIO mode, pass nil since there's no access control
+	var accessChecker *auth.DatabaseAccessChecker
+	if cfg.HTTP.Enabled && authEnabled {
+		accessChecker = auth.NewDatabaseAccessChecker(tokenStore, authEnabled, false)
+	}
+
 	// Context-aware resource provider
-	contextAwareResourceProvider := resources.NewContextAwareRegistry(clientManager, authEnabled)
+	contextAwareResourceProvider := resources.NewContextAwareRegistry(clientManager, authEnabled, accessChecker)
 
 	// Context-aware tool provider
-	contextAwareToolProvider := tools.NewContextAwareProvider(clientManager, contextAwareResourceProvider, authEnabled, fallbackClient, cfg, userStore, userFilePathForTools, rateLimiter, cfg.HTTP.Auth.MaxFailedAttemptsBeforeLockout)
+	contextAwareToolProvider := tools.NewContextAwareProvider(clientManager, contextAwareResourceProvider, authEnabled, fallbackClient, cfg, userStore, userFilePathForTools, rateLimiter, cfg.HTTP.Auth.MaxFailedAttemptsBeforeLockout, accessChecker)
 	if err := contextAwareToolProvider.RegisterTools(ctx); err != nil {
 		fmt.Fprintf(os.Stderr, "ERROR: Failed to register tools: %v\n", err)
 		os.Exit(1)
@@ -437,6 +483,17 @@ func main() {
 	// Create MCP server with context-aware providers
 	server := mcp.NewServer(contextAwareToolProvider)
 	server.SetResourceProvider(contextAwareResourceProvider)
+
+	// Set up database provider based on mode
+	// For STDIO mode, use a fixed session key
+	// For HTTP mode, use the auth token as session key with access control
+	if cfg.HTTP.Enabled {
+		databaseProvider := database.NewHTTPDatabaseProvider(clientManager, authEnabled, accessChecker)
+		server.SetDatabaseProvider(databaseProvider)
+	} else {
+		databaseProvider := database.NewStdioDatabaseProvider(clientManager)
+		server.SetDatabaseProvider(databaseProvider)
+	}
 
 	// Register prompts
 	promptRegistry := prompts.NewRegistry()
@@ -680,6 +737,12 @@ func main() {
 					}))
 			}
 
+			// Database listing and selection endpoints
+			accessChecker := auth.NewDatabaseAccessChecker(tokenStore, authEnabled, false)
+			dbHandler := api.NewDatabaseHandler(clientManager, accessChecker, false, authEnabled)
+			mux.HandleFunc("/api/databases", authWrapper(dbHandler.HandleListDatabases))
+			mux.HandleFunc("/api/databases/select", authWrapper(dbHandler.HandleSelectDatabase))
+
 			return nil
 		}
 
@@ -722,6 +785,34 @@ func main() {
 		if *debug {
 			fmt.Fprintf(os.Stderr, "Debug logging: ENABLED\n")
 		}
+
+		// Set up SIGHUP handler for configuration reload (HTTP mode only)
+		cliFlags := config.CLIFlags{
+			DBHost:     *dbHost,
+			DBPort:     *dbPort,
+			DBName:     *dbName,
+			DBUser:     *dbUser,
+			DBPassword: *dbPassword,
+			DBSSLMode:  *dbSSLMode,
+		}
+		reloadableCfg := config.NewReloadableConfig(cfg, configPath, cliFlags)
+
+		// Register callback to update client manager when databases change
+		reloadableCfg.OnReload(func(newCfg *config.Config) {
+			clientManager.UpdateDatabaseConfigs(newCfg.Databases)
+		})
+
+		// Start SIGHUP listener
+		sighup := make(chan os.Signal, 1)
+		signal.Notify(sighup, syscall.SIGHUP)
+		go func() {
+			for range sighup {
+				fmt.Fprintf(os.Stderr, "Received SIGHUP, reloading configuration...\n")
+				if err := reloadableCfg.Reload(); err != nil {
+					fmt.Fprintf(os.Stderr, "ERROR: Failed to reload config: %v\n", err)
+				}
+			}
+		}()
 
 		err = server.RunHTTP(httpConfig)
 	} else {

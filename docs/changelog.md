@@ -11,6 +11,21 @@ and this project adheres to
 
 ### Added
 
+#### Multiple Database Support
+
+- Configure multiple PostgreSQL database connections with unique names
+- Per-user access control via `available_to_users` configuration field
+- Automatic default database selection based on user accessibility
+- Runtime database switching in both CLI and Web clients
+- Database selection persistence across sessions via user preferences
+- CLI commands: `/list databases`, `/show database`, `/set database <name>`
+- Web UI database selector in status banner with connection details
+- Database switching disabled during LLM query processing to prevent
+  data consistency issues
+- Improved error messages when no databases are accessible to a user
+- API token database binding via `-token-database` flag or interactive
+  prompt during token creation
+
 #### Knowledgebase System
 
 - Complete knowledgebase system with SQLite backend for offline

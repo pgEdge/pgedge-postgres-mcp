@@ -163,10 +163,13 @@ secret_file: ""
 # ============================================================================
 # DATABASE CONFIGURATION
 # ============================================================================
-# Configure the PostgreSQL database connection.
-# All settings can be overridden via environment variables or command line flags.
+# Configure PostgreSQL database connections.
+# Multiple databases can be configured; each must have a unique name.
 #
-# Environment variables:
+# For single database setups, environment variables and CLI flags apply to the
+# first database in the list.
+#
+# Environment variables (apply to first database):
 #   PGEDGE_DB_HOST or PGHOST
 #   PGEDGE_DB_PORT or PGPORT
 #   PGEDGE_DB_DATABASE or PGDATABASE
@@ -174,39 +177,65 @@ secret_file: ""
 #   PGEDGE_DB_PASSWORD or PGPASSWORD (or use .pgpass file)
 #   PGEDGE_DB_SSLMODE or PGSSLMODE
 #
-# Command line flags:
+# Command line flags (apply to first database):
 #   -host, -port, -database, -user, -password, -sslmode
-database:
-    # Database host
-    # Default: localhost
-    host: "localhost"
+#
+# Access Control:
+#   - available_to_users: List of usernames that can access this database
+#   - Empty list = available to all session users
+#   - API tokens are bound to a specific database via the token's database field
+#   - In STDIO mode or --no-auth mode, all databases are available (no restrictions)
+databases:
+    # Primary database connection
+    - name: "production"
+      # Database host
+      # Default: localhost
+      host: "localhost"
 
-    # Database port
-    # Default: 5432
-    port: 5432
+      # Database port
+      # Default: 5432
+      port: 5432
 
-    # Database name
-    # Default: postgres
-    database: "postgres"
+      # Database name
+      # Default: postgres
+      database: "postgres"
 
-    # Database user
-    # Default: postgres
-    user: "postgres"
+      # Database user
+      # Default: postgres
+      user: "postgres"
 
-    # Database password
-    # Leave empty to use .pgpass file
-    # Default: ""
-    password: ""
+      # Database password
+      # Leave empty to use .pgpass file
+      # Default: ""
+      password: ""
 
-    # SSL mode: disable, allow, prefer, require, verify-ca, verify-full
-    # Default: prefer
-    sslmode: "prefer"
+      # SSL mode: disable, allow, prefer, require, verify-ca, verify-full
+      # Default: prefer
+      sslmode: "prefer"
 
-    # Connection pool settings
-    # Default: 10 max connections, 2 min connections, 5m idle time
-    pool_max_conns: 10
-    pool_min_conns: 2
-    pool_max_conn_idle_time: "5m"
+      # Connection pool settings
+      # Default: 10 max connections, 2 min connections, 5m idle time
+      pool_max_conns: 10
+      pool_min_conns: 2
+      pool_max_conn_idle_time: "5m"
+
+      # Users who can access this database (empty = all users)
+      available_to_users: []
+
+    # Example: Additional database with restricted access
+    # - name: "development"
+    #   host: "localhost"
+    #   port: 5433
+    #   database: "devdb"
+    #   user: "developer"
+    #   password: ""
+    #   sslmode: "prefer"
+    #   pool_max_conns: 5
+    #   pool_min_conns: 1
+    #   pool_max_conn_idle_time: "5m"
+    #   available_to_users:
+    #     - "alice"
+    #     - "bob"
 
 # ============================================================================
 # EMBEDDING GENERATION CONFIGURATION

@@ -18,94 +18,304 @@ import (
 	"pgedge-postgres-mcp/internal/config"
 )
 
-// ClientManager manages per-token database clients for connection isolation
-// Each authenticated token gets its own database client to prevent connection sharing
+// ClientManager manages per-token, per-database clients for connection isolation
+// Each authenticated token can have connections to multiple databases
 type ClientManager struct {
-	mu       sync.RWMutex
-	clients  map[string]*Client     // map of token hash -> client
-	dbConfig *config.DatabaseConfig // database configuration for new clients
+	mu            sync.RWMutex
+	clients       map[string]map[string]*Client          // tokenHash -> dbName -> client
+	dbConfigs     map[string]*config.NamedDatabaseConfig // dbName -> config
+	currentDB     map[string]string                      // tokenHash -> current dbName
+	defaultDBName string                                 // name of default database (first configured)
 }
 
-// NewClientManager creates a new client manager with optional database configuration
-func NewClientManager(dbConfig *config.DatabaseConfig) *ClientManager {
+// NewClientManager creates a new client manager with database configurations
+func NewClientManager(databases []config.NamedDatabaseConfig) *ClientManager {
+	cm := &ClientManager{
+		clients:   make(map[string]map[string]*Client),
+		dbConfigs: make(map[string]*config.NamedDatabaseConfig),
+		currentDB: make(map[string]string),
+	}
+
+	// Store database configs
+	for i := range databases {
+		db := &databases[i]
+		cm.dbConfigs[db.Name] = db
+		if cm.defaultDBName == "" {
+			cm.defaultDBName = db.Name
+		}
+	}
+
+	return cm
+}
+
+// NewClientManagerWithConfig creates a client manager with a single database config
+// This provides backward compatibility with code expecting single database setup
+func NewClientManagerWithConfig(dbConfig *config.NamedDatabaseConfig) *ClientManager {
+	if dbConfig == nil {
+		return &ClientManager{
+			clients:   make(map[string]map[string]*Client),
+			dbConfigs: make(map[string]*config.NamedDatabaseConfig),
+			currentDB: make(map[string]string),
+		}
+	}
+
+	name := dbConfig.Name
+	if name == "" {
+		name = "default"
+	}
+
 	return &ClientManager{
-		clients:  make(map[string]*Client),
-		dbConfig: dbConfig,
+		clients:       make(map[string]map[string]*Client),
+		dbConfigs:     map[string]*config.NamedDatabaseConfig{name: dbConfig},
+		currentDB:     make(map[string]string),
+		defaultDBName: name,
 	}
 }
 
-// GetClient returns a database client for the given token hash
-// Creates a new client if one doesn't exist for this token
+// GetClient returns a database client for the given token hash using the current database
+// Creates a new client if one doesn't exist for this token/database combination
 func (cm *ClientManager) GetClient(tokenHash string) (*Client, error) {
 	if tokenHash == "" {
 		return nil, fmt.Errorf("token hash is required for authenticated requests")
 	}
 
+	// Get current database for this token (or default)
+	dbName := cm.GetCurrentDatabase(tokenHash)
+	return cm.GetClientForDatabase(tokenHash, dbName)
+}
+
+// GetClientForDatabase returns a database client for a specific database
+// Creates a new client if one doesn't exist for this token/database combination
+func (cm *ClientManager) GetClientForDatabase(tokenHash, dbName string) (*Client, error) {
+	if tokenHash == "" {
+		return nil, fmt.Errorf("token hash is required for authenticated requests")
+	}
+	if dbName == "" {
+		dbName = cm.defaultDBName
+	}
+
 	// Try to get existing client (read lock)
 	cm.mu.RLock()
-	if client, exists := cm.clients[tokenHash]; exists {
-		cm.mu.RUnlock()
-		return client, nil
+	if tokenClients, exists := cm.clients[tokenHash]; exists {
+		if client, exists := tokenClients[dbName]; exists {
+			cm.mu.RUnlock()
+			return client, nil
+		}
 	}
+	dbConfig := cm.dbConfigs[dbName]
 	cm.mu.RUnlock()
+
+	if dbConfig == nil {
+		return nil, fmt.Errorf("database '%s' not configured", dbName)
+	}
 
 	// Create new client (write lock)
 	cm.mu.Lock()
 	defer cm.mu.Unlock()
 
 	// Double-check after acquiring write lock
-	if client, exists := cm.clients[tokenHash]; exists {
-		return client, nil
+	if tokenClients, exists := cm.clients[tokenHash]; exists {
+		if client, exists := tokenClients[dbName]; exists {
+			return client, nil
+		}
 	}
 
 	// Create and initialize new client with database configuration
-	client := NewClient(cm.dbConfig)
+	client := NewClient(dbConfig)
 	if err := client.Connect(); err != nil {
-		return nil, fmt.Errorf("failed to connect database for token: %w", err)
+		return nil, fmt.Errorf("failed to connect to database '%s': %w", dbName, err)
 	}
 
 	if err := client.LoadMetadata(); err != nil {
 		client.Close()
-		return nil, fmt.Errorf("failed to load metadata for token: %w", err)
+		return nil, fmt.Errorf("failed to load metadata for database '%s': %w", dbName, err)
 	}
 
-	cm.clients[tokenHash] = client
-
-	// Log with truncated hash for security (only if hash is long enough)
-	hashPreview := tokenHash
-	if len(tokenHash) > 12 {
-		hashPreview = tokenHash[:12]
+	// Ensure token's client map exists
+	if cm.clients[tokenHash] == nil {
+		cm.clients[tokenHash] = make(map[string]*Client)
 	}
-	fmt.Fprintf(os.Stderr, "Created new database connection for token hash: %s... (total: %d)\n",
-		hashPreview, len(cm.clients))
+	cm.clients[tokenHash][dbName] = client
 
 	return client, nil
 }
 
-// RemoveClient removes and closes the database client for the given token hash
+// countClients returns total number of client connections (internal use)
+func (cm *ClientManager) countClients() int {
+	count := 0
+	for _, tokenClients := range cm.clients {
+		count += len(tokenClients)
+	}
+	return count
+}
+
+// SetCurrentDatabase sets the current database for a token
+func (cm *ClientManager) SetCurrentDatabase(tokenHash, dbName string) error {
+	if tokenHash == "" {
+		return fmt.Errorf("token hash is required")
+	}
+
+	cm.mu.Lock()
+	defer cm.mu.Unlock()
+
+	// Verify database exists
+	if _, exists := cm.dbConfigs[dbName]; !exists {
+		return fmt.Errorf("database '%s' not configured", dbName)
+	}
+
+	cm.currentDB[tokenHash] = dbName
+	return nil
+}
+
+// SetCurrentDatabaseAndCloseOthers sets the current database and closes connections
+// to other databases for this session. This is useful in STDIO mode where only
+// one database connection is typically needed at a time.
+func (cm *ClientManager) SetCurrentDatabaseAndCloseOthers(tokenHash, dbName string) error {
+	if tokenHash == "" {
+		return fmt.Errorf("token hash is required")
+	}
+
+	cm.mu.Lock()
+	defer cm.mu.Unlock()
+
+	// Verify database exists
+	if _, exists := cm.dbConfigs[dbName]; !exists {
+		return fmt.Errorf("database '%s' not configured", dbName)
+	}
+
+	// Close connections to other databases for this session
+	if tokenClients, exists := cm.clients[tokenHash]; exists {
+		for otherDB, client := range tokenClients {
+			if otherDB != dbName {
+				client.Close()
+				delete(tokenClients, otherDB)
+			}
+		}
+	}
+
+	cm.currentDB[tokenHash] = dbName
+	return nil
+}
+
+// GetCurrentDatabase returns the current database name for a token
+// Returns the default database if no specific database is set
+func (cm *ClientManager) GetCurrentDatabase(tokenHash string) string {
+	cm.mu.RLock()
+	defer cm.mu.RUnlock()
+
+	if dbName, exists := cm.currentDB[tokenHash]; exists {
+		return dbName
+	}
+	return cm.defaultDBName
+}
+
+// GetDefaultDatabaseName returns the name of the default database
+func (cm *ClientManager) GetDefaultDatabaseName() string {
+	cm.mu.RLock()
+	defer cm.mu.RUnlock()
+	return cm.defaultDBName
+}
+
+// GetDatabaseConfig returns the configuration for a specific database
+func (cm *ClientManager) GetDatabaseConfig(name string) *config.NamedDatabaseConfig {
+	cm.mu.RLock()
+	defer cm.mu.RUnlock()
+	return cm.dbConfigs[name]
+}
+
+// ListDatabaseNames returns the names of all configured databases
+func (cm *ClientManager) ListDatabaseNames() []string {
+	cm.mu.RLock()
+	defer cm.mu.RUnlock()
+
+	names := make([]string, 0, len(cm.dbConfigs))
+	for name := range cm.dbConfigs {
+		names = append(names, name)
+	}
+	return names
+}
+
+// GetDatabaseConfigs returns all database configurations
+func (cm *ClientManager) GetDatabaseConfigs() []config.NamedDatabaseConfig {
+	cm.mu.RLock()
+	defer cm.mu.RUnlock()
+
+	configs := make([]config.NamedDatabaseConfig, 0, len(cm.dbConfigs))
+	for _, cfg := range cm.dbConfigs {
+		configs = append(configs, *cfg)
+	}
+	return configs
+}
+
+// UpdateDatabaseConfigs updates the database configurations
+// Used for SIGHUP config reload
+// Note: Existing connections are NOT closed - they will be reused if config matches
+func (cm *ClientManager) UpdateDatabaseConfigs(databases []config.NamedDatabaseConfig) {
+	cm.mu.Lock()
+	defer cm.mu.Unlock()
+
+	// Build new config map
+	newConfigs := make(map[string]*config.NamedDatabaseConfig)
+	newDefaultName := ""
+	for i := range databases {
+		db := &databases[i]
+		newConfigs[db.Name] = db
+		if newDefaultName == "" {
+			newDefaultName = db.Name
+		}
+	}
+
+	// Find databases that were removed
+	for name := range cm.dbConfigs {
+		if _, exists := newConfigs[name]; !exists {
+			// Database removed - close all connections to it
+			for tokenHash, tokenClients := range cm.clients {
+				if client, exists := tokenClients[name]; exists {
+					client.Close()
+					delete(tokenClients, name)
+					fmt.Fprintf(os.Stderr, "Closed connection to removed database '%s' for token\n", name)
+				}
+				// Update currentDB if it was pointing to removed database
+				if cm.currentDB[tokenHash] == name {
+					cm.currentDB[tokenHash] = newDefaultName
+				}
+			}
+		}
+	}
+
+	cm.dbConfigs = newConfigs
+	cm.defaultDBName = newDefaultName
+
+	fmt.Fprintf(os.Stderr, "Updated database configurations: %d database(s)\n", len(databases))
+}
+
+// RemoveClient removes and closes all database clients for a given token hash
 // This should be called when a token is removed or expires
 func (cm *ClientManager) RemoveClient(tokenHash string) error {
 	cm.mu.Lock()
 	defer cm.mu.Unlock()
 
-	client, exists := cm.clients[tokenHash]
+	tokenClients, exists := cm.clients[tokenHash]
 	if !exists {
 		return nil // Already removed
 	}
 
-	// Close the client connection
-	client.Close()
+	// Close all connections for this token
+	for dbName, client := range tokenClients {
+		client.Close()
+		fmt.Fprintf(os.Stderr, "Closed connection to '%s' for removed token\n", dbName)
+	}
 
-	// Remove from map
+	// Remove from maps
 	delete(cm.clients, tokenHash)
+	delete(cm.currentDB, tokenHash)
 
-	// Log with truncated hash for security (only if hash is long enough)
+	// Log with truncated hash for security
 	hashPreview := tokenHash
 	if len(tokenHash) > 12 {
 		hashPreview = tokenHash[:12]
 	}
-	fmt.Fprintf(os.Stderr, "Removed database connection for token hash: %s... (remaining: %d)\n",
-		hashPreview, len(cm.clients))
+	fmt.Fprintf(os.Stderr, "Removed all database connections for token hash: %s...\n", hashPreview)
 
 	return nil
 }
@@ -116,19 +326,21 @@ func (cm *ClientManager) RemoveClients(tokenHashes []string) error {
 	cm.mu.Lock()
 	defer cm.mu.Unlock()
 
+	removedCount := 0
 	for _, tokenHash := range tokenHashes {
-		if client, exists := cm.clients[tokenHash]; exists {
-			// Close the client connection
-			client.Close()
-
-			// Remove from map
+		if tokenClients, exists := cm.clients[tokenHash]; exists {
+			// Close all connections for this token
+			for _, client := range tokenClients {
+				client.Close()
+			}
 			delete(cm.clients, tokenHash)
+			delete(cm.currentDB, tokenHash)
+			removedCount++
 		}
 	}
 
-	if len(tokenHashes) > 0 {
-		fmt.Fprintf(os.Stderr, "Removed %d database connection(s) (remaining: %d)\n",
-			len(tokenHashes), len(cm.clients))
+	if removedCount > 0 {
+		fmt.Fprintf(os.Stderr, "Removed connections for %d token(s)\n", removedCount)
 	}
 
 	return nil
@@ -140,25 +352,29 @@ func (cm *ClientManager) CloseAll() error {
 	cm.mu.Lock()
 	defer cm.mu.Unlock()
 
-	for _, client := range cm.clients {
-		client.Close()
+	for _, tokenClients := range cm.clients {
+		for _, client := range tokenClients {
+			client.Close()
+		}
 	}
 
-	cm.clients = make(map[string]*Client)
+	cm.clients = make(map[string]map[string]*Client)
+	cm.currentDB = make(map[string]string)
 
 	return nil
 }
 
-// GetClientCount returns the number of active database clients
+// GetClientCount returns the number of active database client connections
 // Useful for monitoring and testing
 func (cm *ClientManager) GetClientCount() int {
 	cm.mu.RLock()
 	defer cm.mu.RUnlock()
-	return len(cm.clients)
+	return cm.countClients()
 }
 
 // SetClient sets a database client for the given key (token hash or "default")
 // This allows runtime configuration of database connections
+// The client is associated with the default database
 func (cm *ClientManager) SetClient(key string, client *Client) error {
 	if key == "" {
 		return fmt.Errorf("key is required")
@@ -170,34 +386,52 @@ func (cm *ClientManager) SetClient(key string, client *Client) error {
 	cm.mu.Lock()
 	defer cm.mu.Unlock()
 
-	// Close existing client if it exists
-	if existingClient, exists := cm.clients[key]; exists {
-		existingClient.Close()
+	dbName := cm.defaultDBName
+	if dbName == "" {
+		dbName = "default"
 	}
 
-	cm.clients[key] = client
+	// Close existing client if it exists
+	if tokenClients, exists := cm.clients[key]; exists {
+		if existingClient, exists := tokenClients[dbName]; exists {
+			existingClient.Close()
+		}
+	} else {
+		cm.clients[key] = make(map[string]*Client)
+	}
+
+	cm.clients[key][dbName] = client
 
 	return nil
 }
 
 // GetOrCreateClient returns a database client for the given key
-// If no client exists and autoConnect is true, creates and connects a new client using PGEDGE_POSTGRES_CONNECTION_STRING
+// If no client exists and autoConnect is true, creates and connects a new client
 // If no client exists and autoConnect is false, returns an error
 func (cm *ClientManager) GetOrCreateClient(key string, autoConnect bool) (*Client, error) {
 	if key == "" {
 		return nil, fmt.Errorf("key is required")
 	}
 
+	dbName := cm.GetCurrentDatabase(key)
+
 	// Try to get existing client (read lock)
 	cm.mu.RLock()
-	if client, exists := cm.clients[key]; exists {
-		cm.mu.RUnlock()
-		return client, nil
+	if tokenClients, exists := cm.clients[key]; exists {
+		if client, exists := tokenClients[dbName]; exists {
+			cm.mu.RUnlock()
+			return client, nil
+		}
 	}
+	dbConfig := cm.dbConfigs[dbName]
 	cm.mu.RUnlock()
 
 	if !autoConnect {
 		return nil, fmt.Errorf("no database connection configured - please call set_database_connection first")
+	}
+
+	if dbConfig == nil {
+		return nil, fmt.Errorf("database '%s' not configured", dbName)
 	}
 
 	// Create new client (write lock)
@@ -205,24 +439,27 @@ func (cm *ClientManager) GetOrCreateClient(key string, autoConnect bool) (*Clien
 	defer cm.mu.Unlock()
 
 	// Double-check after acquiring write lock
-	if client, exists := cm.clients[key]; exists {
-		return client, nil
+	if tokenClients, exists := cm.clients[key]; exists {
+		if client, exists := tokenClients[dbName]; exists {
+			return client, nil
+		}
 	}
 
 	// Create and initialize new client with database configuration
-	client := NewClient(cm.dbConfig)
+	client := NewClient(dbConfig)
 	if err := client.Connect(); err != nil {
-		return nil, fmt.Errorf("failed to connect database: %w", err)
+		return nil, fmt.Errorf("failed to connect to database '%s': %w", dbName, err)
 	}
 
 	if err := client.LoadMetadata(); err != nil {
 		client.Close()
-		return nil, fmt.Errorf("failed to load metadata: %w", err)
+		return nil, fmt.Errorf("failed to load metadata for database '%s': %w", dbName, err)
 	}
 
-	cm.clients[key] = client
-
-	fmt.Fprintf(os.Stderr, "Created new database connection for key: %s (total: %d)\n", key, len(cm.clients))
+	if cm.clients[key] == nil {
+		cm.clients[key] = make(map[string]*Client)
+	}
+	cm.clients[key][dbName] = client
 
 	return client, nil
 }

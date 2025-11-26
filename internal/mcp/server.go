@@ -42,11 +42,30 @@ type PromptProvider interface {
 	Execute(name string, args map[string]string) (PromptResult, error)
 }
 
+// DatabaseInfo represents a database connection for listing
+type DatabaseInfo struct {
+	Name     string `json:"name"`
+	Host     string `json:"host"`
+	Port     int    `json:"port"`
+	Database string `json:"database"`
+	User     string `json:"user"`
+	SSLMode  string `json:"sslmode"`
+}
+
+// DatabaseProvider is an interface for managing database connections
+type DatabaseProvider interface {
+	// ListDatabases returns available databases and the current database name
+	ListDatabases(ctx context.Context) ([]DatabaseInfo, string, error)
+	// SelectDatabase sets the current database for the session
+	SelectDatabase(ctx context.Context, name string) error
+}
+
 // Server handles MCP protocol communication
 type Server struct {
 	tools     ToolProvider
 	resources ResourceProvider
 	prompts   PromptProvider
+	databases DatabaseProvider
 	debug     bool // Enable debug logging for HTTP mode
 }
 
@@ -65,6 +84,11 @@ func (s *Server) SetResourceProvider(resources ResourceProvider) {
 // SetPromptProvider sets the prompt provider for the server
 func (s *Server) SetPromptProvider(prompts PromptProvider) {
 	s.prompts = prompts
+}
+
+// SetDatabaseProvider sets the database provider for the server
+func (s *Server) SetDatabaseProvider(databases DatabaseProvider) {
+	s.databases = databases
 }
 
 // Run starts the stdio server loop
@@ -112,6 +136,10 @@ func (s *Server) handleRequest(req JSONRPCRequest) {
 		s.handlePromptsList(req)
 	case "prompts/get":
 		s.handlePromptsGet(req)
+	case "pgedge/listDatabases":
+		s.handleListDatabases(req)
+	case "pgedge/selectDatabase":
+		s.handleSelectDatabase(req)
 	default:
 		if req.ID != nil {
 			sendError(req.ID, -32601, "Method not found", nil)
@@ -273,6 +301,87 @@ func (s *Server) handlePromptsGet(req JSONRPCRequest) {
 	if err != nil {
 		sendError(req.ID, -32603, "Prompt execution error", err.Error())
 		return
+	}
+
+	sendResponse(req.ID, result)
+}
+
+// ListDatabasesResponse is the response for pgedge/listDatabases
+type ListDatabasesResponse struct {
+	Databases []DatabaseInfo `json:"databases"`
+	Current   string         `json:"current"`
+}
+
+// SelectDatabaseParams are the parameters for pgedge/selectDatabase
+type SelectDatabaseParams struct {
+	Name string `json:"name"`
+}
+
+// SelectDatabaseResponse is the response for pgedge/selectDatabase
+type SelectDatabaseResponse struct {
+	Success bool   `json:"success"`
+	Current string `json:"current,omitempty"`
+	Message string `json:"message,omitempty"`
+	Error   string `json:"error,omitempty"`
+}
+
+func (s *Server) handleListDatabases(req JSONRPCRequest) {
+	if s.databases == nil {
+		sendError(req.ID, -32601, "Database management not supported", nil)
+		return
+	}
+
+	// Use background context for stdio mode (no HTTP request context available)
+	databases, current, err := s.databases.ListDatabases(context.Background())
+	if err != nil {
+		sendError(req.ID, -32603, "Failed to list databases", err.Error())
+		return
+	}
+
+	result := ListDatabasesResponse{
+		Databases: databases,
+		Current:   current,
+	}
+
+	sendResponse(req.ID, result)
+}
+
+func (s *Server) handleSelectDatabase(req JSONRPCRequest) {
+	if s.databases == nil {
+		sendError(req.ID, -32601, "Database management not supported", nil)
+		return
+	}
+
+	paramsBytes, err := json.Marshal(req.Params)
+	if err != nil {
+		sendError(req.ID, -32602, "Invalid params", err.Error())
+		return
+	}
+	var params SelectDatabaseParams
+	if err := json.Unmarshal(paramsBytes, &params); err != nil {
+		sendError(req.ID, -32602, "Invalid params", err.Error())
+		return
+	}
+
+	if params.Name == "" {
+		sendError(req.ID, -32602, "Invalid params", "database name is required")
+		return
+	}
+
+	// Use background context for stdio mode (no HTTP request context available)
+	if err := s.databases.SelectDatabase(context.Background(), params.Name); err != nil {
+		result := SelectDatabaseResponse{
+			Success: false,
+			Error:   err.Error(),
+		}
+		sendResponse(req.ID, result)
+		return
+	}
+
+	result := SelectDatabaseResponse{
+		Success: true,
+		Current: params.Name,
+		Message: fmt.Sprintf("Switched to database: %s", params.Name),
 	}
 
 	sendResponse(req.ID, result)

@@ -497,7 +497,8 @@ System: LLM model set to: gpt-4-turbo (provider: openai)
 /list models
 ```
 
-Query the current LLM provider for available models. For Anthropic, shows a curated list. For OpenAI and Ollama, queries the provider's API.
+Query the current LLM provider for available models. For Anthropic, shows a
+curated list. For OpenAI and Ollama, queries the provider's API.
 
 **Example:**
 
@@ -513,6 +514,57 @@ System: Available models from anthropic (7):
     claude-3-haiku-20240307
 ```
 
+#### Database Management
+
+When connected to a server with multiple databases configured, you can list,
+view, and switch between accessible databases.
+
+```
+/list databases
+/show database
+/set database <name>
+```
+
+**List Available Databases:**
+
+Shows all databases you have access to, with an indicator for the currently
+selected database.
+
+```
+You: /list databases
+System: Available databases (3):
+  * production (postgres@prod-db.example.com:5432/myapp)
+    staging (developer@staging-db.example.com:5432/myapp_staging)
+    development (developer@localhost:5432/myapp_dev)
+```
+
+**Show Current Database:**
+
+Displays the currently selected database connection.
+
+```
+You: /show database
+System: Current database: production
+```
+
+**Switch Database:**
+
+Switch to a different database connection. The database must be in your list
+of accessible databases.
+
+```
+You: /set database staging
+System: Switched to database: staging
+```
+
+**Notes:**
+
+- Database access is controlled by the server configuration
+  (see [Configuration Guide](configuration.md#multiple-database-management))
+- Your database selection is saved and restored on subsequent sessions
+- In STDIO mode, all configured databases are accessible
+- API tokens may be bound to a specific database
+
 #### View Settings
 
 ```
@@ -521,7 +573,7 @@ System: Available models from anthropic (7):
 ```
 
 Display current configuration values. Available settings: `status-messages`,
-`markdown`, `llm-provider`, `llm-model`, `settings` (all).
+`markdown`, `debug`, `llm-provider`, `llm-model`, `database`, `settings` (all).
 
 **Example:**
 
@@ -544,6 +596,9 @@ LLM:
 MCP:
   Mode:             stdio
   Server Path:      ./bin/pgedge-nla-server
+
+Database:
+  Current:          production
 ─────────────────────────────────────────────────
 ```
 

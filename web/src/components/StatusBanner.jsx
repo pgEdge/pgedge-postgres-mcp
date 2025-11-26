@@ -17,33 +17,66 @@ import {
     Collapse,
     Paper,
     useTheme,
+    Tooltip,
 } from '@mui/material';
 import {
     CheckCircle as CheckCircleIcon,
     Error as ErrorIcon,
     ExpandMore as ExpandMoreIcon,
     ExpandLess as ExpandLessIcon,
+    Storage as StorageIcon,
 } from '@mui/icons-material';
 import { useAuth } from '../contexts/AuthContext';
+import { useLLMProcessing } from '../contexts/LLMProcessingContext';
 import { MCPClient } from '../lib/mcp-client';
+import { useDatabases } from '../hooks/useDatabases';
+import DatabaseSelectorPopover from './DatabaseSelectorPopover';
 
 const MCP_SERVER_URL = '/mcp/v1';
 
 const StatusBanner = () => {
     const { sessionToken, forceLogout } = useAuth();
+    const { isProcessing } = useLLMProcessing();
     const theme = useTheme();
     const [systemInfo, setSystemInfo] = useState(null);
     const [expanded, setExpanded] = useState(false);
     const [error, setError] = useState('');
+    const [dbPopoverAnchor, setDbPopoverAnchor] = useState(null);
+
+    // Database management
+    const {
+        databases,
+        currentDatabase,
+        loading: dbLoading,
+        error: dbError,
+        fetchDatabases,
+        selectDatabase,
+    } = useDatabases(sessionToken);
 
     useEffect(() => {
         if (sessionToken) {
             fetchSystemInfo();
+            fetchDatabases();
             // Refresh every 30 seconds
             const interval = setInterval(fetchSystemInfo, 30000);
             return () => clearInterval(interval);
         }
     }, [sessionToken]);
+
+    // Handler for opening database selector
+    const handleDbSelectorOpen = (event) => {
+        setDbPopoverAnchor(event.currentTarget);
+        fetchDatabases(); // Refresh list when opening
+    };
+
+    // Handler for selecting a database
+    const handleDatabaseSelect = async (dbName) => {
+        const success = await selectDatabase(dbName);
+        if (success) {
+            // Refresh system info to show updated connection
+            fetchSystemInfo();
+        }
+    };
 
     const fetchSystemInfo = async () => {
         try {
@@ -139,13 +172,35 @@ const StatusBanner = () => {
                         </Typography>
                     )}
                 </Box>
-                <IconButton
-                    size="small"
-                    onClick={() => setExpanded(!expanded)}
-                    sx={{ color: 'white' }}
-                >
-                    {expanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
-                </IconButton>
+                <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                    {connected && databases.length > 1 && (
+                        <Tooltip title={isProcessing ? "Cannot change database while processing" : "Select database"}>
+                            <span>
+                                <IconButton
+                                    size="small"
+                                    onClick={handleDbSelectorOpen}
+                                    disabled={isProcessing}
+                                    sx={{
+                                        color: 'white',
+                                        mr: 1,
+                                        '&.Mui-disabled': {
+                                            color: 'rgba(255, 255, 255, 0.4)',
+                                        },
+                                    }}
+                                >
+                                    <StorageIcon fontSize="small" />
+                                </IconButton>
+                            </span>
+                        </Tooltip>
+                    )}
+                    <IconButton
+                        size="small"
+                        onClick={() => setExpanded(!expanded)}
+                        sx={{ color: 'white' }}
+                    >
+                        {expanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+                    </IconButton>
+                </Box>
             </Box>
 
             <Collapse in={expanded}>
@@ -244,6 +299,18 @@ const StatusBanner = () => {
                     )}
                 </Box>
             </Collapse>
+
+            {/* Database Selector Popover */}
+            <DatabaseSelectorPopover
+                anchorEl={dbPopoverAnchor}
+                open={Boolean(dbPopoverAnchor)}
+                onClose={() => setDbPopoverAnchor(null)}
+                databases={databases}
+                currentDatabase={currentDatabase || systemInfo?.database}
+                onSelect={handleDatabaseSelect}
+                loading={dbLoading}
+                error={dbError}
+            />
         </Paper>
     );
 };

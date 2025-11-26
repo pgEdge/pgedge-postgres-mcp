@@ -11,6 +11,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Box, Paper, Alert } from '@mui/material';
 import { useAuth } from '../contexts/AuthContext';
+import { useLLMProcessing } from '../contexts/LLMProcessingContext';
 import { useLocalStorageBoolean } from '../hooks/useLocalStorage';
 import { useQueryHistory } from '../hooks/useQueryHistory';
 import { useMCPClient } from '../hooks/useMCPClient';
@@ -135,6 +136,7 @@ const compactMessages = async (messages, sessionToken, maxTokens = 100000, recen
 
 const ChatInterface = () => {
     const { sessionToken, forceLogout } = useAuth();
+    const { setIsProcessing } = useLLMProcessing();
 
     // State management using custom hooks
     // Initialize messages with fromPreviousSession flag for loaded messages
@@ -179,6 +181,11 @@ const ChatInterface = () => {
             console.log('MCP prompts available:', prompts);
         }
     }, [prompts]);
+
+    // Sync loading state with context for other components to use
+    useEffect(() => {
+        setIsProcessing(loading);
+    }, [loading, setIsProcessing]);
 
     // Save messages to localStorage when they change
     useEffect(() => {

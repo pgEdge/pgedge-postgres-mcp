@@ -147,12 +147,6 @@ echo "  Server config: $SERVER_CONFIG"
 echo "  CLI config:    $CLI_CONFIG"
 echo ""
 
-# Check for database connection
-DB_WARNING=""
-if [ -z "$PGHOST" ] && [ -z "$PGEDGE_DB_HOST" ] && [ -z "$PGEDGE_POSTGRES_CONNECTION_STRING" ]; then
-    DB_WARNING="${YELLOW}Warning: No database connection configured. The MCP server will use localhost:5432 by default.${NC}"
-fi
-
 # Check for API keys
 API_KEY_WARNING=""
 if [ -z "$PGEDGE_ANTHROPIC_API_KEY" ] && [ -z "$ANTHROPIC_API_KEY" ] && [ ! -f "$HOME/.anthropic-api-key" ] && \
@@ -162,13 +156,8 @@ if [ -z "$PGEDGE_ANTHROPIC_API_KEY" ] && [ -z "$ANTHROPIC_API_KEY" ] && [ ! -f "
 fi
 
 # Display warnings if any
-if [ ! -z "$DB_WARNING" ]; then
-    echo -e "$DB_WARNING"
-fi
 if [ ! -z "$API_KEY_WARNING" ]; then
     echo -e "$API_KEY_WARNING"
-fi
-if [ ! -z "$DB_WARNING" ] || [ ! -z "$API_KEY_WARNING" ]; then
     echo ""
 fi
 

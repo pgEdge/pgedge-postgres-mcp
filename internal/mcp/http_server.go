@@ -196,6 +196,10 @@ func (s *Server) handleRequestHTTP(ctx context.Context, req JSONRPCRequest) JSON
 		return s.handlePromptsListHTTP(req)
 	case "prompts/get":
 		return s.handlePromptGetHTTP(req)
+	case "pgedge/listDatabases":
+		return s.handleListDatabasesHTTP(ctx, req)
+	case "pgedge/selectDatabase":
+		return s.handleSelectDatabaseHTTP(ctx, req)
 	default:
 		return createErrorResponse(req.ID, -32601, "Method not found", nil)
 	}
@@ -350,6 +354,74 @@ func (s *Server) handlePromptGetHTTP(req JSONRPCRequest) JSONRPCResponse {
 	result, err := s.prompts.Execute(params.Name, params.Arguments)
 	if err != nil {
 		return createErrorResponse(req.ID, -32603, "Prompt execution error", err.Error())
+	}
+
+	return JSONRPCResponse{
+		JSONRPC: "2.0",
+		ID:      req.ID,
+		Result:  result,
+	}
+}
+
+func (s *Server) handleListDatabasesHTTP(ctx context.Context, req JSONRPCRequest) JSONRPCResponse {
+	if s.databases == nil {
+		return createErrorResponse(req.ID, -32601, "Database management not supported", nil)
+	}
+
+	databases, current, err := s.databases.ListDatabases(ctx)
+	if err != nil {
+		return createErrorResponse(req.ID, -32603, "Failed to list databases", err.Error())
+	}
+
+	result := ListDatabasesResponse{
+		Databases: databases,
+		Current:   current,
+	}
+
+	return JSONRPCResponse{
+		JSONRPC: "2.0",
+		ID:      req.ID,
+		Result:  result,
+	}
+}
+
+func (s *Server) handleSelectDatabaseHTTP(ctx context.Context, req JSONRPCRequest) JSONRPCResponse {
+	if s.databases == nil {
+		return createErrorResponse(req.ID, -32601, "Database management not supported", nil)
+	}
+
+	var params SelectDatabaseParams
+
+	// Convert interface{} to JSON bytes first
+	paramsJSON, err := json.Marshal(req.Params)
+	if err != nil {
+		return createErrorResponse(req.ID, -32602, "Invalid params", err.Error())
+	}
+
+	if err := json.Unmarshal(paramsJSON, &params); err != nil {
+		return createErrorResponse(req.ID, -32602, "Invalid params", err.Error())
+	}
+
+	if params.Name == "" {
+		return createErrorResponse(req.ID, -32602, "Invalid params", "database name is required")
+	}
+
+	if err := s.databases.SelectDatabase(ctx, params.Name); err != nil {
+		result := SelectDatabaseResponse{
+			Success: false,
+			Error:   err.Error(),
+		}
+		return JSONRPCResponse{
+			JSONRPC: "2.0",
+			ID:      req.ID,
+			Result:  result,
+		}
+	}
+
+	result := SelectDatabaseResponse{
+		Success: true,
+		Current: params.Name,
+		Message: fmt.Sprintf("Switched to database: %s", params.Name),
 	}
 
 	return JSONRPCResponse{

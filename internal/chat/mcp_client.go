@@ -49,6 +49,12 @@ type MCPClient interface {
 	// GetPrompt executes a prompt with the given arguments
 	GetPrompt(ctx context.Context, name string, args map[string]string) (mcp.PromptResult, error)
 
+	// ListDatabases returns available database connections
+	ListDatabases(ctx context.Context) ([]DatabaseInfo, string, error)
+
+	// SelectDatabase sets the current database for this session
+	SelectDatabase(ctx context.Context, name string) error
+
 	// Close cleans up resources
 	Close() error
 }
@@ -197,6 +203,26 @@ func (c *stdioClient) GetPrompt(ctx context.Context, name string, args map[strin
 		return mcp.PromptResult{}, err
 	}
 	return result, nil
+}
+
+func (c *stdioClient) ListDatabases(ctx context.Context) ([]DatabaseInfo, string, error) {
+	var result ListDatabasesResponse
+	if err := c.sendRequest(ctx, "pgedge/listDatabases", nil, &result); err != nil {
+		return nil, "", err
+	}
+	return result.Databases, result.Current, nil
+}
+
+func (c *stdioClient) SelectDatabase(ctx context.Context, name string) error {
+	params := map[string]string{"name": name}
+	var result SelectDatabaseResponse
+	if err := c.sendRequest(ctx, "pgedge/selectDatabase", params, &result); err != nil {
+		return err
+	}
+	if !result.Success {
+		return fmt.Errorf("%s", result.Error)
+	}
+	return nil
 }
 
 func (c *stdioClient) Close() error {
@@ -360,6 +386,26 @@ func (c *httpClient) GetPrompt(ctx context.Context, name string, args map[string
 		return mcp.PromptResult{}, err
 	}
 	return result, nil
+}
+
+func (c *httpClient) ListDatabases(ctx context.Context) ([]DatabaseInfo, string, error) {
+	var result ListDatabasesResponse
+	if err := c.sendRequest(ctx, "pgedge/listDatabases", nil, &result); err != nil {
+		return nil, "", err
+	}
+	return result.Databases, result.Current, nil
+}
+
+func (c *httpClient) SelectDatabase(ctx context.Context, name string) error {
+	params := map[string]string{"name": name}
+	var result SelectDatabaseResponse
+	if err := c.sendRequest(ctx, "pgedge/selectDatabase", params, &result); err != nil {
+		return err
+	}
+	if !result.Success {
+		return fmt.Errorf("%s", result.Error)
+	}
+	return nil
 }
 
 func (c *httpClient) Close() error {

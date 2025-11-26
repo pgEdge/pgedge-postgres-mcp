@@ -5,11 +5,18 @@ Modern web-based client for the Natural Language Agent. This application provide
 ## Features
 
 - **Authentication**: Secure login using MCP server's user authentication
-- **AI-Powered Chat**: Agentic LLM interaction with PostgreSQL database using natural language
-- **Tool Calling**: LLM can autonomously call MCP tools and resources to answer questions
-- **Multi-LLM Support**: Works with Anthropic Claude, OpenAI GPT, or Ollama models
-- **System Monitoring**: Real-time PostgreSQL server status and database connection information
-- **Conversation History**: Maintains conversation context for multi-turn interactions
+- **AI-Powered Chat**: Agentic LLM interaction with PostgreSQL database using
+  natural language
+- **Tool Calling**: LLM can autonomously call MCP tools and resources to answer
+  questions
+- **Multi-LLM Support**: Works with Anthropic Claude, OpenAI GPT, or Ollama
+  models
+- **Multi-Database Support**: Switch between configured databases with
+  per-user access control
+- **System Monitoring**: Real-time PostgreSQL server status and database
+  connection information
+- **Conversation History**: Maintains conversation context for multi-turn
+  interactions
 - **Dark Mode**: Toggle between light and dark themes
 - **Responsive Design**: Works on desktop and mobile devices
 
@@ -302,6 +309,30 @@ server {
 4. Frontend displays LLM response in chat interface
 
 **Key Difference from CLI**: The agentic loop (LLM → tool execution → LLM) runs **client-side** in the browser, while the CLI client runs it server-side. The MCP server provides the LLM proxy to keep API keys secure.
+
+### Database Selection
+
+When multiple databases are configured on the server, users can switch between
+them:
+
+1. **Database Selector**: Click the database icon (storage icon) in the green
+   status banner to open the database selector popover
+2. **Available Databases**: The list shows all databases the user has access
+   to, based on the `available_to_users` configuration
+3. **Current Database**: The currently selected database is highlighted with
+   a checkmark
+4. **Switch Database**: Click any database in the list to switch to it
+5. **Connection Details**: Each database entry shows the connection string
+   (user@host:port/database)
+
+**Important Notes:**
+
+- The database selector is only visible when multiple databases are configured
+- Database switching is disabled while the LLM is processing a query to
+  prevent data consistency issues
+- Your database selection is saved and restored on subsequent sessions
+- Access control is enforced server-side (see
+  [Configuration Guide](../docs/configuration.md#multiple-database-management))
 
 ## Security
 

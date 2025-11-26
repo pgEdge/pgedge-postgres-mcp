@@ -224,8 +224,14 @@ charlie              2024-09-01 08:00          2024-10-10 16:45     DISABLED    
 
 You'll be prompted for:
 
-- **Note**: Description/identifier for the token (e.g., "Production API", "Dev Environment")
+- **Note**: Description/identifier for the token (e.g., "Production API",
+  "Dev Environment")
+- **Database**: Which database to bind the token to (from configured databases)
 - **Expiry**: Duration or "never" (e.g., "30d", "1y", "never")
+
+When multiple databases are configured, the interactive prompt displays
+available databases and lets you select by number or name. Leave blank to use
+the first configured database (default).
 
 #### Command Line Mode
 
@@ -235,11 +241,25 @@ You'll be prompted for:
   -token-note "Production API" \
   -token-expiry "1y"
 
+# Add token bound to a specific database
+./bin/pgedge-nla-server -add-token \
+  -token-note "Staging API" \
+  -token-database "staging" \
+  -token-expiry "30d"
+
 # Add token with no expiration
 ./bin/pgedge-nla-server -add-token \
   -token-note "CI/CD Pipeline" \
   -token-expiry "never"
 ```
+
+**Token database binding options:**
+
+- `-token-database <name>`: Bind token to a specific configured database
+- If not specified in interactive mode: You'll be prompted to select from
+  available databases
+- If left blank or not specified: Token uses the first configured database
+  (default)
 
 **Important**: The generated token is **shown only once**. Save it immediately!
 
@@ -248,6 +268,7 @@ Token created successfully:
 Token: O9ms9jqTfUdy-DIjvpFWeqd_yH_NEj7me0mgOnOjGdQ=
 ID: token-1234567890
 Note: Production API
+Database: staging
 Expiry: 2025-10-30 (365 days from now)
 Hash (first 12 chars): b3f805a4c...
 

@@ -24,8 +24,8 @@ type Config struct {
 	// HTTP server configuration
 	HTTP HTTPConfig `yaml:"http"`
 
-	// Database connection configuration
-	Database DatabaseConfig `yaml:"database"`
+	// Database connection configurations (list of named databases)
+	Databases []NamedDatabaseConfig `yaml:"databases"`
 
 	// Embedding configuration
 	Embedding EmbeddingConfig `yaml:"embedding"`
@@ -68,19 +68,43 @@ type TLSConfig struct {
 	ChainFile string `yaml:"chain_file"`
 }
 
-// DatabaseConfig holds database connection settings
-type DatabaseConfig struct {
-	Host     string `yaml:"host"`     // Database host (default: localhost)
-	Port     int    `yaml:"port"`     // Database port (default: 5432)
-	Database string `yaml:"database"` // Database name (default: postgres)
-	User     string `yaml:"user"`     // Database user (required)
-	Password string `yaml:"password"` // Database password (optional, will use PGEDGE_DB_PASSWORD env var or .pgpass if not set)
-	SSLMode  string `yaml:"sslmode"`  // SSL mode: disable, require, verify-ca, verify-full (default: prefer)
+// NamedDatabaseConfig holds named database connection settings with access control
+type NamedDatabaseConfig struct {
+	Name             string   `yaml:"name"`                         // Unique name for this database connection (required)
+	Host             string   `yaml:"host"`                         // Database host (default: localhost)
+	Port             int      `yaml:"port"`                         // Database port (default: 5432)
+	Database         string   `yaml:"database"`                     // Database name (default: postgres)
+	User             string   `yaml:"user"`                         // Database user (required)
+	Password         string   `yaml:"password"`                     // Database password (optional, will use PGEDGE_DB_PASSWORD env var or .pgpass if not set)
+	SSLMode          string   `yaml:"sslmode"`                      // SSL mode: disable, require, verify-ca, verify-full (default: prefer)
+	AvailableToUsers []string `yaml:"available_to_users,omitempty"` // List of usernames allowed to access this database (empty = all users)
 
 	// Connection pool settings
 	PoolMaxConns        int    `yaml:"pool_max_conns"`          // Maximum number of connections (default: 4)
 	PoolMinConns        int    `yaml:"pool_min_conns"`          // Minimum number of connections (default: 0)
 	PoolMaxConnIdleTime string `yaml:"pool_max_conn_idle_time"` // Max time a connection can be idle before being closed (default: 30m)
+}
+
+// BuildConnectionString creates a PostgreSQL connection string from NamedDatabaseConfig
+// If password is not set, pgx will automatically look it up from .pgpass file
+func (cfg *NamedDatabaseConfig) BuildConnectionString() string {
+	// Build connection string components
+	connStr := fmt.Sprintf("postgres://%s", cfg.User)
+
+	// Add password only if explicitly set
+	// If not set, pgx will use .pgpass file automatically
+	if cfg.Password != "" {
+		connStr += ":" + cfg.Password
+	}
+
+	connStr += fmt.Sprintf("@%s:%d/%s", cfg.Host, cfg.Port, cfg.Database)
+
+	// Add SSL mode
+	if cfg.SSLMode != "" {
+		connStr += "?sslmode=" + cfg.SSLMode
+	}
+
+	return connStr
 }
 
 // EmbeddingConfig holds embedding generation settings
@@ -228,17 +252,7 @@ func defaultConfig() *Config {
 				RateLimitMaxAttempts:           10,   // 10 attempts per IP per window
 			},
 		},
-		Database: DatabaseConfig{
-			Host:                "localhost",
-			Port:                5432,
-			Database:            "postgres",
-			User:                "",       // Required - must be provided
-			Password:            "",       // Optional - will use env var or .pgpass
-			SSLMode:             "prefer", // Default SSL mode
-			PoolMaxConns:        4,        // Default max connections
-			PoolMinConns:        0,        // Default min connections
-			PoolMaxConnIdleTime: "30m",    // Default idle timeout
-		},
+		Databases: []NamedDatabaseConfig{}, // Empty by default, populated from config file
 		Embedding: EmbeddingConfig{
 			Enabled:      false,                    // Disabled by default (opt-in)
 			Provider:     "ollama",                 // Default provider
@@ -324,33 +338,9 @@ func mergeConfig(dest, src *Config) {
 		dest.HTTP.Auth.RateLimitMaxAttempts = src.HTTP.Auth.RateLimitMaxAttempts
 	}
 
-	// Database
-	if src.Database.Host != "" {
-		dest.Database.Host = src.Database.Host
-	}
-	if src.Database.Port != 0 {
-		dest.Database.Port = src.Database.Port
-	}
-	if src.Database.Database != "" {
-		dest.Database.Database = src.Database.Database
-	}
-	if src.Database.User != "" {
-		dest.Database.User = src.Database.User
-	}
-	if src.Database.Password != "" {
-		dest.Database.Password = src.Database.Password
-	}
-	if src.Database.SSLMode != "" {
-		dest.Database.SSLMode = src.Database.SSLMode
-	}
-	if src.Database.PoolMaxConns != 0 {
-		dest.Database.PoolMaxConns = src.Database.PoolMaxConns
-	}
-	if src.Database.PoolMinConns != 0 {
-		dest.Database.PoolMinConns = src.Database.PoolMinConns
-	}
-	if src.Database.PoolMaxConnIdleTime != "" {
-		dest.Database.PoolMaxConnIdleTime = src.Database.PoolMaxConnIdleTime
+	// Databases - if source has databases defined, use them (replace, don't merge)
+	if len(src.Databases) > 0 {
+		dest.Databases = src.Databases
 	}
 
 	// Embedding - merge if any embedding fields are set
@@ -508,32 +498,52 @@ func applyEnvironmentVariables(cfg *Config) {
 	setIntFromEnv(&cfg.HTTP.Auth.RateLimitWindowMinutes, "PGEDGE_AUTH_RATE_LIMIT_WINDOW_MINUTES")
 	setIntFromEnv(&cfg.HTTP.Auth.RateLimitMaxAttempts, "PGEDGE_AUTH_RATE_LIMIT_MAX_ATTEMPTS")
 
-	// Database
-	setStringFromEnv(&cfg.Database.Host, "PGEDGE_DB_HOST")
-	setIntFromEnv(&cfg.Database.Port, "PGEDGE_DB_PORT")
-	setStringFromEnv(&cfg.Database.Database, "PGEDGE_DB_NAME")
-	setStringFromEnv(&cfg.Database.User, "PGEDGE_DB_USER")
-	setStringFromEnv(&cfg.Database.Password, "PGEDGE_DB_PASSWORD")
-	setStringFromEnv(&cfg.Database.SSLMode, "PGEDGE_DB_SSLMODE")
+	// Database environment variables apply to the first database in the list
+	// If no databases configured yet, create a default one from env vars
+	if len(cfg.Databases) == 0 {
+		// Check if any database env vars are set
+		if os.Getenv("PGEDGE_DB_USER") != "" || os.Getenv("PGUSER") != "" {
+			cfg.Databases = []NamedDatabaseConfig{{
+				Name:                "default",
+				Host:                "localhost",
+				Port:                5432,
+				Database:            "postgres",
+				SSLMode:             "prefer",
+				PoolMaxConns:        4,
+				PoolMinConns:        0,
+				PoolMaxConnIdleTime: "30m",
+			}}
+		}
+	}
 
-	// Also support standard PostgreSQL environment variables for convenience
-	if cfg.Database.Host == "localhost" {
-		setStringFromEnv(&cfg.Database.Host, "PGHOST")
-	}
-	if cfg.Database.Port == 5432 {
-		setIntFromEnv(&cfg.Database.Port, "PGPORT")
-	}
-	if cfg.Database.Database == "postgres" {
-		setStringFromEnv(&cfg.Database.Database, "PGDATABASE")
-	}
-	if cfg.Database.User == "" {
-		setStringFromEnv(&cfg.Database.User, "PGUSER")
-	}
-	if cfg.Database.Password == "" {
-		setStringFromEnv(&cfg.Database.Password, "PGPASSWORD")
-	}
-	if cfg.Database.SSLMode == "prefer" {
-		setStringFromEnv(&cfg.Database.SSLMode, "PGSSLMODE")
+	// Apply env vars to first database if it exists
+	if len(cfg.Databases) > 0 {
+		setStringFromEnv(&cfg.Databases[0].Host, "PGEDGE_DB_HOST")
+		setIntFromEnv(&cfg.Databases[0].Port, "PGEDGE_DB_PORT")
+		setStringFromEnv(&cfg.Databases[0].Database, "PGEDGE_DB_NAME")
+		setStringFromEnv(&cfg.Databases[0].User, "PGEDGE_DB_USER")
+		setStringFromEnv(&cfg.Databases[0].Password, "PGEDGE_DB_PASSWORD")
+		setStringFromEnv(&cfg.Databases[0].SSLMode, "PGEDGE_DB_SSLMODE")
+
+		// Also support standard PostgreSQL environment variables for convenience
+		if cfg.Databases[0].Host == "localhost" {
+			setStringFromEnv(&cfg.Databases[0].Host, "PGHOST")
+		}
+		if cfg.Databases[0].Port == 5432 {
+			setIntFromEnv(&cfg.Databases[0].Port, "PGPORT")
+		}
+		if cfg.Databases[0].Database == "postgres" {
+			setStringFromEnv(&cfg.Databases[0].Database, "PGDATABASE")
+		}
+		if cfg.Databases[0].User == "" {
+			setStringFromEnv(&cfg.Databases[0].User, "PGUSER")
+		}
+		if cfg.Databases[0].Password == "" {
+			setStringFromEnv(&cfg.Databases[0].Password, "PGPASSWORD")
+		}
+		if cfg.Databases[0].SSLMode == "prefer" {
+			setStringFromEnv(&cfg.Databases[0].SSLMode, "PGSSLMODE")
+		}
 	}
 
 	// Embedding
@@ -657,24 +667,40 @@ func applyCLIFlags(cfg *Config, flags CLIFlags) {
 		cfg.HTTP.Auth.TokenFile = flags.AuthTokenFile
 	}
 
-	// Database
-	if flags.DBHostSet {
-		cfg.Database.Host = flags.DBHost
+	// Database CLI flags apply to the first database in the list
+	// Create a default database if none exists and any DB flag is set
+	if len(cfg.Databases) == 0 && (flags.DBHostSet || flags.DBPortSet || flags.DBNameSet || flags.DBUserSet || flags.DBPassSet || flags.DBSSLSet) {
+		cfg.Databases = []NamedDatabaseConfig{{
+			Name:                "default",
+			Host:                "localhost",
+			Port:                5432,
+			Database:            "postgres",
+			SSLMode:             "prefer",
+			PoolMaxConns:        4,
+			PoolMinConns:        0,
+			PoolMaxConnIdleTime: "30m",
+		}}
 	}
-	if flags.DBPortSet {
-		cfg.Database.Port = flags.DBPort
-	}
-	if flags.DBNameSet {
-		cfg.Database.Database = flags.DBName
-	}
-	if flags.DBUserSet {
-		cfg.Database.User = flags.DBUser
-	}
-	if flags.DBPassSet {
-		cfg.Database.Password = flags.DBPassword
-	}
-	if flags.DBSSLSet {
-		cfg.Database.SSLMode = flags.DBSSLMode
+
+	if len(cfg.Databases) > 0 {
+		if flags.DBHostSet {
+			cfg.Databases[0].Host = flags.DBHost
+		}
+		if flags.DBPortSet {
+			cfg.Databases[0].Port = flags.DBPort
+		}
+		if flags.DBNameSet {
+			cfg.Databases[0].Database = flags.DBName
+		}
+		if flags.DBUserSet {
+			cfg.Databases[0].User = flags.DBUser
+		}
+		if flags.DBPassSet {
+			cfg.Databases[0].Password = flags.DBPassword
+		}
+		if flags.DBSSLSet {
+			cfg.Databases[0].SSLMode = flags.DBSSLMode
+		}
 	}
 
 	// Secret file
@@ -707,11 +733,25 @@ func validateConfig(cfg *Config) error {
 		}
 	}
 
-	// Database configuration is optional - server can run with only stateless tools
-	// If database parameters are partially set, validate they're complete
-	if cfg.Database.Host != "" || cfg.Database.Port != 0 || cfg.Database.Database != "" {
-		if cfg.Database.User == "" {
-			return fmt.Errorf("database user is required when database host/port/database are configured (set via -db-user, PGEDGE_DB_USER, PGUSER env var, or config file)")
+	// Database configuration validation
+	// Validate each database in the list
+	seenNames := make(map[string]bool)
+	for i := range cfg.Databases {
+		db := &cfg.Databases[i]
+		// Require name field
+		if db.Name == "" {
+			return fmt.Errorf("database at index %d: name is required", i)
+		}
+
+		// Check for duplicate names
+		if seenNames[db.Name] {
+			return fmt.Errorf("duplicate database name: %s", db.Name)
+		}
+		seenNames[db.Name] = true
+
+		// Require user field
+		if db.User == "" {
+			return fmt.Errorf("database '%s': user is required (set via -db-user, PGEDGE_DB_USER, PGUSER env var, or config file)", db.Name)
 		}
 	}
 
@@ -774,26 +814,46 @@ func GetDefaultSecretPath(binaryPath string) string {
 	return filepath.Join(dir, "pgedge-nla-server.secret")
 }
 
-// BuildConnectionString creates a PostgreSQL connection string from DatabaseConfig
-// If password is not set, pgx will automatically look it up from .pgpass file
-func (cfg *DatabaseConfig) BuildConnectionString() string {
-	// Build connection string components
-	connStr := fmt.Sprintf("postgres://%s", cfg.User)
-
-	// Add password only if explicitly set
-	// If not set, pgx will use .pgpass file automatically
-	if cfg.Password != "" {
-		connStr += ":" + cfg.Password
+// GetDatabaseByName returns the named database config or nil if not found
+func (cfg *Config) GetDatabaseByName(name string) *NamedDatabaseConfig {
+	for i := range cfg.Databases {
+		if cfg.Databases[i].Name == name {
+			return &cfg.Databases[i]
+		}
 	}
+	return nil
+}
 
-	connStr += fmt.Sprintf("@%s:%d/%s", cfg.Host, cfg.Port, cfg.Database)
-
-	// Add SSL mode
-	if cfg.SSLMode != "" {
-		connStr += "?sslmode=" + cfg.SSLMode
+// GetDefaultDatabaseName returns the name of the first database in the list
+// Returns empty string if no databases are configured
+func (cfg *Config) GetDefaultDatabaseName() string {
+	if len(cfg.Databases) > 0 {
+		return cfg.Databases[0].Name
 	}
+	return ""
+}
 
-	return connStr
+// GetDatabasesForUser returns databases accessible to a username
+// A database is accessible if its AvailableToUsers list is empty (all users)
+// or if the username is in the list
+func (cfg *Config) GetDatabasesForUser(username string) []NamedDatabaseConfig {
+	var result []NamedDatabaseConfig
+	for i := range cfg.Databases {
+		db := &cfg.Databases[i]
+		// Empty AvailableToUsers means accessible to all users
+		if len(db.AvailableToUsers) == 0 {
+			result = append(result, *db)
+			continue
+		}
+		// Check if user is in the allowed list
+		for _, allowedUser := range db.AvailableToUsers {
+			if allowedUser == username {
+				result = append(result, *db)
+				break
+			}
+		}
+	}
+	return result
 }
 
 // ConfigFileExists checks if a config file exists at the given path

@@ -26,10 +26,11 @@ import (
 
 // Token represents an API token with metadata
 type Token struct {
-	Hash       string     `yaml:"hash"`       // SHA256 hash of the token
-	ExpiresAt  *time.Time `yaml:"expires_at"` // Expiry date (null for indefinite)
-	Annotation string     `yaml:"annotation"` // User note/description
-	CreatedAt  time.Time  `yaml:"created_at"` // When the token was created
+	Hash       string     `yaml:"hash"`               // SHA256 hash of the token
+	ExpiresAt  *time.Time `yaml:"expires_at"`         // Expiry date (null for indefinite)
+	Annotation string     `yaml:"annotation"`         // User note/description
+	CreatedAt  time.Time  `yaml:"created_at"`         // When the token was created
+	Database   string     `yaml:"database,omitempty"` // Bound database name (empty = first configured database)
 }
 
 // TokenStore manages API tokens
@@ -130,7 +131,7 @@ func SaveTokenStore(path string, store *TokenStore) error {
 }
 
 // AddToken adds a new token to the store
-func (s *TokenStore) AddToken(tokenID, hash, annotation string, expiresAt *time.Time) error {
+func (s *TokenStore) AddToken(tokenID, hash, annotation string, expiresAt *time.Time, database string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -147,6 +148,25 @@ func (s *TokenStore) AddToken(tokenID, hash, annotation string, expiresAt *time.
 		ExpiresAt:  expiresAt,
 		Annotation: annotation,
 		CreatedAt:  time.Now(),
+		Database:   database,
+	}
+
+	return nil
+}
+
+// GetTokenByHash returns the token with the given hash, or nil if not found
+func (s *TokenStore) GetTokenByHash(hash string) *Token {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	if s.Tokens == nil {
+		return nil
+	}
+
+	for _, token := range s.Tokens {
+		if token.Hash == hash {
+			return token
+		}
 	}
 
 	return nil
@@ -224,6 +244,7 @@ func (s *TokenStore) ListTokens() []*TokenInfo {
 			Annotation: token.Annotation,
 			CreatedAt:  token.CreatedAt,
 			Expired:    expired,
+			Database:   token.Database,
 		})
 	}
 
@@ -238,6 +259,7 @@ type TokenInfo struct {
 	Annotation string
 	CreatedAt  time.Time
 	Expired    bool
+	Database   string // Bound database name (empty = first configured database)
 }
 
 // GetDefaultTokenPath returns the default token file path

@@ -21,9 +21,10 @@ import (
 
 // Preferences holds user preferences that persist across sessions
 type Preferences struct {
-	UI             UIPreferences     `yaml:"ui"`
-	ProviderModels map[string]string `yaml:"provider_models"`
-	LastProvider   string            `yaml:"last_provider"`
+	UI              UIPreferences     `yaml:"ui"`
+	ProviderModels  map[string]string `yaml:"provider_models"`
+	LastProvider    string            `yaml:"last_provider"`
+	ServerDatabases map[string]string `yaml:"server_databases,omitempty"` // server key -> database name
 }
 
 // UIPreferences holds UI-related preferences
@@ -236,4 +237,24 @@ func (p *Preferences) SetModelForProvider(provider, model string) {
 		p.ProviderModels = make(map[string]string)
 	}
 	p.ProviderModels[provider] = model
+}
+
+// GetDatabaseForServer returns the preferred database for a server
+func (p *Preferences) GetDatabaseForServer(serverKey string) string {
+	if p.ServerDatabases == nil {
+		return ""
+	}
+	return p.ServerDatabases[serverKey]
+}
+
+// SetDatabaseForServer sets the preferred database for a server
+func (p *Preferences) SetDatabaseForServer(serverKey, database string) {
+	if p.ServerDatabases == nil {
+		p.ServerDatabases = make(map[string]string)
+	}
+	if database == "" {
+		delete(p.ServerDatabases, serverKey)
+	} else {
+		p.ServerDatabases[serverKey] = database
+	}
 }

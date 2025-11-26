@@ -22,7 +22,7 @@ func TestClientManager_GetClient(t *testing.T) {
 		t.Skip("TEST_PGEDGE_POSTGRES_CONNECTION_STRING not set, skipping database test")
 	}
 
-	cm := NewClientManager(nil)
+	cm := NewClientManagerWithConfig(nil)
 	defer cm.CloseAll()
 
 	t.Run("creates new client for new token", func(t *testing.T) {
@@ -97,7 +97,7 @@ func TestClientManager_RemoveClient(t *testing.T) {
 		t.Skip("TEST_PGEDGE_POSTGRES_CONNECTION_STRING not set, skipping database test")
 	}
 
-	cm := NewClientManager(nil)
+	cm := NewClientManagerWithConfig(nil)
 	defer cm.CloseAll()
 
 	// Create some clients
@@ -138,7 +138,7 @@ func TestClientManager_RemoveClients(t *testing.T) {
 		t.Skip("TEST_PGEDGE_POSTGRES_CONNECTION_STRING not set, skipping database test")
 	}
 
-	cm := NewClientManager(nil)
+	cm := NewClientManagerWithConfig(nil)
 	defer cm.CloseAll()
 
 	// Create several clients
@@ -173,7 +173,7 @@ func TestClientManager_CloseAll(t *testing.T) {
 		t.Skip("TEST_PGEDGE_POSTGRES_CONNECTION_STRING not set, skipping database test")
 	}
 
-	cm := NewClientManager(nil)
+	cm := NewClientManagerWithConfig(nil)
 
 	// Create several clients
 	for i := 1; i <= 3; i++ {
@@ -206,7 +206,7 @@ func TestClientManager_Concurrency(t *testing.T) {
 		t.Skip("TEST_PGEDGE_POSTGRES_CONNECTION_STRING not set, skipping database test")
 	}
 
-	cm := NewClientManager(nil)
+	cm := NewClientManagerWithConfig(nil)
 	defer cm.CloseAll()
 
 	// Launch multiple goroutines trying to get the same client

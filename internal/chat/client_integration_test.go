@@ -274,7 +274,7 @@ func TestClient_InitializeLLM_InvalidProvider(t *testing.T) {
 	}
 }
 
-func TestClient_HandleCommand_Help(t *testing.T) {
+func TestClient_HandleSlashCommand_Help(t *testing.T) {
 	cfg := &Config{
 		UI: UIConfig{
 			NoColor: true,
@@ -287,13 +287,13 @@ func TestClient_HandleCommand_Help(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	handled := client.handleCommand(ctx, "help")
+	handled := client.HandleSlashCommand(ctx, &SlashCommand{Command: "help"})
 	if !handled {
 		t.Error("Expected help command to be handled")
 	}
 }
 
-func TestClient_HandleCommand_Clear(t *testing.T) {
+func TestClient_HandleSlashCommand_Clear(t *testing.T) {
 	cfg := &Config{
 		UI: UIConfig{
 			NoColor: true,
@@ -306,13 +306,13 @@ func TestClient_HandleCommand_Clear(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	handled := client.handleCommand(ctx, "clear")
+	handled := client.HandleSlashCommand(ctx, &SlashCommand{Command: "clear"})
 	if !handled {
 		t.Error("Expected clear command to be handled")
 	}
 }
 
-func TestClient_HandleCommand_Tools(t *testing.T) {
+func TestClient_HandleSlashCommand_Tools(t *testing.T) {
 	cfg := &Config{
 		UI: UIConfig{
 			NoColor: true,
@@ -333,13 +333,13 @@ func TestClient_HandleCommand_Tools(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	handled := client.handleCommand(ctx, "tools")
+	handled := client.HandleSlashCommand(ctx, &SlashCommand{Command: "tools"})
 	if !handled {
 		t.Error("Expected tools command to be handled")
 	}
 }
 
-func TestClient_HandleCommand_Resources(t *testing.T) {
+func TestClient_HandleSlashCommand_Resources(t *testing.T) {
 	// Start mock MCP server
 	server := mockMCPServer(t)
 	defer server.Close()
@@ -373,13 +373,13 @@ func TestClient_HandleCommand_Resources(t *testing.T) {
 	}
 
 	// Handle resources command
-	handled := client.handleCommand(ctx, "resources")
+	handled := client.HandleSlashCommand(ctx, &SlashCommand{Command: "resources"})
 	if !handled {
 		t.Error("Expected resources command to be handled")
 	}
 }
 
-func TestClient_HandleCommand_Unknown(t *testing.T) {
+func TestClient_HandleSlashCommand_Unknown(t *testing.T) {
 	cfg := &Config{
 		UI: UIConfig{
 			NoColor: true,
@@ -392,7 +392,7 @@ func TestClient_HandleCommand_Unknown(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	handled := client.handleCommand(ctx, "unknown-command")
+	handled := client.HandleSlashCommand(ctx, &SlashCommand{Command: "unknown-command"})
 	if handled {
 		t.Error("Expected unknown command to not be handled")
 	}

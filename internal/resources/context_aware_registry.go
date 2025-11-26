@@ -27,6 +27,7 @@ type ContextAwareHandler func(ctx context.Context, dbClient *database.Client) (m
 type ContextAwareRegistry struct {
 	clientManager   *database.ClientManager
 	authEnabled     bool
+	accessChecker   *auth.DatabaseAccessChecker
 	customResources map[string]customResource
 }
 
@@ -37,10 +38,11 @@ type customResource struct {
 }
 
 // NewContextAwareRegistry creates a new context-aware resource registry
-func NewContextAwareRegistry(clientManager *database.ClientManager, authEnabled bool) *ContextAwareRegistry {
+func NewContextAwareRegistry(clientManager *database.ClientManager, authEnabled bool, accessChecker *auth.DatabaseAccessChecker) *ContextAwareRegistry {
 	return &ContextAwareRegistry{
 		clientManager:   clientManager,
 		authEnabled:     authEnabled,
+		accessChecker:   accessChecker,
 		customResources: make(map[string]customResource),
 	}
 }
@@ -128,10 +130,17 @@ func (r *ContextAwareRegistry) Read(ctx context.Context, uri string) (mcp.Resour
 }
 
 // getClient returns the appropriate database client based on authentication state
+// and the currently selected database for the token
 func (r *ContextAwareRegistry) getClient(ctx context.Context) (*database.Client, error) {
 	if !r.authEnabled {
 		// Authentication disabled - use "default" key in ClientManager
-		client, err := r.clientManager.GetOrCreateClient("default", false)
+		// Get the current database for this session
+		currentDB := r.clientManager.GetCurrentDatabase("default")
+		if currentDB == "" {
+			currentDB = r.clientManager.GetDefaultDatabaseName()
+		}
+
+		client, err := r.clientManager.GetClientForDatabase("default", currentDB)
 		if err != nil {
 			return nil, fmt.Errorf("no database connection configured: %w", err)
 		}
@@ -144,9 +153,46 @@ func (r *ContextAwareRegistry) getClient(ctx context.Context) (*database.Client,
 		return nil, fmt.Errorf("no authentication token found in request context")
 	}
 
-	// Get or create client for this token
-	// Auto-connect if database is configured (authenticated users get automatic database access)
-	client, err := r.clientManager.GetOrCreateClient(tokenHash, true)
+	// Get the current database for this token
+	currentDB := r.clientManager.GetCurrentDatabase(tokenHash)
+
+	// Check if current database is accessible, otherwise find first accessible one
+	if r.accessChecker != nil {
+		allConfigs := r.clientManager.GetDatabaseConfigs()
+		accessibleConfigs := r.accessChecker.GetAccessibleDatabases(ctx, allConfigs)
+
+		if len(accessibleConfigs) == 0 {
+			username := auth.GetUsernameFromContext(ctx)
+			if username != "" {
+				return nil, fmt.Errorf("no databases are configured for user '%s' - contact your administrator", username)
+			}
+			return nil, fmt.Errorf("no accessible databases for this user")
+		}
+
+		// Check if current database is in accessible list
+		currentAccessible := false
+		for i := range accessibleConfigs {
+			if accessibleConfigs[i].Name == currentDB {
+				currentAccessible = true
+				break
+			}
+		}
+
+		// If current is not accessible, use first accessible database
+		if !currentAccessible {
+			currentDB = accessibleConfigs[0].Name
+			// Update the current database for this token (best effort - operation continues regardless)
+			_ = r.clientManager.SetCurrentDatabase(tokenHash, currentDB) //nolint:errcheck // preference update, doesn't affect operation
+		}
+	}
+
+	// Fallback to default if still empty
+	if currentDB == "" {
+		currentDB = r.clientManager.GetDefaultDatabaseName()
+	}
+
+	// Get or create client for this token's current database
+	client, err := r.clientManager.GetClientForDatabase(tokenHash, currentDB)
 	if err != nil {
 		return nil, fmt.Errorf("no database connection configured for this token: %w", err)
 	}

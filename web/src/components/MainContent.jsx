@@ -10,15 +10,18 @@
 
 import React from 'react';
 import { Box } from '@mui/material';
+import { LLMProcessingProvider } from '../contexts/LLMProcessingContext';
 import StatusBanner from './StatusBanner';
 import ChatInterface from './ChatInterface';
 
 const MainContent = () => {
     return (
-        <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
-            <StatusBanner />
-            <ChatInterface />
-        </Box>
+        <LLMProcessingProvider>
+            <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
+                <StatusBanner />
+                <ChatInterface />
+            </Box>
+        </LLMProcessingProvider>
     );
 };
 
