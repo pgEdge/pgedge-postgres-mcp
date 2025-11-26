@@ -95,7 +95,7 @@ func LoadConfig(configPath string) (*Config, error) {
 			DisplayStatusMessages: true, // Default to showing status messages
 			RenderMarkdown:        true, // Default to rendering markdown
 		},
-		HistoryFile: filepath.Join(os.Getenv("HOME"), ".pgedge-pg-mcp-cli-history"),
+		HistoryFile: filepath.Join(os.Getenv("HOME"), ".pgedge-nla-cli-history"),
 	}
 
 	// Load from config file if provided

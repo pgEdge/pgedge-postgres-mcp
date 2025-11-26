@@ -36,7 +36,7 @@ type UIPreferences struct {
 
 // GetPreferencesPath returns the path to the user preferences file
 func GetPreferencesPath() string {
-	return filepath.Join(os.Getenv("HOME"), ".pgedge-pg-mcp-cli-prefs")
+	return filepath.Join(os.Getenv("HOME"), ".pgedge-nla-cli-prefs")
 }
 
 // LoadPreferences loads user preferences from the preferences file

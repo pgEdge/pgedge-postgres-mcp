@@ -616,7 +616,7 @@ The LLM will receive this query and respond with an explanation.
 
 The chat client includes full readline support with persistent command history:
 
-- **History file**: `~/.pgedge-pg-mcp-cli-history`
+- **History file**: `~/.pgedge-nla-cli-history`
 - **History limit**: 1000 entries
 - **Navigation**: Use Up/Down arrow keys to navigate through command history
 - **Search**: Use Ctrl+R for reverse search through history
@@ -738,7 +738,7 @@ ollama pull llama3
 
 **Solutions**:
 
-- Check that `~/.pgedge-pg-mcp-cli-history` is writable
+- Check that `~/.pgedge-nla-cli-history` is writable
 - The history file is created automatically on first use
 - On some terminals, readline features may be limited
 
