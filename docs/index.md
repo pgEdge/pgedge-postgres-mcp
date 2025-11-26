@@ -8,9 +8,9 @@ A Model Context Protocol (MCP) server written in Go that enables natural languag
 
 - **[Configuration Guide](configuration.md)** - Setup and configuration
 - **[Docker Deployment](docker-deployment.md)** - Complete Docker Compose deployment
-- **[Tools Reference](tools.md)** - All 6 MCP tools
-- **[Resources Reference](resources.md)** - All 2 MCP resources
-- **[Prompts Reference](prompts.md)** - All 3 MCP prompts
+- **[Tools Reference](tools.md)** - MCP tools reference
+- **[Resources Reference](resources.md)** - MCP resources reference
+- **[Prompts Reference](prompts.md)** - MCP prompts reference
 - **[Query Examples](examples.md)** - Usage examples
 - **[Deployment Guide](deployment.md)** - HTTP/HTTPS deployment
 - **[Troubleshooting](troubleshooting.md)** - Common issues and solutions
@@ -20,9 +20,11 @@ A Model Context Protocol (MCP) server written in Go that enables natural languag
 - ✨ **Natural Language to SQL** - Convert plain English questions into SQL queries
 - 🔒 **Read-Only Protection** - All queries execute in read-only transactions
 - 🤖 **Multiple LLM Support** - Anthropic Claude, OpenAI (GPT-4o, GPT-5), or Ollama (local/free)
-- 📊 **2 Resources** - PostgreSQL system info and database schema
-- 🛠️ **6 Tools** - Query execution, schema analysis, hybrid search, embedding generation, knowledgebase search, resource reading
-- 🧠 **3 Prompts** - Guided workflows for semantic search, database exploration, and query diagnostics
+- 📊 **Resources** - PostgreSQL system info, database schema, and more
+- 🛠️ **Tools** - Query execution, schema analysis, hybrid search, embedding
+  generation, and more
+- 🧠 **Prompts** - Guided workflows for semantic search, database exploration,
+  query diagnostics, and more
 - 🌐 **HTTP/HTTPS Mode** - Direct API access with token authentication
 - 🖥️ **Web Interface** - Modern React-based UI for server monitoring and management
 - 💬 **Production Chat Client** - Full-featured Go client with Anthropic prompt caching
@@ -97,13 +99,17 @@ Complete configuration reference covering config files, environment variables, c
 Complete guide for deploying with Docker and Docker Compose. Includes containerized MCP server and web client setup, environment configuration, production deployment with reverse proxy, security hardening, and troubleshooting.
 
 #### [Tools Documentation](tools.md)
-Reference for all 6 MCP tools including `query_database`, `get_schema_info`, `similarity_search`, `generate_embedding`, `search_knowledgebase`, and `read_resource`.
+Reference for MCP tools including `query_database`, `get_schema_info`,
+`similarity_search`, `generate_embedding`, and more.
 
 #### [Resources Documentation](resources.md)
-Reference for all 2 MCP resources providing access to PostgreSQL system information and database schema overview.
+Reference for MCP resources providing access to PostgreSQL system information,
+database schema overview, and more.
 
 #### [Prompts Documentation](prompts.md)
-Reference for all 3 MCP prompts including `setup-semantic-search`, `explore-database`, and `diagnose-query-issue`. Prompts are guided workflows that help LLMs navigate complex multi-step processes efficiently.
+Reference for MCP prompts including `setup-semantic-search`, `explore-database`,
+`diagnose-query-issue`, and more. Prompts are guided workflows that help LLMs
+navigate complex multi-step processes efficiently.
 
 #### [Query Examples](examples.md)
 Comprehensive collection of example queries covering schema discovery, data analysis, system monitoring, and multi-database operations.

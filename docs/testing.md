@@ -178,7 +178,7 @@ go test ./internal/resources -v -run "Integration"
 
 The integration test suite covers:
 
-1. **All 4 Resources**:
+1. **Resources**:
 
     - pg://settings
     - pg://system_info

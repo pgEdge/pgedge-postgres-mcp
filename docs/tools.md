@@ -1,6 +1,8 @@
 # MCP Tools
 
-The pgEdge MCP Server provides five tools that enable SQL database interaction, advanced semantic search, embedding generation, and resource reading.
+The pgEdge MCP Server provides various tools that enable SQL database
+interaction, advanced semantic search, embedding generation, resource reading,
+and more.
 
 ## Available Tools
 

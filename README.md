@@ -15,11 +15,11 @@ PostgreSQL databases through MCP-compatible clients like Claude Desktop.
 ## Key Features
 
 - 🔒 **Read-Only Protection** - All queries run in read-only transactions
-- 📊 **3 Resources** - Access PostgreSQL statistics
-- 🛠️ **5 Tools** - Query execution, schema analysis, advanced hybrid search
-  (BM25+MMR), embedding generation, resource reading
-- 🧠 **3 Prompts** - Guided workflows for semantic search setup, database
-  exploration, and query diagnostics
+- 📊 **Resources** - Access PostgreSQL statistics and more
+- 🛠️ **Tools** - Query execution, schema analysis, advanced hybrid search
+  (BM25+MMR), embedding generation, resource reading, and more
+- 🧠 **Prompts** - Guided workflows for semantic search setup, database
+  exploration, query diagnostics, and more
 - 💬 **Production Chat Client** - Full-featured Go client with Anthropic
   prompt caching (90% cost reduction)
 - 🌐 **HTTP/HTTPS Mode** - Direct API access with token authentication
@@ -276,10 +276,9 @@ references
   Compose deployment
 - **[Using the CLI Client](docs/using-cli-client.md)** - Production-ready chat
   client with prompt caching
-- **[Tools Documentation](docs/tools.md)** - All 5 MCP tools reference
-- **[Resources Documentation](docs/resources.md)** - All 3 MCP resources
-  reference
-- **[Prompts Documentation](docs/prompts.md)** - All 3 MCP prompts reference
+- **[Tools Documentation](docs/tools.md)** - MCP tools reference
+- **[Resources Documentation](docs/resources.md)** - MCP resources reference
+- **[Prompts Documentation](docs/prompts.md)** - MCP prompts reference
 - **[Query Examples](docs/examples.md)** - Comprehensive usage examples
 - **[Deployment Guide](docs/deployment.md)** - HTTP/HTTPS production
   deployment
