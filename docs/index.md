@@ -17,18 +17,20 @@ A Model Context Protocol (MCP) server written in Go that enables natural languag
 
 ## Features
 
-- ✨ **Natural Language to SQL** - Convert plain English questions into SQL queries
-- 🔒 **Read-Only Protection** - All queries execute in read-only transactions
-- 🤖 **Multiple LLM Support** - Anthropic Claude, OpenAI (GPT-4o, GPT-5), or Ollama (local/free)
-- 📊 **Resources** - PostgreSQL system info, database schema, and more
-- 🛠️ **Tools** - Query execution, schema analysis, hybrid search, embedding
+- **Natural Language to SQL** - Convert plain English questions into SQL queries
+- **Read-Only Protection** - All queries execute in read-only transactions
+- **Multiple LLM Support** - Anthropic Claude, OpenAI (GPT-4o, GPT-5), or
+  Ollama (local/free)
+- **Resources** - PostgreSQL system info, database schema, and more
+- **Tools** - Query execution, schema analysis, hybrid search, embedding
   generation, and more
-- 🧠 **Prompts** - Guided workflows for semantic search, database exploration,
+- **Prompts** - Guided workflows for semantic search, database exploration,
   query diagnostics, and more
-- 🌐 **HTTP/HTTPS Mode** - Direct API access with token authentication
-- 🖥️ **Web Interface** - Modern React-based UI for server monitoring and management
-- 💬 **Production Chat Client** - Full-featured Go client with Anthropic prompt caching
-- 🔐 **Secure** - TLS support, token authentication, read-only enforcement
+- **HTTP/HTTPS Mode** - Direct API access with token authentication
+- **Web Interface** - Modern React-based UI for server monitoring and management
+- **Production Chat Client** - Full-featured Go client with Anthropic prompt
+  caching
+- **Secure** - TLS support, token authentication, read-only enforcement
 
 ## Getting Started
 
@@ -210,11 +212,11 @@ See **[Testing Guide](testing.md)** for comprehensive testing documentation.
 
 Key security features:
 
-- ✅ Read-only transaction enforcement
-- ✅ API token authentication with expiration
-- ✅ TLS/HTTPS support
-- ✅ SHA256 token hashing
-- ✅ Input validation and sanitization
+- Read-only transaction enforcement
+- API token authentication with expiration
+- TLS/HTTPS support
+- SHA256 token hashing
+- Input validation and sanitization
 
 See **[Security Guide](security.md)** for detailed security documentation.
 

@@ -238,7 +238,7 @@ With caching:
 
 ### Compatibility
 
-- **Anthropic Claude**: Full support ✅
+- **Anthropic Claude**: Full support
 - **OpenAI**: Not available (OpenAI doesn't support prompt caching)
 - **Ollama**: Not available (local models don't have caching)
 

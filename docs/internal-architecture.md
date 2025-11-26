@@ -253,10 +253,10 @@ func RegisterTools(registry *Registry, db *database.Client, llm *llm.Client) {
 
 **Never expose API keys to the browser:**
 
-- ✅ Store keys in server environment variables or files
-- ✅ Use LLM proxy endpoints from web client
-- ❌ Never send API keys to browser
-- ❌ Never store API keys in localStorage
+- Store keys in server environment variables or files
+- Use LLM proxy endpoints from web client
+- Never send API keys to browser
+- Never store API keys in localStorage
 
 ### Session Token Security
 
