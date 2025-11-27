@@ -7,7 +7,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/),
 and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased] - Alpha 2
+## [1.0.0-alpha1] - 2025-11-27
 
 ### Added
 
@@ -127,6 +127,12 @@ and this project adheres to
 - CLI `/tools`, `/resources`, and `/prompts` commands now sort output
   alphabetically
 - Web UI favicon added
+- Web UI: Moved Clear button from floating position to bottom toolbar
+  (next to Settings)
+- Web UI: Added Save Chat button to export conversation history as
+  Markdown
+- Web UI: Improved light mode contrast with gray page background for
+  paper effect
 
 ### Fixed
 
@@ -266,4 +272,5 @@ and this project adheres to
 - Testing guide for contributors
 
 [Unreleased]: https://github.com/pgEdge/pgedge-postgres-mcp/compare/v1.0.0-alpha1...HEAD
+[1.0.0-alpha2]: https://github.com/pgEdge/pgedge-postgres-mcp/releases/tag/v1.0.0-alpha2
 [1.0.0-alpha1]: https://github.com/pgEdge/pgedge-postgres-mcp/releases/tag/v1.0.0-alpha1

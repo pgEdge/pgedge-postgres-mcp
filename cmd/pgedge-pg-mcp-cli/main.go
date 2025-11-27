@@ -1,6 +1,6 @@
 /*-------------------------------------------------------------------------
  *
- * pgEdge Postgres MCP Chat Client
+ * pgEdge Natural Lanaguge Agent
  *
  * Portions copyright (c) 2025, pgEdge, Inc.
  * This software is released under The PostgreSQL License
@@ -22,7 +22,7 @@ import (
 )
 
 const (
-	version = "1.0.0-alpha1"
+	version = "1.0.0-alpha2"
 )
 
 func main() {

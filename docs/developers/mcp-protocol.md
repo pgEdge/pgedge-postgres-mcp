@@ -177,7 +177,7 @@ Establish connection and negotiate capabilities.
     },
     "serverInfo": {
       "name": "pgedge-nla-server",
-      "version": "1.0.0-alpha1"
+      "version": "1.0.0-alpha2"
     }
   }
 }

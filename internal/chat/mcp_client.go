@@ -115,7 +115,7 @@ func (c *stdioClient) Initialize(ctx context.Context) error {
 		Capabilities:    map[string]interface{}{},
 		ClientInfo: mcp.ClientInfo{
 			Name:    "pgedge-pg-mcp-cli",
-			Version: "1.0.0-alpha1",
+			Version: "1.0.0-alpha2",
 		},
 	}
 
@@ -317,7 +317,7 @@ func (c *httpClient) Initialize(ctx context.Context) error {
 		Capabilities:    map[string]interface{}{},
 		ClientInfo: mcp.ClientInfo{
 			Name:    "pgedge-pg-mcp-cli",
-			Version: "1.0.0-alpha1",
+			Version: "1.0.0-alpha2",
 		},
 	}
 

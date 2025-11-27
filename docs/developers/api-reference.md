@@ -21,7 +21,7 @@ Initializes the MCP connection.
     "capabilities": {},
     "clientInfo": {
       "name": "pgedge-nla-web",
-      "version": "1.0.0-alpha1"
+      "version": "1.0.0-alpha2"
     }
   }
 }
@@ -121,7 +121,7 @@ Health check endpoint (no authentication required).
 {
   "status": "ok",
   "server": "pgedge-nla-server",
-  "version": "1.0.0-alpha1"
+  "version": "1.0.0-alpha2"
 }
 ```
 

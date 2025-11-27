@@ -73,10 +73,10 @@ sources:
       project_name: "pgEdge Enterprise"
 
     - git_url: "https://github.com/pgEdge/pgedge-postgres-mcp.git"
-      branch: "v1.0.0-alpha1"
+      branch: "v1.0.0-alpha2"
       doc_path: "docs"
       project_name: "pgEdge Natural Language Agent"
-      project_version: "1.0.0-alpha1"
+      project_version: "1.0.0-alpha2"
 
     - git_url: "https://github.com/pgEdge/spock.git"
       branch: "v5_STABLE"

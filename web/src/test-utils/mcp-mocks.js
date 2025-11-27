@@ -75,7 +75,7 @@ export function mockInitialize(id = 1) {
         },
         serverInfo: {
             name: 'pgedge-nla-server',
-            version: '1.0.0-alpha1'
+            version: '1.0.0-alpha2'
         }
     });
 }

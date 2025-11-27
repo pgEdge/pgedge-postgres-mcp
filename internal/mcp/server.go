@@ -21,7 +21,7 @@ import (
 const (
 	ProtocolVersion = "2024-11-05"
 	ServerName      = "pgedge-nla-server"
-	ServerVersion   = "1.0.0-alpha1"
+	ServerVersion   = "1.0.0-alpha2"
 )
 
 // ToolProvider is an interface for listing and executing tools

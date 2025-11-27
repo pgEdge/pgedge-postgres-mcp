@@ -81,7 +81,7 @@ export class MCPClient {
             capabilities: {},
             clientInfo: {
                 name: 'pgedge-nla-web',
-                version: '1.0.0-alpha1'
+                version: '1.0.0-alpha2'
             }
         });
     }

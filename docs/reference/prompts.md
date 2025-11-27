@@ -378,7 +378,8 @@ The web interface provides a graphical way to execute prompts:
 
 **Access Prompts**:
 
-1. Look for the brain icon (Psychology icon) next to the send message button
+1. Look for the brain icon (Psychology icon) in the input area, between the
+   save button and send button
 2. The icon only appears if prompts are available from the server
 
 **Execute a Prompt**:

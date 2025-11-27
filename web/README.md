@@ -17,6 +17,8 @@ Modern web-based client for the Natural Language Agent. This application provide
   connection information
 - **Conversation History**: Maintains conversation context for multi-turn
   interactions
+- **Save Chat History**: Export conversations to Markdown format with optional
+  activity and debug information
 - **Dark Mode**: Toggle between light and dark themes
 - **Responsive Design**: Works on desktop and mobile devices
 
@@ -309,6 +311,39 @@ server {
 4. Frontend displays LLM response in chat interface
 
 **Key Difference from CLI**: The agentic loop (LLM → tool execution → LLM) runs **client-side** in the browser, while the CLI client runs it server-side. The MCP server provides the LLM proxy to keep API keys secure.
+
+### Chat Interface Controls
+
+The chat interface provides several controls for managing conversations:
+
+**Input Area (left to right):**
+
+- **Text Input**: Multi-line message input field
+- **Save Button**: Export chat history to Markdown (only visible when messages
+  exist)
+- **Prompts Button**: Execute server-defined prompts (only visible when prompts
+  are available)
+- **Send Button**: Send the current message
+
+**Bottom Toolbar:**
+
+- **Provider Selector**: Choose LLM provider (Anthropic, OpenAI, Ollama)
+- **Model Selector**: Choose specific model for the selected provider
+- **Preferences Button**: Toggle activity display, markdown rendering, and
+  debug mode
+- **Clear Button**: Clear conversation history (only visible when messages
+  exist)
+
+**Save Chat History:**
+
+Click the save button (download icon) to export the current conversation as a
+Markdown file:
+
+- Includes timestamps and model information
+- Activity/tool calls are included only if "Show Activity" is enabled in
+  preferences
+- System messages are included only if "Debug" is enabled in preferences
+- File is named `chat-history-YYYY-MM-DD.md`
 
 ### Database Selection
 
