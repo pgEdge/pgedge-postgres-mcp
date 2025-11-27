@@ -45,6 +45,19 @@ func DiagnoseQueryIssue() Prompt {
 							Type: "text",
 							Text: fmt.Sprintf(`Diagnose why this query issue is occurring: %s
 
+<fresh_diagnosis_required>
+CRITICAL: You MUST make fresh tool calls for this diagnosis. Do NOT rely on any
+previous database information from this conversation.
+
+The database state may have changed:
+- User may have switched to a different database connection
+- Tables may have been created, modified, or dropped
+- Data may have been inserted, updated, or deleted
+- Permissions may have changed
+
+Always start fresh - query the current state before making any conclusions.
+</fresh_diagnosis_required>
+
 <diagnostic_workflow>
 Step 1: Verify Database Connection
 - Call: read_resource(uri="pg://system-info")

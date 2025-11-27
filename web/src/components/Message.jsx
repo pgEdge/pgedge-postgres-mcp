@@ -178,13 +178,18 @@ const Message = React.memo(({ message, showActivity, renderMarkdown, debug }) =>
                                 }}
                             >
                                 {activity.type === 'tool' && (
-                                    <>🔧 {activity.name}</>
+                                    <>🔧 {activity.name}{activity.uri ? ` (${activity.uri})` : ''}{debug && activity.tokens != null ? ` ~${activity.tokens.toLocaleString()} tokens` : ''}{activity.isError ? ' ❌' : ''}</>
                                 )}
                                 {activity.type === 'resource' && (
-                                    <>📄 {activity.uri}</>
+                                    <>📄 {activity.uri}{debug && activity.tokens != null ? ` ~${activity.tokens.toLocaleString()} tokens` : ''}</>
                                 )}
                                 {activity.type === 'compaction' && (
                                     <>📦 Compacting history: {activity.originalCount} → {activity.compactedCount} messages{activity.tokensSaved ? ` (saved ${activity.tokensSaved} tokens)` : ''}{activity.local ? ' [local]' : ''}</>
+                                )}
+                                {activity.type === 'rate_limit_pause' && (
+                                    <>⏳ {activity.message} {activity.cumulativeTokens > 0
+                                        ? `(used ~${activity.cumulativeTokens?.toLocaleString()} tokens in ${activity.requestCount} requests)`
+                                        : `(~${activity.estimatedTokens?.toLocaleString()} tokens)`} - pausing 60s before retry...</>
                                 )}
                             </Typography>
                         ))}
@@ -276,7 +281,7 @@ Message.displayName = 'Message';
 
 Message.propTypes = {
     message: PropTypes.shape({
-        role: PropTypes.oneOf(['user', 'assistant']).isRequired,
+        role: PropTypes.oneOf(['user', 'assistant', 'system']).isRequired,
         content: PropTypes.string.isRequired,
         timestamp: PropTypes.string,
         provider: PropTypes.string,
@@ -285,6 +290,8 @@ Message.propTypes = {
             type: PropTypes.string,
             name: PropTypes.string,
             uri: PropTypes.string,
+            tokens: PropTypes.number,
+            isError: PropTypes.bool,
         })),
         isThinking: PropTypes.bool,
         isError: PropTypes.bool,

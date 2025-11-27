@@ -45,6 +45,19 @@ func SetupSemanticSearch() Prompt {
 							Type: "text",
 							Text: fmt.Sprintf(`I need to find documents or data related to: %q
 
+<fresh_search_required>
+CRITICAL: You MUST make fresh tool calls for this search. Do NOT rely on any
+previous database information from this conversation.
+
+The database state may have changed:
+- User may have switched to a different database connection
+- Vector-enabled tables may have been added or removed
+- New data may have been embedded since last check
+- Search results will differ as data changes
+
+Always discover the current vector tables before searching.
+</fresh_search_required>
+
 <semantic_search_workflow>
 Step 1: Discover Vector-Enabled Tables
 - Call: get_schema_info(vector_tables_only=true)

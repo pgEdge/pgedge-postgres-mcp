@@ -22,6 +22,212 @@ import ProviderSelector from './ProviderSelector';
 import PromptPopover from './PromptPopover';
 
 const MAX_AGENTIC_LOOPS = 50;
+// Compact if estimated tokens exceed this threshold.
+// Note: Anthropic rate limits are typically 30k-60k input tokens/minute cumulative.
+// Setting lower allows multiple requests within the rate limit window.
+const TOKEN_COMPACTION_THRESHOLD = 15000;
+const RATE_LIMIT_RETRY_DELAY_MS = 60000; // 60 seconds
+
+/**
+ * Checks if an error is a rate limit error.
+ * @param {number} status - HTTP status code
+ * @param {string} errorText - Error message text
+ * @returns {boolean} - True if this is a rate limit error
+ */
+const isRateLimitError = (status, errorText) => {
+    if (status === 429) return true;
+    if (errorText && errorText.toLowerCase().includes('rate limit')) return true;
+    if (errorText && errorText.includes('tokens per minute')) return true;
+    return false;
+};
+
+/**
+ * Extracts rate limit details from an error message.
+ * @param {string} errorText - Error message text
+ * @returns {object} - Rate limit details
+ */
+const parseRateLimitError = (errorText) => {
+    const details = {
+        limit: null,
+        message: 'Rate limit exceeded',
+    };
+
+    // Try to extract token limit from error message
+    const tokenMatch = errorText.match(/(\d{1,3}(?:,\d{3})*)\s*(?:input\s+)?tokens?\s+per\s+minute/i);
+    if (tokenMatch) {
+        details.limit = tokenMatch[1];
+        details.message = `Rate limit: ${tokenMatch[1]} input tokens per minute`;
+    }
+
+    return details;
+};
+
+/**
+ * Creates a delay promise.
+ * @param {number} ms - Milliseconds to delay
+ * @returns {Promise} - Promise that resolves after delay
+ */
+const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+/**
+ * Estimates token count for a string using rough heuristic.
+ * Uses ~3.5 characters per token (conservative estimate).
+ * @param {string} text - Text to estimate
+ * @returns {number} - Estimated token count
+ */
+const estimateTokensForText = (text) => {
+    if (!text || typeof text !== 'string') return 0;
+    // Rough heuristic: ~3.5 characters per token
+    return Math.ceil(text.length / 3.5);
+};
+
+/**
+ * Estimates token count for tool/resource result content.
+ * @param {*} content - Tool result content (string, array, or object)
+ * @returns {number} - Estimated token count
+ */
+const estimateToolResultTokens = (content) => {
+    if (!content) return 0;
+
+    // If it's a string, estimate directly
+    if (typeof content === 'string') {
+        return estimateTokensForText(content);
+    }
+
+    // If it's an array of content items (MCP format)
+    if (Array.isArray(content)) {
+        let total = 0;
+        for (const item of content) {
+            if (item.type === 'text' && item.text) {
+                total += estimateTokensForText(item.text);
+            } else if (typeof item === 'string') {
+                total += estimateTokensForText(item);
+            } else {
+                // For other content types, stringify and estimate
+                total += estimateTokensForText(JSON.stringify(item));
+            }
+        }
+        return total;
+    }
+
+    // For objects, stringify and estimate
+    if (typeof content === 'object') {
+        return estimateTokensForText(JSON.stringify(content));
+    }
+
+    return 0;
+};
+
+/**
+ * Token usage tracker - tracks actual token usage from LLM responses
+ * to provide accurate cumulative counts for rate limit messages.
+ */
+const tokenUsageTracker = {
+    // Array of { timestamp: Date, inputTokens: number, outputTokens: number }
+    usageHistory: [],
+
+    /**
+     * Records token usage from an LLM response.
+     * @param {object} tokenUsage - Token usage from LLM response
+     */
+    record(tokenUsage) {
+        if (!tokenUsage) return;
+        // API returns prompt_tokens/completion_tokens (not input_tokens/output_tokens)
+        const inputTokens = tokenUsage.prompt_tokens || tokenUsage.input_tokens || 0;
+        const outputTokens = tokenUsage.completion_tokens || tokenUsage.output_tokens || 0;
+        console.log(`[Token Tracker] Recording: ${inputTokens} input, ${outputTokens} output tokens`);
+        this.usageHistory.push({
+            timestamp: Date.now(),
+            inputTokens: inputTokens,
+            outputTokens: outputTokens,
+        });
+        // Clean up old entries (older than 2 minutes)
+        this.cleanup();
+    },
+
+    /**
+     * Removes entries older than 2 minutes.
+     */
+    cleanup() {
+        const twoMinutesAgo = Date.now() - 120000;
+        this.usageHistory = this.usageHistory.filter(u => u.timestamp > twoMinutesAgo);
+    },
+
+    /**
+     * Gets cumulative input tokens used in the last minute.
+     * @returns {number} - Total input tokens in last 60 seconds
+     */
+    getInputTokensLastMinute() {
+        const oneMinuteAgo = Date.now() - 60000;
+        return this.usageHistory
+            .filter(u => u.timestamp > oneMinuteAgo)
+            .reduce((sum, u) => sum + u.inputTokens, 0);
+    },
+
+    /**
+     * Gets the count of requests in the last minute.
+     * @returns {number} - Number of requests in last 60 seconds
+     */
+    getRequestCountLastMinute() {
+        const oneMinuteAgo = Date.now() - 60000;
+        return this.usageHistory.filter(u => u.timestamp > oneMinuteAgo).length;
+    },
+
+    /**
+     * Clears all usage history.
+     */
+    clear() {
+        this.usageHistory = [];
+    },
+};
+
+/**
+ * Estimates the number of tokens in a string.
+ * Uses a rough heuristic of ~4 characters per token for English text.
+ * @param {string} text - The text to estimate tokens for
+ * @returns {number} - Estimated token count
+ */
+const estimateTokens = (text) => {
+    if (!text) return 0;
+    // Rough heuristic: ~4 characters per token for English, ~3 for code/JSON
+    // Use 3.5 as a middle ground to be conservative
+    return Math.ceil(text.length / 3.5);
+};
+
+/**
+ * Estimates total tokens in a message array.
+ * @param {Array} messages - Array of message objects
+ * @returns {number} - Estimated total token count
+ */
+const estimateTotalTokens = (messages) => {
+    let total = 0;
+    for (const msg of messages) {
+        if (typeof msg.content === 'string') {
+            total += estimateTokens(msg.content);
+        } else if (Array.isArray(msg.content)) {
+            // Handle tool_use and tool_result arrays
+            for (const item of msg.content) {
+                if (item.text) {
+                    total += estimateTokens(item.text);
+                } else if (item.input) {
+                    total += estimateTokens(JSON.stringify(item.input));
+                } else if (item.content) {
+                    // Tool results can have content as string or array
+                    if (typeof item.content === 'string') {
+                        total += estimateTokens(item.content);
+                    } else if (Array.isArray(item.content)) {
+                        for (const c of item.content) {
+                            if (c.text) total += estimateTokens(c.text);
+                        }
+                    }
+                }
+            }
+        }
+        // Add overhead for message structure (~10 tokens per message)
+        total += 10;
+    }
+    return total;
+};
 
 /**
  * Performs basic local compaction as a fallback.
@@ -58,18 +264,33 @@ const localCompactMessages = (messages, maxRecentMessages = 10) => {
  */
 const compactMessages = async (messages, sessionToken, maxTokens = 100000, recentWindow = 10) => {
     const MAX_RECENT_MESSAGES = recentWindow;
-    const MIN_MESSAGES_FOR_COMPACTION = 30; // Don't compact unless we have at least 30 messages
+    const MIN_MESSAGES_FOR_COMPACTION = 15; // Don't compact unless we have at least 15 messages
     const MIN_SAVINGS_THRESHOLD = 5; // Only compact if we can save at least 5 messages
 
-    // If we have fewer messages than the minimum threshold, return all
-    if (messages.length < MIN_MESSAGES_FOR_COMPACTION) {
+    // Estimate total tokens in the conversation
+    const estimatedTokens = estimateTotalTokens(messages);
+
+    // Check if we should compact based on token count OR message count
+    const shouldCompactByTokens = estimatedTokens > TOKEN_COMPACTION_THRESHOLD;
+    const shouldCompactByMessages = messages.length >= MIN_MESSAGES_FOR_COMPACTION;
+
+    // If neither threshold is met, skip compaction
+    if (!shouldCompactByTokens && !shouldCompactByMessages) {
         return { messages, compacted: false };
     }
 
-    // Estimate if compaction would be worthwhile
+    // Log why we're compacting (for debugging)
+    if (shouldCompactByTokens) {
+        console.log(`[Compaction] Triggered by token count: ~${estimatedTokens} tokens (threshold: ${TOKEN_COMPACTION_THRESHOLD})`);
+    } else {
+        console.log(`[Compaction] Triggered by message count: ${messages.length} messages (threshold: ${MIN_MESSAGES_FOR_COMPACTION})`);
+    }
+
+    // Estimate if compaction would be worthwhile (only for message-based trigger)
     // With recentWindow=10 and keepAnchors=true, we keep at least: 1 (first) + 10 (recent) = 11
     // So we need at least 11 + MIN_SAVINGS_THRESHOLD messages to make it worthwhile
-    if (messages.length < (11 + MIN_SAVINGS_THRESHOLD)) {
+    // For token-based trigger, always proceed since we need to reduce tokens
+    if (!shouldCompactByTokens && messages.length < (11 + MIN_SAVINGS_THRESHOLD)) {
         return { messages, compacted: false };
     }
 
@@ -255,6 +476,7 @@ const ChatInterface = () => {
 
             const activity = [];
             let loopCount = 0;
+            let rateLimitRetryCount = 0;
 
             // Agentic loop
             while (loopCount < MAX_AGENTIC_LOOPS) {
@@ -288,6 +510,7 @@ const ChatInterface = () => {
                 }
 
                 // Call LLM with compacted history
+                // Note: Always send debug=true to get token usage for rate limit tracking
                 const llmResponse = await fetch('/api/llm/chat', {
                     method: 'POST',
                     headers: {
@@ -300,7 +523,7 @@ const ChatInterface = () => {
                         tools: tools,
                         provider: llmProviders.selectedProvider,
                         model: llmProviders.selectedModel,
-                        debug: debug,
+                        debug: true,
                     }),
                 });
 
@@ -330,10 +553,76 @@ const ChatInterface = () => {
 
                 if (!llmResponse.ok) {
                     const errorText = await llmResponse.text();
+
+                    // Check for rate limit error
+                    if (isRateLimitError(llmResponse.status, errorText)) {
+                        rateLimitRetryCount++;
+                        const rateLimitDetails = parseRateLimitError(errorText);
+                        const estimatedTokens = estimateTotalTokens(compactedMessages);
+                        const cumulativeTokens = tokenUsageTracker.getInputTokensLastMinute();
+                        const requestCount = tokenUsageTracker.getRequestCountLastMinute();
+
+                        if (rateLimitRetryCount === 1) {
+                            // First rate limit hit - pause and retry
+                            console.log('[Rate Limit] First hit, pausing for 60 seconds before retry...');
+                            console.log(`[Rate Limit] Cumulative tokens in last minute: ${cumulativeTokens}, requests: ${requestCount}`);
+
+                            // Add rate limit activity
+                            activity.push({
+                                type: 'rate_limit_pause',
+                                timestamp: new Date().toISOString(),
+                                message: rateLimitDetails.message,
+                                estimatedTokens: estimatedTokens,
+                                cumulativeTokens: cumulativeTokens,
+                                requestCount: requestCount,
+                            });
+
+                            // Update thinking message to show we're waiting
+                            setMessages(prev => {
+                                const newMessages = [...prev];
+                                if (newMessages.length > 0 && newMessages[newMessages.length - 1].isThinking) {
+                                    newMessages[newMessages.length - 1] = {
+                                        ...newMessages[newMessages.length - 1],
+                                        activity: [...activity]
+                                    };
+                                }
+                                return newMessages;
+                            });
+
+                            // Wait 60 seconds
+                            await delay(RATE_LIMIT_RETRY_DELAY_MS);
+
+                            // Don't increment loopCount for rate limit retries
+                            loopCount--;
+                            continue;
+                        } else {
+                            // Second rate limit hit - give up with friendly message
+                            const tokenInfo = cumulativeTokens > 0
+                                ? `Tokens used in last minute: ~${cumulativeTokens.toLocaleString()} (${requestCount} requests)`
+                                : `Estimated tokens in this request: ~${estimatedTokens.toLocaleString()}`;
+                            const friendlyError = `Rate limit exceeded. The API has a limit of ${rateLimitDetails.limit || 'N'} input tokens per minute.\n\n` +
+                                `${tokenInfo}\n\n` +
+                                `To resolve this:\n` +
+                                `1. Clear the conversation history and try again\n` +
+                                `2. Wait a minute before sending another request\n` +
+                                `3. Try a shorter query or use a different LLM provider`;
+                            throw new Error(friendlyError);
+                        }
+                    }
+
                     throw new Error(`LLM request failed: ${llmResponse.status} ${errorText}`);
                 }
 
                 const llmData = await llmResponse.json();
+
+                // Track token usage for rate limit awareness
+                console.log('[Token Debug] llmData.token_usage:', llmData.token_usage);
+                console.log('[Token Debug] llmData.usage:', llmData.usage);
+                tokenUsageTracker.record(llmData.token_usage || llmData.usage);
+
+                // Reset rate limit retry counter after successful response
+                rateLimitRetryCount = 0;
+
                 console.log('LLM response:', llmData);
                 console.log('Loop iteration:', loopCount, 'Stop reason:', llmData.stop_reason);
                 if (llmData.stop_reason === 'tool_use') {
@@ -387,12 +676,19 @@ const ChatInterface = () => {
                     for (const toolUse of toolUses) {
                         console.log('Executing tool:', toolUse.name, 'with args:', toolUse.input);
 
-                        // Update activity
-                        activity.push({
+                        // Add initial activity entry (token count will be updated after execution)
+                        const activityIndex = activity.length;
+                        const activityEntry = {
                             type: 'tool',
                             name: toolUse.name,
                             timestamp: new Date().toISOString(),
-                        });
+                            tokens: null, // Will be updated after execution
+                        };
+                        // For read_resource, capture the URI being accessed
+                        if (toolUse.name === 'read_resource' && toolUse.input?.uri) {
+                            activityEntry.uri = toolUse.input.uri;
+                        }
+                        activity.push(activityEntry);
 
                         // Update thinking message with new activity
                         setMessages(prev => {
@@ -412,6 +708,23 @@ const ChatInterface = () => {
                             const result = await mcpClient.callTool(toolUse.name, toolUse.input);
                             console.log('Tool result:', result);
 
+                            // Estimate tokens in the result
+                            const resultTokens = estimateToolResultTokens(result.content);
+                            activity[activityIndex].tokens = resultTokens;
+                            activity[activityIndex].isError = result.isError || false;
+
+                            // Update thinking message with token count
+                            setMessages(prev => {
+                                const newMessages = [...prev];
+                                if (newMessages.length > 0 && newMessages[newMessages.length - 1].isThinking) {
+                                    newMessages[newMessages.length - 1] = {
+                                        ...newMessages[newMessages.length - 1],
+                                        activity: [...activity]
+                                    };
+                                }
+                                return newMessages;
+                            });
+
                             toolResults.push({
                                 type: 'tool_result',
                                 tool_use_id: toolUse.id,
@@ -424,10 +737,14 @@ const ChatInterface = () => {
                             }
                         } catch (toolError) {
                             console.error('Tool execution error:', toolError);
+                            const errorContent = `Error: ${toolError.message}`;
+                            activity[activityIndex].tokens = estimateToolResultTokens(errorContent);
+                            activity[activityIndex].isError = true;
+
                             toolResults.push({
                                 type: 'tool_result',
                                 tool_use_id: toolUse.id,
-                                content: `Error: ${toolError.message}`,
+                                content: errorContent,
                                 is_error: true,
                             });
                         }
@@ -590,6 +907,7 @@ const ChatInterface = () => {
             // Start agentic loop (similar to handleSend but using prompt messages)
             let loopCount = 0;
             const activity = [];
+            let rateLimitRetryCount = 0;
 
             while (loopCount < MAX_AGENTIC_LOOPS) {
                 loopCount++;
@@ -622,6 +940,7 @@ const ChatInterface = () => {
                 }
 
                 // Make LLM request with compacted history
+                // Note: Always send debug=true to get token usage for rate limit tracking
                 const response = await fetch('/api/llm/chat', {
                     method: 'POST',
                     headers: {
@@ -633,6 +952,7 @@ const ChatInterface = () => {
                         tools: tools,
                         provider: llmProviders.selectedProvider,
                         model: llmProviders.selectedModel,
+                        debug: true,
                     }),
                 });
 
@@ -642,10 +962,75 @@ const ChatInterface = () => {
                         throw new Error('Session expired. Please login again.');
                     }
                     const errorText = await response.text();
+
+                    // Check for rate limit error
+                    if (isRateLimitError(response.status, errorText)) {
+                        rateLimitRetryCount++;
+                        const rateLimitDetails = parseRateLimitError(errorText);
+                        const estimatedTokens = estimateTotalTokens(compactedMessages);
+                        const cumulativeTokens = tokenUsageTracker.getInputTokensLastMinute();
+                        const requestCount = tokenUsageTracker.getRequestCountLastMinute();
+
+                        if (rateLimitRetryCount === 1) {
+                            // First rate limit hit - pause and retry
+                            console.log('[Rate Limit] First hit, pausing for 60 seconds before retry...');
+                            console.log(`[Rate Limit] Cumulative tokens in last minute: ${cumulativeTokens}, requests: ${requestCount}`);
+
+                            // Add rate limit activity
+                            activity.push({
+                                type: 'rate_limit_pause',
+                                timestamp: new Date().toISOString(),
+                                message: rateLimitDetails.message,
+                                estimatedTokens: estimatedTokens,
+                                cumulativeTokens: cumulativeTokens,
+                                requestCount: requestCount,
+                            });
+
+                            // Update thinking message to show we're waiting
+                            setMessages(prev => {
+                                const newMessages = [...prev];
+                                if (newMessages.length > 0 && newMessages[newMessages.length - 1].isThinking) {
+                                    newMessages[newMessages.length - 1] = {
+                                        ...newMessages[newMessages.length - 1],
+                                        activity: [...activity]
+                                    };
+                                }
+                                return newMessages;
+                            });
+
+                            // Wait 60 seconds
+                            await delay(RATE_LIMIT_RETRY_DELAY_MS);
+
+                            // Don't increment loopCount for rate limit retries
+                            loopCount--;
+                            continue;
+                        } else {
+                            // Second rate limit hit - give up with friendly message
+                            const tokenInfo = cumulativeTokens > 0
+                                ? `Tokens used in last minute: ~${cumulativeTokens.toLocaleString()} (${requestCount} requests)`
+                                : `Estimated tokens in this request: ~${estimatedTokens.toLocaleString()}`;
+                            const friendlyError = `Rate limit exceeded. The API has a limit of ${rateLimitDetails.limit || 'N'} input tokens per minute.\n\n` +
+                                `${tokenInfo}\n\n` +
+                                `To resolve this:\n` +
+                                `1. Clear the conversation history and try again\n` +
+                                `2. Wait a minute before sending another request\n` +
+                                `3. Try a shorter query or use a different LLM provider`;
+                            throw new Error(friendlyError);
+                        }
+                    }
+
                     throw new Error(`Server error: ${errorText}`);
                 }
 
                 const llmData = await response.json();
+
+                // Track token usage for rate limit awareness
+                console.log('[Token Debug] llmData.token_usage:', llmData.token_usage);
+                console.log('[Token Debug] llmData.usage:', llmData.usage);
+                tokenUsageTracker.record(llmData.token_usage || llmData.usage);
+
+                // Reset rate limit retry counter after successful response
+                rateLimitRetryCount = 0;
 
                 // Handle end_turn
                 if (llmData.stop_reason === 'end_turn') {
@@ -681,12 +1066,19 @@ const ChatInterface = () => {
                     // Execute tools
                     const toolResults = [];
                     for (const toolUse of toolUses) {
-                        // Update activity
-                        activity.push({
+                        // Add initial activity entry (token count will be updated after execution)
+                        const activityIndex = activity.length;
+                        const activityEntry = {
                             type: 'tool',
                             name: toolUse.name,
                             timestamp: new Date().toISOString(),
-                        });
+                            tokens: null, // Will be updated after execution
+                        };
+                        // For read_resource, capture the URI being accessed
+                        if (toolUse.name === 'read_resource' && toolUse.input?.uri) {
+                            activityEntry.uri = toolUse.input.uri;
+                        }
+                        activity.push(activityEntry);
 
                         // Update thinking message with new activity
                         setMessages(prev => {
@@ -704,6 +1096,23 @@ const ChatInterface = () => {
                             // Execute tool via MCP
                             const result = await mcpClient.callTool(toolUse.name, toolUse.input);
 
+                            // Estimate tokens in the result
+                            const resultTokens = estimateToolResultTokens(result.content);
+                            activity[activityIndex].tokens = resultTokens;
+                            activity[activityIndex].isError = result.isError || false;
+
+                            // Update thinking message with token count
+                            setMessages(prev => {
+                                const newMessages = [...prev];
+                                if (newMessages.length > 0 && newMessages[newMessages.length - 1].isThinking) {
+                                    newMessages[newMessages.length - 1] = {
+                                        ...newMessages[newMessages.length - 1],
+                                        activity: [...activity]
+                                    };
+                                }
+                                return newMessages;
+                            });
+
                             toolResults.push({
                                 type: 'tool_result',
                                 tool_use_id: toolUse.id,
@@ -716,10 +1125,14 @@ const ChatInterface = () => {
                             }
                         } catch (toolError) {
                             console.error('Tool execution error:', toolError);
+                            const errorContent = `Error: ${toolError.message}`;
+                            activity[activityIndex].tokens = estimateToolResultTokens(errorContent);
+                            activity[activityIndex].isError = true;
+
                             toolResults.push({
                                 type: 'tool_result',
                                 tool_use_id: toolUse.id,
-                                content: `Error: ${toolError.message}`,
+                                content: errorContent,
                                 is_error: true,
                             });
                         }

@@ -55,10 +55,23 @@ Returns comprehensive information:
 </key_features>
 
 <filtering_options>
-- No parameters: Returns ALL tables across all schemas (comprehensive)
-- schema_name="public": Filter to specific schema only
-- vector_tables_only=true: Show only tables with pgvector columns (reduces output 10x, perfect for similarity_search preparation)
+- No parameters: Returns summary if >10 tables, full details otherwise
+- schema_name="public": Filter to specific schema only (always full details)
+- vector_tables_only=true: Show only tables with pgvector columns (reduces output 10x)
+- compact=true: Return table names + column names only (reduces output 70%)
 </filtering_options>
+
+<auto_summary_mode>
+When called without filters on databases with >10 tables, automatically returns
+a compact summary showing:
+- Total tables and schemas
+- Table names per schema (first 5 + count of remaining)
+- Vector-enabled tables highlighted
+- Suggested next calls for detailed info
+
+This prevents overwhelming token usage on large databases. Use schema_name
+filter to get full details for specific schemas.
+</auto_summary_mode>
 
 <examples>
 ✓ "What tables are available?" → get_schema_info()
@@ -75,6 +88,7 @@ This tool provides MORE detail than the pg://database-schema resource, which onl
 To avoid rate limits when calling this tool:
 - Use schema_name="specific_schema" to filter output (reduces tokens by 90%)
 - Use vector_tables_only=true when preparing for similarity_search (reduces output 10x)
+- Use compact=true for a concise summary (table names + column names only)
 - Avoid calling without parameters in large databases (can return 10k+ tokens)
 - Call once and cache results in conversation rather than repeatedly
 - If exploring large schemas, filter by schema_name first
@@ -91,6 +105,11 @@ To avoid rate limits when calling this tool:
 						"description": "Optional: if true, only return tables with vector columns (for semantic search). Reduces output significantly.",
 						"default":     false,
 					},
+					"compact": map[string]interface{}{
+						"type":        "boolean",
+						"description": "Optional: if true, return compact output (table names + column names only, no types/descriptions). Reduces output by 70%.",
+						"default":     false,
+					},
 				},
 			},
 		},
@@ -105,55 +124,173 @@ To avoid rate limits when calling this tool:
 				vectorTablesOnly = vectorOnly
 			}
 
+			compactMode := false
+			if compact, ok := args["compact"].(bool); ok {
+				compactMode = compact
+			}
+
 			// Check if metadata is loaded
 			if !dbClient.IsMetadataLoaded() {
 				return mcp.NewToolError(mcp.DatabaseNotReadyError)
 			}
 
-			var sb strings.Builder
-			sb.WriteString("Database Schema Information:\n")
-			sb.WriteString("============================\n")
-
 			metadata := dbClient.GetMetadata()
-			matchedTables := 0
+
+			// Threshold for auto-summary mode (when no filters applied)
+			const summaryThreshold = 10
+
+			// First pass: count tables per schema and check for vector columns
+			type schemaStats struct {
+				tableNames   []string
+				vectorTables []string
+			}
+			schemaMap := make(map[string]*schemaStats)
+			totalMatched := 0
+
 			for _, table := range metadata {
 				// Filter by schema if requested
 				if schemaName != "" && table.SchemaName != schemaName {
 					continue
 				}
 
-				// Filter for vector tables only if requested
-				if vectorTablesOnly {
-					hasVectorColumn := false
-					for _, col := range table.Columns {
-						if col.IsVectorColumn {
-							hasVectorColumn = true
-							break
-						}
-					}
-					if !hasVectorColumn {
-						continue
-					}
-				}
-
-				matchedTables++
-				sb.WriteString(fmt.Sprintf("\n%s.%s (%s)\n", table.SchemaName, table.TableName, table.TableType))
-				if table.Description != "" {
-					sb.WriteString(fmt.Sprintf("  Description: %s\n", table.Description))
-				}
-
-				sb.WriteString("  Columns:\n")
+				// Check for vector columns
+				hasVectorColumn := false
 				for _, col := range table.Columns {
-					sb.WriteString(fmt.Sprintf("    - %s: %s", col.ColumnName, col.DataType))
-					if col.IsNullable == "YES" {
-						sb.WriteString(" (nullable)")
+					if col.IsVectorColumn {
+						hasVectorColumn = true
+						break
 					}
-					if col.Description != "" {
-						sb.WriteString(fmt.Sprintf("\n      Description: %s", col.Description))
+				}
+
+				// Filter for vector tables only if requested
+				if vectorTablesOnly && !hasVectorColumn {
+					continue
+				}
+
+				totalMatched++
+
+				// Track stats per schema
+				if schemaMap[table.SchemaName] == nil {
+					schemaMap[table.SchemaName] = &schemaStats{}
+				}
+				schemaMap[table.SchemaName].tableNames = append(
+					schemaMap[table.SchemaName].tableNames, table.TableName)
+				if hasVectorColumn {
+					schemaMap[table.SchemaName].vectorTables = append(
+						schemaMap[table.SchemaName].vectorTables, table.TableName)
+				}
+			}
+
+			// Auto-summary mode: when no filters applied and many tables
+			autoSummary := schemaName == "" && !vectorTablesOnly && !compactMode &&
+				totalMatched > summaryThreshold
+
+			var sb strings.Builder
+
+			if autoSummary {
+				// Smart summary mode for large databases
+				sb.WriteString("Database Schema Summary:\n")
+				sb.WriteString("========================\n\n")
+				sb.WriteString(fmt.Sprintf("Found %d tables across %d schemas.\n\n",
+					totalMatched, len(schemaMap)))
+
+				// List schemas with their tables
+				for schema, stats := range schemaMap {
+					sb.WriteString(fmt.Sprintf("Schema '%s': %d tables\n",
+						schema, len(stats.tableNames)))
+
+					// Show first few table names as preview
+					previewCount := 5
+					if len(stats.tableNames) < previewCount {
+						previewCount = len(stats.tableNames)
+					}
+					preview := stats.tableNames[:previewCount]
+					sb.WriteString(fmt.Sprintf("  Tables: %s", strings.Join(preview, ", ")))
+					if len(stats.tableNames) > previewCount {
+						sb.WriteString(fmt.Sprintf(", ... (+%d more)",
+							len(stats.tableNames)-previewCount))
+					}
+					sb.WriteString("\n")
+
+					// Note vector-enabled tables if any
+					if len(stats.vectorTables) > 0 {
+						sb.WriteString(fmt.Sprintf("  Vector-enabled: %s\n",
+							strings.Join(stats.vectorTables, ", ")))
 					}
 					sb.WriteString("\n")
 				}
+
+				sb.WriteString("<next_steps>\n")
+				sb.WriteString("To reduce token usage and get detailed info:\n\n")
+				sb.WriteString("1. Get details for a specific schema:\n")
+				for schema := range schemaMap {
+					sb.WriteString(fmt.Sprintf("   → get_schema_info(schema_name=%q)\n", schema))
+				}
+				sb.WriteString("\n2. Get only vector-enabled tables:\n")
+				sb.WriteString("   → get_schema_info(vector_tables_only=true)\n\n")
+				sb.WriteString("3. Get compact view (names only):\n")
+				sb.WriteString("   → get_schema_info(compact=true)\n")
+				sb.WriteString("</next_steps>\n")
+			} else {
+				// Standard output modes (filtered, compact, or full)
+				sb.WriteString("Database Schema Information:\n")
+				sb.WriteString("============================\n")
+
+				for _, table := range metadata {
+					// Filter by schema if requested
+					if schemaName != "" && table.SchemaName != schemaName {
+						continue
+					}
+
+					// Filter for vector tables only if requested
+					if vectorTablesOnly {
+						hasVectorColumn := false
+						for _, col := range table.Columns {
+							if col.IsVectorColumn {
+								hasVectorColumn = true
+								break
+							}
+						}
+						if !hasVectorColumn {
+							continue
+						}
+					}
+
+					if compactMode {
+						// Compact output: table name + column names only
+						sb.WriteString(fmt.Sprintf("\n%s.%s: ", table.SchemaName, table.TableName))
+						colNames := make([]string, len(table.Columns))
+						for i, col := range table.Columns {
+							colNames[i] = col.ColumnName
+						}
+						sb.WriteString(strings.Join(colNames, ", "))
+						sb.WriteString("\n")
+					} else {
+						// Full output with types and descriptions
+						sb.WriteString(fmt.Sprintf("\n%s.%s (%s)\n",
+							table.SchemaName, table.TableName, table.TableType))
+						if table.Description != "" {
+							sb.WriteString(fmt.Sprintf("  Description: %s\n", table.Description))
+						}
+
+						sb.WriteString("  Columns:\n")
+						for _, col := range table.Columns {
+							sb.WriteString(fmt.Sprintf("    - %s: %s",
+								col.ColumnName, col.DataType))
+							if col.IsNullable == "YES" {
+								sb.WriteString(" (nullable)")
+							}
+							if col.Description != "" {
+								sb.WriteString(fmt.Sprintf("\n      Description: %s",
+									col.Description))
+							}
+							sb.WriteString("\n")
+						}
+					}
+				}
 			}
+
+			matchedTables := totalMatched
 
 			// Handle empty results with contextual guidance
 			if matchedTables == 0 {

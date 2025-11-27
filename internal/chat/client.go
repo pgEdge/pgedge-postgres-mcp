@@ -524,25 +524,103 @@ type CompactionInfo struct {
 	CompressionRatio float64 `json:"compression_ratio"`
 }
 
+// estimateTokens estimates the number of tokens in a string.
+// Uses a rough heuristic of ~3.5 characters per token.
+func estimateTokens(text string) int {
+	if text == "" {
+		return 0
+	}
+	// Rough heuristic: ~4 characters per token for English, ~3 for code/JSON
+	// Use 3.5 as a middle ground to be conservative
+	return (len(text) + 2) / 3 // Rounds up, slightly more conservative than /3.5
+}
+
+// estimateTotalTokens estimates the total tokens in a message array.
+func estimateTotalTokens(messages []Message) int {
+	total := 0
+	for _, msg := range messages {
+		switch content := msg.Content.(type) {
+		case string:
+			total += estimateTokens(content)
+		case []interface{}:
+			// Handle tool_use and tool_result arrays
+			for _, item := range content {
+				if m, ok := item.(map[string]interface{}); ok {
+					if text, ok := m["text"].(string); ok {
+						total += estimateTokens(text)
+					}
+					if input, ok := m["input"]; ok {
+						if jsonBytes, err := json.Marshal(input); err == nil {
+							total += estimateTokens(string(jsonBytes))
+						}
+					}
+					if c, ok := m["content"]; ok {
+						if text, ok := c.(string); ok {
+							total += estimateTokens(text)
+						}
+					}
+				}
+			}
+		case []ToolResult:
+			for _, tr := range content {
+				switch c := tr.Content.(type) {
+				case []mcp.ContentItem:
+					for _, item := range c {
+						total += estimateTokens(item.Text)
+					}
+				case string:
+					total += estimateTokens(c)
+				}
+			}
+		}
+		// Add overhead for message structure (~10 tokens per message)
+		total += 10
+	}
+	return total
+}
+
 // compactMessages reduces the message history to prevent token overflow.
 // It tries to use the server-side smart compaction if available in HTTP mode,
 // falling back to local basic compaction if needed.
 func (c *Client) compactMessages(messages []Message) []Message {
 	const maxRecentMessages = 10
 	const maxTokens = 100000
+	// Compact if estimated tokens exceed this threshold.
+	// Note: Anthropic rate limits are typically 30k-60k input tokens/minute cumulative.
+	// Setting lower allows multiple requests within the rate limit window.
+	const tokenCompactionThreshold = 15000
 
-	const minMessagesForCompaction = 30 // Don't compact unless we have at least 30 messages
+	const minMessagesForCompaction = 15 // Don't compact unless we have at least 15 messages
 	const minSavingsThreshold = 5       // Only compact if we can save at least 5 messages
 
-	// If we have fewer messages than the minimum threshold, return all
-	if len(messages) < minMessagesForCompaction {
+	// Estimate total tokens in the conversation
+	estimatedTokens := estimateTotalTokens(messages)
+
+	// Check if we should compact based on token count OR message count
+	shouldCompactByTokens := estimatedTokens > tokenCompactionThreshold
+	shouldCompactByMessages := len(messages) >= minMessagesForCompaction
+
+	// If neither threshold is met, skip compaction
+	if !shouldCompactByTokens && !shouldCompactByMessages {
 		return messages
 	}
 
-	// Estimate if compaction would be worthwhile
+	// Log why we're compacting (for debugging)
+	if c.config.UI.Debug {
+		if shouldCompactByTokens {
+			fmt.Fprintf(os.Stderr, "[DEBUG] Compaction triggered by token count: ~%d tokens (threshold: %d)\n",
+				estimatedTokens, tokenCompactionThreshold)
+		} else {
+			fmt.Fprintf(os.Stderr, "[DEBUG] Compaction triggered by message count: %d messages (threshold: %d)\n",
+				len(messages), minMessagesForCompaction)
+		}
+	}
+
+	// Estimate if compaction would be worthwhile (only for message-based trigger)
 	// With recentWindow=10 and keepAnchors=true, we keep at least: 1 (first) + 10 (recent) = 11
 	// So we need at least 11 + minSavingsThreshold messages to make it worthwhile
-	if len(messages) < (11 + minSavingsThreshold) {
+	// For token-based trigger, always proceed since we need to reduce tokens
+	if !shouldCompactByTokens && len(messages) < (11+minSavingsThreshold) {
 		return messages
 	}
 

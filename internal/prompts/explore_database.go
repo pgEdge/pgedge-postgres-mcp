@@ -32,55 +32,77 @@ func ExploreDatabase() Prompt {
 							Type: "text",
 							Text: `I need to explore this PostgreSQL database systematically to understand what data is available and how it's organized.
 
-<exploration_workflow>
-Step 1: Get System Information
-- Call read_resource(uri="pg://system-info") OR use native resources/read
-- Understand: database name, PostgreSQL version, connection details
-- This helps identify which database you're connected to
+<fresh_exploration_required>
+CRITICAL: You MUST make fresh tool calls for this exploration. Do NOT rely on or
+reference any previous database exploration results from this conversation.
 
-Step 2: Quick Table Overview
-- Call get_schema_info() with NO parameters for comprehensive view
-- OR use schema_name="public" if you only want the main schema
-- Note: This may return significant data - use filtering if database is large
+Why this matters:
+- The user may have switched to a different database connection
+- Database schemas and tables can change at any time
+- Data content changes constantly
+- Server statistics and system info are time-sensitive
 
-Step 3: Analyze Schema Structure
-- Identify tables of interest based on:
-  * Table names that suggest their purpose
-  * Table descriptions from pg_description
-  * Number and types of columns
-- Look for patterns: transaction tables, lookup tables, junction tables
+Even if you explored a database earlier in this conversation, treat this as a
+completely new exploration. The current database state is unknown until you
+query it fresh.
+</fresh_exploration_required>
 
-Step 4: Identify Special Capabilities
-- Check for vector columns (pgvector): indicates semantic search capability
-- Check for JSONB columns: indicates flexible/document storage
-- Check for foreign keys: understand relationships between tables
+<critical_rate_limit_warning>
+IMPORTANT: Each tool call uses ~8,000-10,000 tokens. Rate limits are typically
+30,000 tokens per minute. To complete exploration without hitting rate limits:
+- MINIMIZE tool calls - extract maximum information from each call
+- NEVER call the same tool twice with the same parameters
+- Combine information gathering into as few calls as possible
+- Skip sample queries unless specifically requested by user
+</critical_rate_limit_warning>
 
-Step 5: Sample Data (if needed)
-- For key tables, query small samples: query_database(query="SELECT * FROM table_name", limit=5)
-- This helps understand data patterns and content types
+<efficient_exploration_workflow>
+Step 1: Get Database Overview (ONE call only)
+- Call get_schema_info(schema_name="public") for focused view
+- This single call provides: all tables, columns, types, descriptions,
+  vector columns, and relationships
+- Extract ALL insights from this one response before making any other calls
 
-Step 6: Summarize Findings
-- Database purpose and domain (e.g., e-commerce, CRM, documentation)
+Step 2: Analyze Results (NO tool calls needed)
+From the get_schema_info response, identify:
+- Table purposes from names and descriptions
+- Vector columns (pgvector) for semantic search capability
+- JSONB columns for flexible storage
+- Relationships from foreign keys
+- Data patterns (transaction tables, lookup tables, junction tables)
+
+Step 3: Summarize Findings (NO tool calls needed)
+Provide summary including:
+- Database purpose and domain
 - Key tables and their relationships
-- Available search capabilities (SQL, semantic, full-text)
-- Suggested queries or analyzes for this data
-</exploration_workflow>
+- Available search capabilities
+- Suggested use cases
 
-<rate_limit_management>
-- Use get_schema_info(schema_name="public") to reduce token usage
-- Use limit=5 for sample queries
-- Cache results - don't re-query the same information
-- If exploring large database, filter by schema first
-</rate_limit_management>
+Step 4: Sample Data (ONLY if user requests)
+- Only query sample data if user explicitly asks to see examples
+- Use limit=3 maximum
+- Combine multiple sample queries into ONE call if possible
+</efficient_exploration_workflow>
+
+<tool_call_budget>
+Target: Complete exploration in 2-3 tool calls maximum
+- Call 1: get_schema_info(schema_name="public")
+- Call 2: (optional) read_resource for system-info if needed
+- Call 3: (optional) sample query ONLY if user requests
+
+Do NOT make calls for:
+- Multiple get_schema_info with different parameters
+- Sample queries from multiple tables
+- Checking extensions (infer from column types instead)
+</tool_call_budget>
 
 <early_exit_conditions>
 Stop exploration if:
-- No tables found: might be wrong database or empty database
-- Permission denied: limited access prevents exploration
-- Specific data sought but not found: suggest checking other databases
+- No tables found: inform user database may be empty
+- Permission denied: inform user of limited access
 </early_exit_conditions>
 
-Begin the exploration now. Be systematic and summarize findings clearly.`,
+Begin the exploration now. Be efficient with tool calls and provide a comprehensive summary from minimal calls.`,
 						},
 					},
 				},
