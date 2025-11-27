@@ -55,7 +55,7 @@ const AppContent = () => {
           main: '#3f51b5',
         },
         background: {
-          default: '#ffffff',
+          default: '#f5f5f5',
           paper: '#ffffff',
         },
         text: {
