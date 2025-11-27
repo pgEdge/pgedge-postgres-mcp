@@ -40,8 +40,6 @@ and executing optimal searches.
 **Arguments**:
 
 - `query_text` (required): The natural language search query
-- `table_name` (optional): Specific table to search (auto-discovers if not
-provided)
 
 **Workflow Overview**:
 
@@ -57,19 +55,12 @@ limits
 /prompt setup-semantic-search query_text="What is pgAgent?"
 ```
 
-**CLI Example with Table**:
-
-```bash
-/prompt setup-semantic-search query_text="PostgreSQL vector search" table_name="wikipedia_articles"
-```
-
 **Web UI Usage**:
 
 1. Click the brain icon (Psychology icon) next to the send button
 2. Select "setup-semantic-search" from the dropdown
 3. Enter your query text in the query_text field
-4. Optionally specify a table name
-5. Click "Execute Prompt"
+4. Click "Execute Prompt"
 
 **Parameters Guide**:
 
@@ -208,6 +199,129 @@ For fastest diagnosis, the prompt prioritizes:
 3. No data in table: Sample with limit=1
 4. Semantic search in non-vector table: Check vector_tables_only
 
+### design-schema
+
+Guides the LLM through designing a PostgreSQL database schema based on
+user requirements. Uses best practices, appropriate normalization levels,
+and recommends PostgreSQL extensions where beneficial.
+
+**Use Cases**:
+
+- Designing a new database schema from requirements
+- Getting schema recommendations for specific use cases (OLTP, OLAP, etc.)
+- Learning PostgreSQL best practices for data modeling
+- Generating CREATE TABLE statements with proper types and constraints
+
+**Arguments**:
+
+- `requirements` (required): Description of the application requirements
+  and data needs
+- `use_case` (optional): Primary use case - `oltp`, `olap`, `hybrid`, or
+  `general` (default: `general`)
+- `full_featured` (optional): If `true`, design a comprehensive
+  production-ready schema. If `false` (default), design a minimal schema
+  meeting only the stated requirements
+
+**Workflow Overview**:
+
+1. **Knowledge Base Research**: Searches for relevant schema design best
+   practices if a knowledge base is available
+2. **Requirements Analysis**: Analyzes data entities, relationships, and
+   access patterns
+3. **Normalization Strategy**: Applies appropriate normalization based on
+   use case (3NF+ for OLTP, denormalized for OLAP)
+4. **Data Type Selection**: Recommends PostgreSQL-specific types (UUID,
+   TIMESTAMPTZ, NUMERIC, JSONB, TEXT, VECTOR)
+5. **Index Design**: Suggests indexes based on query patterns
+6. **Extension Recommendations**: Proposes relevant PostgreSQL extensions
+7. **Schema Generation**: Produces complete CREATE TABLE statements
+
+**CLI Example**:
+
+```bash
+/prompt design-schema requirements="E-commerce platform with products, orders, and customers"
+```
+
+**CLI Example with Use Case**:
+
+```bash
+/prompt design-schema requirements="Real-time analytics dashboard" use_case="olap"
+```
+
+**CLI Example for Production-Ready Schema**:
+
+```bash
+/prompt design-schema requirements="E-commerce platform" full_featured="true"
+```
+
+**Web UI Usage**:
+
+1. Click the brain icon next to the send button
+2. Select "design-schema" from the dropdown
+3. Enter your requirements description
+4. Optionally select a use case (oltp, olap, hybrid, general)
+5. Optionally set full_featured to "true" for comprehensive schemas
+6. Click "Execute Prompt"
+
+**Normalization Guidance**:
+
+The prompt applies different normalization strategies based on use case:
+
+- **OLTP**: Third Normal Form (3NF) or higher for data integrity
+- **OLAP**: Strategic denormalization for query performance
+- **Hybrid**: Balanced approach with materialized views
+- **General**: Context-appropriate normalization
+
+**Design Modes**:
+
+- **Minimal (default)**: Creates only tables and columns explicitly required.
+  Does not add user accounts, audit logs, favorites, or other supporting
+  tables unless requested. Prefers simpler solutions (pg_trgm over pgvector
+  for basic text search).
+
+- **Full-Featured**: Creates a comprehensive, production-ready schema with
+  supporting tables, audit logging, user preferences, and future-proofing
+  considerations. Use this when you want a complete application schema.
+
+**PostgreSQL Extensions**:
+
+The prompt considers these extensions where appropriate:
+
+- `vector`: For AI/ML embeddings and semantic search (note: extension name
+  is "vector", not "pgvector")
+- `postgis`: For geographic/spatial data
+- `pg_trgm`: For fuzzy text search
+- `pgcrypto`: For cryptographic functions
+- `ltree`: For hierarchical data
+
+The prompt instructs the LLM to verify ALL extension names via the
+knowledgebase before writing CREATE EXTENSION statements, as project names
+often differ from the actual extension names.
+
+**Data Type Recommendations**:
+
+- Use `GENERATED ALWAYS AS IDENTITY` for auto-increment primary keys
+- Use `UUID` only when the application provides IDs or for distributed
+  systems
+- Use `TIMESTAMPTZ` for timestamps (timezone-aware)
+- Use `NUMERIC` for money/precision values
+- Use `JSONB` for flexible/semi-structured data
+- Use `TEXT` instead of VARCHAR (no performance difference)
+- Use `VECTOR` for AI embeddings
+
+**Anti-Patterns Avoided**:
+
+- Using SERIAL instead of IDENTITY for auto-increment
+- Generating UUIDs in the database when IDENTITY would suffice
+- Entity-Attribute-Value (EAV) patterns
+- Excessive nullable columns
+- Missing foreign key constraints
+- Inappropriate use of arrays for relationships
+- Over-indexing or under-indexing
+- Assuming extension names without verifying via knowledgebase
+- Over-engineering: adding tables/columns "just in case"
+- Using advanced extensions (pgvector) when simpler ones (pg_trgm) suffice
+
 ## Using Prompts
 
 ### CLI Client
@@ -226,14 +340,14 @@ Prompts are executed using the `/prompt` slash command:
 # Setup semantic search
 /prompt setup-semantic-search query_text="What is PostgreSQL?"
 
-# Setup semantic search with specific table
-/prompt setup-semantic-search query_text="vector databases" table_name="docs"
-
 # Explore database
 /prompt explore-database
 
 # Diagnose issue
 /prompt diagnose-query-issue issue_description="table not found"
+
+# Design a database schema
+/prompt design-schema requirements="User management with roles and permissions"
 ```
 
 **Quoted Arguments**:
@@ -361,6 +475,7 @@ Prompts are implemented in `internal/prompts/`:
 - `setup_semantic_search.go`: Semantic search workflow
 - `explore_database.go`: Database exploration workflow
 - `diagnose_query_issue.go`: Query diagnosis workflow
+- `design_schema.go`: Schema design workflow
 
 Each prompt returns a `mcp.PromptResult` containing:
 

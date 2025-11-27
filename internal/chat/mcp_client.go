@@ -273,6 +273,9 @@ func (c *stdioClient) sendRequest(ctx context.Context, method string, params int
 	}
 
 	if resp.Error != nil {
+		if resp.Error.Data != nil {
+			return fmt.Errorf("RPC error %d: %s: %v", resp.Error.Code, resp.Error.Message, resp.Error.Data)
+		}
 		return fmt.Errorf("RPC error %d: %s", resp.Error.Code, resp.Error.Message)
 	}
 
@@ -460,6 +463,9 @@ func (c *httpClient) sendRequest(ctx context.Context, method string, params inte
 	}
 
 	if jsonResp.Error != nil {
+		if jsonResp.Error.Data != nil {
+			return fmt.Errorf("RPC error %d: %s: %v", jsonResp.Error.Code, jsonResp.Error.Message, jsonResp.Error.Data)
+		}
 		return fmt.Errorf("RPC error %d: %s", jsonResp.Error.Code, jsonResp.Error.Message)
 	}
 

@@ -11,6 +11,7 @@
 package prompts
 
 import (
+	"strings"
 	"testing"
 )
 
@@ -64,12 +65,13 @@ func TestList(t *testing.T) {
 	registry.Register("setup-semantic-search", SetupSemanticSearch())
 	registry.Register("explore-database", ExploreDatabase())
 	registry.Register("diagnose-query-issue", DiagnoseQueryIssue())
+	registry.Register("design-schema", DesignSchema())
 
 	// List all prompts
 	prompts := registry.List()
 
-	if len(prompts) != 3 {
-		t.Errorf("Expected 3 prompts, got %d", len(prompts))
+	if len(prompts) != 4 {
+		t.Errorf("Expected 4 prompts, got %d", len(prompts))
 	}
 
 	// Verify all prompts have required fields
@@ -109,11 +111,26 @@ func TestExecute(t *testing.T) {
 func TestExecuteNonExistent(t *testing.T) {
 	registry := NewRegistry()
 
+	// Register a prompt so we can verify it appears in the error message
+	registry.Register("test-prompt", SetupSemanticSearch())
+
 	args := map[string]string{}
 	_, err := registry.Execute("non-existent", args)
 
 	if err == nil {
 		t.Error("Expected error when executing non-existent prompt")
+	}
+
+	// Verify error message contains the prompt name and lists available prompts
+	errMsg := err.Error()
+	if !strings.Contains(errMsg, "non-existent") {
+		t.Errorf("Error should contain the requested prompt name, got: %s", errMsg)
+	}
+	if !strings.Contains(errMsg, "Available prompts") {
+		t.Errorf("Error should list available prompts, got: %s", errMsg)
+	}
+	if !strings.Contains(errMsg, "test-prompt") {
+		t.Errorf("Error should include the registered prompt name, got: %s", errMsg)
 	}
 }
 
@@ -130,33 +147,17 @@ func TestSetupSemanticSearchPrompt(t *testing.T) {
 	}
 
 	// Verify arguments
-	if len(prompt.Definition.Arguments) != 2 {
-		t.Errorf("Expected 2 arguments, got %d", len(prompt.Definition.Arguments))
+	if len(prompt.Definition.Arguments) != 1 {
+		t.Errorf("Expected 1 argument, got %d", len(prompt.Definition.Arguments))
 	}
 
 	// Check query_text argument
-	var hasQueryText bool
-	var hasTableName bool
-	for _, arg := range prompt.Definition.Arguments {
-		if arg.Name == "query_text" {
-			hasQueryText = true
-			if !arg.Required {
-				t.Error("query_text should be required")
-			}
-		}
-		if arg.Name == "table_name" {
-			hasTableName = true
-			if arg.Required {
-				t.Error("table_name should be optional")
-			}
-		}
+	if prompt.Definition.Arguments[0].Name != "query_text" {
+		t.Errorf("Expected argument name 'query_text', got %q",
+			prompt.Definition.Arguments[0].Name)
 	}
-
-	if !hasQueryText {
-		t.Error("Missing query_text argument")
-	}
-	if !hasTableName {
-		t.Error("Missing table_name argument")
+	if !prompt.Definition.Arguments[0].Required {
+		t.Error("query_text should be required")
 	}
 
 	// Test handler execution
@@ -282,6 +283,138 @@ func TestDiagnoseQueryIssuePrompt(t *testing.T) {
 	}
 }
 
+func TestDesignSchemaPrompt(t *testing.T) {
+	prompt := DesignSchema()
+
+	// Verify prompt structure
+	if prompt.Definition.Name != "design-schema" {
+		t.Errorf("Expected name 'design-schema', got %q", prompt.Definition.Name)
+	}
+
+	if prompt.Definition.Description == "" {
+		t.Error("Description should not be empty")
+	}
+
+	// Verify arguments
+	if len(prompt.Definition.Arguments) != 3 {
+		t.Errorf("Expected 3 arguments, got %d", len(prompt.Definition.Arguments))
+	}
+
+	// Check requirements argument
+	var hasRequirements bool
+	var hasUseCase bool
+	var hasFullFeatured bool
+	for _, arg := range prompt.Definition.Arguments {
+		if arg.Name == "requirements" {
+			hasRequirements = true
+			if !arg.Required {
+				t.Error("requirements should be required")
+			}
+		}
+		if arg.Name == "use_case" {
+			hasUseCase = true
+			if arg.Required {
+				t.Error("use_case should be optional")
+			}
+		}
+		if arg.Name == "full_featured" {
+			hasFullFeatured = true
+			if arg.Required {
+				t.Error("full_featured should be optional")
+			}
+		}
+	}
+
+	if !hasRequirements {
+		t.Error("Missing requirements argument")
+	}
+	if !hasUseCase {
+		t.Error("Missing use_case argument")
+	}
+	if !hasFullFeatured {
+		t.Error("Missing full_featured argument")
+	}
+
+	// Test handler execution with argument
+	argsWithReqs := map[string]string{
+		"requirements": "User management system with roles and permissions",
+		"use_case":     "oltp",
+	}
+	result := prompt.Handler(argsWithReqs)
+
+	if result.Description == "" {
+		t.Error("Result description should not be empty")
+	}
+
+	if len(result.Messages) == 0 {
+		t.Error("Result should have at least one message")
+	}
+
+	if result.Messages[0].Role != "user" {
+		t.Errorf("Expected first message role 'user', got %q", result.Messages[0].Role)
+	}
+
+	if result.Messages[0].Content.Text == "" {
+		t.Error("Message text should not be empty")
+	}
+
+	// Test handler execution with minimal arguments
+	argsMinimal := map[string]string{
+		"requirements": "E-commerce product catalog",
+	}
+	resultMinimal := prompt.Handler(argsMinimal)
+
+	if resultMinimal.Description == "" {
+		t.Error("Result description should not be empty with minimal args")
+	}
+
+	if len(resultMinimal.Messages) == 0 {
+		t.Error("Result should have at least one message with minimal args")
+	}
+
+	// Test handler execution without arguments (should use defaults)
+	argsEmpty := map[string]string{}
+	resultEmpty := prompt.Handler(argsEmpty)
+
+	if len(resultEmpty.Messages) == 0 {
+		t.Error("Handler should return messages even with empty args")
+	}
+
+	// Test full_featured=false (default) includes minimal mode guidance
+	argsMinimalMode := map[string]string{
+		"requirements": "Simple product catalog",
+	}
+	resultMinimalMode := prompt.Handler(argsMinimalMode)
+	minimalText := resultMinimalMode.Messages[0].Content.Text
+	if !strings.Contains(minimalText, "MINIMAL DESIGN MODE") {
+		t.Error("Default mode should include MINIMAL DESIGN MODE guidance")
+	}
+	if strings.Contains(minimalText, "COMPREHENSIVE DESIGN MODE") {
+		t.Error("Default mode should not include COMPREHENSIVE DESIGN MODE guidance")
+	}
+	// Verify strict column guidance is present
+	if !strings.Contains(minimalText, "Do NOT add created_at, updated_at") {
+		t.Error("Minimal mode should warn against timestamp fields")
+	}
+	if !strings.Contains(minimalText, "Do NOT duplicate relationship data") {
+		t.Error("Minimal mode should warn against duplicate relationships")
+	}
+
+	// Test full_featured=true includes comprehensive mode guidance
+	argsFullMode := map[string]string{
+		"requirements":  "Complex e-commerce system",
+		"full_featured": "true",
+	}
+	resultFullMode := prompt.Handler(argsFullMode)
+	fullText := resultFullMode.Messages[0].Content.Text
+	if !strings.Contains(fullText, "COMPREHENSIVE DESIGN MODE") {
+		t.Error("full_featured=true should include COMPREHENSIVE DESIGN MODE guidance")
+	}
+	if strings.Contains(fullText, "MINIMAL DESIGN MODE") {
+		t.Error("full_featured=true should not include MINIMAL DESIGN MODE guidance")
+	}
+}
+
 func TestPromptArgumentVariations(t *testing.T) {
 	prompt := SetupSemanticSearch()
 
@@ -305,10 +438,9 @@ func TestPromptArgumentVariations(t *testing.T) {
 		t.Error("Handler should return messages with partial args")
 	}
 
-	// Test with all arguments
+	// Test with all arguments (only query_text for this prompt)
 	argsFull := map[string]string{
 		"query_text": "test query",
-		"table_name": "test_table",
 	}
 	resultFull := prompt.Handler(argsFull)
 
@@ -316,9 +448,9 @@ func TestPromptArgumentVariations(t *testing.T) {
 		t.Error("Handler should return messages with full args")
 	}
 
-	// Verify that table_name is included in the prompt text when provided
+	// Verify prompt text is generated
 	textFull := resultFull.Messages[0].Content.Text
 	if len(textFull) == 0 {
-		t.Error("Expected prompt text with table_name")
+		t.Error("Expected prompt text to be generated")
 	}
 }

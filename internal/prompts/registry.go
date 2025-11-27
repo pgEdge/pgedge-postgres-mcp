@@ -58,7 +58,12 @@ func (r *Registry) List() []mcp.Prompt {
 func (r *Registry) Execute(name string, args map[string]string) (mcp.PromptResult, error) {
 	prompt, exists := r.Get(name)
 	if !exists {
-		return mcp.PromptResult{}, fmt.Errorf("prompt not found: %s", name)
+		// Build list of available prompt names
+		available := make([]string, 0, len(r.prompts))
+		for promptName := range r.prompts {
+			available = append(available, promptName)
+		}
+		return mcp.PromptResult{}, fmt.Errorf("prompt %q not found. Available prompts: %v", name, available)
 	}
 
 	return prompt.Handler(args), nil

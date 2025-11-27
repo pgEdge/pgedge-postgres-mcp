@@ -500,6 +500,7 @@ func main() {
 	promptRegistry.Register("explore-database", prompts.ExploreDatabase())
 	promptRegistry.Register("setup-semantic-search", prompts.SetupSemanticSearch())
 	promptRegistry.Register("diagnose-query-issue", prompts.DiagnoseQueryIssue())
+	promptRegistry.Register("design-schema", prompts.DesignSchema())
 	server.SetPromptProvider(promptRegistry)
 
 	// Load custom definitions if configured

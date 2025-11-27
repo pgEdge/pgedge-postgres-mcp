@@ -65,13 +65,14 @@ and this project adheres to
 - Account lockout after repeated failed login attempts
 - Per-IP rate limiting to prevent brute force attacks
 
-#### Tools & Resources
+#### Tools, Resources, and Prompts
 
 - Support for custom user-defined prompts in
   `examples/pgedge-nla-server-custom.yaml`
 - Support for custom user-defined resources in custom definitions file
 - New `execute_explain` tool for query performance analysis
 - Enhanced tool descriptions with usage examples and best practices
+- Added a schema-design prompt for helping design database schemas
 
 ### Changed
 
