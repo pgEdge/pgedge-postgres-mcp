@@ -93,12 +93,6 @@ if [ ! -f "$SERVER_CONFIG" ]; then
     exit 1
 fi
 
-# Check for API keys (needed for embeddings and LLM)
-if [ -z "$PGEDGE_ANTHROPIC_API_KEY" ] && [ -z "$PGEDGE_OPENAI_API_KEY" ]; then
-    echo -e "${YELLOW}Warning: Neither PGEDGE_ANTHROPIC_API_KEY nor PGEDGE_OPENAI_API_KEY environment variable is set${NC}"
-    echo "Embedding generation and chat may not work without API keys"
-fi
-
 # Check if web dependencies need updating
 if [ ! -d "$WEB_DIR/node_modules" ]; then
     echo -e "${BLUE}Installing web dependencies...${NC}"
