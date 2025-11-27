@@ -328,3 +328,150 @@ Read a specific resource:
 
 See [Resources](resources.md) for detailed information.
 
+### search_knowledgebase
+
+Search the pre-built documentation knowledgebase for relevant information about
+PostgreSQL, pgEdge products, and other documented technologies.
+
+**Prerequisites**:
+
+- Knowledgebase must be enabled in server configuration
+- A knowledgebase database must be built using the `kb-builder` tool
+
+**Parameters**:
+
+- `query` (required): Natural language search query
+- `project_name` (optional): Filter by project/product name (e.g.,
+  'PostgreSQL', 'pgEdge', 'pgAdmin')
+- `project_version` (optional): Filter by project/product version (e.g.,
+  '17', '16')
+- `top_n` (optional): Number of results to return (default: 5, max: 20)
+
+**Input Example**:
+
+```json
+{
+  "query": "PostgreSQL window functions",
+  "project_name": "PostgreSQL",
+  "top_n": 10
+}
+```
+
+**Output**:
+
+```
+Knowledge Base Search Results for: "PostgreSQL window functions"
+================================================================
+
+Filters Applied:
+  - Project: PostgreSQL
+
+Result 1/5
+Source: PostgreSQL Documentation v17
+Section: SQL Functions > Window Functions
+Relevance: 0.892
+
+Window functions provide the ability to perform calculations across sets
+of rows that are related to the current query row. Unlike regular aggregate
+functions, window functions do not cause rows to become grouped into a
+single output row...
+
+--------------------------------------------------------------------------------
+
+Result 2/5
+Source: PostgreSQL Documentation v17
+Section: Tutorial > Window Functions
+Relevance: 0.856
+
+A window function performs a calculation across a set of table rows that
+are somehow related to the current row. This is comparable to the type of
+calculation that can be done with an aggregate function...
+
+--------------------------------------------------------------------------------
+
+Total: 5 results returned
+```
+
+**Use Cases**:
+
+- **PostgreSQL Reference**: Find syntax and usage for SQL features
+- **Product Documentation**: Search pgEdge or other product documentation
+- **Best Practices**: Find recommendations and guidelines
+- **Troubleshooting**: Search for error messages and solutions
+
+**Configuration**:
+
+Enable in your server configuration file:
+
+```yaml
+knowledgebase:
+  enabled: true
+  database_path: "/path/to/knowledgebase.db"
+```
+
+See [Knowledgebase Configuration](../advanced/knowledgebase.md) for details on
+building and configuring the documentation knowledgebase.
+
+### execute_explain
+
+Executes EXPLAIN ANALYZE on a SQL query to analyze query performance and
+execution plans.
+
+**Prerequisites**:
+
+- Query must be a SELECT statement
+- Queries are executed in read-only transactions
+
+**Parameters**:
+
+- `query` (required): The SELECT query to analyze
+- `analyze` (optional): Run EXPLAIN ANALYZE for actual timing (default: true)
+- `buffers` (optional): Include buffer usage statistics (default: true)
+- `format` (optional): Output format - "text" or "json" (default: "text")
+
+**Input Example**:
+
+```json
+{
+  "query": "SELECT * FROM users WHERE email LIKE '%@example.com'",
+  "analyze": true,
+  "buffers": true,
+  "format": "text"
+}
+```
+
+**Output**:
+
+```
+EXPLAIN ANALYZE Results
+=======================
+
+Query: SELECT * FROM users WHERE email LIKE '%@example.com'
+
+Execution Plan:
+---------------
+Seq Scan on users  (cost=0.00..25.00 rows=6 width=540)
+                   (actual time=0.015..0.089 rows=12 loops=1)
+  Filter: (email ~~ '%@example.com'::text)
+  Rows Removed by Filter: 988
+  Buffers: shared hit=15
+Planning Time: 0.085 ms
+Execution Time: 0.112 ms
+
+Analysis:
+---------
+- Sequential scan detected on 'users' table
+- Consider adding an index if this query runs frequently
+- Filter removed 988 rows - WHERE clause selectivity is low
+```
+
+**Use Cases**:
+
+- **Query Optimization**: Identify slow queries and bottlenecks
+- **Index Planning**: Determine which indexes would improve performance
+- **Understanding Execution**: Learn how PostgreSQL processes your queries
+- **Debugging**: Diagnose why queries are slower than expected
+
+**Security**: Queries are executed in read-only transactions. Only SELECT
+statements are allowed.
+

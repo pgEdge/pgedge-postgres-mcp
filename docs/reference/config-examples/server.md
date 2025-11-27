@@ -214,10 +214,10 @@ databases:
       sslmode: "prefer"
 
       # Connection pool settings
-      # Default: 10 max connections, 2 min connections, 5m idle time
-      pool_max_conns: 10
-      pool_min_conns: 2
-      pool_max_conn_idle_time: "5m"
+      # Default: 4 max connections, 0 min connections, 30m idle time
+      pool_max_conns: 4
+      pool_min_conns: 0
+      pool_max_conn_idle_time: "30m"
 
       # Users who can access this database (empty = all users)
       available_to_users: []
@@ -230,9 +230,9 @@ databases:
     #   user: "developer"
     #   password: ""
     #   sslmode: "prefer"
-    #   pool_max_conns: 5
-    #   pool_min_conns: 1
-    #   pool_max_conn_idle_time: "5m"
+    #   pool_max_conns: 4
+    #   pool_min_conns: 0
+    #   pool_max_conn_idle_time: "30m"
     #   available_to_users:
     #     - "alice"
     #     - "bob"
