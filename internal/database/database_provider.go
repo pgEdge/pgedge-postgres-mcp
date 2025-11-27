@@ -71,17 +71,17 @@ func (p *StdioDatabaseProvider) SelectDatabase(ctx context.Context, name string)
 // HTTPDatabaseProvider implements mcp.DatabaseProvider for HTTP mode
 // In HTTP mode, the session key is derived from the authentication token
 type HTTPDatabaseProvider struct {
-	clientManager  *ClientManager
-	authEnabled    bool
-	accessChecker  *auth.DatabaseAccessChecker
+	clientManager *ClientManager
+	authEnabled   bool
+	accessChecker *auth.DatabaseAccessChecker
 }
 
 // NewHTTPDatabaseProvider creates a new database provider for HTTP mode
 func NewHTTPDatabaseProvider(clientManager *ClientManager, authEnabled bool, accessChecker *auth.DatabaseAccessChecker) *HTTPDatabaseProvider {
 	return &HTTPDatabaseProvider{
-		clientManager:  clientManager,
-		authEnabled:    authEnabled,
-		accessChecker:  accessChecker,
+		clientManager: clientManager,
+		authEnabled:   authEnabled,
+		accessChecker: accessChecker,
 	}
 }
 
