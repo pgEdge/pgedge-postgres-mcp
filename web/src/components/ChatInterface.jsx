@@ -1215,6 +1215,9 @@ const ChatInterface = () => {
                     disabled={loading}
                     onPromptClick={handlePromptClick}
                     hasPrompts={prompts && prompts.length > 0}
+                    messages={messages}
+                    showActivity={showActivity}
+                    debug={debug}
                 />
 
                 <ProviderSelector
