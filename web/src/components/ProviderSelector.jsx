@@ -19,7 +19,10 @@ import {
     IconButton,
     Tooltip,
 } from '@mui/material';
-import { Settings as SettingsIcon } from '@mui/icons-material';
+import {
+    Settings as SettingsIcon,
+    Delete as DeleteIcon,
+} from '@mui/icons-material';
 import PreferencesPopover from './PreferencesPopover';
 
 const ProviderSelector = React.memo(({
@@ -37,6 +40,8 @@ const ProviderSelector = React.memo(({
     onDebugChange,
     disabled,
     loadingModels,
+    onClear,
+    hasMessages = false,
 }) => {
     const [preferencesAnchor, setPreferencesAnchor] = useState(null);
 
@@ -49,70 +54,75 @@ const ProviderSelector = React.memo(({
     };
 
     return (
-        <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
-            {/* Provider Selection */}
-            <FormControl sx={{ minWidth: 200 }} size="small">
-                <InputLabel id="provider-select-label">Provider</InputLabel>
-                <Select
-                    labelId="provider-select-label"
-                    id="provider-select"
-                    value={selectedProvider}
-                    label="Provider"
-                    onChange={(e) => onProviderChange(e.target.value)}
-                    disabled={disabled}
-                >
-                    {providers.map((provider) => (
-                        <MenuItem key={provider.name} value={provider.name}>
-                            {provider.display}
-                        </MenuItem>
-                    ))}
-                </Select>
-            </FormControl>
+      <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+        {/* Provider Selection */}
+        <FormControl sx={{ minWidth: 200 }} size="small">
+          <InputLabel id="provider-select-label">Provider</InputLabel>
+          <Select
+            labelId="provider-select-label"
+            id="provider-select"
+            value={selectedProvider}
+            label="Provider"
+            onChange={(e) => onProviderChange(e.target.value)}
+            disabled={disabled}
+          >
+            {providers.map((provider) => (
+              <MenuItem key={provider.name} value={provider.name}>
+                {provider.display}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
 
-            {/* Model Selection */}
-            <FormControl sx={{ minWidth: 300, flex: 1 }} size="small">
-                <InputLabel id="model-select-label">Model</InputLabel>
-                <Select
-                    labelId="model-select-label"
-                    id="model-select"
-                    value={selectedModel}
-                    label="Model"
-                    onChange={(e) => onModelChange(e.target.value)}
-                    disabled={disabled || loadingModels}
-                >
-                    {models.map((model) => (
-                        <MenuItem key={model.name} value={model.name}>
-                            {model.name}
-                            {model.description && ` - ${model.description}`}
-                        </MenuItem>
-                    ))}
-                </Select>
-            </FormControl>
+        {/* Model Selection */}
+        <FormControl sx={{ minWidth: 300, flex: 1 }} size="small">
+          <InputLabel id="model-select-label">Model</InputLabel>
+          <Select
+            labelId="model-select-label"
+            id="model-select"
+            value={selectedModel}
+            label="Model"
+            onChange={(e) => onModelChange(e.target.value)}
+            disabled={disabled || loadingModels}
+          >
+            {models.map((model) => (
+              <MenuItem key={model.name} value={model.name}>
+                {model.name}
+                {model.description && ` - ${model.description}`}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
 
-            {/* Preferences Button */}
-            <Tooltip title="Preferences">
-                <IconButton
-                    onClick={handlePreferencesClick}
-                    size="small"
-                    sx={{ ml: 1 }}
-                >
-                    <SettingsIcon />
-                </IconButton>
-            </Tooltip>
+        {/* Preferences Button */}
+        <Tooltip title="Preferences">
+          <IconButton onClick={handlePreferencesClick} size="small">
+            <SettingsIcon />
+          </IconButton>
+        </Tooltip>
 
-            {/* Preferences Popover */}
-            <PreferencesPopover
-                anchorEl={preferencesAnchor}
-                open={Boolean(preferencesAnchor)}
-                onClose={handlePreferencesClose}
-                showActivity={showActivity}
-                onActivityChange={onActivityChange}
-                renderMarkdown={renderMarkdown}
-                onMarkdownChange={onMarkdownChange}
-                debug={debug}
-                onDebugChange={onDebugChange}
-            />
-        </Box>
+        {/* Preferences Popover */}
+        <PreferencesPopover
+          anchorEl={preferencesAnchor}
+          open={Boolean(preferencesAnchor)}
+          onClose={handlePreferencesClose}
+          showActivity={showActivity}
+          onActivityChange={onActivityChange}
+          renderMarkdown={renderMarkdown}
+          onMarkdownChange={onMarkdownChange}
+          debug={debug}
+          onDebugChange={onDebugChange}
+        />
+
+        {/* Clear Button */}
+        {hasMessages && (
+          <Tooltip title="Clear Conversation">
+            <IconButton onClick={onClear} disabled={disabled} size="small">
+              <DeleteIcon />
+            </IconButton>
+          </Tooltip>
+        )}
+      </Box>
     );
 });
 
@@ -139,6 +149,8 @@ ProviderSelector.propTypes = {
     onDebugChange: PropTypes.func.isRequired,
     disabled: PropTypes.bool.isRequired,
     loadingModels: PropTypes.bool.isRequired,
+    onClear: PropTypes.func,
+    hasMessages: PropTypes.bool,
 };
 
 export default ProviderSelector;

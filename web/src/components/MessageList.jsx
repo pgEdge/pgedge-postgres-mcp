@@ -10,11 +10,11 @@
 
 import React, { useRef, useEffect } from 'react';
 import PropTypes from 'prop-types';
-import { Box, Paper, Button, Typography } from '@mui/material';
-import { Delete as DeleteIcon, SmartToy as BotIcon } from '@mui/icons-material';
+import { Box, Paper, Typography } from '@mui/material';
+import { SmartToy as BotIcon } from '@mui/icons-material';
 import Message from './Message';
 
-const MessageList = React.memo(({ messages, showActivity, renderMarkdown, debug, onClear }) => {
+const MessageList = React.memo(({ messages, showActivity, renderMarkdown, debug }) => {
     const messagesEndRef = useRef(null);
 
     const scrollToBottom = () => {
@@ -37,38 +37,6 @@ const MessageList = React.memo(({ messages, showActivity, renderMarkdown, debug,
                 position: 'relative',
             }}
         >
-            {messages.length > 0 && (
-                <Box
-                    sx={{
-                        position: 'sticky',
-                        top: 0,
-                        display: 'flex',
-                        justifyContent: 'flex-end',
-                        mb: 2,
-                        pt: 1,
-                        pb: 1,
-                        zIndex: 10,
-                    }}
-                >
-                    <Button
-                        size="small"
-                        startIcon={<DeleteIcon />}
-                        onClick={onClear}
-                        variant="outlined"
-                        color="secondary"
-                        sx={{
-                            opacity: 0.85,
-                            transition: 'opacity 0.2s ease-in-out',
-                            '&:hover': {
-                                opacity: 1,
-                            },
-                        }}
-                    >
-                        Clear
-                    </Button>
-                </Box>
-            )}
-
             {messages.length === 0 ? (
                 <Box
                     sx={{
@@ -113,7 +81,6 @@ MessageList.propTypes = {
     showActivity: PropTypes.bool.isRequired,
     renderMarkdown: PropTypes.bool.isRequired,
     debug: PropTypes.bool.isRequired,
-    onClear: PropTypes.func.isRequired,
 };
 
 export default MessageList;

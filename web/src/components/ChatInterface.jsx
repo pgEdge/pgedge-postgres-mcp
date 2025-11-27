@@ -1203,7 +1203,6 @@ const ChatInterface = () => {
                 showActivity={showActivity}
                 renderMarkdown={renderMarkdown}
                 debug={debug}
-                onClear={handleClear}
             />
 
             {/* Input Area */}
@@ -1233,6 +1232,8 @@ const ChatInterface = () => {
                     onDebugChange={setDebug}
                     disabled={loading}
                     loadingModels={llmProviders.loadingModels}
+                    onClear={handleClear}
+                    hasMessages={messages.length > 0}
                 />
             </Paper>
 

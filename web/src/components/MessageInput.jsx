@@ -52,12 +52,7 @@ const MessageInput = React.memo(({ value, onChange, onSend, onKeyDown, disabled,
                     <IconButton
                         onClick={onPromptClick}
                         disabled={disabled}
-                        sx={{
-                            color: 'text.secondary',
-                            '&:hover': {
-                                color: 'primary.main',
-                            },
-                        }}
+                        size="small"
                     >
                         <PsychologyIcon />
                     </IconButton>
