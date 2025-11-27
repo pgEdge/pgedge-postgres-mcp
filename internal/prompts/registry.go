@@ -12,6 +12,7 @@ package prompts
 
 import (
 	"fmt"
+	"sort"
 
 	"pgedge-postgres-mcp/internal/mcp"
 )
@@ -58,11 +59,12 @@ func (r *Registry) List() []mcp.Prompt {
 func (r *Registry) Execute(name string, args map[string]string) (mcp.PromptResult, error) {
 	prompt, exists := r.Get(name)
 	if !exists {
-		// Build list of available prompt names
+		// Build list of available prompt names (sorted alphabetically)
 		available := make([]string, 0, len(r.prompts))
 		for promptName := range r.prompts {
 			available = append(available, promptName)
 		}
+		sort.Strings(available)
 		return mcp.PromptResult{}, fmt.Errorf("prompt %q not found. Available prompts: %v", name, available)
 	}
 
