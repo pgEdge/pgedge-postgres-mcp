@@ -62,6 +62,7 @@ nav:
       - Deployment: guide/deployment.md
       - Configuration: guide/configuration.md
       - Authentication: guide/authentication.md
+      - Web Client: guide/web-client.md
       - CLI Client: guide/cli-client.md
       - Security: guide/security.md
       - Troubleshooting: guide/troubleshooting.md
