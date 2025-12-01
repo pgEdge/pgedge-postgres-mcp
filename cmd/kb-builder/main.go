@@ -50,8 +50,8 @@ Voyage, Ollama), and stores everything in an optimized SQLite database.`,
 }
 
 func init() {
-	rootCmd.Flags().StringVarP(&configFile, "config", "c", "pgedge-nla-kb-builder.yaml",
-		"Path to configuration file")
+	rootCmd.Flags().StringVarP(&configFile, "config", "c", "",
+		"Path to configuration file (default: looks in binary directory)")
 	rootCmd.Flags().StringVarP(&databasePath, "database", "d", "",
 		"Path to output SQLite database (overrides config file)")
 	rootCmd.Flags().BoolVar(&skipUpdates, "skip-updates", false,
