@@ -279,36 +279,77 @@ PostgreSQL, pgEdge products, and other documented technologies.
 
 **Parameters**:
 
-- `query` (required): Natural language search query
-- `project_name` (optional): Filter by project/product name (e.g.,
-  'PostgreSQL', 'pgEdge', 'pgAdmin')
-- `project_version` (optional): Filter by project/product version (e.g.,
-  '17', '16')
+- `query` (required unless `list_products` is true): Natural language search
+  query
+- `project_names` (optional): Array of project/product names to filter by
+  (e.g., `["PostgreSQL"]`, `["pgEdge", "pgAdmin"]`)
+- `project_versions` (optional): Array of project/product versions to filter
+  by (e.g., `["17"]`, `["16", "17"]`)
 - `top_n` (optional): Number of results to return (default: 5, max: 20)
+- `list_products` (optional): If true, returns only the list of available
+  products and versions in the knowledgebase (ignores other parameters)
 
-**Input Example**:
+**Input Examples**:
+
+List available products:
+
+```json
+{
+  "list_products": true
+}
+```
+
+Search with single product filter:
 
 ```json
 {
   "query": "PostgreSQL window functions",
-  "project_name": "PostgreSQL",
+  "project_names": ["PostgreSQL"],
   "top_n": 10
 }
 ```
 
-**Output**:
+Search across multiple products and versions:
+
+```json
+{
+  "query": "backup and restore",
+  "project_names": ["PostgreSQL", "pgEdge"],
+  "project_versions": ["16", "17"]
+}
+```
+
+**Output** (list_products):
 
 ```
-Knowledge Base Search Results for: "PostgreSQL window functions"
-================================================================
+Available Products in Knowledgebase
+==================================================
 
-Filters Applied:
-  - Project: PostgreSQL
+Product: PostgreSQL
+  - Version 16 (1245 chunks)
+  - Version 17 (1312 chunks)
+
+Product: pgEdge
+  - Version 5.0 (423 chunks)
+
+==================================================
+Total: 2980 chunks across all products
+```
+
+**Output** (search):
+
+```
+Knowledgebase Search Results: "PostgreSQL window functions"
+Filter - Projects: PostgreSQL; Versions: 17
+================================================================================
+
+Found 5 relevant chunks:
 
 Result 1/5
-Source: PostgreSQL Documentation v17
-Section: SQL Functions > Window Functions
-Relevance: 0.892
+Project: PostgreSQL 17
+Title: SQL Functions
+Section: Window Functions
+Similarity: 0.892
 
 Window functions provide the ability to perform calculations across sets
 of rows that are related to the current query row. Unlike regular aggregate
@@ -318,9 +359,10 @@ single output row...
 --------------------------------------------------------------------------------
 
 Result 2/5
-Source: PostgreSQL Documentation v17
-Section: Tutorial > Window Functions
-Relevance: 0.856
+Project: PostgreSQL 17
+Title: Tutorial
+Section: Window Functions
+Similarity: 0.856
 
 A window function performs a calculation across a set of table rows that
 are somehow related to the current row. This is comparable to the type of
@@ -328,7 +370,8 @@ calculation that can be done with an aggregate function...
 
 --------------------------------------------------------------------------------
 
-Total: 5 results returned
+================================================================================
+Total: 5 results
 ```
 
 **Use Cases**:

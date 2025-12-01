@@ -7,6 +7,24 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/),
 and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased] - 1.0.0-alpha3
+
+### Added
+
+- Web client documentation with screenshots demonstrating all UI features
+
+### Changed
+
+#### Knowledgebase System
+
+- `search_knowledgebase` tool now accepts arrays for product and version
+  filters, allowing searches across multiple products/versions in a single
+  query
+- Parameter names changed from `project_name`/`project_version` to
+  `project_names`/`project_versions` (arrays of strings)
+- Added `list_products` parameter to discover available products and versions
+  before searching
+
 ## [1.0.0-alpha2] - 2025-11-27
 
 ### Added
@@ -271,6 +289,6 @@ and this project adheres to
 - CI/CD pipeline documentation
 - Testing guide for contributors
 
-[Unreleased]: https://github.com/pgEdge/pgedge-nla/compare/v1.0.0-alpha1...HEAD
+[Unreleased]: https://github.com/pgEdge/pgedge-nla/compare/v1.0.0-alpha2...HEAD
 [1.0.0-alpha2]: https://github.com/pgEdge/pgedge-nla/releases/tag/v1.0.0-alpha2
 [1.0.0-alpha1]: https://github.com/pgEdge/pgedge-nla/releases/tag/v1.0.0-alpha1
