@@ -1,0 +1,256 @@
+name: Docker - Build and Publish
+
+on:
+    push:
+        branches: [main]
+        tags: ['v*']
+    # Allow manual trigger with KB_SOURCE input
+    workflow_dispatch:
+        inputs:
+            kb_source:
+                description: 'Knowledgebase source URL for -with-kb image (leave empty to skip)'
+                required: false
+                default: ''
+                type: string
+            publish:
+                description: 'Publish images to registry'
+                required: false
+                default: 'true'
+                type: choice
+                options:
+                    - 'true'
+                    - 'false'
+
+env:
+    REGISTRY: ghcr.io
+    IMAGE_NAME_SERVER: pgedge/mcp-server
+    IMAGE_NAME_WEB: pgedge/nla-web
+    IMAGE_NAME_CLI: pgedge/nla-cli
+
+jobs:
+    build-server:
+        name: Build MCP Server Image
+        runs-on: ubuntu-latest
+        permissions:
+            contents: read
+            packages: write
+
+        outputs:
+            image-digest: ${{ steps.build.outputs.digest }}
+
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v4
+
+            - name: Set up Docker Buildx
+              uses: docker/setup-buildx-action@v3
+
+            - name: Log in to GitHub Container Registry
+              if: github.event_name != 'pull_request'
+              uses: docker/login-action@v3
+              with:
+                  registry: ${{ env.REGISTRY }}
+                  username: ${{ github.actor }}
+                  password: ${{ secrets.GITHUB_TOKEN }}
+
+            - name: Extract metadata for server image
+              id: meta
+              uses: docker/metadata-action@v5
+              with:
+                  images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_SERVER }}
+                  tags: |
+                      type=ref,event=branch
+                      type=ref,event=pr
+                      type=semver,pattern={{version}}
+                      type=semver,pattern={{major}}.{{minor}}
+                      type=sha
+                      type=raw,value=latest,enable=${{ github.ref == format('refs/heads/{0}', 'main') }}
+
+            - name: Build and push server image
+              id: build
+              uses: docker/build-push-action@v5
+              with:
+                  context: .
+                  file: Dockerfile.server
+                  push: ${{ github.event_name != 'pull_request' && (github.event.inputs.publish != 'false') }}
+                  tags: ${{ steps.meta.outputs.tags }}
+                  labels: ${{ steps.meta.outputs.labels }}
+                  cache-from: type=gha
+                  cache-to: type=gha,mode=max
+                  platforms: linux/amd64,linux/arm64
+
+    build-server-with-kb:
+        name: Build MCP Server Image (with Knowledgebase)
+        runs-on: ubuntu-latest
+        needs: build-server
+        # Only build with-kb image on main branch, tags, or manual trigger with kb_source
+        if: |
+            (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/')) ||
+            (github.event_name == 'workflow_dispatch' && github.event.inputs.kb_source != '')
+        permissions:
+            contents: read
+            packages: write
+
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v4
+
+            - name: Set up Docker Buildx
+              uses: docker/setup-buildx-action@v3
+
+            - name: Log in to GitHub Container Registry
+              uses: docker/login-action@v3
+              with:
+                  registry: ${{ env.REGISTRY }}
+                  username: ${{ github.actor }}
+                  password: ${{ secrets.GITHUB_TOKEN }}
+
+            - name: Determine KB source URL
+              id: kb-source
+              run: |
+                  # Use input if provided, otherwise use default URL
+                  if [ -n "${{ github.event.inputs.kb_source }}" ]; then
+                      echo "url=${{ github.event.inputs.kb_source }}" >> $GITHUB_OUTPUT
+                  else
+                      # Default KB source URL (update this when KB is hosted)
+                      echo "url=https://github.com/pgEdge/pgedge-nla/releases/download/kb-latest/kb.db" >> $GITHUB_OUTPUT
+                  fi
+
+            - name: Check if KB source is available
+              id: check-kb
+              run: |
+                  KB_URL="${{ steps.kb-source.outputs.url }}"
+                  echo "Checking KB source: $KB_URL"
+
+                  # Try to fetch the KB database headers
+                  if curl -fsSL --head "$KB_URL" > /dev/null 2>&1; then
+                      echo "available=true" >> $GITHUB_OUTPUT
+                      echo "KB source is available"
+                  else
+                      echo "available=false" >> $GITHUB_OUTPUT
+                      echo "KB source is NOT available - skipping with-kb build"
+                  fi
+
+            - name: Extract metadata for KB image
+              if: steps.check-kb.outputs.available == 'true'
+              id: meta-kb
+              uses: docker/metadata-action@v5
+              with:
+                  images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_SERVER }}
+                  flavor: |
+                      suffix=-with-kb,onlatest=true
+                  tags: |
+                      type=ref,event=branch,suffix=-with-kb
+                      type=semver,pattern={{version}},suffix=-with-kb
+                      type=semver,pattern={{major}}.{{minor}},suffix=-with-kb
+                      type=sha,suffix=-with-kb
+                      type=raw,value=latest-with-kb,enable=${{ github.ref == format('refs/heads/{0}', 'main') }}
+
+            - name: Build and push KB image
+              if: steps.check-kb.outputs.available == 'true'
+              uses: docker/build-push-action@v5
+              with:
+                  context: .
+                  file: Dockerfile.server
+                  push: ${{ github.event.inputs.publish != 'false' }}
+                  tags: ${{ steps.meta-kb.outputs.tags }}
+                  labels: ${{ steps.meta-kb.outputs.labels }}
+                  build-args: |
+                      KB_SOURCE=${{ steps.kb-source.outputs.url }}
+                  cache-from: type=gha
+                  cache-to: type=gha,mode=max
+                  platforms: linux/amd64,linux/arm64
+
+    build-web:
+        name: Build Web UI Image
+        runs-on: ubuntu-latest
+        permissions:
+            contents: read
+            packages: write
+
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v4
+
+            - name: Set up Docker Buildx
+              uses: docker/setup-buildx-action@v3
+
+            - name: Log in to GitHub Container Registry
+              if: github.event_name != 'pull_request'
+              uses: docker/login-action@v3
+              with:
+                  registry: ${{ env.REGISTRY }}
+                  username: ${{ github.actor }}
+                  password: ${{ secrets.GITHUB_TOKEN }}
+
+            - name: Extract metadata for web image
+              id: meta
+              uses: docker/metadata-action@v5
+              with:
+                  images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_WEB }}
+                  tags: |
+                      type=ref,event=branch
+                      type=ref,event=pr
+                      type=semver,pattern={{version}}
+                      type=semver,pattern={{major}}.{{minor}}
+                      type=sha
+                      type=raw,value=latest,enable=${{ github.ref == format('refs/heads/{0}', 'main') }}
+
+            - name: Build and push web image
+              uses: docker/build-push-action@v5
+              with:
+                  context: .
+                  file: Dockerfile.web
+                  push: ${{ github.event_name != 'pull_request' && (github.event.inputs.publish != 'false') }}
+                  tags: ${{ steps.meta.outputs.tags }}
+                  labels: ${{ steps.meta.outputs.labels }}
+                  cache-from: type=gha
+                  cache-to: type=gha,mode=max
+                  platforms: linux/amd64,linux/arm64
+
+    build-cli:
+        name: Build CLI Client Image
+        runs-on: ubuntu-latest
+        permissions:
+            contents: read
+            packages: write
+
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v4
+
+            - name: Set up Docker Buildx
+              uses: docker/setup-buildx-action@v3
+
+            - name: Log in to GitHub Container Registry
+              if: github.event_name != 'pull_request'
+              uses: docker/login-action@v3
+              with:
+                  registry: ${{ env.REGISTRY }}
+                  username: ${{ github.actor }}
+                  password: ${{ secrets.GITHUB_TOKEN }}
+
+            - name: Extract metadata for CLI image
+              id: meta
+              uses: docker/metadata-action@v5
+              with:
+                  images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_CLI }}
+                  tags: |
+                      type=ref,event=branch
+                      type=ref,event=pr
+                      type=semver,pattern={{version}}
+                      type=semver,pattern={{major}}.{{minor}}
+                      type=sha
+                      type=raw,value=latest,enable=${{ github.ref == format('refs/heads/{0}', 'main') }}
+
+            - name: Build and push CLI image
+              uses: docker/build-push-action@v5
+              with:
+                  context: .
+                  file: Dockerfile.cli
+                  push: ${{ github.event_name != 'pull_request' && (github.event.inputs.publish != 'false') }}
+                  tags: ${{ steps.meta.outputs.tags }}
+                  labels: ${{ steps.meta.outputs.labels }}
+                  cache-from: type=gha
+                  cache-to: type=gha,mode=max
+                  platforms: linux/amd64,linux/arm64

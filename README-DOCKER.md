@@ -6,6 +6,7 @@ using Docker containers and Kubernetes (Helm).
 ## Table of Contents
 
 - [Docker Images](#docker-images)
+  - [Image Variants](#image-variants)
 - [Docker Compose Deployment](#docker-compose-deployment)
 - [Kubernetes Deployment (Helm)](#kubernetes-deployment-helm-chart)
 - [Container Registry](#container-registry)
@@ -47,6 +48,99 @@ docker tag ghcr.io/pgedge/nla-web:latest ghcr.io/pgedge/nla-web:${VERSION}
 
 # Build with BuildKit for better performance
 DOCKER_BUILDKIT=1 docker build -f Dockerfile.server -t ghcr.io/pgedge/mcp-server:latest .
+```
+
+### Image Variants
+
+The MCP server image is available in two variants:
+
+#### Base Image (without Knowledgebase)
+
+The base image contains only the MCP server without a pre-built knowledgebase
+database. Use this variant when:
+
+- You want the smallest possible image (~50MB)
+- You will provide your own knowledgebase via volume mount
+- You don't need knowledgebase search functionality
+
+```bash
+docker pull ghcr.io/pgedge/mcp-server:latest
+```
+
+#### Image with Knowledgebase
+
+The `-with-kb` variant includes a pre-built knowledgebase database with
+documentation for PostgreSQL, pgEdge products, and related tools. Use this
+when:
+
+- You want knowledgebase search available out-of-the-box
+- You prefer simplicity over image size (~300-500MB)
+- You're setting up a quick demo or development environment
+
+```bash
+docker pull ghcr.io/pgedge/mcp-server:latest-with-kb
+```
+
+#### Available Tags
+
+| Tag | Description |
+|-----|-------------|
+| `latest` | Latest base image (no KB) |
+| `latest-with-kb` | Latest image with pre-built KB |
+| `v1.0.0` | Version 1.0.0 base image |
+| `v1.0.0-with-kb` | Version 1.0.0 with KB |
+
+#### Building Images with Knowledgebase
+
+You can build your own image with a custom knowledgebase using the
+`KB_SOURCE` build argument:
+
+**From a local file:**
+
+```bash
+# First, build or obtain your KB database
+./bin/pgedge-nla-kb-builder -c my-config.yaml
+
+# Place the database in the kb/ directory
+cp pgedge-nla-kb.db kb/kb.db
+
+# Build the image (automatically includes kb/kb.db if present)
+docker build -f Dockerfile.server -t mcp-server:custom-kb .
+```
+
+**From a URL:**
+
+```bash
+docker build -f Dockerfile.server \
+    --build-arg KB_SOURCE=https://example.com/path/to/kb.db \
+    -t mcp-server:custom-kb .
+```
+
+#### Using Knowledgebase in Containers
+
+When using the `-with-kb` image, enable knowledgebase search with:
+
+```bash
+docker run -d \
+  -e PGEDGE_KB_ENABLED=true \
+  -e PGEDGE_KB_EMBEDDING_PROVIDER=voyage \
+  -e PGEDGE_KB_VOYAGE_API_KEY=${VOYAGE_API_KEY} \
+  ghcr.io/pgedge/mcp-server:latest-with-kb
+```
+
+**Note:** Even with the built-in KB, you still need an embedding provider API
+key for similarity search queries.
+
+When using the base image with a custom KB, mount it as a volume:
+
+```bash
+docker run -d \
+  -v ./my-kb.db:/usr/share/pgedge/nla-kb/kb.db:ro \
+  -e PGEDGE_KB_ENABLED=true \
+  -e PGEDGE_KB_DATABASE_PATH=/usr/share/pgedge/nla-kb/kb.db \
+  -e PGEDGE_KB_EMBEDDING_PROVIDER=voyage \
+  -e PGEDGE_KB_VOYAGE_API_KEY=${VOYAGE_API_KEY} \
+  ghcr.io/pgedge/mcp-server:latest
 ```
 
 ---

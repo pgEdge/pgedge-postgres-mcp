@@ -58,6 +58,20 @@ if [ "$PGEDGE_DEBUG" = "true" ]; then
     ARGS="$ARGS -debug"
 fi
 
+# Check for built-in knowledgebase database
+# If the KB exists in the image and PGEDGE_KB_DATABASE_PATH is not already set,
+# automatically configure the KB path
+KB_BUILTIN_PATH="/usr/share/pgedge/nla-kb/kb.db"
+if [ -f "$KB_BUILTIN_PATH" ]; then
+    echo "Built-in knowledgebase database found at $KB_BUILTIN_PATH"
+    if [ -z "$PGEDGE_KB_DATABASE_PATH" ]; then
+        export PGEDGE_KB_DATABASE_PATH="$KB_BUILTIN_PATH"
+        echo "Set PGEDGE_KB_DATABASE_PATH=$KB_BUILTIN_PATH"
+    else
+        echo "Using configured PGEDGE_KB_DATABASE_PATH=$PGEDGE_KB_DATABASE_PATH"
+    fi
+fi
+
 # Create data directory with proper permissions
 mkdir -p /app/data
 chown 1001:1001 /app/data

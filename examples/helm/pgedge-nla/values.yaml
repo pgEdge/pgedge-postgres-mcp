@@ -6,7 +6,11 @@ global:
 server:
   image:
     repository: ghcr.io/pgedge/mcp-server
-    tag: latest
+    # Image tag options:
+    #   - "latest"         Base image without knowledgebase (~50MB)
+    #   - "latest-with-kb" Image with pre-built knowledgebase (~300-500MB)
+    # Use "latest-with-kb" and set knowledgebase.useBuiltIn=true for easiest setup
+    tag: latest-with-kb
     pullPolicy: IfNotPresent
 
   replicaCount: 2
@@ -35,9 +39,16 @@ server:
     user: postgres
     # password via secret
 
-  # Knowledgebase
+  # Knowledgebase configuration
+  # Options:
+  #   1. Use -with-kb image variant (easiest): set useBuiltIn=true
+  #   2. Use base image with external PVC: set useBuiltIn=false, provide existingPvc
   knowledgebase:
     enabled: true
+    # Set to true when using the -with-kb image variant (KB built into image)
+    # Set to false when using base image and mounting KB from a PVC
+    useBuiltIn: true
+    # Only used when useBuiltIn=false - name of existing PVC containing kb.db
     existingPvc: pgedge-nla-kb
 
   persistence:

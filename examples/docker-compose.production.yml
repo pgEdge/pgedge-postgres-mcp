@@ -38,8 +38,13 @@ services:
           memory: 1G
 
   # MCP Server
+  # Image variants:
+  #   - ghcr.io/pgedge/mcp-server:latest         Base image (~50MB, no KB)
+  #   - ghcr.io/pgedge/mcp-server:latest-with-kb Image with KB (~300-500MB)
+  # Use the -with-kb variant for built-in knowledgebase, or use the base image
+  # and mount your own KB via volume (see volumes section below).
   pgedge-mcp-server:
-    image: ghcr.io/pgedge/mcp-server:${VERSION:-latest}
+    image: ghcr.io/pgedge/mcp-server:${VERSION:-latest-with-kb}
     container_name: pgedge-mcp-server
     depends_on:
       postgres:
@@ -51,7 +56,9 @@ services:
       OPENAI_API_KEY: ${OPENAI_API_KEY}
     volumes:
       - ./config/mcp-server.yaml:/etc/pgedge/mcp-server.yaml:ro
-      - ./kb/kb.db:/usr/share/pgedge/nla-kb/kb.db:ro
+      # Uncomment the following line to use a custom KB with the base image
+      # instead of using the -with-kb image variant:
+      # - ./kb/kb.db:/usr/share/pgedge/nla-kb/kb.db:ro
       - server-data:/var/lib/pgedge/mcp-server
       - server-logs:/var/log/pgedge/mcp-server
     ports:

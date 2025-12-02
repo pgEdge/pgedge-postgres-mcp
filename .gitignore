@@ -45,3 +45,6 @@ Thumbs.db
 
 # Docs
 site/
+
+# Knowledgebase database (for Docker builds)
+kb/kb.db

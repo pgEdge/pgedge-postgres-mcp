@@ -66,7 +66,8 @@ spec:
           mountPath: /var/lib/pgedge/mcp-server
         - name: tmp
           mountPath: /tmp
-        {{- if .Values.server.knowledgebase.enabled }}
+        {{- if and .Values.server.knowledgebase.enabled (not .Values.server.knowledgebase.useBuiltIn) }}
+        # Mount external KB from PVC (only when useBuiltIn=false)
         - name: knowledgebase
           mountPath: /usr/share/pgedge/nla-kb
           readOnly: true
@@ -100,7 +101,8 @@ spec:
         {{- end }}
       - name: tmp
         emptyDir: {}
-      {{- if .Values.server.knowledgebase.enabled }}
+      {{- if and .Values.server.knowledgebase.enabled (not .Values.server.knowledgebase.useBuiltIn) }}
+      # External KB volume (only when useBuiltIn=false)
       - name: knowledgebase
         persistentVolumeClaim:
           claimName: {{ .Values.server.knowledgebase.existingPvc }}

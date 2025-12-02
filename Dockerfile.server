@@ -21,6 +21,10 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -installsuffix cgo -o pged
 # Note: Using ubi9-minimal instead of ubi9-micro to get shadow-utils for user switching
 FROM registry.access.redhat.com/ubi9/ubi-minimal:latest
 
+# Build argument for knowledgebase source
+# Can be empty (no KB), a local path, or a URL (http:// or https://)
+ARG KB_SOURCE=""
+
 # Add labels for container metadata
 LABEL name="pgedge-mcp-server" \
       vendor="pgEdge" \
@@ -29,7 +33,12 @@ LABEL name="pgedge-mcp-server" \
       description="Model Context Protocol server for PostgreSQL database interaction"
 
 # Install util-linux for runuser command (needed for user switching in init script)
-RUN microdnf install -y util-linux && microdnf clean all
+# Install curl if KB_SOURCE is a URL (for downloading KB database)
+RUN microdnf install -y util-linux && \
+    if echo "${KB_SOURCE}" | grep -qE '^https?://'; then \
+        microdnf install -y curl; \
+    fi && \
+    microdnf clean all
 
 # Create user 1001 for running the server
 RUN useradd -u 1001 -r -s /bin/sh -d /app -c "MCP Server User" mcp
@@ -42,6 +51,22 @@ COPY --from=builder --chown=1001:1001 /workspace/pgedge-mcp-server /app/pgedge-m
 
 # Copy initialization script (must be executable and owned by root to create directories)
 COPY --chmod=755 docker/init-server.sh /app/init-server.sh
+
+# Create knowledgebase directory
+RUN mkdir -p /usr/share/pgedge/nla-kb && chown 1001:1001 /usr/share/pgedge/nla-kb
+
+# Download knowledgebase from URL if KB_SOURCE is a URL
+# This must be done after the directory is created
+RUN if [ -n "${KB_SOURCE}" ] && echo "${KB_SOURCE}" | grep -qE '^https?://'; then \
+        echo "Downloading knowledgebase from ${KB_SOURCE}..." && \
+        curl -fsSL -o /usr/share/pgedge/nla-kb/kb.db "${KB_SOURCE}" && \
+        chown 1001:1001 /usr/share/pgedge/nla-kb/kb.db && \
+        echo "Knowledgebase downloaded successfully"; \
+    fi
+
+# Copy local knowledgebase file if it exists (glob pattern allows missing file)
+# Place your kb.db file at ./kb/kb.db before building
+COPY --chown=1001:1001 kb/kb.d[b] /usr/share/pgedge/nla-kb/
 
 # Expose HTTP port
 EXPOSE 8080
