@@ -50,23 +50,35 @@ type ContextAwareProvider struct {
 func (p *ContextAwareProvider) registerStatelessTools(registry *Registry) {
 	// Note: read_resource tool provides backward compatibility for resource access
 	// Resources are also accessible via the native MCP resources/read endpoint
+	// This tool is always enabled as it's used to list resources
 	registry.Register("read_resource", ReadResourceTool(p.createResourceAdapter()))
 
 	// Embedding generation tool (stateless, only requires config)
-	registry.Register("generate_embedding", GenerateEmbeddingTool(p.cfg))
+	if p.cfg.Builtins.Tools.IsToolEnabled("generate_embedding") {
+		registry.Register("generate_embedding", GenerateEmbeddingTool(p.cfg))
+	}
 
-	// Knowledgebase search tool (if enabled)
-	if p.cfg.Knowledgebase.Enabled && p.cfg.Knowledgebase.DatabasePath != "" {
+	// Knowledgebase search tool (if enabled in both knowledgebase config and builtins config)
+	if p.cfg.Knowledgebase.Enabled && p.cfg.Knowledgebase.DatabasePath != "" &&
+		p.cfg.Builtins.Tools.IsToolEnabled("search_knowledgebase") {
 		registry.Register("search_knowledgebase", SearchKnowledgebaseTool(p.cfg.Knowledgebase.DatabasePath, p.cfg))
 	}
 }
 
 // registerDatabaseTools registers all database-dependent tools
 func (p *ContextAwareProvider) registerDatabaseTools(registry *Registry, client *database.Client) {
-	registry.Register("query_database", QueryDatabaseTool(client))
-	registry.Register("get_schema_info", GetSchemaInfoTool(client))
-	registry.Register("similarity_search", SimilaritySearchTool(client, p.cfg))
-	registry.Register("execute_explain", ExecuteExplainTool(client))
+	if p.cfg.Builtins.Tools.IsToolEnabled("query_database") {
+		registry.Register("query_database", QueryDatabaseTool(client))
+	}
+	if p.cfg.Builtins.Tools.IsToolEnabled("get_schema_info") {
+		registry.Register("get_schema_info", GetSchemaInfoTool(client))
+	}
+	if p.cfg.Builtins.Tools.IsToolEnabled("similarity_search") {
+		registry.Register("similarity_search", SimilaritySearchTool(client, p.cfg))
+	}
+	if p.cfg.Builtins.Tools.IsToolEnabled("execute_explain") {
+		registry.Register("execute_explain", ExecuteExplainTool(client))
+	}
 }
 
 // NewContextAwareProvider creates a new context-aware tool provider
@@ -202,6 +214,20 @@ func (p *ContextAwareProvider) Execute(ctx context.Context, name string, args ma
 			}
 			return response, err
 		}
+	}
+
+	// Check if this tool is enabled in the builtins configuration
+	// read_resource is always enabled as it's used to list resources
+	if name != "read_resource" && !p.cfg.Builtins.Tools.IsToolEnabled(name) {
+		return mcp.ToolResponse{
+			Content: []mcp.ContentItem{
+				{
+					Type: "text",
+					Text: fmt.Sprintf("Tool '%s' is not available", name),
+				},
+			},
+			IsError: true,
+		}, nil
 	}
 
 	// If authentication is enabled, validate token for ALL non-hidden tools

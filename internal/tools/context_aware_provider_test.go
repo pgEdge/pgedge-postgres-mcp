@@ -26,7 +26,7 @@ func TestNewContextAwareProvider(t *testing.T) {
 	clientManager := database.NewClientManagerWithConfig(nil)
 	fallbackClient := database.NewClient(nil)
 	cfg := &config.Config{}
-	resourceReg := resources.NewContextAwareRegistry(clientManager, true, nil)
+	resourceReg := resources.NewContextAwareRegistry(clientManager, true, nil, cfg)
 
 	provider := NewContextAwareProvider(clientManager, resourceReg, true, fallbackClient, cfg, nil, "", nil, 0, nil)
 
@@ -54,7 +54,7 @@ func TestContextAwareProvider_List(t *testing.T) {
 
 	fallbackClient := database.NewClient(nil)
 	cfg := &config.Config{}
-	resourceReg := resources.NewContextAwareRegistry(clientManager, false, nil)
+	resourceReg := resources.NewContextAwareRegistry(clientManager, false, nil, cfg)
 
 	provider := NewContextAwareProvider(clientManager, resourceReg, false, fallbackClient, cfg, nil, "", nil, 0, nil)
 
@@ -104,7 +104,7 @@ func TestContextAwareProvider_Execute_NoAuth(t *testing.T) {
 
 	fallbackClient := database.NewClient(nil)
 	cfg := &config.Config{}
-	resourceReg := resources.NewContextAwareRegistry(clientManager, false, nil)
+	resourceReg := resources.NewContextAwareRegistry(clientManager, false, nil, cfg)
 
 	// Auth disabled - should use fallback client
 	provider := NewContextAwareProvider(clientManager, resourceReg, false, fallbackClient, cfg, nil, "", nil, 0, nil)
@@ -134,7 +134,7 @@ func TestContextAwareProvider_Execute_WithAuth(t *testing.T) {
 
 	fallbackClient := database.NewClient(nil)
 	cfg := &config.Config{}
-	resourceReg := resources.NewContextAwareRegistry(clientManager, true, nil)
+	resourceReg := resources.NewContextAwareRegistry(clientManager, true, nil, cfg)
 
 	// Auth enabled - should require token hash
 	provider := NewContextAwareProvider(clientManager, resourceReg, true, fallbackClient, cfg, nil, "", nil, 0, nil)
@@ -220,7 +220,7 @@ func TestContextAwareProvider_Execute_InvalidTool(t *testing.T) {
 
 	fallbackClient := database.NewClient(nil)
 	cfg := &config.Config{}
-	resourceReg := resources.NewContextAwareRegistry(clientManager, false, nil)
+	resourceReg := resources.NewContextAwareRegistry(clientManager, false, nil, cfg)
 
 	// Auth disabled for simplicity
 	provider := NewContextAwareProvider(clientManager, resourceReg, false, fallbackClient, cfg, nil, "", nil, 0, nil)
@@ -257,7 +257,7 @@ func TestContextAwareProvider_RegisterTools_WithContext(t *testing.T) {
 
 	fallbackClient := database.NewClient(nil)
 	cfg := &config.Config{}
-	resourceReg := resources.NewContextAwareRegistry(clientManager, true, nil)
+	resourceReg := resources.NewContextAwareRegistry(clientManager, true, nil, cfg)
 
 	provider := NewContextAwareProvider(clientManager, resourceReg, true, fallbackClient, cfg, nil, "", nil, 0, nil)
 

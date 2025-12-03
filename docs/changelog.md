@@ -7,7 +7,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/),
 and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased] - 1.0.0-alpha3
+## [Unreleased] - 1.0.0-alpha4
+
+### Added
+
+- Configuration options to selectively enable/disable built-in tools,
+  resources, and prompts via the `builtins` section in the config file
+- Disabled features are not advertised to the LLM and return errors if
+  called directly
+- The `read_resource` tool is always enabled as it's required for listing
+  resources
+
+## [1.0.0-alpha3] - 2025-12-03
 
 ### Added
 
@@ -306,6 +317,7 @@ and this project adheres to
 - CI/CD pipeline documentation
 - Testing guide for contributors
 
-[Unreleased]: https://github.com/pgEdge/pgedge-nla/compare/v1.0.0-alpha2...HEAD
+[Unreleased]: https://github.com/pgEdge/pgedge-nla/compare/v1.0.0-alpha3...HEAD
+[1.0.0-alpha3]: https://github.com/pgEdge/pgedge-nla/releases/tag/v1.0.0-alpha3
 [1.0.0-alpha2]: https://github.com/pgEdge/pgedge-nla/releases/tag/v1.0.0-alpha2
 [1.0.0-alpha1]: https://github.com/pgEdge/pgedge-nla/releases/tag/v1.0.0-alpha1

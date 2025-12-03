@@ -4,6 +4,20 @@ The Natural Language Agent provides various tools that enable SQL database
 interaction, advanced semantic search, embedding generation, resource reading,
 and more.
 
+## Disabling Tools
+
+Individual tools can be disabled via configuration to restrict what the LLM
+can access. See [Enabling/Disabling Built-in Features](../guide/configuration.md#enablingdisabling-built-in-features)
+for details.
+
+When a tool is disabled:
+
+- It is not advertised to the LLM in the `tools/list` response
+- Attempts to execute it return an error message
+
+**Note**: The `read_resource` tool is always enabled as it's required for
+listing resources.
+
 ## Available Tools
 
 ### execute_explain

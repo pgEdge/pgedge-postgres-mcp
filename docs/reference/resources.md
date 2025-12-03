@@ -1,6 +1,19 @@
 # MCP Resources
 
-Resources provide read-only access to PostgreSQL system information. Resources are accessed via the `read_resource` tool or through MCP protocol resource methods.
+Resources provide read-only access to PostgreSQL system information. Resources
+are accessed via the `read_resource` tool or through MCP protocol resource
+methods.
+
+## Disabling Resources
+
+Individual resources can be disabled via configuration to restrict what the
+LLM can access. See [Enabling/Disabling Built-in Features](../guide/configuration.md#enablingdisabling-built-in-features)
+for details.
+
+When a resource is disabled:
+
+- It is not advertised to the LLM in the `resources/list` response
+- Attempts to read it return an error message
 
 ## Available Resources
 

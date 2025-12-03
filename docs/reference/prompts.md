@@ -5,6 +5,18 @@ multi-step processes. They provide structured guidance for common tasks like
 setting up semantic search, exploring unfamiliar databases, or diagnosing
 query issues.
 
+## Disabling Prompts
+
+Individual prompts can be disabled via configuration to restrict what the
+LLM can access. See [Enabling/Disabling Built-in Features](../guide/configuration.md#enablingdisabling-built-in-features)
+for details.
+
+When a prompt is disabled:
+
+- It is not advertised to the LLM in the `prompts/list` response
+- The prompt dropdown in the web UI will not show it
+- Attempts to use it via `/prompt` return an error
+
 ## What are MCP Prompts?
 
 MCP Prompts are a feature introduced in the Model Context Protocol (MCP)

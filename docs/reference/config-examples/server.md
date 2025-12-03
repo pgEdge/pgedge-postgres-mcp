@@ -358,6 +358,76 @@ knowledgebase:
     embedding_ollama_url: "http://localhost:11434"
 
 # ============================================================================
+# BUILT-IN FEATURES CONFIGURATION
+# ============================================================================
+# Enable or disable built-in tools, resources, and prompts.
+# All features are enabled by default. Set to false to disable.
+# Disabled features are not advertised to the LLM and cannot be used.
+# Note: read_resource tool is always enabled (required for resource listing)
+# Note: These settings are only configurable via config file, not environment
+#       variables.
+builtins:
+    # -------------------------
+    # Tools
+    # -------------------------
+    tools:
+        # Execute SQL queries against the database
+        # Default: true
+        query_database: true
+
+        # Get detailed schema information (tables, columns, constraints)
+        # Default: true
+        get_schema_info: true
+
+        # Vector similarity search using pgvector
+        # Default: true
+        similarity_search: true
+
+        # Execute EXPLAIN ANALYZE on queries
+        # Default: true
+        execute_explain: true
+
+        # Generate text embeddings (requires embedding.enabled: true)
+        # Default: true
+        generate_embedding: true
+
+        # Search the documentation knowledgebase (requires knowledgebase.enabled: true)
+        # Default: true
+        search_knowledgebase: true
+
+    # -------------------------
+    # Resources
+    # -------------------------
+    resources:
+        # pg://system_info - PostgreSQL version and system information
+        # Default: true
+        system_info: true
+
+        # pg://database/schema - Lightweight table listing
+        # Default: true
+        database_schema: true
+
+    # -------------------------
+    # Prompts
+    # -------------------------
+    prompts:
+        # explore-database - Systematic database exploration workflow
+        # Default: true
+        explore_database: true
+
+        # setup-semantic-search - Guided semantic search setup
+        # Default: true
+        setup_semantic_search: true
+
+        # diagnose-query-issue - Query troubleshooting workflow
+        # Default: true
+        diagnose_query_issue: true
+
+        # design-schema - Schema design guidance
+        # Default: true
+        design_schema: true
+
+# ============================================================================
 # CUSTOM DEFINITIONS
 # ============================================================================
 # Path to custom prompts and resources definition file

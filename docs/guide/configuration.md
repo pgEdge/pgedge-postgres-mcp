@@ -40,6 +40,18 @@ The Natural Language Agent supports multiple configuration methods with the foll
 | `knowledgebase.embedding_openai_api_key_file` | N/A | N/A | Path to file containing OpenAI API key for KB search |
 | `knowledgebase.embedding_ollama_url` | N/A | `PGEDGE_KB_OLLAMA_URL` | Ollama API URL for KB search |
 | `secret_file` | N/A | `PGEDGE_SECRET_FILE` | Path to encryption secret file (auto-generated if not present) |
+| `builtins.tools.query_database` | N/A | N/A | Enable query_database tool (default: true) |
+| `builtins.tools.get_schema_info` | N/A | N/A | Enable get_schema_info tool (default: true) |
+| `builtins.tools.similarity_search` | N/A | N/A | Enable similarity_search tool (default: true) |
+| `builtins.tools.execute_explain` | N/A | N/A | Enable execute_explain tool (default: true) |
+| `builtins.tools.generate_embedding` | N/A | N/A | Enable generate_embedding tool (default: true) |
+| `builtins.tools.search_knowledgebase` | N/A | N/A | Enable search_knowledgebase tool (default: true) |
+| `builtins.resources.system_info` | N/A | N/A | Enable pg://system_info resource (default: true) |
+| `builtins.resources.database_schema` | N/A | N/A | Enable pg://database/schema resource (default: true) |
+| `builtins.prompts.explore_database` | N/A | N/A | Enable explore-database prompt (default: true) |
+| `builtins.prompts.setup_semantic_search` | N/A | N/A | Enable setup-semantic-search prompt (default: true) |
+| `builtins.prompts.diagnose_query_issue` | N/A | N/A | Enable diagnose-query-issue prompt (default: true) |
+| `builtins.prompts.design_schema` | N/A | N/A | Enable design-schema prompt (default: true) |
 
 ## Configuration File
 
@@ -128,6 +140,25 @@ knowledgebase:
 
 # Encryption secret file path (optional)
 secret_file: ""  # defaults to pgedge-mcp-server.secret, auto-generated if not present
+
+# Built-in tools, resources, and prompts (optional)
+# All are enabled by default. Set to false to disable.
+# builtins:
+#   tools:
+#     query_database: true
+#     get_schema_info: true
+#     similarity_search: true
+#     execute_explain: true
+#     generate_embedding: true
+#     search_knowledgebase: true
+#   resources:
+#     system_info: true
+#     database_schema: true
+#   prompts:
+#     explore_database: true
+#     setup_semantic_search: true
+#     diagnose_query_issue: true
+#     design_schema: true
 
 ```
 
@@ -533,6 +564,42 @@ vim bin/pgedge-mcp-server.yaml
 # Run the server (automatically loads config from default location)
 ./bin/pgedge-mcp-server
 ```
+
+## Enabling/Disabling Built-in Features
+
+You can selectively enable or disable built-in tools, resources, and prompts.
+All features are **enabled by default**. When a feature is disabled:
+
+- It is not advertised to the LLM in list operations
+- Attempts to use it return an error message
+
+### Configuration File
+
+```yaml
+builtins:
+  tools:
+    query_database: true        # Execute SQL queries
+    get_schema_info: true       # Get schema information
+    similarity_search: false    # Disable vector similarity search
+    execute_explain: true       # Execute EXPLAIN queries
+    generate_embedding: false   # Disable embedding generation
+    search_knowledgebase: true  # Search documentation knowledgebase
+  resources:
+    system_info: true           # pg://system_info
+    database_schema: true       # pg://database/schema
+  prompts:
+    explore_database: true      # explore-database prompt
+    setup_semantic_search: true # setup-semantic-search prompt
+    diagnose_query_issue: true  # diagnose-query-issue prompt
+    design_schema: true         # design-schema prompt
+```
+
+### Notes
+
+- The `read_resource` tool is always enabled as it's required for listing
+  resources
+- Features can also be disabled by other configuration settings (e.g.,
+  `search_knowledgebase` requires `knowledgebase.enabled: true`)
 
 ## Command Line Flags
 

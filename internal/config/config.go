@@ -36,11 +36,97 @@ type Config struct {
 	// Knowledgebase configuration
 	Knowledgebase KnowledgebaseConfig `yaml:"knowledgebase"`
 
+	// Built-in tools, resources, and prompts configuration
+	Builtins BuiltinsConfig `yaml:"builtins"`
+
 	// Secret file path (for encryption key)
 	SecretFile string `yaml:"secret_file"`
 
 	// Custom definitions file path (for user-defined prompts and resources)
 	CustomDefinitionsPath string `yaml:"custom_definitions_path"`
+}
+
+// BuiltinsConfig holds configuration for enabling/disabling built-in tools, resources, and prompts
+type BuiltinsConfig struct {
+	Tools     ToolsConfig     `yaml:"tools"`
+	Resources ResourcesConfig `yaml:"resources"`
+	Prompts   PromptsConfig   `yaml:"prompts"`
+}
+
+// ToolsConfig holds configuration for enabling/disabling built-in tools
+// All tools are enabled by default
+// Note: read_resource tool is always enabled as it's used to list resources
+type ToolsConfig struct {
+	QueryDatabase       *bool `yaml:"query_database"`       // Execute SQL queries (default: true)
+	GetSchemaInfo       *bool `yaml:"get_schema_info"`      // Get detailed schema information (default: true)
+	SimilaritySearch    *bool `yaml:"similarity_search"`    // Vector similarity search (default: true)
+	ExecuteExplain      *bool `yaml:"execute_explain"`      // Execute EXPLAIN queries (default: true)
+	GenerateEmbedding   *bool `yaml:"generate_embedding"`   // Generate text embeddings (default: true)
+	SearchKnowledgebase *bool `yaml:"search_knowledgebase"` // Search knowledgebase (default: true)
+}
+
+// ResourcesConfig holds configuration for enabling/disabling built-in resources
+// All resources are enabled by default
+type ResourcesConfig struct {
+	SystemInfo     *bool `yaml:"system_info"`     // pg://system_info (default: true)
+	DatabaseSchema *bool `yaml:"database_schema"` // pg://database/schema (default: true)
+}
+
+// PromptsConfig holds configuration for enabling/disabling built-in prompts
+// All prompts are enabled by default
+type PromptsConfig struct {
+	ExploreDatabase     *bool `yaml:"explore_database"`      // explore-database prompt (default: true)
+	SetupSemanticSearch *bool `yaml:"setup_semantic_search"` // setup-semantic-search prompt (default: true)
+	DiagnoseQueryIssue  *bool `yaml:"diagnose_query_issue"`  // diagnose-query-issue prompt (default: true)
+	DesignSchema        *bool `yaml:"design_schema"`         // design-schema prompt (default: true)
+}
+
+// IsToolEnabled returns true if the specified tool is enabled (defaults to true if not set)
+func (c *ToolsConfig) IsToolEnabled(toolName string) bool {
+	switch toolName {
+	case "query_database":
+		return c.QueryDatabase == nil || *c.QueryDatabase
+	case "get_schema_info":
+		return c.GetSchemaInfo == nil || *c.GetSchemaInfo
+	case "similarity_search":
+		return c.SimilaritySearch == nil || *c.SimilaritySearch
+	case "execute_explain":
+		return c.ExecuteExplain == nil || *c.ExecuteExplain
+	case "generate_embedding":
+		return c.GenerateEmbedding == nil || *c.GenerateEmbedding
+	case "search_knowledgebase":
+		return c.SearchKnowledgebase == nil || *c.SearchKnowledgebase
+	default:
+		return true // Unknown tools are enabled by default
+	}
+}
+
+// IsResourceEnabled returns true if the specified resource is enabled (defaults to true if not set)
+func (c *ResourcesConfig) IsResourceEnabled(resourceURI string) bool {
+	switch resourceURI {
+	case "pg://system_info":
+		return c.SystemInfo == nil || *c.SystemInfo
+	case "pg://database/schema":
+		return c.DatabaseSchema == nil || *c.DatabaseSchema
+	default:
+		return true // Unknown resources are enabled by default
+	}
+}
+
+// IsPromptEnabled returns true if the specified prompt is enabled (defaults to true if not set)
+func (c *PromptsConfig) IsPromptEnabled(promptName string) bool {
+	switch promptName {
+	case "explore-database":
+		return c.ExploreDatabase == nil || *c.ExploreDatabase
+	case "setup-semantic-search":
+		return c.SetupSemanticSearch == nil || *c.SetupSemanticSearch
+	case "diagnose-query-issue":
+		return c.DiagnoseQueryIssue == nil || *c.DiagnoseQueryIssue
+	case "design-schema":
+		return c.DesignSchema == nil || *c.DesignSchema
+	default:
+		return true // Unknown prompts are enabled by default
+	}
 }
 
 // HTTPConfig holds HTTP/HTTPS server settings
@@ -439,6 +525,47 @@ func mergeConfig(dest, src *Config) {
 	if src.CustomDefinitionsPath != "" {
 		dest.CustomDefinitionsPath = src.CustomDefinitionsPath
 	}
+
+	// Builtins - merge individual settings (pointer fields preserve explicit false values)
+	// Tools
+	if src.Builtins.Tools.QueryDatabase != nil {
+		dest.Builtins.Tools.QueryDatabase = src.Builtins.Tools.QueryDatabase
+	}
+	if src.Builtins.Tools.GetSchemaInfo != nil {
+		dest.Builtins.Tools.GetSchemaInfo = src.Builtins.Tools.GetSchemaInfo
+	}
+	if src.Builtins.Tools.SimilaritySearch != nil {
+		dest.Builtins.Tools.SimilaritySearch = src.Builtins.Tools.SimilaritySearch
+	}
+	if src.Builtins.Tools.ExecuteExplain != nil {
+		dest.Builtins.Tools.ExecuteExplain = src.Builtins.Tools.ExecuteExplain
+	}
+	if src.Builtins.Tools.GenerateEmbedding != nil {
+		dest.Builtins.Tools.GenerateEmbedding = src.Builtins.Tools.GenerateEmbedding
+	}
+	if src.Builtins.Tools.SearchKnowledgebase != nil {
+		dest.Builtins.Tools.SearchKnowledgebase = src.Builtins.Tools.SearchKnowledgebase
+	}
+	// Resources
+	if src.Builtins.Resources.SystemInfo != nil {
+		dest.Builtins.Resources.SystemInfo = src.Builtins.Resources.SystemInfo
+	}
+	if src.Builtins.Resources.DatabaseSchema != nil {
+		dest.Builtins.Resources.DatabaseSchema = src.Builtins.Resources.DatabaseSchema
+	}
+	// Prompts
+	if src.Builtins.Prompts.ExploreDatabase != nil {
+		dest.Builtins.Prompts.ExploreDatabase = src.Builtins.Prompts.ExploreDatabase
+	}
+	if src.Builtins.Prompts.SetupSemanticSearch != nil {
+		dest.Builtins.Prompts.SetupSemanticSearch = src.Builtins.Prompts.SetupSemanticSearch
+	}
+	if src.Builtins.Prompts.DiagnoseQueryIssue != nil {
+		dest.Builtins.Prompts.DiagnoseQueryIssue = src.Builtins.Prompts.DiagnoseQueryIssue
+	}
+	if src.Builtins.Prompts.DesignSchema != nil {
+		dest.Builtins.Prompts.DesignSchema = src.Builtins.Prompts.DesignSchema
+	}
 }
 
 // setStringFromEnv sets a string config value from an environment variable if it exists
@@ -633,6 +760,9 @@ func applyEnvironmentVariables(cfg *Config) {
 
 	// Custom definitions path
 	setStringFromEnv(&cfg.CustomDefinitionsPath, "PGEDGE_CUSTOM_DEFINITIONS_PATH")
+
+	// Note: Builtins (tools, resources, prompts) are only configurable via
+	// config file, not environment variables
 }
 
 // applyCLIFlags overrides config with CLI flags if they were explicitly set

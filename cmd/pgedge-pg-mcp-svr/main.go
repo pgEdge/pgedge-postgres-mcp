@@ -471,7 +471,7 @@ func main() {
 	}
 
 	// Context-aware resource provider
-	contextAwareResourceProvider := resources.NewContextAwareRegistry(clientManager, authEnabled, accessChecker)
+	contextAwareResourceProvider := resources.NewContextAwareRegistry(clientManager, authEnabled, accessChecker, cfg)
 
 	// Context-aware tool provider
 	contextAwareToolProvider := tools.NewContextAwareProvider(clientManager, contextAwareResourceProvider, authEnabled, fallbackClient, cfg, userStore, userFilePathForTools, rateLimiter, cfg.HTTP.Auth.MaxFailedAttemptsBeforeLockout, accessChecker)
@@ -495,12 +495,20 @@ func main() {
 		server.SetDatabaseProvider(databaseProvider)
 	}
 
-	// Register prompts
+	// Register prompts (only enabled ones)
 	promptRegistry := prompts.NewRegistry()
-	promptRegistry.Register("explore-database", prompts.ExploreDatabase())
-	promptRegistry.Register("setup-semantic-search", prompts.SetupSemanticSearch())
-	promptRegistry.Register("diagnose-query-issue", prompts.DiagnoseQueryIssue())
-	promptRegistry.Register("design-schema", prompts.DesignSchema())
+	if cfg.Builtins.Prompts.IsPromptEnabled("explore-database") {
+		promptRegistry.Register("explore-database", prompts.ExploreDatabase())
+	}
+	if cfg.Builtins.Prompts.IsPromptEnabled("setup-semantic-search") {
+		promptRegistry.Register("setup-semantic-search", prompts.SetupSemanticSearch())
+	}
+	if cfg.Builtins.Prompts.IsPromptEnabled("diagnose-query-issue") {
+		promptRegistry.Register("diagnose-query-issue", prompts.DiagnoseQueryIssue())
+	}
+	if cfg.Builtins.Prompts.IsPromptEnabled("design-schema") {
+		promptRegistry.Register("design-schema", prompts.DesignSchema())
+	}
 	server.SetPromptProvider(promptRegistry)
 
 	// Load custom definitions if configured

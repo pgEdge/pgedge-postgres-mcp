@@ -15,6 +15,7 @@ import (
 	"fmt"
 
 	"pgedge-postgres-mcp/internal/auth"
+	"pgedge-postgres-mcp/internal/config"
 	"pgedge-postgres-mcp/internal/database"
 	"pgedge-postgres-mcp/internal/mcp"
 )
@@ -29,6 +30,7 @@ type ContextAwareRegistry struct {
 	authEnabled     bool
 	accessChecker   *auth.DatabaseAccessChecker
 	customResources map[string]customResource
+	cfg             *config.Config
 }
 
 // customResource represents a user-defined resource
@@ -38,31 +40,37 @@ type customResource struct {
 }
 
 // NewContextAwareRegistry creates a new context-aware resource registry
-func NewContextAwareRegistry(clientManager *database.ClientManager, authEnabled bool, accessChecker *auth.DatabaseAccessChecker) *ContextAwareRegistry {
+func NewContextAwareRegistry(clientManager *database.ClientManager, authEnabled bool, accessChecker *auth.DatabaseAccessChecker, cfg *config.Config) *ContextAwareRegistry {
 	return &ContextAwareRegistry{
 		clientManager:   clientManager,
 		authEnabled:     authEnabled,
 		accessChecker:   accessChecker,
 		customResources: make(map[string]customResource),
+		cfg:             cfg,
 	}
 }
 
 // List returns all available resource definitions
 func (r *ContextAwareRegistry) List() []mcp.Resource {
-	// Start with static built-in resources
-	resources := []mcp.Resource{
-		{
+	// Start with static built-in resources (only include enabled ones)
+	resources := []mcp.Resource{}
+
+	if r.cfg.Builtins.Resources.IsResourceEnabled(URISystemInfo) {
+		resources = append(resources, mcp.Resource{
 			URI:         URISystemInfo,
 			Name:        "PostgreSQL System Information",
 			Description: "Returns PostgreSQL version, operating system, and build architecture information. Provides a quick way to check server version and platform details.",
 			MimeType:    "application/json",
-		},
-		{
+		})
+	}
+
+	if r.cfg.Builtins.Resources.IsResourceEnabled(URIDatabaseSchema) {
+		resources = append(resources, mcp.Resource{
 			URI:         URIDatabaseSchema,
 			Name:        "PostgreSQL Database Schema",
 			Description: "Returns a lightweight overview of all tables in the database. Lists schema names, table names, and table owners. Use get_schema_info tool for detailed column information.",
 			MimeType:    "application/json",
-		},
+		})
 	}
 
 	// Add custom resources
@@ -102,6 +110,19 @@ func (r *ContextAwareRegistry) Read(ctx context.Context, uri string) (mcp.Resour
 				{
 					Type: "text",
 					Text: fmt.Sprintf("Error: %v", err),
+				},
+			},
+		}, nil
+	}
+
+	// Check if the built-in resource is enabled
+	if (uri == URISystemInfo || uri == URIDatabaseSchema) && !r.cfg.Builtins.Resources.IsResourceEnabled(uri) {
+		return mcp.ResourceContent{
+			URI: uri,
+			Contents: []mcp.ContentItem{
+				{
+					Type: "text",
+					Text: fmt.Sprintf("Resource '%s' is not available", uri),
 				},
 			},
 		}, nil
