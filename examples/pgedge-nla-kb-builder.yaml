@@ -114,6 +114,18 @@ sources:
       project_name: "pgEdge RAG Server"
       project_version: "1.0.0-alpha3"
 
+    - git_url: "https://github.com/pgEdge/pgedge-rag-server.git"
+      branch: "v1.0.0-alpha4"
+      doc_path: "docs"
+      project_name: "pgEdge RAG Server"
+      project_version: "1.0.0-alpha4"
+
+    - git_url: "https://github.com/pgEdge/pgedge-rag-server.git"
+      branch: "v1.0.0-alpha5"
+      doc_path: "docs"
+      project_name: "pgEdge RAG Server"
+      project_version: "1.0.0-alpha5"
+
     - git_url: "https://github.com/pgEdge/spock.git"
       branch: "v5_STABLE"
       doc_path: "docs"
