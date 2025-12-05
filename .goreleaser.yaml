@@ -1,0 +1,270 @@
+# GoReleaser configuration for pgEdge Natural Language Agent
+# https://goreleaser.com
+
+version: 2
+
+before:
+    hooks:
+        # Format code
+        - go fmt ./...
+        # Build web UI
+        - sh -c 'cd web && npm ci && npm run build'
+
+builds:
+    # MCP Server
+    - id: pgedge-mcp-server
+      binary: pgedge-mcp-server
+      main: ./cmd/pgedge-pg-mcp-svr
+      env:
+          - CGO_ENABLED=0
+      goos:
+          - linux
+          - darwin
+          - windows
+      goarch:
+          - amd64
+          - arm64
+      goarm:
+          - "7"
+      ignore:
+          - goos: windows
+            goarch: arm64
+      ldflags:
+          - -s -w
+          - -X main.version={{.Version}}
+          - -X main.commit={{.Commit}}
+          - -X main.date={{.Date}}
+          - -X main.builtBy=goreleaser
+
+    # CLI Client
+    - id: pgedge-nla-cli
+      binary: pgedge-nla-cli
+      main: ./cmd/pgedge-pg-mcp-cli
+      env:
+          - CGO_ENABLED=0
+      goos:
+          - linux
+          - darwin
+          - windows
+      goarch:
+          - amd64
+          - arm64
+      goarm:
+          - "7"
+      ignore:
+          - goos: windows
+            goarch: arm64
+      ldflags:
+          - -s -w
+          - -X main.version={{.Version}}
+          - -X main.commit={{.Commit}}
+          - -X main.date={{.Date}}
+          - -X main.builtBy=goreleaser
+
+    # KB Builder for macOS (build-time tool only)
+    - id: pgedge-nla-kb-builder-darwin
+      binary: pgedge-nla-kb-builder
+      main: ./cmd/kb-builder
+      env:
+          - CGO_ENABLED=1
+      goos:
+          - darwin
+      goarch:
+          - amd64
+          - arm64
+      ldflags:
+          - -s -w
+          - -X main.version={{.Version}}
+          - -X main.commit={{.Commit}}
+          - -X main.date={{.Date}}
+          - -X main.builtBy=goreleaser
+
+    # KB Builder for Linux (only in CI with native Linux environment)
+    # Builds only when running on Linux (GitHub Actions runs on Ubuntu)
+    - id: pgedge-nla-kb-builder-linux
+      binary: pgedge-nla-kb-builder
+      main: ./cmd/kb-builder
+      env:
+          - CGO_ENABLED=1
+      goos:
+          - linux
+      goarch:
+          - amd64
+          - arm64
+      # Skip if not running on Linux
+      skip: '{{ ne .Runtime.Goos "linux" }}'
+      ldflags:
+          - -s -w
+          - -X main.version={{.Version}}
+          - -X main.commit={{.Commit}}
+          - -X main.date={{.Date}}
+          - -X main.builtBy=goreleaser
+
+archives:
+    # Server archive
+    - id: server
+      builds:
+          - pgedge-mcp-server
+      name_template: >-
+          {{ .ProjectName }}-server_
+          {{- .Version }}_
+          {{- .Os }}_
+          {{- if eq .Arch "amd64" }}x86_64
+          {{- else }}{{ .Arch }}{{ end }}
+          {{- if .Arm }}v{{ .Arm }}{{ end }}
+      format_overrides:
+          - goos: windows
+            format: zip
+      files:
+          - README.md
+          - LICENCE.md
+          - docs/**/*
+          - examples/pgedge-mcp-server-custom.yaml
+          - examples/.env.example
+
+    # CLI archive
+    - id: cli
+      builds:
+          - pgedge-nla-cli
+      name_template: >-
+          {{ .ProjectName }}-cli_
+          {{- .Version }}_
+          {{- .Os }}_
+          {{- if eq .Arch "amd64" }}x86_64
+          {{- else }}{{ .Arch }}{{ end }}
+          {{- if .Arm }}v{{ .Arm }}{{ end }}
+      format_overrides:
+          - goos: windows
+            format: zip
+      files:
+          - README.md
+          - LICENCE.md
+          - docs/**/*
+
+    # Web UI archive (noarch - just static files)
+    - id: web
+      meta: true
+      name_template: "{{ .ProjectName }}-web_{{ .Version }}_noarch"
+      files:
+          - src: web/dist
+            dst: web/dist
+          - web/README.md
+          - LICENCE.md
+
+    # KB Builder archive for Darwin (for building KB databases)
+    - id: kb-builder-darwin
+      builds:
+          - pgedge-nla-kb-builder-darwin
+      name_template: >-
+          {{ .ProjectName }}-kb-builder_
+          {{- .Version }}_
+          {{- .Os }}_
+          {{- if eq .Arch "amd64" }}x86_64
+          {{- else }}{{ .Arch }}{{ end }}
+      files:
+          - README.md
+          - LICENCE.md
+          - examples/pgedge-nla-kb-builder.yaml
+          - kb/README.md
+
+    # KB Builder archive for Linux (for building KB databases)
+    # Only created when building on Linux (GitHub Actions)
+    - id: kb-builder-linux
+      builds:
+          - pgedge-nla-kb-builder-linux
+      name_template: >-
+          {{ .ProjectName }}-kb-builder_
+          {{- .Version }}_
+          {{- .Os }}_
+          {{- if eq .Arch "amd64" }}x86_64
+          {{- else }}{{ .Arch }}{{ end }}
+      allow_different_binary_count: true
+      files:
+          - README.md
+          - LICENCE.md
+          - examples/pgedge-nla-kb-builder.yaml
+          - kb/README.md
+
+checksum:
+    name_template: "checksums.txt"
+    algorithm: sha256
+
+snapshot:
+    version_template: "{{ incpatch .Version }}-next"
+
+changelog:
+    sort: asc
+    use: github
+    filters:
+        exclude:
+            - "^docs:"
+            - "^test:"
+            - "^chore:"
+            - Merge pull request
+            - Merge remote-tracking branch
+            - Merge branch
+    groups:
+        - title: Features
+          regexp: '^.*?feat(\([[:word:]]+\))??!?:.+$'
+          order: 0
+        - title: "Bug Fixes"
+          regexp: '^.*?fix(\([[:word:]]+\))??!?:.+$'
+          order: 1
+        - title: "Security Updates"
+          regexp: '^.*?sec(\([[:word:]]+\))??!?:.+$'
+          order: 2
+        - title: Others
+          order: 999
+
+release:
+    github:
+        owner: pgEdge
+        name: pgedge-nla
+    draft: false
+    prerelease: auto
+    mode: append
+    name_template: "{{.ProjectName}} v{{.Version}}"
+    header: |
+        ## pgEdge Natural Language Agent {{.Version}}
+
+        ### Installation
+
+        Download the appropriate archive for your platform below and extract it.
+
+        **Server:**
+        ```bash
+        tar -xzf pgedge-nla-server_{{.Version}}_linux_x86_64.tar.gz
+        sudo mv pgedge-mcp-server /usr/bin/
+        ```
+
+        **CLI Client:**
+        ```bash
+        tar -xzf pgedge-nla-cli_{{.Version}}_linux_x86_64.tar.gz
+        sudo mv pgedge-nla-cli /usr/bin/
+        ```
+
+        **Web UI:**
+        ```bash
+        tar -xzf pgedge-nla-web_{{.Version}}_noarch.tar.gz
+        sudo mkdir -p /usr/share/pgedge/nla-web
+        sudo cp -r web/dist/* /usr/share/pgedge/nla-web/
+        ```
+
+    footer: |
+        ### Documentation
+
+        - [Complete Documentation](https://github.com/pgEdge/pgedge-nla/blob/main/docs/index.md)
+        - [Configuration Guide](https://github.com/pgEdge/pgedge-nla/blob/main/docs/configuration.md)
+        - [Deployment Guide](https://github.com/pgEdge/pgedge-nla/blob/main/docs/deployment.md)
+
+        **Full Changelog**: https://github.com/pgEdge/pgedge-nla/compare/{{.PreviousTag}}...{{.Tag}}
+
+# Generate source archive
+source:
+    enabled: true
+    name_template: "{{ .ProjectName }}-{{ .Version }}-source"
+    format: tar.gz
+
+# Announce release
+announce:
+    skip: "{{gt .Patch 0}}"

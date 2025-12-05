@@ -1,0 +1,88 @@
+name: Release
+
+on:
+    push:
+        tags:
+            - 'v*'
+
+permissions:
+    contents: write
+    packages: write
+
+jobs:
+    release:
+        name: Release Build
+        runs-on: ubuntu-latest
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v4
+              with:
+                  fetch-depth: 0
+
+            - name: Fetch all tags
+              run: git fetch --force --tags
+
+            - name: Set up Go
+              uses: actions/setup-go@v5
+              with:
+                  go-version: '1.24'
+                  cache: true
+
+            - name: Set up Node.js
+              uses: actions/setup-node@v4
+              with:
+                  node-version: '20'
+                  cache: 'npm'
+                  cache-dependency-path: web/package-lock.json
+
+            - name: Install Node.js dependencies
+              run: |
+                  cd web
+                  npm ci
+
+            - name: Build Web UI
+              run: |
+                  cd web
+                  npm run build
+                  ls -la dist/
+
+            - name: Verify Web UI build
+              run: |
+                  if [ ! -d "web/dist" ]; then
+                    echo "Error: web/dist directory not found"
+                    exit 1
+                  fi
+                  if [ ! -f "web/dist/index.html" ]; then
+                    echo "Error: web/dist/index.html not found"
+                    exit 1
+                  fi
+                  echo "Web UI build successful"
+
+            - name: Run Go tests
+              run: go test -v ./...
+
+            - name: Install GoReleaser
+              uses: goreleaser/goreleaser-action@v6
+              with:
+                  distribution: goreleaser
+                  version: latest
+                  install-only: true
+
+            - name: Run GoReleaser
+              uses: goreleaser/goreleaser-action@v6
+              with:
+                  distribution: goreleaser
+                  version: latest
+                  args: release --clean
+              env:
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+            - name: Upload release artifacts
+              uses: actions/upload-artifact@v4
+              with:
+                  name: release-artifacts
+                  path: |
+                      dist/*.tar.gz
+                      dist/*.zip
+                      dist/checksums.txt
+                  retention-days: 90
