@@ -44,6 +44,9 @@ type Config struct {
 
 	// Custom definitions file path (for user-defined prompts and resources)
 	CustomDefinitionsPath string `yaml:"custom_definitions_path"`
+
+	// Data directory path (for conversation history, etc.)
+	DataDir string `yaml:"data_dir"`
 }
 
 // BuiltinsConfig holds configuration for enabling/disabling built-in tools, resources, and prompts
@@ -526,6 +529,11 @@ func mergeConfig(dest, src *Config) {
 		dest.CustomDefinitionsPath = src.CustomDefinitionsPath
 	}
 
+	// Data directory
+	if src.DataDir != "" {
+		dest.DataDir = src.DataDir
+	}
+
 	// Builtins - merge individual settings (pointer fields preserve explicit false values)
 	// Tools
 	if src.Builtins.Tools.QueryDatabase != nil {
@@ -760,6 +768,9 @@ func applyEnvironmentVariables(cfg *Config) {
 
 	// Custom definitions path
 	setStringFromEnv(&cfg.CustomDefinitionsPath, "PGEDGE_CUSTOM_DEFINITIONS_PATH")
+
+	// Data directory
+	setStringFromEnv(&cfg.DataDir, "PGEDGE_DATA_DIR")
 
 	// Note: Builtins (tools, resources, prompts) are only configurable via
 	// config file, not environment variables

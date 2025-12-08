@@ -9,15 +9,15 @@
  */
 
 import { useState } from 'react';
-import { useLocalStorage } from './useLocalStorage';
 
 /**
  * Custom hook for managing query history with up/down arrow navigation
  * Supports prefix-based filtering
+ * Query history is now per-conversation (not persisted in localStorage)
  * @returns {Object} Query history state and methods
  */
 export const useQueryHistory = () => {
-    const [queryHistory, setQueryHistory] = useLocalStorage('query-history', []);
+    const [queryHistory, setQueryHistory] = useState([]);
     const [historyIndex, setHistoryIndex] = useState(-1);
     const [tempInput, setTempInput] = useState('');
     const [searchPrefix, setSearchPrefix] = useState('');
@@ -121,6 +121,14 @@ export const useQueryHistory = () => {
         setSearchPrefix('');
     };
 
+    // Set history from loaded conversation messages
+    const setHistory = (queries) => {
+        setQueryHistory(queries || []);
+        setHistoryIndex(-1);
+        setTempInput('');
+        setSearchPrefix('');
+    };
+
     return {
         queryHistory,
         addToHistory,
@@ -128,6 +136,7 @@ export const useQueryHistory = () => {
         navigateDown,
         resetNavigation,
         clearHistory,
+        setHistory,
         isNavigating: historyIndex !== -1,
     };
 };

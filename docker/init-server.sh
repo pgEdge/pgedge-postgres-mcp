@@ -73,11 +73,21 @@ if [ -f "$KB_BUILTIN_PATH" ]; then
 fi
 
 # Create data directory with proper permissions
-mkdir -p /app/data
-chown 1001:1001 /app/data
+# This directory stores:
+# - Authentication tokens (tokens.json)
+# - User credentials (users.json)
+# - Conversation history (conversations.db)
+# - User preferences
+DATA_DIR="${PGEDGE_DATA_DIR:-/app/data}"
+echo "Data directory: $DATA_DIR"
+mkdir -p "$DATA_DIR"
+chown 1001:1001 "$DATA_DIR"
+
+# Ensure PGEDGE_DATA_DIR is exported for the server process
+export PGEDGE_DATA_DIR="$DATA_DIR"
 
 # Initialize token file if INIT_TOKENS is provided
-TOKEN_FILE="${PGEDGE_TOKEN_FILE:-/app/data/tokens.json}"
+TOKEN_FILE="${PGEDGE_TOKEN_FILE:-${DATA_DIR}/tokens.json}"
 if [ -n "$INIT_TOKENS" ]; then
     echo "Initializing tokens from INIT_TOKENS environment variable..."
 
@@ -118,7 +128,7 @@ else
 fi
 
 # Initialize users file if INIT_USERS is provided
-USERS_FILE="${PGEDGE_USERS_FILE:-/app/data/users.json}"
+USERS_FILE="${PGEDGE_USERS_FILE:-${DATA_DIR}/users.json}"
 if [ -n "$INIT_USERS" ]; then
     echo "Initializing users from INIT_USERS environment variable..."
 
@@ -143,11 +153,11 @@ if [ -n "$INIT_USERS" ]; then
 fi
 
 # Ensure all data files are owned by user 1001
-if [ -f "${PGEDGE_TOKEN_FILE:-/app/data/tokens.json}" ]; then
-    chown 1001:1001 "${PGEDGE_TOKEN_FILE:-/app/data/tokens.json}"
+if [ -f "$TOKEN_FILE" ]; then
+    chown 1001:1001 "$TOKEN_FILE"
 fi
-if [ -f "${PGEDGE_USERS_FILE:-/app/data/users.json}" ]; then
-    chown 1001:1001 "${PGEDGE_USERS_FILE:-/app/data/users.json}"
+if [ -f "$USERS_FILE" ]; then
+    chown 1001:1001 "$USERS_FILE"
 fi
 
 # Start the MCP server with all arguments

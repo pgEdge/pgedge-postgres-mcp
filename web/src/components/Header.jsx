@@ -71,22 +71,14 @@ const Header = ({ onToggleTheme, mode, serverInfo }) => {
       >
         <Toolbar>
           <Box sx={{ display: 'flex', alignItems: 'center', flexGrow: 1, gap: 2 }}>
-            <Box
-              sx={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 2,
-              }}
-            >
-              <img
-                src={mode === 'dark' ? logoDark : logoLight}
-                alt="pgEdge Natural Language Agent"
-                style={{ height: '32px' }}
-              />
-              <Typography variant="h6" component="div">
-                Natural Language Agent
-              </Typography>
-            </Box>
+            <img
+              src={mode === 'dark' ? logoDark : logoLight}
+              alt="pgEdge Natural Language Agent"
+              style={{ height: '32px' }}
+            />
+            <Typography variant="h6" component="div">
+              Natural Language Agent
+            </Typography>
           </Box>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <IconButton

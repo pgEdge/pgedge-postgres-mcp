@@ -369,3 +369,27 @@ Everything else is sent to the LLM as a natural language query.
 func (ui *UI) ClearScreen() {
 	fmt.Print("\033[H\033[2J")
 }
+
+// PrintHistoricUserMessage prints a historic user message in muted colors
+func (ui *UI) PrintHistoricUserMessage(text string) {
+	fmt.Println(ui.colorize(ColorGray, "You: "+text))
+}
+
+// PrintHistoricAssistantMessage prints a historic assistant message in muted colors
+func (ui *UI) PrintHistoricAssistantMessage(text string) {
+	// Print in muted gray without markdown rendering for history replay
+	fmt.Print(ui.colorize(ColorGray, "Assistant: "))
+
+	// Truncate very long messages for readability
+	if len(text) > 500 {
+		text = text[:497] + "..."
+	}
+
+	fmt.Println(ui.colorize(ColorGray, text))
+}
+
+// PrintHistorySeparator prints a separator indicating historic content
+func (ui *UI) PrintHistorySeparator(title string) {
+	separator := strings.Repeat("─", 30)
+	fmt.Println(ui.colorize(ColorGray, separator+" "+title+" "+separator))
+}

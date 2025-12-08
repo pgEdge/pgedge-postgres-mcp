@@ -28,8 +28,8 @@ import {
 } from '@mui/icons-material';
 import { useAuth } from '../contexts/AuthContext';
 import { useLLMProcessing } from '../contexts/LLMProcessingContext';
+import { useDatabaseContext } from '../contexts/DatabaseContext';
 import { MCPClient } from '../lib/mcp-client';
-import { useDatabases } from '../hooks/useDatabases';
 import DatabaseSelectorPopover from './DatabaseSelectorPopover';
 
 const MCP_SERVER_URL = '/mcp/v1';
@@ -43,7 +43,7 @@ const StatusBanner = () => {
     const [error, setError] = useState('');
     const [dbPopoverAnchor, setDbPopoverAnchor] = useState(null);
 
-    // Database management
+    // Database management (shared context)
     const {
         databases,
         currentDatabase,
@@ -51,7 +51,7 @@ const StatusBanner = () => {
         error: dbError,
         fetchDatabases,
         selectDatabase,
-    } = useDatabases(sessionToken);
+    } = useDatabaseContext();
 
     useEffect(() => {
         if (sessionToken) {
@@ -62,6 +62,14 @@ const StatusBanner = () => {
             return () => clearInterval(interval);
         }
     }, [sessionToken]);
+
+    // Refresh system info when currentDatabase changes (e.g., from conversation restore)
+    useEffect(() => {
+        if (sessionToken && currentDatabase) {
+            fetchSystemInfo();
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [currentDatabase]);
 
     // Handler for opening database selector
     const handleDbSelectorOpen = (event) => {

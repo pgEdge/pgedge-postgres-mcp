@@ -54,11 +54,18 @@ services:
       PGEDGE_MCP_LOG_LEVEL: ${LOG_LEVEL:-info}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
       OPENAI_API_KEY: ${OPENAI_API_KEY}
+      # Data directory for conversation history, preferences, and auth files
+      PGEDGE_DATA_DIR: /var/lib/pgedge/mcp-server
     volumes:
       - ./config/mcp-server.yaml:/etc/pgedge/mcp-server.yaml:ro
       # Uncomment the following line to use a custom KB with the base image
       # instead of using the -with-kb image variant:
       # - ./kb/kb.db:/usr/share/pgedge/nla-kb/kb.db:ro
+      # Persistent data volume for:
+      # - Authentication tokens (tokens.json)
+      # - User credentials (users.json)
+      # - Conversation history (conversations.db)
+      # - User preferences
       - server-data:/var/lib/pgedge/mcp-server
       - server-logs:/var/log/pgedge/mcp-server
     ports:

@@ -40,6 +40,7 @@ The Natural Language Agent supports multiple configuration methods with the foll
 | `knowledgebase.embedding_openai_api_key_file` | N/A | N/A | Path to file containing OpenAI API key for KB search |
 | `knowledgebase.embedding_ollama_url` | N/A | `PGEDGE_KB_OLLAMA_URL` | Ollama API URL for KB search |
 | `secret_file` | N/A | `PGEDGE_SECRET_FILE` | Path to encryption secret file (auto-generated if not present) |
+| `data_dir` | N/A | `PGEDGE_DATA_DIR` | Data directory for conversation history (default: `{binary_dir}/data`) |
 | `builtins.tools.query_database` | N/A | N/A | Enable query_database tool (default: true) |
 | `builtins.tools.get_schema_info` | N/A | N/A | Enable get_schema_info tool (default: true) |
 | `builtins.tools.similarity_search` | N/A | N/A | Enable similarity_search tool (default: true) |

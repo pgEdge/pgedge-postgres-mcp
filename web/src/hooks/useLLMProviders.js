@@ -8,7 +8,7 @@
  *-------------------------------------------------------------------------
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useLocalStorageString } from './useLocalStorage';
 
 // Helper functions for per-provider model storage
@@ -43,6 +43,9 @@ export const useLLMProviders = (sessionToken) => {
     const [loadingProviders, setLoadingProviders] = useState(false);
     const [loadingModels, setLoadingModels] = useState(false);
     const [error, setError] = useState('');
+
+    // Ref to track pending model restore (when loading a conversation)
+    const pendingModelRestoreRef = useRef(null);
 
     // Fetch available providers on mount
     useEffect(() => {
@@ -148,6 +151,23 @@ export const useLLMProviders = (sessionToken) => {
 
                 // Load remembered model for this provider or select first available
                 if (data.models && data.models.length > 0) {
+                    // Check if there's a pending model restore (from loading a conversation)
+                    const pendingModel = pendingModelRestoreRef.current;
+                    pendingModelRestoreRef.current = null; // Clear it after reading
+
+                    if (pendingModel) {
+                        // Check if pending model is available for this provider
+                        const pendingModelExists = data.models.some(m => m.name === pendingModel);
+                        if (pendingModelExists) {
+                            console.log('Restoring model from conversation:', pendingModel);
+                            setSelectedModel(pendingModel);
+                            // Don't save to per-provider storage - let user's preference stay
+                            return;
+                        } else {
+                            console.log('Pending model not available for provider:', pendingModel);
+                        }
+                    }
+
                     const rememberedModel = getPerProviderModel(selectedProvider);
 
                     if (rememberedModel) {
@@ -198,6 +218,28 @@ export const useLLMProviders = (sessionToken) => {
         }
     }, [selectedModel]); // Only depend on selectedModel, not selectedProvider
 
+    // Restore provider and model from a conversation without localStorage override
+    const restoreProviderAndModel = useCallback((provider, model) => {
+        if (!provider) return;
+
+        console.log('Restoring provider and model from conversation:', provider, model);
+
+        // If same provider, just set the model directly
+        if (provider === selectedProvider) {
+            if (model) {
+                setSelectedModel(model);
+            }
+            return;
+        }
+
+        // Different provider - set pending model before changing provider
+        // This will be picked up by fetchModels effect
+        if (model) {
+            pendingModelRestoreRef.current = model;
+        }
+        setSelectedProvider(provider);
+    }, [selectedProvider, setSelectedProvider]);
+
     return {
         providers,
         selectedProvider,
@@ -208,5 +250,6 @@ export const useLLMProviders = (sessionToken) => {
         loadingProviders,
         loadingModels,
         error,
+        restoreProviderAndModel,
     };
 };

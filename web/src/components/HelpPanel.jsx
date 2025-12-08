@@ -73,13 +73,19 @@ const HelpPanel = ({ open, onClose, serverInfo }) => {
                     <ListItem>
                         <ListItemText
                             primary="Query History"
-                            secondary="Use the up and down arrow keys to navigate through your previous queries."
+                            secondary="Use the up and down arrow keys to navigate through your previous queries in the current conversation. Each conversation maintains its own query history."
+                        />
+                    </ListItem>
+                    <ListItem>
+                        <ListItemText
+                            primary="Conversation History"
+                            secondary="Click the '>' tab on the left edge of the screen to open the history panel. Select previous conversations to resume them, or click 'New Conversation' to start fresh."
                         />
                     </ListItem>
                     <ListItem>
                         <ListItemText
                             primary="Clear Conversation"
-                            secondary="Click the 'Clear' button at the top of the chat to start a new conversation."
+                            secondary="Click the 'Clear' button at the top of the chat to clear the current conversation and start over."
                         />
                     </ListItem>
                 </List>

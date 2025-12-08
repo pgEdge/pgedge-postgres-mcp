@@ -7,6 +7,7 @@ using Docker containers and Kubernetes (Helm).
 
 - [Docker Images](#docker-images)
   - [Image Variants](#image-variants)
+- [Data Persistence](#data-persistence)
 - [Docker Compose Deployment](#docker-compose-deployment)
 - [Kubernetes Deployment (Helm)](#kubernetes-deployment-helm-chart)
 - [Container Registry](#container-registry)
@@ -145,6 +146,80 @@ docker run -d \
 
 ---
 
+## Data Persistence
+
+The MCP server stores persistent data in a configurable directory, controlled by
+the `PGEDGE_DATA_DIR` environment variable. This directory contains:
+
+- **`tokens.json`** - API authentication tokens
+- **`users.json`** - User credentials (username/password auth)
+- **`conversations.db`** - SQLite database for conversation history
+- **User preferences** - Per-user settings and configurations
+
+### Docker Compose Configuration
+
+The default Docker Compose files mount a named volume for data persistence:
+
+```yaml
+volumes:
+  - mcp-data:/app/data
+
+environment:
+  - PGEDGE_DATA_DIR=/app/data
+```
+
+### Custom Host Path
+
+To use a specific host directory instead of a Docker volume:
+
+```yaml
+volumes:
+  # Mount host directory
+  - ./data:/app/data:rw
+
+environment:
+  - PGEDGE_DATA_DIR=/app/data
+```
+
+!!! warning "Permissions"
+    Ensure the host directory has appropriate permissions (owned by UID 1000)
+    or the container may fail to write data:
+    ```bash
+    mkdir -p ./data && chown 1000:1000 ./data
+    ```
+
+### Production Data Path
+
+For production deployments, a more standard path is used:
+
+```yaml
+volumes:
+  - server-data:/var/lib/pgedge/mcp-server
+
+environment:
+  - PGEDGE_DATA_DIR=/var/lib/pgedge/mcp-server
+```
+
+### Backup and Recovery
+
+To backup the data directory:
+
+```bash
+# Stop the container first to ensure data consistency
+docker-compose stop mcp-server
+
+# Backup using docker cp
+docker cp pgedge-mcp-server:/app/data ./backup-$(date +%Y%m%d)
+
+# Or if using a host mount
+cp -r ./data ./backup-$(date +%Y%m%d)
+
+# Restart the container
+docker-compose start mcp-server
+```
+
+---
+
 ## Docker Compose Deployment
 
 ### Development Deployment
@@ -268,6 +343,10 @@ server:
   knowledgebase:
     enabled: true # Enable similarity search
     existingPvc: pgedge-nla-kb # PVC with knowledgebase
+  persistence:
+    enabled: true # Enable persistent data directory
+    size: 1Gi
+    # Data stored: tokens.json, users.json, conversations.db
 
 ingress:
   enabled: true
@@ -278,6 +357,24 @@ ingress:
     - secretName: pgedge-nla-tls
       hosts:
         - nla.example.com
+```
+
+### Data Persistence in Kubernetes
+
+When running in Kubernetes, the data directory (containing authentication and
+conversation history) should be persisted using a PersistentVolumeClaim:
+
+```yaml
+server:
+  persistence:
+    enabled: true
+    size: 1Gi
+    storageClass: "" # Use default storage class
+    accessModes:
+      - ReadWriteOnce
+  env:
+    - name: PGEDGE_DATA_DIR
+      value: /var/lib/pgedge/mcp-server
 ```
 
 See the [Helm chart README](examples/helm/pgedge-nla/README.md) for complete

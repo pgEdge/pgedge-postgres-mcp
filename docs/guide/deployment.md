@@ -72,6 +72,40 @@ PGEDGE_EMBEDDING_MODEL=voyage-3
       - ~/.anthropic-api-key:/app/.anthropic-api-key:ro
     ```
 
+### Data Persistence
+
+The MCP server stores persistent data in a dedicated directory:
+
+- **Authentication tokens** (`tokens.json`)
+- **User credentials** (`users.json`)
+- **Conversation history** (`conversations.db`)
+- **User preferences**
+
+The Docker Compose configuration mounts a named volume (`mcp-data`) to
+`/app/data`, ensuring data persists across container restarts.
+
+To use a custom host path instead of a named volume:
+
+```yaml
+volumes:
+  # Mount host directory instead of named volume
+  - ./data:/app/data
+```
+
+!!! warning "Permissions"
+    Ensure the host directory has appropriate permissions (owned by UID 1001)
+    or the container may fail to start:
+    ```bash
+    mkdir -p ./data && chown 1001:1001 ./data
+    ```
+
+You can also configure a custom data directory location via environment
+variable:
+
+```bash
+PGEDGE_DATA_DIR=/var/lib/pgedge/data
+```
+
 ### Container Management
 
 ```bash

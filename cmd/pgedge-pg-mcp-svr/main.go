@@ -18,6 +18,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strings"
 	"syscall"
 	"time"
@@ -26,6 +27,7 @@ import (
 	"pgedge-postgres-mcp/internal/auth"
 	"pgedge-postgres-mcp/internal/compactor"
 	"pgedge-postgres-mcp/internal/config"
+	"pgedge-postgres-mcp/internal/conversations"
 	"pgedge-postgres-mcp/internal/database"
 	"pgedge-postgres-mcp/internal/definitions"
 	"pgedge-postgres-mcp/internal/llmproxy"
@@ -609,6 +611,25 @@ func main() {
 		fmt.Fprintf(os.Stderr, "Mode: STDIO\n")
 	}
 
+	// Initialize conversation store for HTTP mode with auth
+	var convStore *conversations.Store
+	if cfg.HTTP.Enabled && cfg.HTTP.Auth.Enabled && userStore != nil {
+		// Use configured data directory, or default to a directory next to the executable
+		dataDir := cfg.DataDir
+		if dataDir == "" {
+			dataDir = filepath.Join(filepath.Dir(execPath), "data")
+		}
+		var err error
+		convStore, err = conversations.NewStore(dataDir)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "WARNING: Failed to initialize conversation store: %v\n", err)
+			fmt.Fprintf(os.Stderr, "         Conversation history will not be available\n")
+		} else {
+			fmt.Fprintf(os.Stderr, "Conversation store: %s/conversations.db\n", dataDir)
+			defer convStore.Close()
+		}
+	}
+
 	if cfg.HTTP.Enabled {
 		// HTTP/HTTPS mode
 		// Create HTTP server configuration
@@ -751,6 +772,13 @@ func main() {
 			dbHandler := api.NewDatabaseHandler(clientManager, accessChecker, false, authEnabled)
 			mux.HandleFunc("/api/databases", authWrapper(dbHandler.HandleListDatabases))
 			mux.HandleFunc("/api/databases/select", authWrapper(dbHandler.HandleSelectDatabase))
+
+			// Conversation history endpoints (only if store is available)
+			if convStore != nil && userStore != nil {
+				convHandler := conversations.NewHandler(convStore, userStore)
+				convHandler.RegisterRoutes(mux, authWrapper)
+				fmt.Fprintf(os.Stderr, "Conversation history: ENABLED\n")
+			}
 
 			return nil
 		}

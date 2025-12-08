@@ -12,6 +12,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Box, Paper } from '@mui/material';
 import { useAuth } from '../contexts/AuthContext';
 import { useLLMProcessing } from '../contexts/LLMProcessingContext';
+import { useDatabaseContext } from '../contexts/DatabaseContext';
 import { useLocalStorageBoolean } from '../hooks/useLocalStorage';
 import { useQueryHistory } from '../hooks/useQueryHistory';
 import { useMCPClient } from '../hooks/useMCPClient';
@@ -355,29 +356,27 @@ const compactMessages = async (messages, sessionToken, maxTokens = 100000, recen
     };
 };
 
-const ChatInterface = () => {
+const ChatInterface = ({ conversations }) => {
     const { sessionToken, forceLogout } = useAuth();
     const { setIsProcessing } = useLLMProcessing();
 
-    // State management using custom hooks
-    // Initialize messages with fromPreviousSession flag for loaded messages
-    const [messages, setMessages] = useState(() => {
-        try {
-            const savedMessages = localStorage.getItem('chat-messages');
-            if (savedMessages) {
-                const parsed = JSON.parse(savedMessages);
-                // Mark all loaded messages as from previous session and ensure content is a string
-                return parsed.map(msg => ({
-                    ...msg,
-                    content: typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content),
-                    fromPreviousSession: true
-                }));
-            }
-        } catch (error) {
-            console.error('Error loading chat messages:', error);
-        }
-        return [];
-    });
+    // State management
+    const [messages, setMessages] = useState([]);
+    const [isLoadingConversation, setIsLoadingConversation] = useState(false);
+
+    // Ref to track if we're in the middle of loading (to avoid saving back what we just loaded)
+    const isLoadingRef = React.useRef(false);
+    // Ref to track if we need to save (only after an assistant response)
+    const pendingSaveRef = React.useRef(false);
+    // Ref to track previous conversation ID for saving before switch
+    const previousConversationIdRef = React.useRef(null);
+    // Ref to track current messages for saving (since state may be stale in callbacks)
+    const messagesRef = React.useRef([]);
+
+    // Keep messagesRef in sync with messages state
+    React.useEffect(() => {
+        messagesRef.current = messages;
+    }, [messages]);
 
     const [showActivity, setShowActivity] = useLocalStorageBoolean('show-activity', true);
     const [renderMarkdown, setRenderMarkdown] = useLocalStorageBoolean('render-markdown', true);
@@ -394,6 +393,7 @@ const ChatInterface = () => {
     const queryHistory = useQueryHistory();
     const { mcpClient, tools, prompts, refreshTools, refreshPrompts } = useMCPClient(sessionToken);
     const llmProviders = useLLMProviders(sessionToken);
+    const { currentDatabase, selectDatabase } = useDatabaseContext();
 
     // Log prompts when they're available (for debugging)
     useEffect(() => {
@@ -407,19 +407,139 @@ const ChatInterface = () => {
         setIsProcessing(loading);
     }, [loading, setIsProcessing]);
 
-    // Save messages to localStorage when they change
+    // Load conversation when selected conversation changes
     useEffect(() => {
-        try {
-            // Don't save if messages array is empty
-            if (messages.length > 0) {
-                // Remove the fromPreviousSession flag before saving
-                const messagesToSave = messages.map(({ fromPreviousSession, ...msg }) => msg);
-                localStorage.setItem('chat-messages', JSON.stringify(messagesToSave));
+        const loadConversation = async () => {
+            if (!conversations) return;
+
+            const newConversationId = conversations.currentConversationId;
+            const previousConversationId = previousConversationIdRef.current;
+
+            // Save the previous conversation before switching (if it has messages)
+            // This ensures provider/model changes are saved even without new messages
+            if (previousConversationId && previousConversationId !== newConversationId) {
+                const currentMessages = messagesRef.current;
+                if (currentMessages.length > 0) {
+                    try {
+                        // Remove UI-only properties before saving
+                        const messagesToSave = currentMessages.map(({ fromPreviousSession, isThinking, ...msg }) => msg);
+                        await conversations.saveConversation(
+                            messagesToSave,
+                            previousConversationId,
+                            llmProviders.selectedProvider,
+                            llmProviders.selectedModel,
+                            currentDatabase || ''
+                        );
+                    } catch (error) {
+                        console.error('Failed to save previous conversation:', error);
+                    }
+                }
             }
-        } catch (error) {
-            console.error('Error saving chat messages:', error);
-        }
-    }, [messages]);
+
+            // Update the previous conversation ID ref
+            previousConversationIdRef.current = newConversationId;
+
+            // If no conversation is selected, clear messages for new conversation
+            if (!newConversationId) {
+                isLoadingRef.current = true;
+                setMessages([]);
+                queryHistory.clearHistory();
+                // Small delay to ensure state update before clearing the flag
+                setTimeout(() => { isLoadingRef.current = false; }, 100);
+                return;
+            }
+
+            isLoadingRef.current = true;
+            setIsLoadingConversation(true);
+            try {
+                const conv = await conversations.getConversation(newConversationId);
+                if (conv && conv.messages) {
+                    // Mark messages as from previous session
+                    setMessages(conv.messages.map(msg => ({
+                        ...msg,
+                        content: typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content),
+                        fromPreviousSession: true
+                    })));
+
+                    // Restore provider and model if they were saved
+                    // Use the restoreProviderAndModel function to handle proper sequencing
+                    if (llmProviders.restoreProviderAndModel) {
+                        const hasProvider = conv.provider && conv.provider.length > 0;
+                        const hasModel = conv.model && conv.model.length > 0;
+                        if (hasProvider || hasModel) {
+                            llmProviders.restoreProviderAndModel(
+                                hasProvider ? conv.provider : llmProviders.selectedProvider,
+                                hasModel ? conv.model : null
+                            );
+                        }
+                    }
+
+                    // Restore connection if it was saved
+                    if (conv.connection && conv.connection.length > 0 && selectDatabase) {
+                        selectDatabase(conv.connection);
+                    }
+
+                    // Restore query history from user messages
+                    const userQueries = conv.messages
+                        .filter(msg => msg.role === 'user')
+                        .map(msg => typeof msg.content === 'string' ? msg.content : '')
+                        .filter(content => content.length > 0);
+                    queryHistory.setHistory(userQueries);
+                }
+            } catch (error) {
+                console.error('Failed to load conversation:', error);
+            } finally {
+                setIsLoadingConversation(false);
+                // Small delay to ensure state update before clearing the flag
+                setTimeout(() => { isLoadingRef.current = false; }, 100);
+            }
+        };
+
+        loadConversation();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [conversations?.currentConversationId, conversations?.getConversation]);
+
+    // Save conversation when messages change (after an assistant response)
+    useEffect(() => {
+        const saveConversation = async () => {
+            // Skip if loading, no conversations hook, no messages, or no pending save
+            if (isLoadingRef.current || !conversations || messages.length === 0 || !pendingSaveRef.current) {
+                return;
+            }
+
+            // Check if last message is an assistant message (not thinking)
+            const lastMessage = messages[messages.length - 1];
+            if (lastMessage.role !== 'assistant' || lastMessage.isThinking) {
+                return;
+            }
+
+            // Reset the pending save flag
+            pendingSaveRef.current = false;
+
+            try {
+                // Remove UI-only properties before saving
+                const messagesToSave = messages.map(({ fromPreviousSession, isThinking, ...msg }) => msg);
+
+                // Save or update conversation with current provider/model/connection
+                const result = await conversations.saveConversation(
+                    messagesToSave,
+                    conversations.currentConversationId,
+                    llmProviders.selectedProvider,
+                    llmProviders.selectedModel,
+                    currentDatabase || ''
+                );
+
+                // If this was a new conversation, update the current conversation ID
+                if (result && !conversations.currentConversationId) {
+                    conversations.setCurrentConversationId(result.id);
+                }
+            } catch (error) {
+                console.error('Failed to save conversation:', error);
+            }
+        };
+
+        saveConversation();
+    }, [messages, conversations, llmProviders.selectedProvider, llmProviders.selectedModel, currentDatabase]);
 
     // Handle message sending
     const handleSend = useCallback(async () => {
@@ -648,6 +768,10 @@ const ChatInterface = () => {
                     // Replace thinking message with final response
                     console.log('Final activity array:', activity);
                     console.log('Total tool uses tracked:', activity.length);
+
+                    // Mark for saving after message update
+                    pendingSaveRef.current = true;
+
                     setMessages(prev => {
                         const newMessages = prev.slice(0, -1);
                         return [...newMessages, {
@@ -826,11 +950,21 @@ const ChatInterface = () => {
 
     // Handle clear conversation
     const handleClear = useCallback(() => {
-        if (!window.confirm('Clear conversation history?')) return;
+        if (!window.confirm('Clear conversation and start new?')) return;
 
+        // Clear local state
+        isLoadingRef.current = true;
         setMessages([]);
         queryHistory.clearHistory();
-    }, [queryHistory]);
+
+        // Start new conversation in the conversations system
+        if (conversations) {
+            conversations.startNewConversation();
+        }
+
+        // Reset loading flag after state update
+        setTimeout(() => { isLoadingRef.current = false; }, 100);
+    }, [queryHistory, conversations]);
 
     // Handle prompt selection
     const handlePromptClick = useCallback((event) => {
@@ -1038,6 +1172,9 @@ const ChatInterface = () => {
                         .filter(c => c.type === 'text')
                         .map(c => c.text)
                         .join('\n');
+
+                    // Mark for saving after message update
+                    pendingSaveRef.current = true;
 
                     // Replace thinking message with actual response
                     setMessages(prev => {

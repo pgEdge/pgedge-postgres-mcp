@@ -28,15 +28,17 @@ import (
 
 // Client is the main chat client
 type Client struct {
-	config      *Config
-	ui          *UI
-	mcp         MCPClient
-	llm         LLMClient
-	messages    []Message
-	tools       []mcp.Tool
-	resources   []mcp.Resource
-	prompts     []mcp.Prompt
-	preferences *Preferences
+	config                *Config
+	ui                    *UI
+	mcp                   MCPClient
+	llm                   LLMClient
+	messages              []Message
+	tools                 []mcp.Tool
+	resources             []mcp.Resource
+	prompts               []mcp.Prompt
+	preferences           *Preferences
+	conversations         *ConversationsClient
+	currentConversationID string
 }
 
 // NewClient creates a new chat client
@@ -232,6 +234,8 @@ func (c *Client) connectToMCP(ctx context.Context) error {
 		}
 
 		c.mcp = NewHTTPClient(url, token)
+		// Initialize conversations client for HTTP mode with authentication
+		c.conversations = NewConversationsClient(url, token)
 	} else {
 		// Stdio mode
 		mcpClient, err := NewStdioClient(c.config.MCP.ServerPath, c.config.MCP.ServerConfigPath)

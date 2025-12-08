@@ -32,11 +32,18 @@ services:
             - PGEDGE_USERS_FILE=/app/data/users.json
             - INIT_TOKENS=${INIT_TOKENS}
             - INIT_USERS=${INIT_USERS}
+            # Data directory for conversation history and preferences
+            - PGEDGE_DATA_DIR=/app/data
             # Debugging
             - PGEDGE_DEBUG=${PGEDGE_DEBUG:-false}
             - PGEDGE_DB_LOG_LEVEL=${PGEDGE_DB_LOG_LEVEL:-none}
             - PGEDGE_LLM_LOG_LEVEL=${PGEDGE_LLM_LOG_LEVEL:-none}
         volumes:
+            # Persistent data volume for:
+            # - Authentication tokens (tokens.json)
+            # - User credentials (users.json)
+            # - Conversation history (conversations.db)
+            # - User preferences
             - mcp-data:/app/data
         networks:
             - pgedge-network

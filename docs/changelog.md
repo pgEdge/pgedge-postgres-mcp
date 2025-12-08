@@ -11,6 +11,23 @@ and this project adheres to
 
 ### Added
 
+#### Conversation History
+
+- Server-side conversation storage using SQLite database for persistent
+  chat history
+- REST API endpoints for conversation CRUD operations
+  (`/api/conversations/*`)
+- Web client conversation panel with list, load, rename, and delete
+  functionality
+- CLI conversation history commands (`/history`, `/new`, `/save`) when
+  running in HTTP mode with authentication
+- Automatic provider/model restoration when loading saved conversations
+- Database connection tracking per conversation
+- History replay with muted colors when loading CLI conversations
+- Auto-save behavior in web client after first assistant response
+
+#### Configuration
+
 - Configuration options to selectively enable/disable built-in tools,
   resources, and prompts via the `builtins` section in the config file
 - Disabled features are not advertised to the LLM and return errors if

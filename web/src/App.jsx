@@ -8,13 +8,16 @@
  *-------------------------------------------------------------------------
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
-import { Container, Box, CircularProgress, CssBaseline } from '@mui/material';
+import { Container, Box, CircularProgress, CssBaseline, IconButton, Tooltip } from '@mui/material';
+import { ChevronRight as ChevronRightIcon, ChevronLeft as ChevronLeftIcon } from '@mui/icons-material';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { useMCPClient } from './hooks/useMCPClient';
+import { useConversations } from './hooks/useConversations';
 import Header from './components/Header';
 import MainContent from './components/MainContent';
+import ConversationPanel from './components/ConversationPanel';
 import Login from './components/Login';
 
 // Light theme for login page (always light mode)
@@ -41,8 +44,10 @@ const AppContent = () => {
     const savedMode = localStorage.getItem('theme-mode');
     return savedMode || 'light';
   });
+  const [conversationPanelOpen, setConversationPanelOpen] = useState(false);
   const { user, loading, sessionToken } = useAuth();
   const { serverInfo } = useMCPClient(sessionToken);
+  const conversations = useConversations(sessionToken);
 
   // Save theme preference to localStorage when it changes
   useEffect(() => {
@@ -84,6 +89,14 @@ const AppContent = () => {
     setMode((prevMode) => (prevMode === 'light' ? 'dark' : 'light'));
   };
 
+  const handleConversationsClick = useCallback(() => {
+    setConversationPanelOpen(true);
+  }, []);
+
+  const handleConversationPanelClose = useCallback(() => {
+    setConversationPanelOpen(false);
+  }, []);
+
   if (loading) {
     return (
       <ThemeProvider theme={theme}>
@@ -116,11 +129,55 @@ const AppContent = () => {
     <ThemeProvider theme={theme}>
       <CssBaseline />
       <Box sx={{ height: '100vh', display: 'flex', flexDirection: 'column', bgcolor: 'background.default', overflow: 'hidden' }}>
-        <Header onToggleTheme={toggleTheme} mode={mode} serverInfo={serverInfo} />
-        <Container maxWidth="lg" sx={{ flex: 1, display: 'flex', flexDirection: 'column', py: 2, overflow: 'hidden' }}>
-          <MainContent />
-        </Container>
+        <Header
+          onToggleTheme={toggleTheme}
+          mode={mode}
+          serverInfo={serverInfo}
+        />
+        <Box sx={{ flex: 1, display: 'flex', overflow: 'hidden', position: 'relative' }}>
+          {/* Vertical tab button for conversation panel */}
+          <Tooltip title={conversationPanelOpen ? "Close history" : "Open history"} placement="right">
+            <IconButton
+              onClick={conversationPanelOpen ? handleConversationPanelClose : handleConversationsClick}
+              aria-label="toggle conversation history"
+              sx={{
+                position: 'absolute',
+                left: 0,
+                top: 16,
+                zIndex: 1200,
+                bgcolor: 'background.paper',
+                borderRadius: '0 4px 4px 0',
+                boxShadow: 2,
+                width: 24,
+                height: 48,
+                minWidth: 24,
+                padding: 0,
+                '&:hover': {
+                  bgcolor: 'action.hover',
+                },
+              }}
+            >
+              {conversationPanelOpen ? <ChevronLeftIcon fontSize="small" /> : <ChevronRightIcon fontSize="small" />}
+            </IconButton>
+          </Tooltip>
+          <Container maxWidth="lg" sx={{ flex: 1, display: 'flex', flexDirection: 'column', py: 2, overflow: 'hidden' }}>
+            <MainContent conversations={conversations} />
+          </Container>
+        </Box>
       </Box>
+      <ConversationPanel
+        open={conversationPanelOpen}
+        onClose={handleConversationPanelClose}
+        conversations={conversations.conversations}
+        currentConversationId={conversations.currentConversationId}
+        onSelect={conversations.selectConversation}
+        onNewConversation={conversations.startNewConversation}
+        onRename={conversations.renameConversation}
+        onDelete={conversations.deleteConversation}
+        onDeleteAll={conversations.deleteAllConversations}
+        loading={conversations.loading}
+        disabled={false}
+      />
     </ThemeProvider>
   );
 };

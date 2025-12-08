@@ -622,7 +622,138 @@ The chat client includes full readline support with persistent command history:
 - **Search**: Use Ctrl+R for reverse search through history
 - **Line editing**: Full line editing with Emacs-style keybindings
 
-The history persists across sessions, so your previous queries and commands are available when you restart the client.
+The history persists across sessions, so your previous queries and commands
+are available when you restart the client.
+
+## Conversation History
+
+When running in HTTP mode with authentication enabled, the CLI automatically
+saves your conversations to the server. This allows you to access them across
+different sessions and continue where you left off.
+
+### Saving Conversations
+
+To save your current conversation:
+
+```
+You: /save
+System: Conversation saved: What tables exist? (ID: conv_1765197705551269000)
+```
+
+The conversation title is automatically generated from your first message. If
+you continue an existing conversation, `/save` updates it rather than creating
+a new one.
+
+### Listing Conversations
+
+View all your saved conversations:
+
+```
+You: /history
+System: Saved conversations (3):
+
+  conv_1765197705551269000 (current) [production]
+    Title: What tables exist?
+    Updated: Dec 08, 14:32
+    Preview: What tables exist in the database?
+
+  conv_1765197612345678000 [staging]
+    Title: Query performance
+    Updated: Dec 07, 10:15
+    Preview: How can I optimize my slow queries?
+
+  conv_1765197501234567000 [production]
+    Title: Schema design
+    Updated: Dec 06, 16:45
+    Preview: Help me design a schema for...
+```
+
+Each conversation shows:
+
+- **ID**: Unique identifier for loading/managing the conversation
+- **Current marker**: Shows which conversation is currently loaded
+- **Database connection**: The database that was active (in brackets)
+- **Title**: Auto-generated or custom title
+- **Updated**: When the conversation was last modified
+- **Preview**: First few words of the initial message
+
+### Loading Conversations
+
+Load a previous conversation to continue it:
+
+```
+You: /history load conv_1765197705551269000
+System: Loaded conversation: What tables exist?
+System: Messages: 4, Provider: anthropic, Model: claude-sonnet-4-20250514
+System: Database: production
+
+────────────────────────────── Conversation History ──────────────────────────────
+
+You: What tables exist in the database?
+Assistant: Based on the schema, you have the following tables...
+
+────────────────────────────── End of History ──────────────────────────────
+
+You:
+```
+
+When loading a conversation:
+
+- The message history is restored
+- The LLM provider and model are switched to match what you were using
+- The database connection is restored if different from current
+- The conversation history is replayed in muted colors for context
+
+### Starting a New Conversation
+
+Clear the current conversation and start fresh:
+
+```
+You: /new
+System: Started new conversation
+```
+
+This clears the message history but doesn't delete any saved conversations.
+
+### Renaming Conversations
+
+Give a conversation a more descriptive title:
+
+```
+You: /history rename conv_1765197705551269000 "Database schema exploration"
+System: Conversation renamed to: Database schema exploration
+```
+
+### Deleting Conversations
+
+Delete a single conversation:
+
+```
+You: /history delete conv_1765197705551269000
+System: Conversation deleted
+```
+
+Delete all your conversations:
+
+```
+You: /history delete-all
+System: Deleted 3 conversation(s)
+```
+
+### Conversation History Commands Summary
+
+| Command | Description |
+|---------|-------------|
+| `/history` | List all saved conversations |
+| `/history load <id>` | Load a saved conversation |
+| `/history rename <id> "title"` | Rename a conversation |
+| `/history delete <id>` | Delete a conversation |
+| `/history delete-all` | Delete all conversations |
+| `/new` | Start a new conversation |
+| `/save` | Save the current conversation |
+
+**Note:** Conversation history requires HTTP mode with authentication. These
+commands are not available in stdio mode.
 
 ## Example Conversation
 

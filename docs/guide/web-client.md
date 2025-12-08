@@ -176,6 +176,85 @@ as a Markdown file. This is useful for:
 - Sharing query results with team members
 - Keeping records of analysis work
 
+## Conversation History
+
+The web client automatically saves your conversations to the server, allowing
+you to access them across different browsers and sessions. This feature
+requires authentication to be enabled.
+
+### Accessing Conversation History
+
+Click the tab button (>) on the left edge of the screen, below the header, to
+open the conversation panel. The button changes to (<) when the panel is open.
+The conversation panel shows:
+
+- **New Conversation** button - Start a fresh conversation
+- **Conversation list** - Your previous conversations, sorted by most recent
+- **Delete All** button - Remove all conversations
+
+### Managing Conversations
+
+Each conversation in the list shows:
+
+- The conversation title (based on your first message)
+- When it was last updated (e.g., "2h ago", "Yesterday")
+
+Hover over a conversation to reveal action buttons:
+
+- **Edit icon** - Rename the conversation
+- **Delete icon** - Delete the conversation
+
+### Loading a Conversation
+
+Click on any conversation in the list to load it. When you load a previous
+conversation:
+
+- All messages are restored to the chat interface
+- The LLM provider and model are restored to what you were using
+- You can continue the conversation from where you left off
+
+### Renaming Conversations
+
+To give a conversation a more descriptive name:
+
+1. Hover over the conversation in the list
+2. Click the edit (pencil) icon
+3. Enter the new title in the dialog
+4. Click "Rename" or press Enter
+
+### Auto-Save Behavior
+
+Conversations are automatically saved when:
+
+- A new conversation receives its first assistant response
+- You continue an existing conversation
+
+The provider and model you're using are also saved, so when you reload a
+conversation, it automatically switches to the same LLM configuration.
+
+### Data Storage
+
+Conversation data is stored in a SQLite database on the server. By default,
+this is located at `{binary_dir}/data/conversations.db`. You can customize
+the location using the `data_dir` configuration option:
+
+```yaml
+# In pgedge-mcp-server.yaml
+data_dir: "/var/lib/pgedge/data"
+```
+
+Or via environment variable:
+
+```bash
+export PGEDGE_DATA_DIR="/var/lib/pgedge/data"
+```
+
+### Privacy and Security
+
+- Each user can only see their own conversations
+- Conversations are stored per-username on the server
+- Deleting a conversation permanently removes it from the database
+
 ## Tips for Effective Queries
 
 1. **Be specific** - "Show customers from California" works better than

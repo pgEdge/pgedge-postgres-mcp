@@ -321,6 +321,101 @@ func TestParseQuotedArgs(t *testing.T) {
 	}
 }
 
+func TestParseHistoryCommands(t *testing.T) {
+	tests := []struct {
+		name         string
+		input        string
+		expectedCmd  string
+		expectedArgs []string
+		shouldBeNil  bool
+	}{
+		{
+			name:         "history list",
+			input:        "/history",
+			expectedCmd:  "history",
+			expectedArgs: []string{},
+		},
+		{
+			name:         "history list explicit",
+			input:        "/history list",
+			expectedCmd:  "history",
+			expectedArgs: []string{"list"},
+		},
+		{
+			name:         "history load",
+			input:        "/history load conv_1234567890",
+			expectedCmd:  "history",
+			expectedArgs: []string{"load", "conv_1234567890"},
+		},
+		{
+			name:         "history rename with unquoted title",
+			input:        "/history rename conv_123 New Title",
+			expectedCmd:  "history",
+			expectedArgs: []string{"rename", "conv_123", "New", "Title"},
+		},
+		{
+			name:         "history delete",
+			input:        "/history delete conv_123",
+			expectedCmd:  "history",
+			expectedArgs: []string{"delete", "conv_123"},
+		},
+		{
+			name:         "history delete-all",
+			input:        "/history delete-all",
+			expectedCmd:  "history",
+			expectedArgs: []string{"delete-all"},
+		},
+		{
+			name:         "new conversation",
+			input:        "/new",
+			expectedCmd:  "new",
+			expectedArgs: []string{},
+		},
+		{
+			name:         "save conversation",
+			input:        "/save",
+			expectedCmd:  "save",
+			expectedArgs: []string{},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cmd := ParseSlashCommand(tt.input)
+
+			if tt.shouldBeNil {
+				if cmd != nil {
+					t.Errorf("Expected nil, got command: %+v", cmd)
+				}
+				return
+			}
+
+			if cmd == nil {
+				t.Fatal("Expected command, got nil")
+			}
+
+			if cmd.Command != tt.expectedCmd {
+				t.Errorf("Expected command %q, got %q", tt.expectedCmd, cmd.Command)
+			}
+
+			if len(cmd.Args) != len(tt.expectedArgs) {
+				t.Errorf("Expected %d args, got %d\nExpected: %v\nGot: %v",
+					len(tt.expectedArgs), len(cmd.Args), tt.expectedArgs, cmd.Args)
+				return
+			}
+
+			for i, arg := range cmd.Args {
+				if i >= len(tt.expectedArgs) {
+					break
+				}
+				if arg != tt.expectedArgs[i] {
+					t.Errorf("Expected arg[%d] = %q, got %q", i, tt.expectedArgs[i], arg)
+				}
+			}
+		})
+	}
+}
+
 func TestParsePromptCommand(t *testing.T) {
 	tests := []struct {
 		name         string

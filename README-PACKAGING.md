@@ -40,8 +40,11 @@ bin/pgedge-mcp-server
 /usr/lib/systemd/system/pgedge-mcp-server.service  # Systemd unit
 /usr/share/doc/pgedge-mcp-server/README.md  # Documentation
 /usr/share/doc/pgedge-mcp-server/LICENSE    # License file
-/var/lib/pgedge/mcp-server/                 # Data directory (create empty)
-/var/log/pgedge/mcp-server/                 # Log directory (create empty)
+/var/lib/pgedge/nla-server/                 # Data directory (create empty)
+                                            # - tokens.json (API tokens)
+                                            # - users.json (user credentials)
+                                            # - conversations.db (chat history)
+/var/log/pgedge/nla-server/                 # Log directory (create empty)
 ```
 
 **Default Configuration File** (`/etc/pgedge/mcp-server.yaml`):
@@ -114,6 +117,10 @@ YAML config file. It's loaded by systemd via `EnvironmentFile=`.
 # Alternative: Full database connection string
 # PGEDGE_POSTGRES_CONNECTION_STRING=postgres://user:password@host:port/database?sslmode=prefer
 
+# Data directory (for tokens, users, and conversation history)
+# Default: /var/lib/pgedge/nla-server
+# PGEDGE_DATA_DIR=/var/lib/pgedge/nla-server
+
 # Logging level (optional)
 # PGEDGE_MCP_LOG_LEVEL=info
 ```
@@ -137,6 +144,7 @@ ExecStart=/usr/bin/pgedge-mcp-server -config /etc/pgedge/nla-server.yaml
 
 # Environment
 Environment="PGEDGE_POSTGRES_CONNECTION_STRING=postgres://postgres@localhost/postgres?sslmode=prefer"
+Environment="PGEDGE_DATA_DIR=/var/lib/pgedge/nla-server"
 EnvironmentFile=-/etc/pgedge/nla-server.env
 
 # Security settings
@@ -540,6 +548,54 @@ fi
 
 ---
 
+## Data Directory Configuration
+
+The MCP server stores persistent data in a directory specified by
+`PGEDGE_DATA_DIR`. This directory contains:
+
+| File | Description |
+|------|-------------|
+| `tokens.json` | API authentication tokens |
+| `users.json` | User credentials (username/password) |
+| `conversations.db` | SQLite database for conversation history |
+
+### Default Locations
+
+| Deployment | Path |
+|------------|------|
+| Native (systemd) | `/var/lib/pgedge/nla-server/` |
+| Docker | `/app/data` |
+| Development | `./data` or current working directory |
+
+### Configuration
+
+Set the data directory via environment variable:
+
+```bash
+# In systemd service or environment file
+Environment="PGEDGE_DATA_DIR=/var/lib/pgedge/nla-server"
+
+# In Docker
+-e PGEDGE_DATA_DIR=/app/data
+
+# For development
+export PGEDGE_DATA_DIR=./data
+```
+
+### Backup Considerations
+
+The data directory contains user authentication and conversation history.
+Regular backups are recommended:
+
+```bash
+# Stop service before backup for consistency
+systemctl stop pgedge-mcp-server
+cp -r /var/lib/pgedge/nla-server /backup/nla-server-$(date +%Y%m%d)
+systemctl start pgedge-mcp-server
+```
+
+---
+
 ## Package Dependencies
 
 ### MCP Server (`pgedge-mcp-server`)
@@ -628,7 +684,7 @@ Description: Pre-built knowledgebase database containing embeddings for
 /usr/lib/systemd/system/*           0644 root:root
 
 # Data directories
-/var/lib/pgedge/nla-server/         0750 pgedge:pgedge
+/var/lib/pgedge/nla-server/         0750 pgedge:pgedge  # Data: tokens.json, users.json, conversations.db
 
 # Knowledgebase
 /usr/share/pgedge/nla-kb/           0755 root:root
@@ -701,9 +757,10 @@ find bin/ -name "*test*"
 └── pgedge-nla-web                 # Nginx config
 
 /var/lib/pgedge/
-└── nla-server/                    # Server data/state
-    ├── tokens.json                # Created by admin
-    └── users.json                 # Created by admin
+└── nla-server/                    # Server data/state (PGEDGE_DATA_DIR)
+    ├── tokens.json                # API authentication tokens
+    ├── users.json                 # User credentials
+    └── conversations.db           # Conversation history (SQLite)
 
 /var/log/pgedge/
 └── nla-server/                    # Server logs (if file logging enabled)
