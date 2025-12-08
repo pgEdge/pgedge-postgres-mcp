@@ -141,9 +141,10 @@ func (c *Client) Run(ctx context.Context) error {
 		return fmt.Errorf("failed to initialize LLM: %w", err)
 	}
 
-	// Print welcome message
-	c.ui.PrintWelcome()
-	c.ui.PrintSystemMessage(fmt.Sprintf("Connected to MCP server (%d tools, %d resources, %d prompts available)", len(c.tools), len(c.resources), len(c.prompts)))
+	// Print welcome message with version info
+	serverName, serverVersion := c.mcp.GetServerInfo()
+	c.ui.PrintWelcome(ClientVersion, serverVersion)
+	c.ui.PrintSystemMessage(fmt.Sprintf("Connected to %s (%d tools, %d resources, %d prompts)", serverName, len(c.tools), len(c.resources), len(c.prompts)))
 	c.ui.PrintSystemMessage(fmt.Sprintf("Using LLM: %s (%s)", c.config.LLM.Provider, c.config.LLM.Model))
 
 	// Display current database

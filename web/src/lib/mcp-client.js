@@ -8,6 +8,9 @@
  *-------------------------------------------------------------------------
  */
 
+// Web client version - keep in sync with server releases
+export const CLIENT_VERSION = '1.0.0-alpha4';
+
 /**
  * MCP Client for communicating with MCP server via JSON-RPC
  * Mirrors the HTTP client implementation in internal/chat/mcp_client.go
@@ -22,6 +25,7 @@ export class MCPClient {
         this.baseURL = baseURL;
         this.token = token;
         this.requestID = 0;
+        this.serverInfo = null;
     }
 
     /**
@@ -76,14 +80,29 @@ export class MCPClient {
      * @returns {Promise<object>} - Initialize result
      */
     async initialize() {
-        return await this.sendRequest('initialize', {
+        const result = await this.sendRequest('initialize', {
             protocolVersion: '2024-11-05',
             capabilities: {},
             clientInfo: {
                 name: 'pgedge-nla-web',
-                version: '1.0.0-alpha2'
+                version: CLIENT_VERSION
             }
         });
+
+        // Store server info from response
+        if (result && result.serverInfo) {
+            this.serverInfo = result.serverInfo;
+        }
+
+        return result;
+    }
+
+    /**
+     * Get server information from initialization
+     * @returns {object|null} - Server info object with name and version, or null if not initialized
+     */
+    getServerInfo() {
+        return this.serverInfo;
     }
 
     /**

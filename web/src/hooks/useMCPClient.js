@@ -9,7 +9,7 @@
  */
 
 import { useState, useEffect } from 'react';
-import { MCPClient } from '../lib/mcp-client';
+import { MCPClient, CLIENT_VERSION } from '../lib/mcp-client';
 
 /**
  * Custom hook for managing MCP client connection and tools
@@ -20,6 +20,7 @@ export const useMCPClient = (sessionToken) => {
     const [mcpClient, setMcpClient] = useState(null);
     const [tools, setTools] = useState([]);
     const [prompts, setPrompts] = useState([]);
+    const [serverInfo, setServerInfo] = useState(null);
     const [error, setError] = useState(null);
     const [loading, setLoading] = useState(false);
 
@@ -39,6 +40,13 @@ export const useMCPClient = (sessionToken) => {
 
                 // Initialize the client
                 await client.initialize();
+
+                // Store server info
+                const srvInfo = client.getServerInfo();
+                if (srvInfo) {
+                    console.log('Server info:', srvInfo);
+                    setServerInfo(srvInfo);
+                }
 
                 // Fetch available tools
                 console.log('Fetching MCP tools...');
@@ -96,6 +104,8 @@ export const useMCPClient = (sessionToken) => {
         mcpClient,
         tools,
         prompts,
+        serverInfo,
+        clientVersion: CLIENT_VERSION,
         error,
         loading,
         refreshTools,

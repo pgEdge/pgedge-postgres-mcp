@@ -33,7 +33,13 @@ func mockMCPServer(t *testing.T) *httptest.Server {
 			return
 		}
 
-		method := req["method"].(string)
+		methodVal, ok := req["method"]
+		if !ok || methodVal == nil {
+			// Likely a notification without method, just acknowledge
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+		method := methodVal.(string)
 		w.Header().Set("Content-Type", "application/json")
 
 		switch method {
@@ -738,7 +744,13 @@ func TestClient_ProcessQuery_ToolListRefreshAfterManageConnections(t *testing.T)
 			return
 		}
 
-		method := req["method"].(string)
+		methodVal, ok := req["method"]
+		if !ok || methodVal == nil {
+			// Likely a notification without method, just acknowledge
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+		method := methodVal.(string)
 		w.Header().Set("Content-Type", "application/json")
 
 		switch method {

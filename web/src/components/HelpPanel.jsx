@@ -20,8 +20,9 @@ import {
     ListItemText,
 } from '@mui/material';
 import { Close as CloseIcon } from '@mui/icons-material';
+import { CLIENT_VERSION } from '../lib/mcp-client';
 
-const HelpPanel = ({ open, onClose }) => {
+const HelpPanel = ({ open, onClose, serverInfo }) => {
     return (
         <Drawer
             anchor="right"
@@ -206,11 +207,20 @@ const HelpPanel = ({ open, onClose }) => {
                 <Divider sx={{ my: 3 }} />
 
                 {/* Version Info */}
-                <Typography variant="body2" color="text.secondary" sx={{ mt: 4 }}>
-                    pgEdge Natural Language Agent
-                    <br />
-                    Copyright &copy; 2025, pgEdge, Inc.
-                </Typography>
+                <Box sx={{ mt: 4 }}>
+                    <Typography variant="body2" color="text.secondary">
+                        pgEdge Natural Language Agent
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                        Web Client: v{CLIENT_VERSION}
+                        {serverInfo && serverInfo.version && (
+                            <> &nbsp;|&nbsp; Server: v{serverInfo.version}</>
+                        )}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                        Copyright &copy; 2025, pgEdge, Inc.
+                    </Typography>
+                </Box>
             </Box>
         </Drawer>
     );

@@ -114,7 +114,11 @@ func (c *Client) HandleSlashCommand(ctx context.Context, cmd *SlashCommand) bool
 
 	case "clear":
 		c.ui.ClearScreen()
-		c.ui.PrintWelcome()
+		var serverVersion string
+		if c.mcp != nil {
+			_, serverVersion = c.mcp.GetServerInfo()
+		}
+		c.ui.PrintWelcome(ClientVersion, serverVersion)
 		return true
 
 	case "tools":

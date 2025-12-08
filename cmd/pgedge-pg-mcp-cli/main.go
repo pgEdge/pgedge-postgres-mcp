@@ -21,10 +21,6 @@ import (
 	"pgedge-postgres-mcp/internal/chat"
 )
 
-const (
-	version = "1.0.0-alpha2"
-)
-
 func main() {
 	// Command line flags
 	configFile := flag.String("config", "", "Path to configuration file")
@@ -47,7 +43,7 @@ func main() {
 
 	// Show version
 	if *showVersion {
-		fmt.Printf("pgEdge Postgres MCP Chat Client v%s\n", version)
+		fmt.Printf("pgEdge NLA CLI v%s\n", chat.ClientVersion)
 		return
 	}
 

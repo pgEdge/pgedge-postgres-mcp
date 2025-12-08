@@ -70,7 +70,7 @@ func TestUI_PrintWelcome(t *testing.T) {
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 
-	ui.PrintWelcome()
+	ui.PrintWelcome("1.0.0-test", "1.0.0-server")
 
 	w.Close()
 	os.Stdout = old
@@ -86,6 +86,14 @@ func TestUI_PrintWelcome(t *testing.T) {
 
 	if !strings.Contains(output, "quit") {
 		t.Error("Welcome message should mention 'quit' command")
+	}
+
+	if !strings.Contains(output, "1.0.0-test") {
+		t.Error("Welcome message should contain client version")
+	}
+
+	if !strings.Contains(output, "1.0.0-server") {
+		t.Error("Welcome message should contain server version")
 	}
 }
 

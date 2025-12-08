@@ -59,16 +59,16 @@ func (ui *UI) colorize(color, text string) string {
 	return color + text + ColorReset
 }
 
-// PrintWelcome prints the welcome message
+// PrintWelcome prints the welcome message with version information
 // ASCII art credit: https://ascii.co.uk/art/elephant
-func (ui *UI) PrintWelcome() {
-	elephant := `
+func (ui *UI) PrintWelcome(clientVersion, serverVersion string) {
+	elephant := fmt.Sprintf(`
           _
    ______/ \-.   _           pgEdge Natural Language Agent
-.-/     (    o\_//           Type /quit to leave, /help for commands
- |  ___  \_/\---'
+.-/     (    o\_//           CLI: v%s  Server: v%s
+ |  ___  \_/\---'            Type /quit to leave, /help for commands
  |_||  |_||
-`
+`, clientVersion, serverVersion)
 	fmt.Println(ui.colorize(ColorCyan, elephant))
 }
 

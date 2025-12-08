@@ -25,11 +25,17 @@ import (
 	"pgedge-postgres-mcp/internal/mcp"
 )
 
+// ClientVersion is the version of the CLI/chat client
+const ClientVersion = "1.0.0-alpha4"
+
 // MCPClient provides a unified interface for communicating with MCP servers
 // via both stdio and HTTP modes
 type MCPClient interface {
 	// Initialize establishes connection and performs handshake
 	Initialize(ctx context.Context) error
+
+	// GetServerInfo returns the server name and version from initialization
+	GetServerInfo() (name string, version string)
 
 	// ListTools returns available tools from the server
 	ListTools(ctx context.Context) ([]mcp.Tool, error)
@@ -61,12 +67,13 @@ type MCPClient interface {
 
 // stdioClient implements MCPClient for stdio communication
 type stdioClient struct {
-	cmd       *exec.Cmd
-	stdin     io.WriteCloser
-	stdout    io.ReadCloser
-	scanner   *bufio.Scanner
-	requestID int
-	mu        sync.Mutex
+	cmd        *exec.Cmd
+	stdin      io.WriteCloser
+	stdout     io.ReadCloser
+	scanner    *bufio.Scanner
+	requestID  int
+	mu         sync.Mutex
+	serverInfo mcp.Implementation
 }
 
 // NewStdioClient creates a new stdio-based MCP client
@@ -114,8 +121,8 @@ func (c *stdioClient) Initialize(ctx context.Context) error {
 		ProtocolVersion: mcp.ProtocolVersion,
 		Capabilities:    map[string]interface{}{},
 		ClientInfo: mcp.ClientInfo{
-			Name:    "pgedge-pg-mcp-cli",
-			Version: "1.0.0-alpha2",
+			Name:    "pgedge-nla-cli",
+			Version: ClientVersion,
 		},
 	}
 
@@ -123,6 +130,9 @@ func (c *stdioClient) Initialize(ctx context.Context) error {
 	if err := c.sendRequest(ctx, "initialize", params, &result); err != nil {
 		return fmt.Errorf("initialize failed: %w", err)
 	}
+
+	// Store server info
+	c.serverInfo = result.ServerInfo
 
 	// Send initialized notification
 	notification := mcp.JSONRPCRequest{
@@ -141,6 +151,10 @@ func (c *stdioClient) Initialize(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+func (c *stdioClient) GetServerInfo() (string, string) {
+	return c.serverInfo.Name, c.serverInfo.Version
 }
 
 func (c *stdioClient) ListTools(ctx context.Context) ([]mcp.Tool, error) {
@@ -294,11 +308,12 @@ func (c *stdioClient) sendRequest(ctx context.Context, method string, params int
 
 // httpClient implements MCPClient for HTTP communication
 type httpClient struct {
-	url       string
-	token     string
-	client    *http.Client
-	requestID int
-	mu        sync.Mutex
+	url        string
+	token      string
+	client     *http.Client
+	requestID  int
+	mu         sync.Mutex
+	serverInfo mcp.Implementation
 }
 
 // NewHTTPClient creates a new HTTP-based MCP client
@@ -316,8 +331,8 @@ func (c *httpClient) Initialize(ctx context.Context) error {
 		ProtocolVersion: mcp.ProtocolVersion,
 		Capabilities:    map[string]interface{}{},
 		ClientInfo: mcp.ClientInfo{
-			Name:    "pgedge-pg-mcp-cli",
-			Version: "1.0.0-alpha2",
+			Name:    "pgedge-nla-cli",
+			Version: ClientVersion,
 		},
 	}
 
@@ -326,7 +341,14 @@ func (c *httpClient) Initialize(ctx context.Context) error {
 		return fmt.Errorf("initialize failed: %w", err)
 	}
 
+	// Store server info
+	c.serverInfo = result.ServerInfo
+
 	return nil
+}
+
+func (c *httpClient) GetServerInfo() (string, string) {
+	return c.serverInfo.Name, c.serverInfo.Version
 }
 
 func (c *httpClient) ListTools(ctx context.Context) ([]mcp.Tool, error) {

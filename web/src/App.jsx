@@ -12,6 +12,7 @@ import React, { useState, useEffect } from 'react';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import { Container, Box, CircularProgress, CssBaseline } from '@mui/material';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { useMCPClient } from './hooks/useMCPClient';
 import Header from './components/Header';
 import MainContent from './components/MainContent';
 import Login from './components/Login';
@@ -40,7 +41,8 @@ const AppContent = () => {
     const savedMode = localStorage.getItem('theme-mode');
     return savedMode || 'light';
   });
-  const { user, loading } = useAuth();
+  const { user, loading, sessionToken } = useAuth();
+  const { serverInfo } = useMCPClient(sessionToken);
 
   // Save theme preference to localStorage when it changes
   useEffect(() => {
@@ -114,7 +116,7 @@ const AppContent = () => {
     <ThemeProvider theme={theme}>
       <CssBaseline />
       <Box sx={{ height: '100vh', display: 'flex', flexDirection: 'column', bgcolor: 'background.default', overflow: 'hidden' }}>
-        <Header onToggleTheme={toggleTheme} mode={mode} />
+        <Header onToggleTheme={toggleTheme} mode={mode} serverInfo={serverInfo} />
         <Container maxWidth="lg" sx={{ flex: 1, display: 'flex', flexDirection: 'column', py: 2, overflow: 'hidden' }}>
           <MainContent />
         </Container>
