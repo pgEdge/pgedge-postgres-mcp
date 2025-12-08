@@ -62,6 +62,7 @@ builds:
           - -X main.builtBy=goreleaser
 
     # KB Builder for macOS (build-time tool only)
+    # Skip if not running on macOS (CGO cross-compilation not supported)
     - id: pgedge-nla-kb-builder-darwin
       binary: pgedge-nla-kb-builder
       main: ./cmd/kb-builder
@@ -72,6 +73,8 @@ builds:
       goarch:
           - amd64
           - arm64
+      # Skip if not running on macOS
+      skip: '{{ ne .Runtime.Goos "darwin" }}'
       ldflags:
           - -s -w
           - -X main.version={{.Version}}
@@ -152,6 +155,7 @@ archives:
           - LICENCE.md
 
     # KB Builder archive for Darwin (for building KB databases)
+    # Only created when building on macOS (CGO cross-compilation not supported)
     - id: kb-builder-darwin
       builds:
           - pgedge-nla-kb-builder-darwin
@@ -161,6 +165,7 @@ archives:
           {{- .Os }}_
           {{- if eq .Arch "amd64" }}x86_64
           {{- else }}{{ .Arch }}{{ end }}
+      allow_different_binary_count: true
       files:
           - README.md
           - LICENCE.md
