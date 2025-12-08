@@ -1,12 +1,12 @@
 # pgEdge Natural Language Agent - Development Guidelines
 
-This document provides guidelines for Claude Code when working on this
-project. These rules ensure consistency, quality, and maintainability.
+This document provides guidelines for Claude Code when working on this project.
+These rules ensure consistency, quality, and maintainability.
 
 ## General
 
-- ALways kill the MCP server and Vite server when no longer needed if they 
-    have been started to test something.
+- ALways kill the MCP server and Vite server when no longer needed if they have
+  been started to test something.
 
 ## Code Style
 
@@ -31,8 +31,7 @@ When working on complex, multi-step tasks:
 
 **List Rendering:**
 
-- Always leave a **blank line** before the first item in any list or
-  sub-list
+- Always leave a **blank line** before the first item in any list or sub-list
 - This ensures proper rendering in tools like mkdocs
 
 **Example:**
@@ -42,15 +41,14 @@ This is a paragraph.
 
 - First item
 - Second item
-  - Sub-item (note blank line before parent list)
+    - Sub-item (note blank line before parent list)
 ```
 
 ### File Naming Conventions
 
 **Root Directory:**
 
-- Use UPPERCASE names for markdown files (e.g., `README.md`,
-  `CONTRIBUTING.md`)
+- Use UPPERCASE names for markdown files (e.g., `README.md`, `CONTRIBUTING.md`)
 - Exception: file extensions remain lowercase
 
 **Documentation Directory (`/docs`):**
@@ -62,9 +60,9 @@ This is a paragraph.
 
 - Wrap markdown content at **79 characters or less**
 - Exceptions:
-  - URLs (don't split)
-  - Code samples
-  - Tables or structured content where wrapping breaks functionality
+    - URLs (don't split)
+    - Code samples
+    - Tables or structured content where wrapping breaks functionality
 
 ### Documentation Locations
 
@@ -104,8 +102,7 @@ This is a paragraph.
 
 - Only modify tests if they are **expected to fail** due to your changes
 - If a test fails unexpectedly, investigate the cause first
-- Don't "fix" tests by changing expectations unless the change is
-  intentional
+- Don't "fix" tests by changing expectations unless the change is intentional
 
 ### Test Cleanup
 
@@ -139,8 +136,8 @@ This is a paragraph.
 **SQL Injection Prevention:**
 
 - Always escape user inputs to prevent injection attacks
-- Exception: Tools explicitly designed to execute user-provided SQL
-  (e.g., `query_database` tool)
+- Exception: Tools explicitly designed to execute user-provided SQL (e.g.,
+  `query_database` tool)
 - Use parameterized queries where possible
 
 ## MCP Resources
@@ -170,8 +167,7 @@ When making changes, verify:
 - [ ] All tests pass (`make test`)
 - [ ] Linting passes (`make lint`)
 - [ ] Documentation updated in `/docs`
-- [ ] Markdown files properly formatted (79 chars, blank lines before
-      lists)
+- [ ] Markdown files properly formatted (79 chars, blank lines before lists)
 - [ ] Security considerations addressed
 - [ ] `read_resource` tool still works
 - [ ] No temporary files left behind
