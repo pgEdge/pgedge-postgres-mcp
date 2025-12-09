@@ -83,7 +83,8 @@ builds:
           - -X main.builtBy=goreleaser
 
     # KB Builder for Linux (only in CI with native Linux environment)
-    # Builds only when running on Linux (GitHub Actions runs on Ubuntu)
+    # Builds only when running on Linux (GitHub Actions runs on Ubuntu x86_64)
+    # CGO cross-compilation to arm64 is not supported without a cross-compiler
     - id: pgedge-nla-kb-builder-linux
       binary: pgedge-nla-kb-builder
       main: ./cmd/kb-builder
@@ -93,7 +94,7 @@ builds:
           - linux
       goarch:
           - amd64
-          - arm64
+          # arm64 disabled - requires cross-compiler toolchain
       # Skip if not running on Linux
       skip: '{{ ne .Runtime.Goos "linux" }}'
       ldflags:
