@@ -105,7 +105,7 @@ go test -v -run TestAuthTokenGeneration ./internal/auth/...
 
 ### Linting
 
-The project uses **golangci-lint v1.x** (NOT v2). The configuration file [`.golangci.yml`](https://github.com/pgEdge/pgedge-nla/blob/main/.golangci.yml) is designed for v1.
+The project uses **golangci-lint v1.x** (NOT v2). The configuration file [`.golangci.yml`](https://github.com/pgEdge/pgedge-mcp/blob/main/.golangci.yml) is designed for v1.
 
 #### Installation
 
@@ -138,7 +138,7 @@ golangci-lint run --fix
 
 #### Linter Configuration
 
-The [`.golangci.yml`](https://github.com/pgEdge/pgedge-nla/blob/main/.golangci.yml) configuration:
+The [`.golangci.yml`](https://github.com/pgEdge/pgedge-mcp/blob/main/.golangci.yml) configuration:
 
 - **Enabled linters**: errcheck, govet, ineffassign, staticcheck, unused, misspell, gocritic
 - **Disabled checks**: Style checks that are too strict (octalLiteral, httpNoBody, paramTypeCombine, etc.)

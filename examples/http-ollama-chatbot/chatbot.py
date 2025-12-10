@@ -22,7 +22,7 @@ Usage:
     4. Run the chatbot:
        python chatbot.py
 
-For more details, see: https://github.com/pgEdge/pgedge-nla/blob/main/docs/http-ollama-chatbot.md
+For more details, see: https://github.com/pgEdge/pgedge-mcp/blob/main/docs/http-ollama-chatbot.md
 """
 
 import asyncio

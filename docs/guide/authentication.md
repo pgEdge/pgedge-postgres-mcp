@@ -703,9 +703,9 @@ The auto-reload feature is implemented using:
 
 For implementation details, see:
 
-- [internal/auth/watcher.go](https://github.com/pgEdge/pgedge-nla/blob/main/internal/auth/watcher.go) - File watching
-- [internal/auth/auth.go](https://github.com/pgEdge/pgedge-nla/blob/main/internal/auth/auth.go) - Token store reload
-- [internal/auth/users.go](https://github.com/pgEdge/pgedge-nla/blob/main/internal/auth/users.go) - User store reload
+- [internal/auth/watcher.go](https://github.com/pgEdge/pgedge-mcp/blob/main/internal/auth/watcher.go) - File watching
+- [internal/auth/auth.go](https://github.com/pgEdge/pgedge-mcp/blob/main/internal/auth/auth.go) - Token store reload
+- [internal/auth/users.go](https://github.com/pgEdge/pgedge-mcp/blob/main/internal/auth/users.go) - User store reload
 
 ## Authentication Behavior
 

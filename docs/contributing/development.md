@@ -197,7 +197,7 @@ go vet ./...
 ### 1. Clone and Setup
 
 ```bash
-git clone https://github.com/pgEdge/pgedge-nla.git
+git clone https://github.com/pgEdge/pgedge-mcp.git
 cd pgedge-postgres-mcp
 go mod download
 ```
@@ -392,11 +392,11 @@ chore: update dependencies
 
 ### Client Tests
 
-- **Unit Tests**: [config_test.go](https://github.com/pgEdge/pgedge-nla/blob/main/internal/chat/config_test.go) - Configuration loading and validation
-- **Integration Tests**: [client_integration_test.go](https://github.com/pgEdge/pgedge-nla/blob/main/internal/chat/client_integration_test.go) - Client connection, LLM initialization, command handling, query processing
-- **UI Tests**: [ui_test.go](https://github.com/pgEdge/pgedge-nla/blob/main/internal/chat/ui_test.go) - Color output, animations, prompts
-- **LLM Tests**: [llm_test.go](https://github.com/pgEdge/pgedge-nla/blob/main/internal/chat/llm_test.go) - Anthropic and Ollama client functionality
-- **MCP Client Tests**: [mcp_client_test.go](https://github.com/pgEdge/pgedge-nla/blob/main/internal/chat/mcp_client_test.go) - HTTP and stdio communication
+- **Unit Tests**: [config_test.go](https://github.com/pgEdge/pgedge-mcp/blob/main/internal/chat/config_test.go) - Configuration loading and validation
+- **Integration Tests**: [client_integration_test.go](https://github.com/pgEdge/pgedge-mcp/blob/main/internal/chat/client_integration_test.go) - Client connection, LLM initialization, command handling, query processing
+- **UI Tests**: [ui_test.go](https://github.com/pgEdge/pgedge-mcp/blob/main/internal/chat/ui_test.go) - Color output, animations, prompts
+- **LLM Tests**: [llm_test.go](https://github.com/pgEdge/pgedge-mcp/blob/main/internal/chat/llm_test.go) - Anthropic and Ollama client functionality
+- **MCP Client Tests**: [mcp_client_test.go](https://github.com/pgEdge/pgedge-mcp/blob/main/internal/chat/mcp_client_test.go) - HTTP and stdio communication
 
 Current test coverage:
 - **Server**: Varies by package, see [Testing](testing.md) for details

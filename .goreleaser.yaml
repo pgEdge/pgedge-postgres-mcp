@@ -225,7 +225,7 @@ changelog:
 release:
     github:
         owner: pgEdge
-        name: pgedge-nla
+        name: pgedge-mcp
     draft: false
     prerelease: auto
     mode: append
@@ -259,11 +259,11 @@ release:
     footer: |
         ### Documentation
 
-        - [Complete Documentation](https://github.com/pgEdge/pgedge-nla/blob/main/docs/index.md)
-        - [Configuration Guide](https://github.com/pgEdge/pgedge-nla/blob/main/docs/configuration.md)
-        - [Deployment Guide](https://github.com/pgEdge/pgedge-nla/blob/main/docs/deployment.md)
+        - [Complete Documentation](https://github.com/pgEdge/pgedge-mcp/blob/main/docs/index.md)
+        - [Configuration Guide](https://github.com/pgEdge/pgedge-mcp/blob/main/docs/configuration.md)
+        - [Deployment Guide](https://github.com/pgEdge/pgedge-mcp/blob/main/docs/deployment.md)
 
-        **Full Changelog**: https://github.com/pgEdge/pgedge-nla/compare/{{.PreviousTag}}...{{.Tag}}
+        **Full Changelog**: https://github.com/pgEdge/pgedge-mcp/compare/{{.PreviousTag}}...{{.Tag}}
 
 # Generate source archive
 source:

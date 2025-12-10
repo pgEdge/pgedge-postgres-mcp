@@ -141,13 +141,13 @@ When you push a tag starting with `v`, the GitHub Actions workflow
 Check the GitHub Actions workflow:
 
 ```
-https://github.com/pgEdge/pgedge-nla/actions
+https://github.com/pgEdge/pgedge-mcp/actions
 ```
 
 Once complete, verify the release:
 
 ```
-https://github.com/pgEdge/pgedge-nla/releases
+https://github.com/pgEdge/pgedge-mcp/releases
 ```
 
 ## Release Workflow Details

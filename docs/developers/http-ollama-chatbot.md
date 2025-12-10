@@ -290,7 +290,7 @@ export PGEDGE_MCP_SERVER_URL="http://localhost:8080/mcp/v1"
 
 ## Source Code
 
-The complete source code for this example is available in the [`examples/http-ollama-chatbot`](https://github.com/pgEdge/pgedge-nla/blob/main/examples/http-ollama-chatbot) directory.
+The complete source code for this example is available in the [`examples/http-ollama-chatbot`](https://github.com/pgEdge/pgedge-mcp/blob/main/examples/http-ollama-chatbot) directory.
 
 ## Next Steps
 

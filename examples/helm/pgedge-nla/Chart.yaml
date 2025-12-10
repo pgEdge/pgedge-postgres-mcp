@@ -14,6 +14,6 @@ maintainers:
   - name: pgEdge
     email: support@pgedge.com
     url: https://pgedge.com
-home: https://github.com/pgEdge/pgedge-nla
+home: https://github.com/pgEdge/pgedge-mcp
 sources:
-  - https://github.com/pgEdge/pgedge-nla
+  - https://github.com/pgEdge/pgedge-mcp

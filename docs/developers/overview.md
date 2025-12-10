@@ -153,7 +153,7 @@ print(result)
   - HTTP + Ollama
 - **[Go CLI Client](../guide/cli-client.md)** - Full-featured reference
   implementation
-- **[Web Client](https://github.com/pgEdge/pgedge-nla/blob/main/web/README.md)** - React-based web interface
+- **[Web Client](https://github.com/pgEdge/pgedge-mcp/blob/main/web/README.md)** - React-based web interface
 
 ### Configuration
 
@@ -171,5 +171,5 @@ print(result)
 ## Support
 
 - **Questions?** See [Troubleshooting](../guide/troubleshooting.md)
-- **Bug reports:** [GitHub Issues](https://github.com/pgEdge/pgedge-nla/issues)
+- **Bug reports:** [GitHub Issues](https://github.com/pgEdge/pgedge-mcp/issues)
 - **Examples:** [Query Examples](../reference/examples.md)
