@@ -96,6 +96,12 @@ sources:
       project_name: "pgEdge Natural Language Agent"
       project_version: "1.0.0-alpha4"
 
+    - git_url: "https://github.com/pgEdge/pgedge-mcp.git"
+      branch: "v1.0.0-alpha5"
+      doc_path: "docs"
+      project_name: "pgEdge Natural Language Agent"
+      project_version: "1.0.0-alpha5"
+
     - git_url: "https://github.com/pgEdge/pgedge-anonymizer.git"
       branch: "v1.0.0-alpha1"
       doc_path: "docs"
