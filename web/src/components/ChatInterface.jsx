@@ -446,7 +446,9 @@ const ChatInterface = ({ conversations }) => {
 
             // Skip loading if we just saved a new conversation (going from null to an ID)
             // The messages are already in state, no need to reload them
-            if (!previousConversationId && newConversationId) {
+            // But only skip if we actually have messages - otherwise this is a fresh session
+            // where the user is selecting an existing conversation to load
+            if (!previousConversationId && newConversationId && messagesRef.current.length > 0) {
                 return;
             }
 
