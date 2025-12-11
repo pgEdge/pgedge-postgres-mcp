@@ -83,7 +83,6 @@ archives:
           - docs/**/*
           - examples/pgedge-mcp-server-custom.yaml
           - examples/.env.example
-          - bin/kb.db
 
     # CLI archive - arm64 only
     - id: cli-arm64
@@ -106,6 +105,7 @@ archives:
           - LICENCE.md
           - examples/pgedge-nla-kb-builder.yaml
           - kb/README.md
+          - bin/kb.db
 
 snapshot:
     version_template: "{{ incpatch .Version }}-next"

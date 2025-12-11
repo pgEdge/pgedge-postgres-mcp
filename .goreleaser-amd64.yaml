@@ -91,7 +91,6 @@ archives:
           - docs/**/*
           - examples/pgedge-mcp-server-custom.yaml
           - examples/.env.example
-          - bin/kb.db
 
     # CLI archive - amd64 only
     - id: cli-amd64
@@ -120,6 +119,7 @@ archives:
           - LICENCE.md
           - examples/pgedge-nla-kb-builder.yaml
           - kb/README.md
+          - bin/kb.db
 
     # Web UI archive (noarch - built in build-web job, not here)
     # Web UI is architecture-independent and built once in the workflow
