@@ -8,6 +8,10 @@ before:
     hooks:
         # Format code
         - go fmt ./...
+        # Build kb-builder for generating kb.db
+        - CGO_ENABLED=1 go build -o pgedge-nla-kb-builder ./cmd/kb-builder
+        # Generate kb.db using Ollama Cloud (requires OLLAMA_API_KEY env var)
+        - ./pgedge-nla-kb-builder --config examples/pgedge-nla-kb-builder.yaml
 
 builds:
     # MCP Server - amd64 (all platforms)
@@ -85,6 +89,7 @@ archives:
           - docs/**/*
           - examples/pgedge-mcp-server-custom.yaml
           - examples/.env.example
+          - bin/kb.db
 
     # CLI archive - amd64 only
     - id: cli-amd64
