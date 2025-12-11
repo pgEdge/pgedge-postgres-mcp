@@ -90,6 +90,13 @@ jobs:
               run: |
                   go test -v ./internal/mcp/... ./internal/auth/... ./internal/config/... ./internal/crypto/... ./internal/database/... ./internal/resources/... ./internal/tools/... ./internal/chat/... ./internal/llmproxy/... ./internal/search/... ./internal/prompts/... ./internal/conversations/... ./internal/kbdatabase/... ./internal/kbembed/... ./internal/kbchunker/...
 
+            - name: Configure git for private repo access
+              run: |
+                  # Configure git to use PGEDGE_BUILDER_TOKEN for authentication
+                  git config --global url."https://x-access-token:${PGEDGE_BUILDER_TOKEN}@github.com/".insteadOf "https://github.com/"
+              env:
+                  PGEDGE_BUILDER_TOKEN: ${{ secrets.PGEDGE_BUILDER_TOKEN }}
+
             - name: Configure kb-builder for Ollama Cloud
               run: |
                   # Create a copy and modify it to use Ollama Cloud and output kb.db
@@ -98,8 +105,10 @@ jobs:
                   sed -i 's|endpoint: "http://localhost:11434"|endpoint: "https://ollama.com"|' examples/pgedge-nla-kb-builder-build.yaml
                   sed -i '/openai:/,/enabled:/ s/enabled: true/enabled: false/' examples/pgedge-nla-kb-builder-build.yaml
                   sed -i '/voyage:/,/enabled:/ s/enabled: true/enabled: false/' examples/pgedge-nla-kb-builder-build.yaml
+                  # Convert SSH URLs to HTTPS for authentication with token
+                  sed -i 's|git@github.com:|https://github.com/|g' examples/pgedge-nla-kb-builder-build.yaml
                   echo "Modified config for build:"
-                  grep -A2 "database_path:\|ollama:" examples/pgedge-nla-kb-builder-build.yaml
+                  grep -A2 "database_path:\|ollama:\|git_url:" examples/pgedge-nla-kb-builder-build.yaml | head -20
 
             - name: Run GoReleaser (amd64 only)
               uses: goreleaser/goreleaser-action@v6
@@ -153,6 +162,13 @@ jobs:
               run: |
                   go test -v ./internal/mcp/... ./internal/auth/... ./internal/config/... ./internal/crypto/... ./internal/database/... ./internal/resources/... ./internal/tools/... ./internal/chat/... ./internal/llmproxy/... ./internal/search/... ./internal/prompts/... ./internal/conversations/... ./internal/kbdatabase/... ./internal/kbembed/... ./internal/kbchunker/...
 
+            - name: Configure git for private repo access
+              run: |
+                  # Configure git to use PGEDGE_BUILDER_TOKEN for authentication
+                  git config --global url."https://x-access-token:${PGEDGE_BUILDER_TOKEN}@github.com/".insteadOf "https://github.com/"
+              env:
+                  PGEDGE_BUILDER_TOKEN: ${{ secrets.PGEDGE_BUILDER_TOKEN }}
+
             - name: Configure kb-builder for Ollama Cloud
               run: |
                   # Create a copy and modify it to use Ollama Cloud and output kb.db
@@ -161,8 +177,10 @@ jobs:
                   sed -i 's|endpoint: "http://localhost:11434"|endpoint: "https://ollama.com"|' examples/pgedge-nla-kb-builder-build.yaml
                   sed -i '/openai:/,/enabled:/ s/enabled: true/enabled: false/' examples/pgedge-nla-kb-builder-build.yaml
                   sed -i '/voyage:/,/enabled:/ s/enabled: true/enabled: false/' examples/pgedge-nla-kb-builder-build.yaml
+                  # Convert SSH URLs to HTTPS for authentication with token
+                  sed -i 's|git@github.com:|https://github.com/|g' examples/pgedge-nla-kb-builder-build.yaml
                   echo "Modified config for build:"
-                  grep -A2 "database_path:\|ollama:" examples/pgedge-nla-kb-builder-build.yaml
+                  grep -A2 "database_path:\|ollama:\|git_url:" examples/pgedge-nla-kb-builder-build.yaml | head -20
 
             - name: Run GoReleaser (arm64 only)
               uses: goreleaser/goreleaser-action@v6
