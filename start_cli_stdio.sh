@@ -129,33 +129,6 @@ if [ ! -f "$SERVER_CONFIG" ]; then
     exit 1
 fi
 
-# Check for API keys (needed for LLM interaction)
-if [ -z "$PGEDGE_ANTHROPIC_API_KEY" ] && [ -z "$ANTHROPIC_API_KEY" ] && \
-   [ -z "$PGEDGE_OPENAI_API_KEY" ] && [ -z "$OPENAI_API_KEY" ] && \
-   [ -z "$PGEDGE_OLLAMA_URL" ]; then
-    echo -e "${YELLOW}╔════════════════════════════════════════════════════════════╗${NC}"
-    echo -e "${YELLOW}║                    ⚠️  WARNING                              ║${NC}"
-    echo -e "${YELLOW}╚════════════════════════════════════════════════════════════╝${NC}"
-    echo -e "${YELLOW}No LLM API keys or Ollama URL detected.${NC}"
-    echo ""
-    echo "The CLI client requires an LLM provider for natural language queries."
-    echo "Please set one of the following environment variables:"
-    echo ""
-    echo -e "${BLUE}For Anthropic Claude:${NC}"
-    echo "  export ANTHROPIC_API_KEY='sk-ant-...'"
-    echo "  export PGEDGE_ANTHROPIC_API_KEY='sk-ant-...'"
-    echo ""
-    echo -e "${BLUE}For OpenAI:${NC}"
-    echo "  export OPENAI_API_KEY='sk-...'"
-    echo "  export PGEDGE_OPENAI_API_KEY='sk-...'"
-    echo ""
-    echo -e "${BLUE}For Ollama (local):${NC}"
-    echo "  export PGEDGE_OLLAMA_URL='http://localhost:11434'"
-    echo ""
-    echo -e "${YELLOW}Press Enter to continue anyway, or Ctrl+C to exit${NC}"
-    read -r
-fi
-
 echo ""
 echo -e "${GREEN}╔════════════════════════════════════════════════════════════╗${NC}"
 echo -e "${GREEN}║  ✓ Starting pgEdge MCP CLI Client                          ║${NC}"

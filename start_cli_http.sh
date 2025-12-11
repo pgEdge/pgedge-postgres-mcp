@@ -147,20 +147,6 @@ echo "  Server config: $SERVER_CONFIG"
 echo "  CLI config:    $CLI_CONFIG"
 echo ""
 
-# Check for API keys
-API_KEY_WARNING=""
-if [ -z "$PGEDGE_ANTHROPIC_API_KEY" ] && [ -z "$ANTHROPIC_API_KEY" ] && [ ! -f "$HOME/.anthropic-api-key" ] && \
-   [ -z "$PGEDGE_OPENAI_API_KEY" ] && [ -z "$OPENAI_API_KEY" ] && [ ! -f "$HOME/.openai-api-key" ]; then
-    API_KEY_WARNING="${YELLOW}Warning: No LLM API keys found (env vars or ~/.anthropic-api-key / ~/.openai-api-key files).
-         LLM features will not work unless you're using Ollama.${NC}"
-fi
-
-# Display warnings if any
-if [ ! -z "$API_KEY_WARNING" ]; then
-    echo -e "$API_KEY_WARNING"
-    echo ""
-fi
-
 # Start MCP server
 echo -e "${GREEN}[1/2] Starting MCP Server (HTTP mode with auth and LLM proxy)...${NC}"
 cd "$BIN_DIR"
