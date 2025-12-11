@@ -1,7 +1,10 @@
 site_name: pgEdge Natural Language Agent
 
 extra_css:
-  - stylesheets/extra.css
+  - stylesheets/extra.
+
+extra_javascript:
+  - js/mermaid.min.js
 
 markdown_extensions:
   - admonition
@@ -14,6 +17,7 @@ markdown_extensions:
 
 plugins:
   - search
+  - redoc-tag
 
 theme:
   name: material
@@ -28,7 +32,6 @@ theme:
     - navigation.tracking
     - navigation.prune
     - navigation.top
-    - navigation.sections
     - toc.follow
 
   palette:
@@ -55,19 +58,18 @@ copyright: Copyright &copy; 2025 pgEdge, Inc
 repo_url: https://github.com/pgEdge/pgedge-mcp
 
 nav:
-  - Home: index.md
-  - Quick Start: quickstart.md
-
-  - User Guide:
+  - pgEdge Natural Language Agent:
+      - pgEdge Natural Language Agent: index.md
       - Choosing the Right Solution: guide/mcp-vs-rag.md
+  - User Guide:
       - Deployment: guide/deployment.md
       - Configuration: guide/configuration.md
-      - Authentication: guide/authentication.md
+      - Quick Start: quickstart.md
+  - Selecting and Using a Client Application:
       - Web Client: guide/web-client.md
       - CLI Client: guide/cli-client.md
+      - Authentication: guide/authentication.md
       - Security: guide/security.md
-      - Troubleshooting: guide/troubleshooting.md
-
   - Reference:
       - Tools: reference/tools.md
       - Resources: reference/resources.md
@@ -78,21 +80,18 @@ nav:
           - API Tokens: reference/config-examples/tokens.md
           - CLI Client: reference/config-examples/cli-client.md
           - KB Builder: reference/config-examples/kb-builder.md
-
+  - Advanced Topics:
+      - Custom Definitions: advanced/custom-definitions.md
+      - Knowledgebase: advanced/knowledgebase.md
+      - LLM Proxy: advanced/llm-proxy.md
   - For Developers:
-      - Overview: developers/overview.md
+      - For Developers - Overview: developers/overview.md
       - MCP Protocol: developers/mcp-protocol.md
       - API Reference: developers/api-reference.md
       - Building Chat Clients:
           - Overview: developers/building-chat-clients.md
           - Python (Stdio + Claude): developers/stdio-anthropic-chatbot.md
           - Python (HTTP + Ollama): developers/http-ollama-chatbot.md
-
-  - Advanced Topics:
-      - Custom Definitions: advanced/custom-definitions.md
-      - Knowledgebase: advanced/knowledgebase.md
-      - LLM Proxy: advanced/llm-proxy.md
-
   - Contributing:
       - Development Setup: contributing/development.md
       - Architecture: contributing/architecture.md
@@ -100,5 +99,6 @@ nav:
       - KB Builder: contributing/internal/kb-builder-architecture.md
       - Testing: contributing/testing.md
       - CI/CD: contributing/ci-cd.md
-
-  - Changelog: changelog.md
+  - Troubleshooting: guide/troubleshooting.md
+  - pgEdge Natural Language Agent Release Notes: changelog.md
+  - Licence: LICENCE.md
