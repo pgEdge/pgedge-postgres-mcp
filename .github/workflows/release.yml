@@ -90,6 +90,16 @@ jobs:
               run: |
                   go test -v ./internal/mcp/... ./internal/auth/... ./internal/config/... ./internal/crypto/... ./internal/database/... ./internal/resources/... ./internal/tools/... ./internal/chat/... ./internal/llmproxy/... ./internal/search/... ./internal/prompts/... ./internal/conversations/... ./internal/kbdatabase/... ./internal/kbembed/... ./internal/kbchunker/...
 
+            - name: Configure kb-builder for Ollama Cloud
+              run: |
+                  # Modify the config to use Ollama Cloud and output kb.db
+                  sed -i 's|database_path: "bin/pgedge-nla-kb.db"|database_path: "bin/kb.db"|' examples/pgedge-nla-kb-builder.yaml
+                  sed -i 's|endpoint: "http://localhost:11434"|endpoint: "https://ollama.com"|' examples/pgedge-nla-kb-builder.yaml
+                  sed -i '/openai:/,/enabled:/ s/enabled: true/enabled: false/' examples/pgedge-nla-kb-builder.yaml
+                  sed -i '/voyage:/,/enabled:/ s/enabled: true/enabled: false/' examples/pgedge-nla-kb-builder.yaml
+                  echo "Modified config for build:"
+                  grep -A2 "database_path:\|ollama:" examples/pgedge-nla-kb-builder.yaml
+
             - name: Run GoReleaser (amd64 only)
               uses: goreleaser/goreleaser-action@v6
               with:
@@ -98,6 +108,7 @@ jobs:
                   args: release --clean --config .goreleaser-amd64.yaml
               env:
                   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+                  OLLAMA_API_KEY: ${{ secrets.OLLAMA_API_KEY }}
 
             - name: Upload amd64 artifacts
               uses: actions/upload-artifact@v4
@@ -141,6 +152,16 @@ jobs:
               run: |
                   go test -v ./internal/mcp/... ./internal/auth/... ./internal/config/... ./internal/crypto/... ./internal/database/... ./internal/resources/... ./internal/tools/... ./internal/chat/... ./internal/llmproxy/... ./internal/search/... ./internal/prompts/... ./internal/conversations/... ./internal/kbdatabase/... ./internal/kbembed/... ./internal/kbchunker/...
 
+            - name: Configure kb-builder for Ollama Cloud
+              run: |
+                  # Modify the config to use Ollama Cloud and output kb.db
+                  sed -i 's|database_path: "bin/pgedge-nla-kb.db"|database_path: "bin/kb.db"|' examples/pgedge-nla-kb-builder.yaml
+                  sed -i 's|endpoint: "http://localhost:11434"|endpoint: "https://ollama.com"|' examples/pgedge-nla-kb-builder.yaml
+                  sed -i '/openai:/,/enabled:/ s/enabled: true/enabled: false/' examples/pgedge-nla-kb-builder.yaml
+                  sed -i '/voyage:/,/enabled:/ s/enabled: true/enabled: false/' examples/pgedge-nla-kb-builder.yaml
+                  echo "Modified config for build:"
+                  grep -A2 "database_path:\|ollama:" examples/pgedge-nla-kb-builder.yaml
+
             - name: Run GoReleaser (arm64 only)
               uses: goreleaser/goreleaser-action@v6
               with:
@@ -149,6 +170,7 @@ jobs:
                   args: release --clean --config .goreleaser-arm64.yaml
               env:
                   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+                  OLLAMA_API_KEY: ${{ secrets.OLLAMA_API_KEY }}
 
             - name: Upload arm64 artifacts
               uses: actions/upload-artifact@v4
