@@ -158,7 +158,7 @@ const getComponents = (mode) => ({
                 borderRadius: 4,              // Mantine sm radius
                 textTransform: 'none',
                 fontWeight: 500,
-                fontSize: '0.9375rem',
+                fontSize: '1rem',             // 16px (Mantine sm)
                 padding: '8px 20px',
                 boxShadow: 'none',
                 '&:hover': {
@@ -178,11 +178,11 @@ const getComponents = (mode) => ({
             },
             sizeSmall: {
                 padding: '6px 16px',
-                fontSize: '0.875rem',
+                fontSize: '0.875rem',         // 14px (Mantine xs)
             },
             sizeLarge: {
                 padding: '12px 28px',
-                fontSize: '1rem',
+                fontSize: '1.125rem',         // 18px (Mantine md)
             },
         },
     },
@@ -314,7 +314,7 @@ const getComponents = (mode) => ({
                 borderRadius: 4,
                 margin: '2px 8px',
                 padding: '10px 14px',
-                fontSize: '0.9375rem',
+                fontSize: '1rem',             // 16px (Mantine sm)
                 '&:hover': {
                     backgroundColor: mode === 'dark' ? alpha('#22B8CF', 0.08) : alpha('#15AABF', 0.04),
                 },
@@ -443,70 +443,73 @@ const getComponents = (mode) => ({
     },
 });
 
-// Typography configuration - Larger fonts to match Cloud
+// Typography configuration - Larger fonts to match Cloud (Mantine defaults)
+// Mantine: xs=14px, sm=16px, md=18px, lg=20px, xl=22px
 const typography = {
     fontFamily: '"Inter", "SF Pro Display", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, sans-serif',
+    fontSize: 16,                     // Base font size (Mantine sm)
+    htmlFontSize: 16,
     h1: {
         fontWeight: 700,
-        fontSize: '2.75rem',
+        fontSize: '2.75rem',          // 44px
         lineHeight: 1.2,
         letterSpacing: '-0.02em',
     },
     h2: {
         fontWeight: 700,
-        fontSize: '2.25rem',
+        fontSize: '2.25rem',          // 36px
         lineHeight: 1.3,
         letterSpacing: '-0.01em',
     },
     h3: {
         fontWeight: 600,
-        fontSize: '1.875rem',
+        fontSize: '1.875rem',         // 30px
         lineHeight: 1.4,
     },
     h4: {
         fontWeight: 600,
-        fontSize: '1.5rem',
+        fontSize: '1.5rem',           // 24px
         lineHeight: 1.4,
     },
     h5: {
         fontWeight: 600,
-        fontSize: '1.25rem',
+        fontSize: '1.375rem',         // 22px (Mantine xl)
         lineHeight: 1.5,
     },
     h6: {
         fontWeight: 600,
-        fontSize: '1.125rem',
+        fontSize: '1.25rem',          // 20px (Mantine lg)
         lineHeight: 1.5,
     },
     subtitle1: {
         fontWeight: 500,
-        fontSize: '1.0625rem',
+        fontSize: '1.125rem',         // 18px (Mantine md)
         lineHeight: 1.5,
     },
     subtitle2: {
         fontWeight: 500,
-        fontSize: '0.9375rem',
+        fontSize: '1rem',             // 16px (Mantine sm)
         lineHeight: 1.5,
     },
     body1: {
-        fontSize: '1.0625rem',
+        fontSize: '1.125rem',         // 18px (Mantine md)
         lineHeight: 1.6,
     },
     body2: {
-        fontSize: '0.9375rem',
+        fontSize: '1rem',             // 16px (Mantine sm)
         lineHeight: 1.6,
     },
     button: {
         fontWeight: 500,
-        fontSize: '0.9375rem',
+        fontSize: '1rem',             // 16px (Mantine sm)
         letterSpacing: '0.02em',
     },
     caption: {
-        fontSize: '0.8125rem',
+        fontSize: '0.875rem',         // 14px (Mantine xs)
         lineHeight: 1.5,
     },
     overline: {
-        fontSize: '0.8125rem',
+        fontSize: '0.875rem',         // 14px (Mantine xs)
         fontWeight: 600,
         letterSpacing: '0.08em',
         textTransform: 'uppercase',

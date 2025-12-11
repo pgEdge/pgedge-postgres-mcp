@@ -75,7 +75,7 @@ export const createMarkdownComponents = (theme) => {
                 <p
                     style={{
                         marginBottom: theme.spacing(1),
-                        fontSize: '1rem',
+                        fontSize: '1.125rem',
                         lineHeight: 1.6,
                         color: isDark ? '#F1F5F9' : '#1F2937',
                     }}
@@ -164,7 +164,7 @@ export const createMarkdownComponents = (theme) => {
                 <li
                     style={{
                         marginBottom: theme.spacing(0.5),
-                        fontSize: '1rem',
+                        fontSize: '1.125rem',
                         lineHeight: 1.6,
                         color: isDark ? '#F1F5F9' : '#1F2937',
                     }}
@@ -215,7 +215,7 @@ export const createMarkdownComponents = (theme) => {
                     color: isDark ? '#F1F5F9' : '#1F2937',
                     fontWeight: 600,
                     textAlign: 'left',
-                    fontSize: '0.875rem',
+                    fontSize: '1rem',
                 }}>
                     {children}
                 </th>
@@ -228,7 +228,7 @@ export const createMarkdownComponents = (theme) => {
                     border: `1px solid ${isDark ? '#334155' : '#E5E7EB'}`,
                     padding: '10px 12px',
                     color: isDark ? '#F1F5F9' : '#1F2937',
-                    fontSize: '0.875rem',
+                    fontSize: '1rem',
                 }}>
                     {children}
                 </td>

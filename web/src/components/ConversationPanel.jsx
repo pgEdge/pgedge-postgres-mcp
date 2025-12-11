@@ -218,7 +218,7 @@ const ConversationPanel = ({
                                 borderRadius: 1,
                                 textTransform: 'none',
                                 fontWeight: 500,
-                                fontSize: '0.9375rem',
+                                fontSize: '1rem',
                                 py: 1,
                                 '&:hover': {
                                     bgcolor: '#0C8599',

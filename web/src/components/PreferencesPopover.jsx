@@ -86,7 +86,7 @@ const PreferencesPopover = React.memo(({
                         mb: 2,
                         color: isDark ? '#F1F5F9' : '#1F2937',
                         fontWeight: 600,
-                        fontSize: '1rem',
+                        fontSize: '1.125rem',
                     }}
                 >
                     Preferences
