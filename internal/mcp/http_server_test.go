@@ -909,6 +909,15 @@ func TestHTTPConfigStruct(t *testing.T) {
 	if !config.TLSEnable {
 		t.Error("expected TLSEnable=true")
 	}
+	if config.CertFile != "/path/to/cert.pem" {
+		t.Errorf("expected CertFile '/path/to/cert.pem', got %q", config.CertFile)
+	}
+	if config.KeyFile != "/path/to/key.pem" {
+		t.Errorf("expected KeyFile '/path/to/key.pem', got %q", config.KeyFile)
+	}
+	if config.ChainFile != "/path/to/chain.pem" {
+		t.Errorf("expected ChainFile '/path/to/chain.pem', got %q", config.ChainFile)
+	}
 	if !config.AuthEnabled {
 		t.Error("expected AuthEnabled=true")
 	}

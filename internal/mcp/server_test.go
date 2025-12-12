@@ -215,6 +215,9 @@ func TestSelectDatabaseResponseStruct(t *testing.T) {
 	if success.Current != "testdb" {
 		t.Errorf("expected current 'testdb', got %q", success.Current)
 	}
+	if success.Message != "Switched to database" {
+		t.Errorf("expected message 'Switched to database', got %q", success.Message)
+	}
 
 	// Error response
 	errResp := SelectDatabaseResponse{
@@ -242,8 +245,20 @@ func TestDatabaseInfoStruct(t *testing.T) {
 	if info.Name != "testdb" {
 		t.Errorf("expected name 'testdb', got %q", info.Name)
 	}
+	if info.Host != "localhost" {
+		t.Errorf("expected host 'localhost', got %q", info.Host)
+	}
 	if info.Port != 5432 {
 		t.Errorf("expected port 5432, got %d", info.Port)
+	}
+	if info.Database != "mydb" {
+		t.Errorf("expected database 'mydb', got %q", info.Database)
+	}
+	if info.User != "user" {
+		t.Errorf("expected user 'user', got %q", info.User)
+	}
+	if info.SSLMode != "disable" {
+		t.Errorf("expected sslmode 'disable', got %q", info.SSLMode)
 	}
 }
 

@@ -252,29 +252,6 @@ func TestHTTPDatabaseProvider_SelectDatabase(t *testing.T) {
 	})
 }
 
-// MockAccessChecker for testing access control
-type mockAccessChecker struct {
-	accessibleDatabases []string
-	canAccess           bool
-}
-
-func (m *mockAccessChecker) GetAccessibleDatabases(ctx context.Context, databases []config.NamedDatabaseConfig) []config.NamedDatabaseConfig {
-	var result []config.NamedDatabaseConfig
-	for _, db := range databases {
-		for _, accessible := range m.accessibleDatabases {
-			if db.Name == accessible {
-				result = append(result, db)
-				break
-			}
-		}
-	}
-	return result
-}
-
-func (m *mockAccessChecker) CanAccessDatabase(ctx context.Context, db *config.NamedDatabaseConfig) bool {
-	return m.canAccess
-}
-
 func TestHTTPDatabaseProvider_WithAccessChecker(t *testing.T) {
 	cm := NewClientManager([]config.NamedDatabaseConfig{
 		{Name: "db1", Host: "host1", Port: 5432, Database: "test1"},

@@ -50,6 +50,9 @@ func TestTableInfo_Struct(t *testing.T) {
 	if info.TableType != "TABLE" {
 		t.Errorf("expected type 'TABLE', got %q", info.TableType)
 	}
+	if info.Description != "User accounts table" {
+		t.Errorf("expected description 'User accounts table', got %q", info.Description)
+	}
 	if len(info.Columns) != 2 {
 		t.Errorf("expected 2 columns, got %d", len(info.Columns))
 	}
@@ -99,6 +102,15 @@ func TestColumnInfo_Struct(t *testing.T) {
 	if col.ColumnName != "embedding" {
 		t.Errorf("expected column name 'embedding', got %q", col.ColumnName)
 	}
+	if col.DataType != "vector(1536)" {
+		t.Errorf("expected data type 'vector(1536)', got %q", col.DataType)
+	}
+	if col.IsNullable != "YES" {
+		t.Errorf("expected IsNullable 'YES', got %q", col.IsNullable)
+	}
+	if col.Description != "OpenAI embedding vector" {
+		t.Errorf("expected description 'OpenAI embedding vector', got %q", col.Description)
+	}
 	if !col.IsVectorColumn {
 		t.Error("expected IsVectorColumn to be true")
 	}
@@ -144,8 +156,20 @@ func TestTableInfo_MaterializedView(t *testing.T) {
 		Columns:     []ColumnInfo{},
 	}
 
+	if info.SchemaName != "analytics" {
+		t.Errorf("expected schema 'analytics', got %q", info.SchemaName)
+	}
+	if info.TableName != "daily_stats" {
+		t.Errorf("expected table 'daily_stats', got %q", info.TableName)
+	}
 	if info.TableType != "MATERIALIZED VIEW" {
 		t.Errorf("expected type 'MATERIALIZED VIEW', got %q", info.TableType)
+	}
+	if info.Description != "Daily aggregated statistics" {
+		t.Errorf("expected description 'Daily aggregated statistics', got %q", info.Description)
+	}
+	if len(info.Columns) != 0 {
+		t.Errorf("expected 0 columns, got %d", len(info.Columns))
 	}
 }
 
@@ -196,6 +220,12 @@ func TestColumnInfo_VectorTypes(t *testing.T) {
 				VectorDimensions: tt.dimensions,
 			}
 
+			if col.ColumnName != "test" {
+				t.Errorf("expected column name 'test', got %q", col.ColumnName)
+			}
+			if col.DataType != tt.dataType {
+				t.Errorf("expected data type %q, got %q", tt.dataType, col.DataType)
+			}
 			if col.IsVectorColumn != tt.isVector {
 				t.Errorf("expected IsVectorColumn=%v, got %v", tt.isVector, col.IsVectorColumn)
 			}
@@ -223,6 +253,9 @@ func TestColumnInfo_NullableValues(t *testing.T) {
 				IsNullable: tt.nullable,
 			}
 
+			if col.ColumnName != "test" {
+				t.Errorf("expected column name 'test', got %q", col.ColumnName)
+			}
 			if col.IsNullable != tt.nullable {
 				t.Errorf("expected IsNullable=%q, got %q", tt.nullable, col.IsNullable)
 			}

@@ -249,11 +249,17 @@ func TestKBSearchResultStruct(t *testing.T) {
 	if result.Title != "Getting Started" {
 		t.Errorf("Title = %q, want %q", result.Title, "Getting Started")
 	}
+	if result.Section != "Introduction" {
+		t.Errorf("Section = %q, want %q", result.Section, "Introduction")
+	}
 	if result.ProjectName != "PostgreSQL" {
 		t.Errorf("ProjectName = %q, want %q", result.ProjectName, "PostgreSQL")
 	}
 	if result.ProjectVersion != "17" {
 		t.Errorf("ProjectVersion = %q, want %q", result.ProjectVersion, "17")
+	}
+	if result.FilePath != "/docs/intro.md" {
+		t.Errorf("FilePath = %q, want %q", result.FilePath, "/docs/intro.md")
 	}
 	if result.Similarity != 0.92 {
 		t.Errorf("Similarity = %f, want %f", result.Similarity, 0.92)
