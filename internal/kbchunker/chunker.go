@@ -18,12 +18,16 @@ import (
 )
 
 const (
-	// TargetChunkSize is the target number of tokens per chunk
-	TargetChunkSize = 800
-	// MaxChunkSize is the maximum number of tokens per chunk
-	MaxChunkSize = 1000
-	// OverlapSize is the number of tokens to overlap between chunks
-	OverlapSize = 200
+	// TargetChunkSize is the target number of words per chunk.
+	// Note: This is word count, not LLM tokens. Technical content with long
+	// terms (like MULE_INTERNAL, EUC_JIS_2004) can tokenize to 3-4x more
+	// LLM tokens. For nomic-embed-text (8192 token limit), 250 words of
+	// dense technical content is a safe maximum.
+	TargetChunkSize = 250
+	// MaxChunkSize is the maximum number of words per chunk
+	MaxChunkSize = 300
+	// OverlapSize is the number of words to overlap between chunks
+	OverlapSize = 50
 )
 
 // ChunkDocument breaks a document into chunks with overlap

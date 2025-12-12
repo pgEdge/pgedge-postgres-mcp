@@ -442,8 +442,9 @@ func (eg *EmbeddingGenerator) generateVoyageEmbeddings(chunks []*kbtypes.Chunk) 
 
 // Ollama API structures
 type ollamaEmbeddingRequest struct {
-	Model  string `json:"model"`
-	Prompt string `json:"prompt"`
+	Model   string                 `json:"model"`
+	Prompt  string                 `json:"prompt"`
+	Options map[string]interface{} `json:"options,omitempty"`
 }
 
 type ollamaEmbeddingResponse struct {
@@ -484,6 +485,9 @@ func (eg *EmbeddingGenerator) generateOllamaEmbeddings(chunks []*kbtypes.Chunk) 
 		reqBody := ollamaEmbeddingRequest{
 			Model:  config.Model,
 			Prompt: chunk.Text,
+			Options: map[string]interface{}{
+				"num_ctx": config.ContextLength,
+			},
 		}
 
 		jsonData, err := json.Marshal(reqBody)
@@ -502,6 +506,12 @@ func (eg *EmbeddingGenerator) generateOllamaEmbeddings(chunks []*kbtypes.Chunk) 
 			return eg.client.Do(req)
 		})
 		if err != nil {
+			// Log details about the failing chunk
+			fmt.Printf("\n  ❌ Failed chunk details:\n")
+			fmt.Printf("     File: %s\n", chunk.FilePath)
+			fmt.Printf("     Section: %s\n", chunk.Section)
+			fmt.Printf("     Chars: %d, Words: %d\n", len(chunk.Text), len(strings.Fields(chunk.Text)))
+			fmt.Printf("     Preview: %.200s...\n", chunk.Text)
 			return fmt.Errorf("failed to make request: %w", err)
 		}
 
