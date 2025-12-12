@@ -105,6 +105,13 @@ func fetchGitSource(source kbconfig.DocumentSource, docSourcePath string, skipUp
 		if err := gitCheckout(repoPath, source.Branch); err != nil {
 			return SourceInfo{}, fmt.Errorf("failed to checkout branch: %w", err)
 		}
+		// Pull latest changes for branches (tags are immutable)
+		if !skipUpdates {
+			fmt.Printf("  Pulling latest changes...\n")
+			if err := gitPull(repoPath); err != nil {
+				return SourceInfo{}, fmt.Errorf("failed to pull latest changes: %w", err)
+			}
+		}
 	} else if source.Tag != "" {
 		fmt.Printf("  Checking out tag: %s\n", source.Tag)
 		if err := gitCheckout(repoPath, source.Tag); err != nil {
@@ -202,6 +209,15 @@ func gitFetch(path string) error {
 // gitCheckout checks out a specific branch or tag
 func gitCheckout(path, ref string) error {
 	cmd := exec.Command("git", "checkout", ref)
+	cmd.Dir = path
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	return cmd.Run()
+}
+
+// gitPull pulls the latest changes from the remote for the current branch
+func gitPull(path string) error {
+	cmd := exec.Command("git", "pull")
 	cmd.Dir = path
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
