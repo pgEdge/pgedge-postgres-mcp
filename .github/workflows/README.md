@@ -87,10 +87,10 @@ docker-compose down -v
 Add these to your README.md:
 
 ```markdown
-[![CI - Server](https://github.com/pgEdge/pgedge-mcp/actions/workflows/ci-server.yml/badge.svg)](https://github.com/pgEdge/pgedge-mcp/actions/workflows/ci-server.yml)
-[![CI - CLI Client](https://github.com/pgEdge/pgedge-mcp/actions/workflows/ci-cli-client.yml/badge.svg)](https://github.com/pgEdge/pgedge-mcp/actions/workflows/ci-cli-client.yml)
-[![CI - Web Client](https://github.com/pgEdge/pgedge-mcp/actions/workflows/ci-web-client.yml/badge.svg)](https://github.com/pgEdge/pgedge-mcp/actions/workflows/ci-web-client.yml)
-[![CI - Docker Compose](https://github.com/pgEdge/pgedge-mcp/actions/workflows/ci-docker-compose.yml/badge.svg)](https://github.com/pgEdge/pgedge-mcp/actions/workflows/ci-docker-compose.yml)
+[![CI - Server](https://github.com/pgEdge/pgedge-postgres-mcp/actions/workflows/ci-server.yml/badge.svg)](https://github.com/pgEdge/pgedge-postgres-mcp/actions/workflows/ci-server.yml)
+[![CI - CLI Client](https://github.com/pgEdge/pgedge-postgres-mcp/actions/workflows/ci-cli-client.yml/badge.svg)](https://github.com/pgEdge/pgedge-postgres-mcp/actions/workflows/ci-cli-client.yml)
+[![CI - Web Client](https://github.com/pgEdge/pgedge-postgres-mcp/actions/workflows/ci-web-client.yml/badge.svg)](https://github.com/pgEdge/pgedge-postgres-mcp/actions/workflows/ci-web-client.yml)
+[![CI - Docker Compose](https://github.com/pgEdge/pgedge-postgres-mcp/actions/workflows/ci-docker-compose.yml/badge.svg)](https://github.com/pgEdge/pgedge-postgres-mcp/actions/workflows/ci-docker-compose.yml)
 ```
 
 ## Troubleshooting

@@ -18,7 +18,7 @@ Usage:
     2. Run the chatbot:
        python chatbot.py
 
-For more details, see: https://github.com/pgEdge/pgedge-mcp/blob/main/docs/stdio-anthropic-chatbot.md
+For more details, see: https://github.com/pgEdge/pgedge-postgres-mcp/blob/main/docs/stdio-anthropic-chatbot.md
 """
 
 import asyncio

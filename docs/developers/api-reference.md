@@ -142,7 +142,7 @@ Authorization: Bearer <session-token>
 }
 ```
 
-**Implementation:** [cmd/pgedge-pg-mcp-svr/main.go:454-511](https://github.com/pgEdge/pgedge-mcp/blob/main/cmd/pgedge-pg-mcp-svr/main.go#L454-L511)
+**Implementation:** [cmd/pgedge-pg-mcp-svr/main.go:454-511](https://github.com/pgEdge/pgedge-postgres-mcp/blob/main/cmd/pgedge-pg-mcp-svr/main.go#L454-L511)
 
 ### POST /api/chat/compact
 
@@ -234,7 +234,7 @@ The compactor uses a 5-tier classification system:
 - **Routine** - Standard messages (can be compressed)
 - **Transient** - Low-value messages (short acknowledgments)
 
-**Implementation:** [internal/compactor/](https://github.com/pgEdge/pgedge-mcp/tree/main/internal/compactor)
+**Implementation:** [internal/compactor/](https://github.com/pgEdge/pgedge-postgres-mcp/tree/main/internal/compactor)
 
 ## LLM Proxy Endpoints
 

@@ -19,7 +19,7 @@ The recommended deployment method using pre-built containers.
 
 ```bash
 # Clone repository
-git clone https://github.com/pgEdge/pgedge-mcp.git
+git clone https://github.com/pgEdge/pgedge-postgres-mcp.git
 cd pgedge-postgres-mcp
 
 # Configure
@@ -139,7 +139,7 @@ On Linux, you may need to use the Docker bridge IP (`172.17.0.1`).
 ### Build
 
 ```bash
-git clone https://github.com/pgEdge/pgedge-mcp.git
+git clone https://github.com/pgEdge/pgedge-postgres-mcp.git
 cd pgedge-postgres-mcp
 make build
 ```

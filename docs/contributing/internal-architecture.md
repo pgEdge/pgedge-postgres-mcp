@@ -32,7 +32,7 @@ project.
 - Token sent with every request in Authorization header
 - Token cleared on logout or validation failure
 
-**Implementation:** [internal/users/users.go](https://github.com/pgEdge/pgedge-mcp/blob/main/internal/users/users.go)
+**Implementation:** [internal/users/users.go](https://github.com/pgEdge/pgedge-postgres-mcp/blob/main/internal/users/users.go)
 
 ## Database Connection Per Session
 
@@ -87,7 +87,7 @@ type ollamaClient struct { /* ... */ }
 Each client implements provider-specific API calls while presenting a
 consistent interface.
 
-**Implementation:** [internal/chat/llm.go](https://github.com/pgEdge/pgedge-mcp/blob/main/internal/chat/llm.go)
+**Implementation:** [internal/chat/llm.go](https://github.com/pgEdge/pgedge-postgres-mcp/blob/main/internal/chat/llm.go)
 
 ## Docker Container Architecture
 
@@ -115,7 +115,7 @@ consistent interface.
 
 ### nginx Configuration
 
-**File:** [docker/nginx.conf](https://github.com/pgEdge/pgedge-mcp/blob/main/docker/nginx.conf)
+**File:** [docker/nginx.conf](https://github.com/pgEdge/pgedge-postgres-mcp/blob/main/docker/nginx.conf)
 
 ```nginx
 # Proxy JSON-RPC requests to MCP server
@@ -299,7 +299,7 @@ Client → POST /api/chat/compact → Compactor
                   (Anchor→Transient)        token counting
 ```
 
-**Implementation:** [internal/compactor/](https://github.com/pgEdge/pgedge-mcp/tree/main/internal/compactor)
+**Implementation:** [internal/compactor/](https://github.com/pgEdge/pgedge-postgres-mcp/tree/main/internal/compactor)
 
 ### Message Classification
 
@@ -327,7 +327,7 @@ Messages are classified into 5 tiers based on semantic importance:
 5. **Transient** (0.2) - Low-value messages that can be dropped
     - Short acknowledgments: "ok", "yes", "thanks"
 
-**Implementation:** [internal/compactor/classifier.go](https://github.com/pgEdge/pgedge-mcp/blob/main/internal/compactor/classifier.go)
+**Implementation:** [internal/compactor/classifier.go](https://github.com/pgEdge/pgedge-postgres-mcp/blob/main/internal/compactor/classifier.go)
 
 ### Compaction Algorithm
 
@@ -492,7 +492,7 @@ go test ./internal/compactor/...
 # - LLM summarization (8 tests)
 ```
 
-**Implementation:** [internal/compactor/](https://github.com/pgEdge/pgedge-mcp/tree/main/internal/compactor)
+**Implementation:** [internal/compactor/](https://github.com/pgEdge/pgedge-postgres-mcp/tree/main/internal/compactor)
 
 ## Performance Optimization
 

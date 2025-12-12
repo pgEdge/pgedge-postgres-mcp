@@ -79,7 +79,7 @@ Authorization: Bearer <session-token>
 }
 ```
 
-**Implementation:** [internal/llmproxy/proxy.go:93-136](https://github.com/pgEdge/pgedge-mcp/blob/main/internal/llmproxy/proxy.go#L93-L136)
+**Implementation:** [internal/llmproxy/proxy.go:93-136](https://github.com/pgEdge/pgedge-postgres-mcp/blob/main/internal/llmproxy/proxy.go#L93-L136)
 
 ### GET /api/llm/models?provider=<provider>
 
@@ -111,7 +111,7 @@ Authorization: Bearer <session-token>
 - **Ollama**: Calls Ollama's `/api/tags` endpoint at configured
   PGEDGE_OLLAMA_URL
 
-**Implementation:** [internal/llmproxy/proxy.go:138-200](https://github.com/pgEdge/pgedge-mcp/blob/main/internal/llmproxy/proxy.go#L138-L200)
+**Implementation:** [internal/llmproxy/proxy.go:138-200](https://github.com/pgEdge/pgedge-postgres-mcp/blob/main/internal/llmproxy/proxy.go#L138-L200)
 
 ### POST /api/llm/chat
 
@@ -156,7 +156,7 @@ Sends a chat request to the configured LLM provider with tool support.
 }
 ```
 
-**Implementation:** [internal/llmproxy/proxy.go:202-295](https://github.com/pgEdge/pgedge-mcp/blob/main/internal/llmproxy/proxy.go#L202-L295)
+**Implementation:** [internal/llmproxy/proxy.go:202-295](https://github.com/pgEdge/pgedge-postgres-mcp/blob/main/internal/llmproxy/proxy.go#L202-L295)
 
 ## Configuration
 
@@ -205,7 +205,7 @@ API keys are loaded in the following order (highest to lowest):
 - `PGEDGE_LLM_MAX_TOKENS`: Maximum tokens per response
 - `PGEDGE_LLM_TEMPERATURE`: LLM temperature (0.0-1.0)
 
-**Implementation:** [internal/config/config.go:459-489](https://github.com/pgEdge/pgedge-mcp/blob/main/internal/config/config.go#L459-L489)
+**Implementation:** [internal/config/config.go:459-489](https://github.com/pgEdge/pgedge-postgres-mcp/blob/main/internal/config/config.go#L459-L489)
 
 ## Building Web Clients with JSON-RPC
 
@@ -214,7 +214,7 @@ HTTP, matching the CLI client architecture.
 
 ### Natural Language Agent Client Implementation
 
-**File:** [web/src/lib/mcp-client.js](https://github.com/pgEdge/pgedge-mcp/blob/main/web/src/lib/mcp-client.js)
+**File:** [web/src/lib/mcp-client.js](https://github.com/pgEdge/pgedge-postgres-mcp/blob/main/web/src/lib/mcp-client.js)
 
 ```javascript
 export class MCPClient {

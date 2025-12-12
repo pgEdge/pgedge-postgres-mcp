@@ -1,10 +1,10 @@
 # pgEdge Postgres MCP Server
 
-[![CI - MCP Server](https://github.com/pgEdge/pgedge-mcp/workflows/CI%20-%20MCP%20Server/badge.svg)](https://github.com/pgEdge/pgedge-mcp/actions/workflows/ci-server.yml)
-[![CI - CLI Client](https://github.com/pgEdge/pgedge-mcp/workflows/CI%20-%20CLI%20Client/badge.svg)](https://github.com/pgEdge/pgedge-mcp/actions/workflows/ci-cli-client.yml)
-[![CI - Web Client](https://github.com/pgEdge/pgedge-mcp/workflows/CI%20-%20Web%20Client/badge.svg)](https://github.com/pgEdge/pgedge-mcp/actions/workflows/ci-web-client.yml)
-[![CI - Docker Compose](https://github.com/pgEdge/pgedge-mcp/workflows/CI%20-%20Docker/badge.svg)](https://github.com/pgEdge/pgedge-mcp/actions/workflows/ci-docker.yml)
-[![CI - Documentation](https://github.com/pgEdge/pgedge-mcp/workflows/CI%20-%20Documentation/badge.svg)](https://github.com/pgEdge/pgedge-mcp/actions/workflows/ci-docs.yml)
+[![CI - MCP Server](https://github.com/pgEdge/pgedge-postgres-mcp/workflows/CI%20-%20MCP%20Server/badge.svg)](https://github.com/pgEdge/pgedge-postgres-mcp/actions/workflows/ci-server.yml)
+[![CI - CLI Client](https://github.com/pgEdge/pgedge-postgres-mcp/workflows/CI%20-%20CLI%20Client/badge.svg)](https://github.com/pgEdge/pgedge-postgres-mcp/actions/workflows/ci-cli-client.yml)
+[![CI - Web Client](https://github.com/pgEdge/pgedge-postgres-mcp/workflows/CI%20-%20Web%20Client/badge.svg)](https://github.com/pgEdge/pgedge-postgres-mcp/actions/workflows/ci-web-client.yml)
+[![CI - Docker Compose](https://github.com/pgEdge/pgedge-postgres-mcp/workflows/CI%20-%20Docker/badge.svg)](https://github.com/pgEdge/pgedge-postgres-mcp/actions/workflows/ci-docker.yml)
+[![CI - Documentation](https://github.com/pgEdge/pgedge-postgres-mcp/workflows/CI%20-%20Documentation/badge.svg)](https://github.com/pgEdge/pgedge-postgres-mcp/actions/workflows/ci-docs.yml)
 
 A Model Context Protocol (MCP) server that enables **SQL queries** against
 PostgreSQL databases through MCP-compatible clients like Claude Desktop.
@@ -416,7 +416,7 @@ This software is released under The PostgreSQL License.
 
 - **📖 Documentation**: [docs/index.md](docs/index.md)
 - **🐛 Issues**:
-  [GitHub Issues](https://github.com/pgEdge/pgedge-mcp/issues)
+  [GitHub Issues](https://github.com/pgEdge/pgedge-postgres-mcp/issues)
 - **💡 Examples**: [Query Examples](docs/reference/examples.md)
 
 ## Related Projects

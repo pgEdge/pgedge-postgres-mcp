@@ -19,7 +19,7 @@ Get up and running in minutes. Choose your deployment method:
 ### 1. Clone and Configure
 
 ```bash
-git clone https://github.com/pgEdge/pgedge-mcp.git
+git clone https://github.com/pgEdge/pgedge-postgres-mcp.git
 cd pgedge-postgres-mcp
 
 cp .env.example .env
@@ -67,7 +67,7 @@ credentials you set in `INIT_USERS`.
 ### 1. Build
 
 ```bash
-git clone https://github.com/pgEdge/pgedge-mcp.git
+git clone https://github.com/pgEdge/pgedge-postgres-mcp.git
 cd pgedge-postgres-mcp
 make build
 ```

@@ -235,7 +235,7 @@ export ANTHROPIC_API_KEY="your-key-here"
 
 ## Source Code
 
-The complete source code for this example is available in the [`examples/stdio-anthropic-chatbot`](https://github.com/pgEdge/pgedge-mcp/blob/main/examples/stdio-anthropic-chatbot) directory.
+The complete source code for this example is available in the [`examples/stdio-anthropic-chatbot`](https://github.com/pgEdge/pgedge-postgres-mcp/blob/main/examples/stdio-anthropic-chatbot) directory.
 
 ## Next Steps
 
