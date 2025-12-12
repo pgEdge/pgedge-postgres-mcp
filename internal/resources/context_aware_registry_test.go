@@ -12,12 +12,21 @@ package resources
 
 import (
 	"context"
+	"os"
 	"testing"
 
 	"pgedge-postgres-mcp/internal/auth"
 	conf "pgedge-postgres-mcp/internal/config"
 	"pgedge-postgres-mcp/internal/database"
 )
+
+// skipIfNoDatabase skips the test if no test database connection is available.
+// Tests that attempt to read resources may trigger database connection attempts.
+func skipIfNoDatabase(t *testing.T) {
+	if os.Getenv("TEST_PGEDGE_POSTGRES_CONNECTION_STRING") == "" {
+		t.Skip("TEST_PGEDGE_POSTGRES_CONNECTION_STRING not set, skipping test that requires database")
+	}
+}
 
 // Helper to create bool pointer
 func boolPtr(b bool) *bool {
@@ -172,6 +181,8 @@ func TestContextAwareRegistry_Read_DisabledResource(t *testing.T) {
 }
 
 func TestContextAwareRegistry_Read_NotFound(t *testing.T) {
+	skipIfNoDatabase(t)
+
 	cm := database.NewClientManager([]conf.NamedDatabaseConfig{
 		{Name: "db1", Host: "localhost", Port: 5432, Database: "test1"},
 	})
@@ -235,6 +246,8 @@ func TestContextAwareRegistry_Read_AuthRequired(t *testing.T) {
 }
 
 func TestContextAwareRegistry_Read_WithToken(t *testing.T) {
+	skipIfNoDatabase(t)
+
 	cm := database.NewClientManager([]conf.NamedDatabaseConfig{
 		{Name: "db1", Host: "localhost", Port: 5432, Database: "test1"},
 	})
