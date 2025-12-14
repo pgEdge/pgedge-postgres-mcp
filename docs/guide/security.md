@@ -2,24 +2,7 @@
 
 This document outlines security considerations and best practices for deploying and using the Natural Language Agent.
 
-## Table of Contents
-
-- [Database Credentials](#database-credentials)
-- [API Keys](#api-keys)
-- [Query Safety](#query-safety)
-- [Configuration Management](#configuration-management)
-- [Network Security](#network-security)
-- [HTTP/HTTPS Mode Security](#httphttps-mode-security)
-- [Token Security](#token-security)
-- [TLS/Certificate Security](#tlscertificate-security)
-- [Access Control](#access-control)
-- [Monitoring and Auditing](#monitoring-and-auditing)
-- [Incident Response](#incident-response)
-- [Security Checklist](#security-checklist)
-
 ## Database Credentials
-
-### Configuration at Startup
 
 Database credentials are configured when the MCP server starts via:
 
@@ -741,10 +724,3 @@ SELECT pg_reload_conf();
 - [ ] Update software and dependencies
 - [ ] Test backup and recovery procedures
 - [ ] Conduct security training for team
-
-## Related Documentation
-
-- [Authentication Guide](authentication.md) - API token management
-- [Deployment Guide](deployment.md) - Production deployment
-- [Configuration Guide](configuration.md) - Secure configuration
-- [Troubleshooting Guide](troubleshooting.md) - Security-related issues

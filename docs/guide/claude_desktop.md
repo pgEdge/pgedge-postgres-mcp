@@ -41,10 +41,26 @@ To specify your connection details in a .yaml file, use the `args` property to i
 }
 ```
 
+**Important Notes:**
+
+- Replace the path specified in the `command` property with the full path to your project directory.
+- Database connections are configured at server startup via environment variables, config file, or command-line flags.
+- Claude Desktop's LLM handles natural language to SQL translation, then this server executes the SQL queries.
+
 After modifying the configuration file, restart Claude Desktop and start asking questions about your database.
 
 !!! hint
 
     If you use Claude/Claude Code, Claude will only use the first database configured in your configuration file.
 
+## Troubleshooting Claude Desktop Configuration Issues
+
+If you're having trouble connecting with Claude Desktop, you should:
+
+1. Check the JSON syntax in `claude_desktop_config.json`.
+2. Ensure that properties point to absolute paths (not relative).
+3. Restart Claude Desktop after making configuration changes.
+4. Check the Claude Desktop logs for errors.
+
+For more troubleshooting help, see the [Troubleshooting Guide](troubleshooting.md).
 

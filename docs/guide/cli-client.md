@@ -1,4 +1,4 @@
-# Go Chat Client
+# Using the Go Chat Client
 
 The Natural Language Agent Go Chat Client is a **production-ready, full-featured** native Go implementation that provides an interactive command-line interface for chatting with your PostgreSQL database using natural language.
 
@@ -612,8 +612,7 @@ System: Switched to database: staging
 
 **Notes:**
 
-- Database access is controlled by the server configuration
-  (see [Configuration Guide](configuration.md#multiple-database-management))
+- Database access is controlled by the server configuration (see [Configuration Guide](multiple_db_config.md))
 - Your database selection is saved and restored on subsequent sessions
 - In STDIO mode, all configured databases are accessible
 - API tokens may be bound to a specific database
@@ -926,15 +925,3 @@ ollama pull llama3
 - The history file is created automatically on first use
 - On some terminals, readline features may be limited
 
-## See Also
-
-**For Users:**
-- [Chat Client Config Example](../reference/config-examples/cli-client.md) - Complete configuration reference
-- [Chatbot Examples Overview](../developers/building-chat-clients.md) - Compare different chatbot approaches
-- [Stdio + Anthropic Claude Chatbot](../developers/stdio-anthropic-chatbot.md) - Python stdio example
-- [HTTP + Ollama Chatbot](../developers/http-ollama-chatbot.md) - Python HTTP + Ollama example
-- [MCP Server Configuration](configuration.md) - Configure the MCP server
-- [Available Tools](../reference/tools.md) - List of database tools you can use
-
-**For Developers:**
-- [Development Guide](../contributing/development.md) - Building, testing, and development workflow

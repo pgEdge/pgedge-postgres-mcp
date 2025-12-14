@@ -46,7 +46,6 @@ flowchart LR
 For server operators and end users:
 
 - [Choosing the Right Solution](guide/mcp-vs-rag.md) - MCP Server vs RAG Server
-- [Deployment](guide/deployment.md) - Docker, native, and systemd deployment
 - [Configuration](guide/configuration.md) - All configuration options
 - [Authentication](guide/authentication.md) - Users, tokens, and access control
 - [CLI Client](guide/cli-client.md) - Command-line interface

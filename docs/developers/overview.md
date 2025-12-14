@@ -158,15 +158,9 @@ print(result)
 ### Configuration
 
 - **[Server Configuration](../guide/configuration.md)** - Configure the MCP server
-- **[Deployment](../guide/deployment.md)** - Deploy with Docker or native
+- **[Deploying the MCP Server with Docker](../deploy_docker.md)** - Deploy with Docker
+- **[Deploying the MCP Server from Source](../deploy_source.md)** - Deploy with Docker
 - **[Query Examples](../reference/examples.md)** - Common use cases
-
-## Next Steps
-
-1. **Read the Protocol** - Understand [MCP Protocol](mcp-protocol.md)
-2. **Review Examples** - See [Building Chat Clients](building-chat-clients.md)
-3. **Try the APIs** - Use [API Reference](api-reference.md)
-4. **Deploy** - Follow [Deployment](../guide/deployment.md)
 
 ## Support
 

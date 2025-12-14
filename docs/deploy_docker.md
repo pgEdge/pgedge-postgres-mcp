@@ -1,9 +1,9 @@
-# Quick Start
+# Deploying in a Docker Container
 
 Deployment of the pgEdge Postgres MCP Server is easy; you can get up and running in a test environment in minutes. Before deploying the server, you need to install and obtain:
 
 - a Postgres database (with pg_description support)
-- if you are deploying into a Docker Container, install Docker
+- Docker
 - an LLM Provider API key: [Anthropic](https://console.anthropic.com/),
   [OpenAI](https://platform.openai.com/), or [Ollama](https://ollama.ai/)
   (local/free)
@@ -87,6 +87,14 @@ PGEDGE_OPENAI_API_KEY=your-openai-api-key-here
 # Default: http://localhost:11434 (change if Ollama runs elsewhere)
 PGEDGE_OLLAMA_URL=http://localhost:11434
 ```
+
+
+!!! tip "API Key Security"
+    For a production environment, mount API key files instead of using environment variables:
+    ```yaml
+    volumes:
+      - ~/.anthropic-api-key:/app/.anthropic-api-key:ro
+    ```
 
 During deployment, users are created for the deployment; you can specify user information in the `AUTHENTICATION CONFIGURATION` section.  For a simple test environment, the `INIT_USERS` property is the simplest configuration:
 
@@ -287,3 +295,64 @@ Then, use your browser to open [http://localhost:8080](http://localhost:8080) an
 
 !!! success "You're ready!"
     Start asking questions about your database in natural language.
+
+
+### Data Persistence
+
+The MCP server stores persistent data in a dedicated directory:
+
+- **Authentication tokens** (`tokens.json`)
+- **User credentials** (`users.json`)
+- **Conversation history** (`conversations.db`)
+- **User preferences**
+
+The Docker Compose configuration mounts a named volume (`mcp-data`) to
+`/app/data`, ensuring data persists across container restarts.
+
+To use a custom host path instead of a named volume:
+
+```yaml
+volumes:
+  # Mount host directory instead of named volume
+  - ./data:/app/data
+```
+
+!!! warning "Permissions"
+    Ensure the host directory has appropriate permissions (owned by UID 1001)
+    or the container may fail to start:
+    ```bash
+    mkdir -p ./data && chown 1001:1001 ./data
+    ```
+
+You can also configure a custom data directory location via environment
+variable:
+
+```bash
+PGEDGE_DATA_DIR=/var/lib/pgedge/data
+```
+
+### Container Management
+
+```bash
+# View logs
+docker-compose logs -f mcp-server
+
+# Restart services
+docker-compose restart
+
+# Stop services
+docker-compose down
+
+# Rebuild after code changes
+docker-compose build && docker-compose up -d
+```
+
+### Connecting to Host PostgreSQL
+
+Use `host.docker.internal` instead of `localhost`:
+
+```bash
+PGEDGE_DB_HOST=host.docker.internal
+```
+
+On Linux, you may need to use the Docker bridge IP (`172.17.0.1`).

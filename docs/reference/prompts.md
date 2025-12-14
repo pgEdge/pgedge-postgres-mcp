@@ -8,7 +8,7 @@ query issues.
 ## Disabling Prompts
 
 Individual prompts can be disabled via configuration to restrict what the
-LLM can access. See [Enabling/Disabling Built-in Features](../guide/configuration.md#enablingdisabling-built-in-features)
+LLM can access. See [Enabling/Disabling Built-in Features](../guide/feature_config.md)
 for details.
 
 When a prompt is disabled:

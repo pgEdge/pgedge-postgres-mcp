@@ -1,4 +1,4 @@
-site_name: pgEdge Natural Language Agent
+site_name: pgEdge Postgres MCP Server
 
 extra_css:
   - stylesheets/extra.css
@@ -58,16 +58,24 @@ copyright: Copyright &copy; 2025 pgEdge, Inc
 repo_url: https://github.com/pgEdge/pgedge-mcp
 
 nav:
-  - pgEdge Natural Language Agent:
-      - pgEdge Natural Language Agent: index.md
+  - About the pgEdge Postgres MCP Server:
+      - pgEdge Postgres MCP Server: index.md
       - Choosing the Right Solution: guide/mcp-vs-rag.md
-  - User Guide:
-      - Deployment: guide/deployment.md
-      - Configuration: guide/configuration.md
-      - Quick Start: quickstart.md
+  - Installing the MCP Server:
+      - Deploying on Docker: deploy_docker.md
+      - Deploying from Source: deploy_source.md
+      - Configuring HTTP/HTTPS: guide/http_server.md
+      - Configuring for systemd Management: guide/systemd_config.md
+  - Configuring the MCP Server:
+      - Specifying Configuration Preferences: guide/configuration.md
+      - Using Environment Variables to Specify Options: guide/env_variable_config.md
+      - Including Provider Embeddings in a Configuration File: guide/provider_config.md
+      - Configuring the Server for use with Claude Desktop: guide/claude_desktop.md
+      - Configuring the Agent for Multiple Databases: guide/multiple_db_config.md
+      - Using an Encryption Secret File: guide/encryption_secret.md
+      - Enabling or Disabling Features: guide/feature_config.md
   - Selecting and Using a Client Application:
       - Connecting with the Web Client: guide/web-client.md
-      - Connecting with Claude Desktop: guide/claude_desktop.md
       - CLI Client: guide/cli-client.md
       - Authentication: guide/authentication.md
       - Security: guide/security.md

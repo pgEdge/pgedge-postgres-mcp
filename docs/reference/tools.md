@@ -7,7 +7,7 @@ and more.
 ## Disabling Tools
 
 Individual tools can be disabled via configuration to restrict what the LLM
-can access. See [Enabling/Disabling Built-in Features](../guide/configuration.md#enablingdisabling-built-in-features)
+can access. See [Enabling/Disabling Built-in Features](../guide/feature_config.md)
 for details.
 
 When a tool is disabled:
@@ -186,7 +186,7 @@ Enable logging to debug embedding API calls:
 export PGEDGE_LLM_LOG_LEVEL="info"  # or "debug" or "trace"
 ```
 
-See [Configuration Guide](../guide/configuration.md#embedding-generation-logging) for details.
+See the [documentation](../guide/configuration.md) for configuration details.
 
 ### get_schema_info
 

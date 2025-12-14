@@ -1,5 +1,20 @@
 # Troubleshooting Guide
 
+## Troubleshooting Configuration Issues
+
+### Configuration Not Loading
+
+```bash
+# Check if config file exists
+ls -la bin/pgedge-mcp-server.yaml
+
+# Use explicit path
+./bin/pgedge-mcp-server -config /full/path/to/config.yaml
+
+# Check file permissions
+chmod 600 bin/pgedge-mcp-server.yaml  # Should be readable
+```
+
 ## Troubleshooting Build Issues
 
 When building and deploying the MCP server and agent, you might encounter the following issues:
