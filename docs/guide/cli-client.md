@@ -4,8 +4,6 @@ The Natural Language Agent Go Chat Client is a **production-ready, full-featured
 
 This is the recommended client for production use and provides significantly more features and polish than the [Python examples](../developers/building-chat-clients.md), which are intended as simple reference implementations to demonstrate the MCP protocol.
 
-## Features
-
 - **Dual Mode Support**: Connect via stdio (subprocess) or HTTP
 - **Multiple LLM Providers**: Support for Anthropic Claude, OpenAI, and Ollama
 - **Runtime Configuration**: Switch LLM providers and models without restarting (via slash commands)
@@ -34,13 +32,32 @@ make build
 
 The binary will be created at `bin/pgedge-nla-cli`.
 
-## Quick Start
+
+## CLI Client Quick Start
 
 The easiest way to start the CLI client is using one of the provided startup
 scripts, which handle building binaries, validating configuration, and checking
-for required API keys:
+for required API keys.
 
-### Stdio Mode (Recommended for Single User)
+Before running the startup script, make sure you have:
+
+* **LLM Provider** (at least one):
+   - Anthropic: Set `ANTHROPIC_API_KEY` or `PGEDGE_ANTHROPIC_API_KEY`
+     environment variable, OR create `~/.anthropic-api-key` file
+   - OpenAI: Set `OPENAI_API_KEY` or `PGEDGE_OPENAI_API_KEY` environment
+     variable, OR create `~/.openai-api-key` file
+   - Ollama: Set `PGEDGE_OLLAMA_URL` (e.g., `http://localhost:11434`)
+
+* **Database Connection** (optional, uses defaults if not set):
+   - PostgreSQL variables: `PGHOST`, `PGPORT`, `PGDATABASE`, `PGUSER`,
+     `PGPASSWORD`
+   - Or connection string: `PGEDGE_POSTGRES_CONNECTION_STRING`
+   - Or pgEdge variables: `PGEDGE_DB_HOST`, `PGEDGE_DB_PORT`,
+     `PGEDGE_DB_NAME`, `PGEDGE_DB_USER`, `PGEDGE_DB_PASSWORD`
+
+The script will provide helpful warnings if any of these are missing, prompting you to set them up before proceeding.
+
+**Stdio Mode (Recommended for Single User)**
 
 ```bash
 ./start_cli_stdio.sh
@@ -49,28 +66,24 @@ for required API keys:
 The MCP server runs as a subprocess. Simpler setup, ideal for local development
 and single-user scenarios.
 
-### HTTP Mode (Recommended for Multi-User or Remote Access)
+**HTTP Mode (Recommended for Multi-User or Remote Access)**
 
 ```bash
 ./start_cli_http.sh
 ```
 
-The MCP server runs as a separate HTTP service with authentication. Supports
-multiple concurrent users and remote connections. The server automatically shuts
-down when the CLI exits.
+The MCP server runs as a separate HTTP service with authentication, supporting multiple concurrent users and remote connections. The server automatically shuts down when the CLI exits.
 
 Both scripts will:
 
-- **Auto-build**: Build CLI and server binaries if needed or if source files
-  changed
-- **Validate**: Check that configuration files exist
-- **Check environment**: Warn about missing LLM API keys or database
-  configuration
-- **Start client**: Launch the CLI with proper configuration
+- **Auto-build**: Build CLI and server binaries if needed or if the source files change.
+- **Validate**: Check that configuration files exist.
+- **Check environment**: Warn about missing LLM API keys or database configuration.
+- **Start client**: Launch the CLI with proper configuration.
 
-### Custom Configuration
+**Creating a Custom Configuration**
 
-You can specify a custom CLI configuration file:
+You can specify a custom CLI configuration file with the CONFIG_FILE variable:
 
 ```bash
 CONFIG_FILE=/path/to/custom.yaml ./start_cli_stdio.sh
@@ -78,36 +91,55 @@ CONFIG_FILE=/path/to/custom.yaml ./start_cli_stdio.sh
 CONFIG_FILE=/path/to/custom.yaml ./start_cli_http.sh
 ```
 
-### What You Need
-
-Before running the startup script, make sure you have:
-
-1. **LLM Provider** (at least one):
-   - Anthropic: Set `ANTHROPIC_API_KEY` or `PGEDGE_ANTHROPIC_API_KEY`
-     environment variable, OR create `~/.anthropic-api-key` file
-   - OpenAI: Set `OPENAI_API_KEY` or `PGEDGE_OPENAI_API_KEY` environment
-     variable, OR create `~/.openai-api-key` file
-   - Ollama: Set `PGEDGE_OLLAMA_URL` (e.g., `http://localhost:11434`)
-
-2. **Database Connection** (optional, uses defaults if not set):
-   - PostgreSQL variables: `PGHOST`, `PGPORT`, `PGDATABASE`, `PGUSER`,
-     `PGPASSWORD`
-   - Or connection string: `PGEDGE_POSTGRES_CONNECTION_STRING`
-   - Or pgEdge variables: `PGEDGE_DB_HOST`, `PGEDGE_DB_PORT`,
-     `PGEDGE_DB_NAME`, `PGEDGE_DB_USER`, `PGEDGE_DB_PASSWORD`
-
-The script will provide helpful warnings if any of these are missing, allowing
-you to set them up before proceeding.
-
 ## Configuration
 
-The chat client can be configured in three ways (in order of precedence):
+You can configure the chat client in three ways (in order of precedence):
 
-1. Command-line flags
-2. Environment variables
-3. Configuration file
+1. [Command-line flags](#using-command-line-flags)
+2. [Environment variables](#using-environment-variables)
+3. [Configuration file](#using-a-configuration-file)
 
-### Configuration File
+**API Key Priority:**
+
+API keys are loaded in the following order (highest to lowest):
+
+1. Environment variables (`PGEDGE_ANTHROPIC_API_KEY`, `PGEDGE_OPENAI_API_KEY`)
+2. API key files (`~/.anthropic-api-key`, `~/.openai-api-key`)
+3. Configuration file values (not recommended)
+
+### Using Command-Line Flags
+
+```bash
+pgedge-pg-mcp-cli [flags]
+
+Flags:
+  -config string            Path to configuration file
+  -version                  Show version and exit
+  -mcp-mode string          MCP connection mode: stdio or http
+  -mcp-url string           MCP server URL (for HTTP mode)
+  -mcp-server-path string   Path to MCP server binary (for stdio mode)
+  -llm-provider string      LLM provider: anthropic, openai, or ollama
+  -llm-model string         LLM model to use
+  -anthropic-api-key string API key for Anthropic
+  -openai-api-key string    API key for OpenAI
+  -ollama-url string        Ollama server URL
+  -no-color                 Disable colored output
+```
+
+### Using Environment Variables
+
+- `PGEDGE_MCP_MODE`: Connection mode (stdio or http)
+- `PGEDGE_MCP_URL`: MCP server URL (for HTTP mode)
+- `PGEDGE_MCP_SERVER_PATH`: Path to MCP server binary (for stdio mode)
+- `PGEDGE_MCP_TOKEN`: Authentication token (for HTTP mode)
+- `PGEDGE_LLM_PROVIDER`: LLM provider (anthropic, openai, or ollama)
+- `PGEDGE_LLM_MODEL`: LLM model name
+- `PGEDGE_ANTHROPIC_API_KEY`: Anthropic API key
+- `PGEDGE_OPENAI_API_KEY`: OpenAI API key
+- `PGEDGE_OLLAMA_URL`: Ollama server URL (default: http://localhost:11434)
+- `NO_COLOR`: Disable colored output
+
+### Using a Configuration File
 
 Create a `.pgedge-nla-cli.yaml` file in one of these locations:
 
@@ -150,99 +182,6 @@ ui:
 
 For a complete configuration file example with all available options and detailed comments, see the [Chat Client Config Example](../reference/config-examples/cli-client.md).
 
-### Environment Variables
-
-- `PGEDGE_MCP_MODE`: Connection mode (stdio or http)
-- `PGEDGE_MCP_URL`: MCP server URL (for HTTP mode)
-- `PGEDGE_MCP_SERVER_PATH`: Path to MCP server binary (for stdio mode)
-- `PGEDGE_MCP_TOKEN`: Authentication token (for HTTP mode)
-- `PGEDGE_LLM_PROVIDER`: LLM provider (anthropic, openai, or ollama)
-- `PGEDGE_LLM_MODEL`: LLM model name
-- `PGEDGE_ANTHROPIC_API_KEY`: Anthropic API key
-- `PGEDGE_OPENAI_API_KEY`: OpenAI API key
-- `PGEDGE_OLLAMA_URL`: Ollama server URL (default: http://localhost:11434)
-- `NO_COLOR`: Disable colored output
-
-**API Key Priority:**
-
-API keys are loaded in the following priority order (highest to lowest):
-
-1. Environment variables (`PGEDGE_ANTHROPIC_API_KEY`, `PGEDGE_OPENAI_API_KEY`)
-2. API key files (`~/.anthropic-api-key`, `~/.openai-api-key`)
-3. Configuration file values (not recommended)
-
-### Command-Line Flags
-
-```bash
-pgedge-pg-mcp-cli [flags]
-
-Flags:
-  -config string            Path to configuration file
-  -version                  Show version and exit
-  -mcp-mode string          MCP connection mode: stdio or http
-  -mcp-url string           MCP server URL (for HTTP mode)
-  -mcp-server-path string   Path to MCP server binary (for stdio mode)
-  -llm-provider string      LLM provider: anthropic, openai, or ollama
-  -llm-model string         LLM model to use
-  -anthropic-api-key string API key for Anthropic
-  -openai-api-key string    API key for OpenAI
-  -ollama-url string        Ollama server URL
-  -no-color                 Disable colored output
-```
-
-## Prompt Caching (Anthropic Only)
-
-When using Anthropic Claude as your LLM provider, the chat client automatically uses **prompt caching** to significantly reduce costs and improve response times.
-
-### How It Works
-
-Anthropic's prompt caching feature allows frequently used content (like tool definitions) to be cached on Anthropic's servers for 5 minutes. The chat client automatically implements this optimization:
-
-1. **Tool Definitions Cached**: All MCP tool definitions are cached after the first request
-2. **Automatic Detection**: No configuration needed - works automatically when using Anthropic
-3. **Cost Savings**: Cached input tokens cost ~90% less than regular input tokens
-4. **Lower Latency**: Cached content doesn't need to be reprocessed, reducing response time
-
-### Cache Usage Logging
-
-When caching is active, you'll see log messages showing cache performance:
-
-```
-[LLM] [INFO] Prompt Cache - Created: 1247 tokens, Read: 0 tokens (saved ~0% on input)
-[LLM] [INFO] Prompt Cache - Created: 0 tokens, Read: 1247 tokens (saved ~89% on input)
-```
-
-- **Created**: First time content is sent - creates a cache entry
-- **Read**: Subsequent requests - reads from cache instead of reprocessing
-- **Saved %**: Percentage of input tokens that were cached (cost reduction)
-
-### Cost Savings Example
-
-Without caching:
-
-- Request 1: 1500 input tokens × $3.00/1M = $0.0045
-- Request 2: 1500 input tokens × $3.00/1M = $0.0045
-- Total: $0.0090
-
-With caching:
-
-- Request 1: 1500 input tokens × $3.00/1M = $0.0045 (cache created)
-- Request 2: 200 new + 1300 cached × $0.30/1M = $0.0010
-- Total: $0.0055 (39% savings)
-
-### Requirements
-
-- Only available with Anthropic Claude models
-- Cache entries expire after 5 minutes of inactivity
-- Tool definitions must remain constant (automatic in our implementation)
-
-### Compatibility
-
-- **Anthropic Claude**: Full support
-- **OpenAI**: Not available (OpenAI doesn't support prompt caching)
-- **Ollama**: Not available (local models don't have caching)
-
-For more details, see [Anthropic's Prompt Caching documentation](https://docs.anthropic.com/claude/docs/prompt-caching).
 
 ## Usage Examples
 
@@ -387,7 +326,7 @@ Once the chat client is running, you can use these special commands:
 - `tools` - List available MCP tools
 - `resources` - List available MCP resources
 
-## Keyboard Shortcuts
+**Keyboard Shortcuts**
 
 The CLI supports the following keyboard shortcuts:
 
@@ -413,13 +352,12 @@ When you cancel a request, your query remains in the conversation history so the
 LLM has context for follow-up questions. The Escape keypress itself is not saved
 to any history.
 
+
 ## Slash Commands
 
 The chat client supports **slash commands** for managing settings and configuration without restarting. Similar to Claude Code, commands starting with `/` are processed locally, while unknown commands are sent to the LLM for interpretation.
 
-### Available Slash Commands
-
-#### Display Help
+### Display Help
 
 ```
 /help
@@ -427,7 +365,7 @@ The chat client supports **slash commands** for managing settings and configurat
 
 Shows comprehensive help for all slash commands with examples.
 
-#### Manage Status Messages
+### Manage Status Messages
 
 ```
 /set status-messages <on|off>
@@ -447,7 +385,7 @@ You: /set status-messages on
 System: Status messages enabled
 ```
 
-#### Color Output
+### Color Output
 
 ```
 /set color <on|off>
@@ -474,7 +412,7 @@ System: Colored output enabled
 setting. If `NO_COLOR` is set, colors will be disabled regardless of this
 preference.
 
-#### Markdown Rendering
+### Markdown Rendering
 
 ```
 /set markdown <on|off>
@@ -506,7 +444,7 @@ System: Markdown rendering disabled
 `no_color: true` in your configuration, markdown will be rendered without
 colors but still with formatting structure.
 
-#### Switch LLM Provider
+### Switch LLM Provider
 
 ```
 /set llm-provider <provider>
@@ -525,7 +463,7 @@ You: /set llm-provider anthropic
 System: LLM provider set to: anthropic (model: claude-sonnet-4-20250514)
 ```
 
-#### Change LLM Model
+### Change LLM Model
 
 ```
 /set llm-model <model>
@@ -544,7 +482,7 @@ You: /set llm-model gpt-4-turbo
 System: LLM model set to: gpt-4-turbo (provider: openai)
 ```
 
-#### List Available Models
+### List Available Models
 
 ```
 /list models
@@ -567,10 +505,9 @@ System: Available models from anthropic (7):
     claude-3-haiku-20240307
 ```
 
-#### Database Management
+### Database Management Commands
 
-When connected to a server with multiple databases configured, you can list,
-view, and switch between accessible databases.
+When connected to a server with multiple databases configured, you can list, view, and switch between accessible databases.
 
 ```
 /list databases
@@ -617,7 +554,7 @@ System: Switched to database: staging
 - In STDIO mode, all configured databases are accessible
 - API tokens may be bound to a specific database
 
-#### View Settings
+### View Settings
 
 ```
 /show settings
@@ -654,7 +591,7 @@ Database:
 ─────────────────────────────────────────────────
 ```
 
-### Unknown Slash Commands
+### Dealing with Unknown Slash Commands
 
 If you use a slash command that doesn't match any built-in command, it will be sent to the LLM for interpretation. This allows natural language commands like:
 
@@ -677,13 +614,10 @@ The chat client includes full readline support with persistent command history:
 The history persists across sessions, so your previous queries and commands
 are available when you restart the client.
 
-## Conversation History
 
-When running in HTTP mode with authentication enabled, the CLI automatically
-saves your conversations to the server. This allows you to access them across
-different sessions and continue where you left off.
+## Managing your Conversation History
 
-### Saving Conversations
+When running in HTTP mode with authentication enabled, the CLI automatically saves your conversations to the server. This allows you to access them across different sessions and continue where you left off.
 
 To save your current conversation:
 
@@ -854,74 +788,55 @@ You: quit
 System: Goodbye!
 ```
 
-## Troubleshooting
 
-### Connection Errors
+## Using Prompt Caching (Supported by Anthropic Only)
 
-**Problem**: "Failed to connect to MCP server"
+When using Anthropic Claude as your LLM provider, the chat client automatically uses **prompt caching** to significantly reduce costs and improve response times.
 
-**Solutions**:
+Anthropic's prompt caching feature allows frequently used content (like tool definitions) to be cached on Anthropic's servers for 5 minutes. The chat client automatically implements this optimization:
 
-- In stdio mode, verify the server path is correct: `-mcp-server-path ./bin/pgedge-postgres-mcp`
-- In HTTP mode, verify the URL is correct: `-mcp-url http://localhost:8080`
-- Check if the MCP server is running (in HTTP mode)
-- Verify authentication token is set (in HTTP mode with auth enabled)
+1. **Tool Definitions Cached**: All MCP tool definitions are cached after the first request
+2. **Automatic Detection**: No configuration needed - works automatically when using Anthropic
+3. **Cost Savings**: Cached input tokens cost ~90% less than regular input tokens
+4. **Lower Latency**: Cached content doesn't need to be reprocessed, reducing response time
 
-### LLM Errors
+**Cache Usage Logging**
 
-**Problem**: "LLM error: authentication failed"
+When caching is active, you'll see log messages showing cache performance:
 
-**Solutions**:
-
-- For Anthropic: Verify `ANTHROPIC_API_KEY` is set correctly
-- For Ollama: Verify Ollama is running (`ollama serve`) and the model is pulled (`ollama pull llama3`)
-- Check the model name is correct
-
-**Problem**: "Ollama: model not found"
-
-**Solutions**:
-
-```bash
-# List available models
-ollama list
-
-# Pull the model you want to use
-ollama pull llama3
+```
+[LLM] [INFO] Prompt Cache - Created: 1247 tokens, Read: 0 tokens (saved ~0% on input)
+[LLM] [INFO] Prompt Cache - Created: 0 tokens, Read: 1247 tokens (saved ~89% on input)
 ```
 
-### Configuration Issues
+- **Created**: First time content is sent - creates a cache entry
+- **Read**: Subsequent requests - reads from cache instead of reprocessing
+- **Saved %**: Percentage of input tokens that were cached (cost reduction)
 
-**Problem**: "Configuration error: invalid mode"
+### Cost Savings Example
 
-**Solutions**:
+Without caching:
 
-- Valid modes are `stdio` or `http`
-- Check your configuration file or command-line flags
-- Mode must be specified if not using default
+- Request 1: 1500 input tokens × $3.00/1M = $0.0045
+- Request 2: 1500 input tokens × $3.00/1M = $0.0045
+- Total: $0.0090
 
-**Problem**: "Missing API key for Anthropic"
+With caching:
 
-**Solutions**:
+- Request 1: 1500 input tokens × $3.00/1M = $0.0045 (cache created)
+- Request 2: 200 new + 1300 cached × $0.30/1M = $0.0010
+- Total: $0.0055 (39% savings)
 
-- Set the `PGEDGE_ANTHROPIC_API_KEY` environment variable
-- Or add `anthropic_api_key` to your configuration file under `llm:`
-- Or use the `-anthropic-api-key` command-line flag
+### Requirements
 
-### Terminal/Display Issues
+- Only available with Anthropic Claude models
+- Cache entries expire after 5 minutes of inactivity
+- Tool definitions must remain constant (automatic in our implementation)
 
-**Problem**: Colors look wrong or garbled
+### Compatibility
 
-**Solutions**:
+- **Anthropic Claude**: Full support
+- **OpenAI**: Not available (OpenAI doesn't support prompt caching)
+- **Ollama**: Not available (local models don't have caching)
 
-- Disable colors with the `NO_COLOR=1` environment variable
-- Or use the `-no-color` flag
-- Or add `no_color: true` to your configuration file under `ui:`
-
-**Problem**: History not working
-
-**Solutions**:
-
-- Check that `~/.pgedge-nla-cli-history` is writable
-- The history file is created automatically on first use
-- On some terminals, readline features may be limited
-
+For more details, see [Anthropic's Prompt Caching documentation](https://docs.anthropic.com/claude/docs/prompt-caching).

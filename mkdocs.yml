@@ -74,7 +74,7 @@ nav:
       - Enabling or Disabling Features: guide/feature_config.md
   - Selecting and Using a Client Application:
       - Connecting with the Web Client: guide/web-client.md
-      - CLI Client: guide/cli-client.md
+      - Using the Go Chat Client: guide/cli-client.md
       - Configuring the Server for use with Claude Desktop: guide/claude_desktop.md
       - Authentication: guide/authentication.md
       - Security: guide/security.md

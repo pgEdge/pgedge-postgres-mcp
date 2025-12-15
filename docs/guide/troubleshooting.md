@@ -15,6 +15,7 @@ ls -la bin/pgedge-postgres-mcp.yaml
 chmod 600 bin/pgedge-postgres-mcp.yaml  # Should be readable
 ```
 
+
 ## Troubleshooting Build Issues
 
 When building and deploying the MCP server and agent, you might encounter the following issues:
@@ -52,6 +53,101 @@ openssl rsa -noout -modulus -in server.key | openssl md5
 # Check expiration
 openssl x509 -in server.crt -noout -dates
 ```
+
+
+## Troubleshooting Web Client Issues
+
+### Connection Issues
+
+If you see a red connection indicator:
+
+1. Check that the MCP server is running
+2. Verify database credentials in the server configuration
+3. Check network connectivity to the database host
+
+### Slow Responses
+
+- Try a faster model (e.g., `claude-sonnet` instead of `claude-opus`)
+- Enable response streaming in server configuration
+- Check your LLM provider's rate limits
+
+### Authentication Errors
+
+- Verify your username and password
+- Check that the user exists (use `-list-users` on the server)
+- Ensure authentication is enabled in server configuration
+
+
+## Troubleshooting CLI Client Issues
+
+### Connection Errors
+
+**Problem**: "Failed to connect to MCP server"
+
+**Solutions**:
+
+- In stdio mode, verify the server path is correct: `-mcp-server-path ./bin/pgedge-postgres-mcp`
+- In HTTP mode, verify the URL is correct: `-mcp-url http://localhost:8080`
+- Check if the MCP server is running (in HTTP mode)
+- Verify authentication token is set (in HTTP mode with auth enabled)
+
+### LLM Errors
+
+**Problem**: "LLM error: authentication failed"
+
+**Solutions**:
+
+- For Anthropic: Verify `ANTHROPIC_API_KEY` is set correctly
+- For Ollama: Verify Ollama is running (`ollama serve`) and the model is pulled (`ollama pull llama3`)
+- Check the model name is correct
+
+**Problem**: "Ollama: model not found"
+
+**Solutions**:
+
+```bash
+# List available models
+ollama list
+
+# Pull the model you want to use
+ollama pull llama3
+```
+
+### Configuration Issues
+
+**Problem**: "Configuration error: invalid mode"
+
+**Solutions**:
+
+- Valid modes are `stdio` or `http`
+- Check your configuration file or command-line flags
+- Mode must be specified if not using default
+
+**Problem**: "Missing API key for Anthropic"
+
+**Solutions**:
+
+- Set the `PGEDGE_ANTHROPIC_API_KEY` environment variable
+- Or add `anthropic_api_key` to your configuration file under `llm:`
+- Or use the `-anthropic-api-key` command-line flag
+
+### Terminal/Display Issues
+
+**Problem**: Colors look wrong or garbled
+
+**Solutions**:
+
+- Disable colors with the `NO_COLOR=1` environment variable
+- Or use the `-no-color` flag
+- Or add `no_color: true` to your configuration file under `ui:`
+
+**Problem**: History not working
+
+**Solutions**:
+
+- Check that `~/.pgedge-nla-cli-history` is writable
+- The history file is created automatically on first use
+- On some terminals, readline features may be limited
 
 
 ## Server Exits Immediately After Initialize
