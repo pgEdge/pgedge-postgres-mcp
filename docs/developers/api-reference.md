@@ -125,6 +125,134 @@ Health check endpoint (no authentication required).
 }
 ```
 
+### GET /api/databases
+
+Lists all databases accessible to the authenticated user.
+
+**Request:**
+```http
+GET /api/databases HTTP/1.1
+Authorization: Bearer <session-token>
+```
+
+**Response:**
+```json
+{
+    "databases": [
+        {
+            "name": "production",
+            "host": "localhost",
+            "port": 5432,
+            "database": "myapp",
+            "user": "appuser",
+            "sslmode": "require"
+        },
+        {
+            "name": "analytics",
+            "host": "analytics.example.com",
+            "port": 5432,
+            "database": "analytics",
+            "user": "analyst",
+            "sslmode": "require"
+        }
+    ],
+    "current": "production"
+}
+```
+
+**Response Fields:**
+
+- `databases` - Array of accessible database configurations
+    - `name` - Unique name for this database connection
+    - `host` - Database server hostname
+    - `port` - Database server port
+    - `database` - PostgreSQL database name
+    - `user` - Database username
+    - `sslmode` - SSL connection mode
+- `current` - Name of the currently selected database
+
+**Access Control:**
+
+- Users only see databases listed in their `available_databases` configuration
+- API tokens only see their bound database (if configured)
+- In STDIO mode or with authentication disabled, all configured databases are
+  visible
+
+**Implementation:**
+[internal/api/databases.go](https://github.com/pgEdge/pgedge-postgres-mcp/blob/main/internal/api/databases.go)
+
+### POST /api/databases/select
+
+Selects a database as the current database for subsequent operations.
+
+**Request:**
+```http
+POST /api/databases/select HTTP/1.1
+Content-Type: application/json
+Authorization: Bearer <session-token>
+
+{
+    "name": "analytics"
+}
+```
+
+**Parameters:**
+
+- `name` (required) - Name of the database to select
+
+**Success Response (200):**
+```json
+{
+    "success": true,
+    "current": "analytics",
+    "message": "Database selected successfully"
+}
+```
+
+**Error Responses:**
+
+*Invalid request (400):*
+```json
+{
+    "success": false,
+    "error": "Database name is required"
+}
+```
+
+*Database not found (404):*
+```json
+{
+    "success": false,
+    "error": "Database not found"
+}
+```
+
+*Access denied (403):*
+```json
+{
+    "success": false,
+    "error": "Access denied to this database"
+}
+```
+
+*API token bound to different database (403):*
+```json
+{
+    "success": false,
+    "error": "API token is bound to a different database"
+}
+```
+
+**Notes:**
+
+- Database selection is per-session (tied to the authentication token)
+- API tokens with a bound database cannot switch to a different database
+- Users can only select databases they have access to
+- The selected database persists for the duration of the session
+
+**Implementation:**
+[internal/api/databases.go](https://github.com/pgEdge/pgedge-postgres-mcp/blob/main/internal/api/databases.go)
+
 ### GET /api/user/info
 
 Returns information about the authenticated user.
