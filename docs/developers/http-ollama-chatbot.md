@@ -291,3 +291,9 @@ export PGEDGE_MCP_SERVER_URL="http://localhost:8080/mcp/v1"
 ## Source Code
 
 The complete source code for this example is available in the [`examples/http-ollama-chatbot`](https://github.com/pgEdge/pgedge-postgres-mcp/blob/main/examples/http-ollama-chatbot) directory.
+
+## Next Steps
+
+- Try the [Stdio + Anthropic Claude Chatbot](stdio-anthropic-chatbot.md) for a simpler setup with more powerful LLM
+- Explore [authentication options](../guide/authentication.md) for securing your HTTP endpoint
+- Learn about [available tools](../reference/tools.md) you can use

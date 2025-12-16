@@ -61,7 +61,7 @@ type MCPServer struct {
 // StartMCPServer starts the MCP server binary for testing
 func StartMCPServer(t *testing.T, connString, apiKey string) (*MCPServer, error) {
 	// Find the binary
-	binaryPath := filepath.Join("..", "bin", "pgedge-mcp-server")
+	binaryPath := filepath.Join("..", "bin", "pgedge-postgres-mcp")
 
 	// Check if binary exists, if not try to build it
 	if _, err := os.Stat(binaryPath); os.IsNotExist(err) {
@@ -306,8 +306,8 @@ func testInitialize(t *testing.T, server *MCPServer) {
 		t.Fatal("serverInfo not found in result")
 	}
 
-	if name, ok := serverInfo["name"].(string); !ok || name != "pgedge-mcp-server" {
-		t.Errorf("Expected server name 'pgedge-mcp-server', got '%v'", serverInfo["name"])
+	if name, ok := serverInfo["name"].(string); !ok || name != "pgedge-postgres-mcp" {
+		t.Errorf("Expected server name 'pgedge-postgres-mcp', got '%v'", serverInfo["name"])
 	}
 
 	// Verify capabilities

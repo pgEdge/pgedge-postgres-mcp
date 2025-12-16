@@ -15,7 +15,7 @@ RUN go mod download
 COPY . .
 
 # Build the server binary
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -installsuffix cgo -o pgedge-mcp-server ./cmd/pgedge-pg-mcp-svr
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -installsuffix cgo -o pgedge-postgres-mcp ./cmd/pgedge-pg-mcp-svr
 
 # Stage 2: Create minimal runtime image
 # Note: Using ubi9-minimal instead of ubi9-micro to get shadow-utils for user switching
@@ -26,7 +26,7 @@ FROM registry.access.redhat.com/ubi9/ubi-minimal:latest
 ARG KB_SOURCE=""
 
 # Add labels for container metadata
-LABEL name="pgedge-mcp-server" \
+LABEL name="pgedge-postgres-mcp" \
       vendor="pgEdge" \
       version="1.0" \
       summary="The pgEdge MCP Server" \
@@ -47,7 +47,7 @@ RUN useradd -u 1001 -r -s /bin/sh -d /app -c "MCP Server User" mcp
 WORKDIR /app
 
 # Copy the binary from builder
-COPY --from=builder --chown=1001:1001 /workspace/pgedge-mcp-server /app/pgedge-mcp-server
+COPY --from=builder --chown=1001:1001 /workspace/pgedge-postgres-mcp /app/pgedge-postgres-mcp
 
 # Copy initialization script (must be executable and owned by root to create directories)
 COPY --chmod=755 docker/init-server.sh /app/init-server.sh

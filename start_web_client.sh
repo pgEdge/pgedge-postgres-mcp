@@ -31,11 +31,11 @@ CMD_SERVER_DIR="$SCRIPT_DIR/cmd/pgedge-pg-mcp-svr"
 INTERNAL_DIR="$SCRIPT_DIR/internal"
 
 # Configuration files
-SERVER_CONFIG="$BIN_DIR/pgedge-mcp-server-http.yaml"
-SERVER_BIN="$BIN_DIR/pgedge-mcp-server"
+SERVER_CONFIG="$BIN_DIR/pgedge-postgres-mcp-http.yaml"
+SERVER_BIN="$BIN_DIR/pgedge-postgres-mcp"
 
 # Log files
-SERVER_LOG="/tmp/pgedge-mcp-server.log"
+SERVER_LOG="/tmp/pgedge-postgres-mcp.log"
 VITE_LOG="/tmp/pgedge-nla-vite.log"
 
 # PID files for cleanup
@@ -235,7 +235,7 @@ echo "  • Vite Dev:       $VITE_LOG"
 echo ""
 echo -e "${BLUE}Login Credentials (for web interface):${NC}"
 echo "  • Username: dpage"
-echo "  • Password: (as configured in bin/pgedge-mcp-server-users.yaml)"
+echo "  • Password: (as configured in bin/pgedge-postgres-mcp-users.yaml)"
 echo ""
 echo -e "${BLUE}Architecture:${NC}"
 echo "  • Web client communicates directly with MCP server via JSON-RPC"

@@ -18,12 +18,21 @@ import (
 )
 
 const (
-	// TargetChunkSize is the target number of tokens per chunk
-	TargetChunkSize = 800
-	// MaxChunkSize is the maximum number of tokens per chunk
-	MaxChunkSize = 1000
-	// OverlapSize is the number of tokens to overlap between chunks
-	OverlapSize = 200
+	// TargetChunkSize is the target number of words per chunk.
+	// Note: This is word count, not LLM tokens. Technical content with long
+	// terms (like MULE_INTERNAL, EUC_JIS_2004) can tokenize to 3-4x more
+	// LLM tokens. For nomic-embed-text (8192 token limit), 250 words of
+	// dense technical content is a safe maximum.
+	TargetChunkSize = 250
+	// MaxChunkSize is the maximum number of words per chunk
+	MaxChunkSize = 300
+	// OverlapSize is the number of words to overlap between chunks
+	OverlapSize = 50
+	// MaxChunkChars is the maximum characters per chunk.
+	// This is a safety limit for content with high char-to-word ratios
+	// (like XML/SGML with verbose technical terms). For 8192 token limit,
+	// assuming ~2 chars per token for technical content, 3000 chars is safe.
+	MaxChunkChars = 3000
 )
 
 // ChunkDocument breaks a document into chunks with overlap
@@ -112,8 +121,8 @@ func chunkSection(section Section, doc *kbtypes.Document) []*kbtypes.Chunk {
 		return nil
 	}
 
-	// If section is small enough, return as single chunk
-	if len(tokens) <= TargetChunkSize {
+	// If section is small enough (by word AND character count), return as single chunk
+	if len(tokens) <= TargetChunkSize && len(content) <= MaxChunkChars {
 		text := content
 		if section.Heading != "" {
 			text = section.Heading + "\n\n" + content
@@ -146,13 +155,29 @@ func chunkSection(section Section, doc *kbtypes.Document) []*kbtypes.Chunk {
 			end = len(tokens)
 		}
 
-		// Try to break at sentence boundary
-		if end < len(tokens) {
+		// Check character count and reduce end if needed
+		for end > start+1 {
+			chunkText := detokenize(tokens[start:end])
+			if len(chunkText) <= MaxChunkChars {
+				break
+			}
+			// Reduce chunk size to fit character limit
+			end--
+		}
+
+		// Try to break at sentence boundary (only if we have room)
+		if end < len(tokens) && len(detokenize(tokens[start:end])) < MaxChunkChars-200 {
 			maxEnd := start + MaxChunkSize
 			if maxEnd > len(tokens) {
 				maxEnd = len(tokens)
 			}
-			end = findSentenceBoundary(tokens, end, maxEnd)
+			// Don't extend beyond character limit
+			for maxEnd > end && len(detokenize(tokens[start:maxEnd])) > MaxChunkChars {
+				maxEnd--
+			}
+			if maxEnd > end {
+				end = findSentenceBoundary(tokens, end, maxEnd)
+			}
 		}
 
 		// Extract chunk tokens and convert back to text

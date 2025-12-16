@@ -135,9 +135,17 @@ func (c *Compactor) Compact(messages []Message) CompactResponse {
 	// Always keep first message (original context)
 	anchors := []Message{messages[0]}
 
+	// Calculate recent window start, ensuring we don't break tool_use/tool_result pairs
+	recentStart := len(messages) - c.recentWindow
+	if recentStart < 1 {
+		recentStart = 1
+	}
+	// Adjust for tool pairs - if first recent message has tool_results, include preceding message
+	recentStart = c.adjustStartForToolPairs(messages, recentStart)
+
 	// Classify middle messages
 	middleStart := 1
-	middleEnd := len(messages) - c.recentWindow
+	middleEnd := recentStart
 	if middleEnd <= middleStart {
 		middleEnd = middleStart
 	}
@@ -145,8 +153,11 @@ func (c *Compactor) Compact(messages []Message) CompactResponse {
 	middle := messages[middleStart:middleEnd]
 	important := c.classifyAndKeepImportant(middle)
 
+	// Ensure tool pairs are preserved in important messages
+	important = c.ensureToolPairsInSlice(middle, important, middleStart)
+
 	// Always keep recent messages
-	recent := messages[len(messages)-c.recentWindow:]
+	recent := messages[recentStart:]
 	if len(messages) < c.recentWindow {
 		recent = messages[1:]
 	}
@@ -407,4 +418,128 @@ func (c *Compactor) estimateTokens(messages []Message) int {
 		return total
 	}
 	return c.tokenEstimator.EstimateTokensForMessages(messages)
+}
+
+// adjustStartForToolPairs adjusts the start index to ensure tool_use/tool_result
+// message pairs are kept together. If the message at startIdx contains tool_results,
+// we need to include the preceding assistant message with tool_use blocks.
+func (c *Compactor) adjustStartForToolPairs(messages []Message, startIdx int) int {
+	if startIdx <= 1 || startIdx >= len(messages) {
+		return startIdx
+	}
+
+	// Check if the message at startIdx is a user message with tool_results
+	msg := messages[startIdx]
+	if msg.Role != "user" {
+		return startIdx
+	}
+
+	// Check if this message contains tool_result blocks
+	if c.hasToolResults(msg) {
+		// Include the preceding assistant message (which should have tool_use)
+		if startIdx > 1 {
+			startIdx--
+		}
+	}
+
+	return startIdx
+}
+
+// hasToolResults checks if a message contains tool_result blocks.
+func (c *Compactor) hasToolResults(msg Message) bool {
+	content, ok := msg.Content.([]interface{})
+	if !ok {
+		return false
+	}
+
+	for _, item := range content {
+		if itemMap, ok := item.(map[string]interface{}); ok {
+			if itemType, ok := itemMap["type"].(string); ok && itemType == "tool_result" {
+				return true
+			}
+		}
+	}
+
+	return false
+}
+
+// hasToolUse checks if a message contains tool_use blocks.
+func (c *Compactor) hasToolUse(msg Message) bool {
+	content, ok := msg.Content.([]interface{})
+	if !ok {
+		return false
+	}
+
+	for _, item := range content {
+		if itemMap, ok := item.(map[string]interface{}); ok {
+			if itemType, ok := itemMap["type"].(string); ok && itemType == "tool_use" {
+				return true
+			}
+		}
+	}
+
+	return false
+}
+
+// ensureToolPairsInSlice ensures that if we keep a message with tool_results,
+// we also keep its corresponding tool_use message (and vice versa).
+// The middleSlice is the original slice, important is what we've decided to keep,
+// and offset is the starting index of middleSlice in the original messages array.
+func (c *Compactor) ensureToolPairsInSlice(middleSlice, important []Message, offset int) []Message {
+	if len(important) == 0 || len(middleSlice) == 0 {
+		return important
+	}
+
+	// Build a set of kept message indices (relative to middleSlice)
+	keptIndices := make(map[int]bool)
+	for _, kept := range important {
+		for i, msg := range middleSlice {
+			if c.messagesEqual(kept, msg) {
+				keptIndices[i] = true
+				break
+			}
+		}
+	}
+
+	// Check each kept message and ensure its pair is also kept
+	additionalMessages := []Message{}
+	for idx := range keptIndices {
+		msg := middleSlice[idx]
+
+		// If this is a user message with tool_results, ensure preceding assistant is kept
+		if msg.Role == "user" && c.hasToolResults(msg) {
+			if idx > 0 && !keptIndices[idx-1] {
+				prevMsg := middleSlice[idx-1]
+				if prevMsg.Role == "assistant" && c.hasToolUse(prevMsg) {
+					additionalMessages = append(additionalMessages, prevMsg)
+					keptIndices[idx-1] = true
+				}
+			}
+		}
+
+		// If this is an assistant message with tool_use, ensure following user is kept
+		if msg.Role == "assistant" && c.hasToolUse(msg) {
+			if idx+1 < len(middleSlice) && !keptIndices[idx+1] {
+				nextMsg := middleSlice[idx+1]
+				if nextMsg.Role == "user" && c.hasToolResults(nextMsg) {
+					additionalMessages = append(additionalMessages, nextMsg)
+					keptIndices[idx+1] = true
+				}
+			}
+		}
+	}
+
+	// Combine and sort by original order
+	if len(additionalMessages) > 0 {
+		// Sort by position in middleSlice to maintain order
+		sortedResult := make([]Message, 0, len(important)+len(additionalMessages))
+		for i := range middleSlice {
+			if keptIndices[i] {
+				sortedResult = append(sortedResult, middleSlice[i])
+			}
+		}
+		return sortedResult
+	}
+
+	return important
 }

@@ -74,7 +74,7 @@ export function mockInitialize(id = 1) {
             tools: {}
         },
         serverInfo: {
-            name: 'pgedge-mcp-server',
+            name: 'pgedge-postgres-mcp',
             version: '1.0.0-alpha2'
         }
     });

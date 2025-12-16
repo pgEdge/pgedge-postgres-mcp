@@ -28,7 +28,7 @@ func main() {
 	mcpMode := flag.String("mcp-mode", "", "MCP connection mode: stdio or http (default: stdio)")
 	mcpURL := flag.String("mcp-url", "", "MCP server URL (for HTTP mode)")
 	mcpServerPath := flag.String("mcp-server-path", "", "Path to MCP server binary (for stdio mode)")
-	mcpAuthMode := flag.String("mcp-auth-mode", "", "MCP authentication mode: token or user (default: user)")
+	mcpAuthMode := flag.String("mcp-auth-mode", "", "MCP authentication mode: none, token, or user (default: user)")
 	mcpToken := flag.String("mcp-token", "", "MCP server authentication token (for token mode)")
 	mcpUsername := flag.String("mcp-username", "", "MCP server username (for user mode)")
 	mcpPassword := flag.String("mcp-password", "", "MCP server password (for user mode)")

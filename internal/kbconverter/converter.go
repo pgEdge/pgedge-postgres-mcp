@@ -58,19 +58,111 @@ func DetectDocumentType(filename string) kbtypes.DocumentType {
 }
 
 // Convert converts a document to markdown based on its type
+// The output is cleaned for optimal semantic search and RAG usage.
 func Convert(content []byte, docType kbtypes.DocumentType) (markdown string, title string, err error) {
 	switch docType {
 	case kbtypes.TypeHTML:
-		return convertHTML(content)
+		markdown, title, err = convertHTML(content)
 	case kbtypes.TypeMarkdown:
-		return processMarkdown(content)
+		markdown, title, err = processMarkdown(content)
 	case kbtypes.TypeReStructuredText:
-		return convertRST(content)
+		markdown, title, err = convertRST(content)
 	case kbtypes.TypeSGML:
-		return convertSGML(content)
+		markdown, title, err = convertSGML(content)
 	default:
 		return "", "", ErrUnsupportedFormat
 	}
+
+	if err != nil {
+		return "", "", err
+	}
+
+	// Clean the markdown for semantic search/RAG
+	markdown = CleanMarkdownForRAG(markdown)
+
+	return markdown, title, nil
+}
+
+// CleanMarkdownForRAG removes or simplifies markdown elements that add noise
+// to semantic search and RAG systems while preserving useful content.
+func CleanMarkdownForRAG(content string) string {
+	// Simplify ASCII table borders - these tokenize heavily
+	// +------+------+ -> +-+-+
+	// Replace repeated dashes/equals in table borders
+	tableBorderRe := regexp.MustCompile(`([+|])[-=]{3,}`)
+	content = tableBorderRe.ReplaceAllString(content, "$1--")
+
+	// Also simplify standalone separator lines (RST tables)
+	// Lines that are mostly dashes/equals/plus signs
+	separatorLineRe := regexp.MustCompile(`(?m)^[+\-=|]+$`)
+	content = separatorLineRe.ReplaceAllStringFunc(content, func(line string) string {
+		// Collapse to a minimal separator
+		if strings.Contains(line, "+") {
+			return "+-+-+"
+		}
+		return "---"
+	})
+
+	// Strip image references but keep alt text
+	// ![alt text](path) -> alt text
+	// ![](path) -> (removed entirely)
+	imageRe := regexp.MustCompile(`!\[([^\]]*)\]\([^)]+\)`)
+	content = imageRe.ReplaceAllStringFunc(content, func(match string) string {
+		// Extract alt text
+		altRe := regexp.MustCompile(`!\[([^\]]*)\]`)
+		altMatch := altRe.FindStringSubmatch(match)
+		if len(altMatch) > 1 && strings.TrimSpace(altMatch[1]) != "" {
+			return altMatch[1]
+		}
+		return "" // Remove images with no alt text
+	})
+
+	// Strip URLs from links but keep link text
+	// [text](url) -> text
+	// [](url) -> (removed entirely)
+	linkRe := regexp.MustCompile(`\[([^\]]*)\]\([^)]+\)`)
+	content = linkRe.ReplaceAllStringFunc(content, func(match string) string {
+		// Extract link text
+		textRe := regexp.MustCompile(`\[([^\]]*)\]`)
+		textMatch := textRe.FindStringSubmatch(match)
+		if len(textMatch) > 1 && strings.TrimSpace(textMatch[1]) != "" {
+			return textMatch[1]
+		}
+		return "" // Remove links with no text
+	})
+
+	// Strip reference-style link definitions: [text]: url
+	refLinkRe := regexp.MustCompile(`(?m)^\s*\[[^\]]+\]:\s*\S+.*$\n?`)
+	content = refLinkRe.ReplaceAllString(content, "")
+
+	// Normalize excessive whitespace
+	// Multiple spaces -> single space (but preserve leading indentation for code)
+	lines := strings.Split(content, "\n")
+	for i, line := range lines {
+		// Preserve indentation (for code blocks), but normalize inline spaces
+		trimmed := strings.TrimLeft(line, " \t")
+		indent := line[:len(line)-len(trimmed)]
+
+		// Collapse multiple spaces to single space within the line content
+		spaceRe := regexp.MustCompile(`  +`)
+		trimmed = spaceRe.ReplaceAllString(trimmed, " ")
+
+		lines[i] = indent + trimmed
+	}
+	content = strings.Join(lines, "\n")
+
+	// Collapse 3+ consecutive newlines to 2 (preserve paragraph breaks)
+	newlineRe := regexp.MustCompile(`\n{3,}`)
+	content = newlineRe.ReplaceAllString(content, "\n\n")
+
+	// Remove trailing whitespace from lines
+	trailingRe := regexp.MustCompile(`(?m)[ \t]+$`)
+	content = trailingRe.ReplaceAllString(content, "")
+
+	// Trim leading/trailing whitespace from entire document
+	content = strings.TrimSpace(content)
+
+	return content
 }
 
 // convertHTML converts HTML to Markdown and extracts the title

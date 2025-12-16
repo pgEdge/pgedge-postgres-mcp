@@ -90,16 +90,37 @@ jobs:
               run: |
                   go test -v ./internal/mcp/... ./internal/auth/... ./internal/config/... ./internal/crypto/... ./internal/database/... ./internal/resources/... ./internal/tools/... ./internal/chat/... ./internal/llmproxy/... ./internal/search/... ./internal/prompts/... ./internal/conversations/... ./internal/kbdatabase/... ./internal/kbembed/... ./internal/kbchunker/...
 
-            - name: Configure kb-builder for Ollama Cloud
+            - name: Configure git for private repo access
               run: |
-                  # Create a copy and modify it to use Ollama Cloud and output kb.db
+                  # Configure git to use PGEDGE_BUILDER_TOKEN for authentication
+                  git config --global url."https://x-access-token:${PGEDGE_BUILDER_TOKEN}@github.com/".insteadOf "https://github.com/"
+              env:
+                  PGEDGE_BUILDER_TOKEN: ${{ secrets.PGEDGE_BUILDER_TOKEN }}
+
+            - name: Setup API keys for kb-builder
+              run: |
+                  # Create temporary API key files for all three providers
+                  mkdir -p /tmp/api-keys
+                  echo "${{ secrets.OPENAI_API_KEY }}" > /tmp/api-keys/openai-key
+                  echo "${{ secrets.VOYAGE_API_KEY }}" > /tmp/api-keys/voyage-key
+                  chmod 600 /tmp/api-keys/*
+
+            - name: Configure kb-builder for cloud providers
+              run: |
+                  # Create a copy and modify it to use cloud endpoints and output kb.db
                   cp examples/pgedge-nla-kb-builder.yaml examples/pgedge-nla-kb-builder-build.yaml
+                  # Update database path
                   sed -i 's|database_path: "bin/pgedge-nla-kb.db"|database_path: "bin/kb.db"|' examples/pgedge-nla-kb-builder-build.yaml
+                  # Configure Ollama to use cloud endpoint
                   sed -i 's|endpoint: "http://localhost:11434"|endpoint: "https://ollama.com"|' examples/pgedge-nla-kb-builder-build.yaml
-                  sed -i '/openai:/,/enabled:/ s/enabled: true/enabled: false/' examples/pgedge-nla-kb-builder-build.yaml
-                  sed -i '/voyage:/,/enabled:/ s/enabled: true/enabled: false/' examples/pgedge-nla-kb-builder-build.yaml
-                  echo "Modified config for build:"
-                  grep -A2 "database_path:\|ollama:" examples/pgedge-nla-kb-builder-build.yaml
+                  # Configure OpenAI to use temporary key file
+                  sed -i 's|api_key_file: "~/.openai-api-key"|api_key_file: "/tmp/api-keys/openai-key"|' examples/pgedge-nla-kb-builder-build.yaml
+                  # Configure Voyage to use temporary key file
+                  sed -i 's|api_key_file: "~/.voyage-api-key"|api_key_file: "/tmp/api-keys/voyage-key"|' examples/pgedge-nla-kb-builder-build.yaml
+                  # Convert SSH URLs to HTTPS for authentication with token
+                  sed -i 's|git@github.com:|https://github.com/|g' examples/pgedge-nla-kb-builder-build.yaml
+                  echo "Modified config for build (all three providers enabled):"
+                  grep -A3 "openai:\|voyage:\|ollama:" examples/pgedge-nla-kb-builder-build.yaml | head -30
 
             - name: Run GoReleaser (amd64 only)
               uses: goreleaser/goreleaser-action@v6
@@ -109,6 +130,8 @@ jobs:
                   args: release --clean --config .goreleaser-amd64.yaml
               env:
                   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+                  OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+                  VOYAGE_API_KEY: ${{ secrets.VOYAGE_API_KEY }}
                   OLLAMA_API_KEY: ${{ secrets.OLLAMA_API_KEY }}
 
             - name: Upload amd64 artifacts
@@ -153,16 +176,37 @@ jobs:
               run: |
                   go test -v ./internal/mcp/... ./internal/auth/... ./internal/config/... ./internal/crypto/... ./internal/database/... ./internal/resources/... ./internal/tools/... ./internal/chat/... ./internal/llmproxy/... ./internal/search/... ./internal/prompts/... ./internal/conversations/... ./internal/kbdatabase/... ./internal/kbembed/... ./internal/kbchunker/...
 
-            - name: Configure kb-builder for Ollama Cloud
+            - name: Configure git for private repo access
               run: |
-                  # Create a copy and modify it to use Ollama Cloud and output kb.db
+                  # Configure git to use PGEDGE_BUILDER_TOKEN for authentication
+                  git config --global url."https://x-access-token:${PGEDGE_BUILDER_TOKEN}@github.com/".insteadOf "https://github.com/"
+              env:
+                  PGEDGE_BUILDER_TOKEN: ${{ secrets.PGEDGE_BUILDER_TOKEN }}
+
+            - name: Setup API keys for kb-builder
+              run: |
+                  # Create temporary API key files for all three providers
+                  mkdir -p /tmp/api-keys
+                  echo "${{ secrets.OPENAI_API_KEY }}" > /tmp/api-keys/openai-key
+                  echo "${{ secrets.VOYAGE_API_KEY }}" > /tmp/api-keys/voyage-key
+                  chmod 600 /tmp/api-keys/*
+
+            - name: Configure kb-builder for cloud providers
+              run: |
+                  # Create a copy and modify it to use cloud endpoints and output kb.db
                   cp examples/pgedge-nla-kb-builder.yaml examples/pgedge-nla-kb-builder-build.yaml
+                  # Update database path
                   sed -i 's|database_path: "bin/pgedge-nla-kb.db"|database_path: "bin/kb.db"|' examples/pgedge-nla-kb-builder-build.yaml
+                  # Configure Ollama to use cloud endpoint
                   sed -i 's|endpoint: "http://localhost:11434"|endpoint: "https://ollama.com"|' examples/pgedge-nla-kb-builder-build.yaml
-                  sed -i '/openai:/,/enabled:/ s/enabled: true/enabled: false/' examples/pgedge-nla-kb-builder-build.yaml
-                  sed -i '/voyage:/,/enabled:/ s/enabled: true/enabled: false/' examples/pgedge-nla-kb-builder-build.yaml
-                  echo "Modified config for build:"
-                  grep -A2 "database_path:\|ollama:" examples/pgedge-nla-kb-builder-build.yaml
+                  # Configure OpenAI to use temporary key file
+                  sed -i 's|api_key_file: "~/.openai-api-key"|api_key_file: "/tmp/api-keys/openai-key"|' examples/pgedge-nla-kb-builder-build.yaml
+                  # Configure Voyage to use temporary key file
+                  sed -i 's|api_key_file: "~/.voyage-api-key"|api_key_file: "/tmp/api-keys/voyage-key"|' examples/pgedge-nla-kb-builder-build.yaml
+                  # Convert SSH URLs to HTTPS for authentication with token
+                  sed -i 's|git@github.com:|https://github.com/|g' examples/pgedge-nla-kb-builder-build.yaml
+                  echo "Modified config for build (all three providers enabled):"
+                  grep -A3 "openai:\|voyage:\|ollama:" examples/pgedge-nla-kb-builder-build.yaml | head -30
 
             - name: Run GoReleaser (arm64 only)
               uses: goreleaser/goreleaser-action@v6
@@ -172,6 +216,8 @@ jobs:
                   args: release --clean --config .goreleaser-arm64.yaml
               env:
                   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+                  OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+                  VOYAGE_API_KEY: ${{ secrets.VOYAGE_API_KEY }}
                   OLLAMA_API_KEY: ${{ secrets.OLLAMA_API_KEY }}
 
             - name: Upload arm64 artifacts

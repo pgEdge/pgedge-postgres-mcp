@@ -611,7 +611,7 @@ func TestSaveAndLoadUserStore(t *testing.T) {
 func TestGetDefaultUserPath(t *testing.T) {
 	t.Run("returns correct default path", func(t *testing.T) {
 		binaryPath := "/path/to/binary/server"
-		expectedPath := "/path/to/binary/pgedge-mcp-server-users.yaml"
+		expectedPath := "/path/to/binary/pgedge-postgres-mcp-users.yaml"
 
 		path := GetDefaultUserPath(binaryPath)
 		if path != expectedPath {
@@ -623,8 +623,8 @@ func TestGetDefaultUserPath(t *testing.T) {
 		binaryPath := "bin/server"
 		path := GetDefaultUserPath(binaryPath)
 
-		if path != "bin/pgedge-mcp-server-users.yaml" {
-			t.Errorf("Expected relative path 'bin/pgedge-mcp-server-users.yaml', got '%s'", path)
+		if path != "bin/pgedge-postgres-mcp-users.yaml" {
+			t.Errorf("Expected relative path 'bin/pgedge-postgres-mcp-users.yaml', got '%s'", path)
 		}
 	})
 }

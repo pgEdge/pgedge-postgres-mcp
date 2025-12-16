@@ -23,7 +23,7 @@ on:
 
 env:
     REGISTRY: ghcr.io
-    IMAGE_NAME_SERVER: pgedge/mcp-server
+    IMAGE_NAME_SERVER: pgedge/postgres-mcp
     IMAGE_NAME_WEB: pgedge/nla-web
     IMAGE_NAME_CLI: pgedge/nla-cli
 
@@ -113,7 +113,7 @@ jobs:
                       echo "url=${{ github.event.inputs.kb_source }}" >> $GITHUB_OUTPUT
                   else
                       # Default KB source URL (update this when KB is hosted)
-                      echo "url=https://github.com/pgEdge/pgedge-mcp/releases/download/kb-latest/kb.db" >> $GITHUB_OUTPUT
+                      echo "url=https://github.com/pgEdge/pgedge-postgres-mcp/releases/download/kb-latest/kb.db" >> $GITHUB_OUTPUT
                   fi
 
             - name: Check if KB source is available

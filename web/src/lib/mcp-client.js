@@ -9,7 +9,7 @@
  */
 
 // Web client version - keep in sync with server releases
-export const CLIENT_VERSION = '1.0.0-alpha4';
+export const CLIENT_VERSION = '1.0.0-alpha5';
 
 /**
  * MCP Client for communicating with MCP server via JSON-RPC

@@ -3,7 +3,7 @@
 This document provides guidance for creating native OS packages (RPM/DEB) for the
 pgEdge Natural Language Agent. The project produces four separate packages:
 
-1. **pgedge-mcp-server** - MCP server with HTTP/HTTPS API
+1. **pgedge-postgres-mcp** - MCP server with HTTP/HTTPS API
 2. **pgedge-nla-cli** - Command-line chat client
 3. **pgedge-nla-web** - Web UI with React frontend
 4. **pgedge-nla-kb** - Pre-built knowledgebase database (optional)
@@ -17,7 +17,7 @@ pgEdge Natural Language Agent. The project produces four separate packages:
 
 ## Build Process
 
-### 1. MCP Server Package (`pgedge-mcp-server`)
+### 1. MCP Server Package (`pgedge-postgres-mcp`)
 
 **Build Command:**
 ```bash
@@ -28,18 +28,18 @@ make build-server
 
 **Binary Location:**
 ```
-bin/pgedge-mcp-server
+bin/pgedge-postgres-mcp
 ```
 
 **Files to Include:**
 
 ```
-/usr/bin/pgedge-mcp-server                  # Main server binary
+/usr/bin/pgedge-postgres-mcp                  # Main server binary
 /etc/pgedge/mcp-server.yaml                 # Default configuration
 /etc/pgedge/mcp-server.env                  # Environment variables template
-/usr/lib/systemd/system/pgedge-mcp-server.service  # Systemd unit
-/usr/share/doc/pgedge-mcp-server/README.md  # Documentation
-/usr/share/doc/pgedge-mcp-server/LICENSE    # License file
+/usr/lib/systemd/system/pgedge-postgres-mcp.service  # Systemd unit
+/usr/share/doc/pgedge-postgres-mcp/README.md  # Documentation
+/usr/share/doc/pgedge-postgres-mcp/LICENSE    # License file
 /var/lib/pgedge/nla-server/                 # Data directory (create empty)
                                             # - tokens.json (API tokens)
                                             # - users.json (user credentials)
@@ -50,7 +50,7 @@ bin/pgedge-mcp-server
 **Default Configuration File** (`/etc/pgedge/mcp-server.yaml`):
 ```yaml
 # pgEdge Natural Language Agent - Server Configuration
-# See: https://github.com/pgEdge/pgedge-mcp/blob/main/docs/configuration.md
+# See: https://github.com/pgEdge/pgedge-postgres-mcp/blob/main/docs/configuration.md
 
 # Database connection settings
 database:
@@ -125,11 +125,11 @@ YAML config file. It's loaded by systemd via `EnvironmentFile=`.
 # PGEDGE_MCP_LOG_LEVEL=info
 ```
 
-**Systemd Unit File** (`/usr/lib/systemd/system/pgedge-mcp-server.service`):
+**Systemd Unit File** (`/usr/lib/systemd/system/pgedge-postgres-mcp.service`):
 ```ini
 [Unit]
 Description=pgEdge Natural Language Agent - MCP Server
-Documentation=https://github.com/pgEdge/pgedge-mcp
+Documentation=https://github.com/pgEdge/pgedge-postgres-mcp
 After=network.target postgresql.service
 Wants=postgresql.service
 
@@ -140,7 +140,7 @@ Group=pgedge
 WorkingDirectory=/var/lib/pgedge/nla-server
 
 # Main executable
-ExecStart=/usr/bin/pgedge-mcp-server -config /etc/pgedge/nla-server.yaml
+ExecStart=/usr/bin/pgedge-postgres-mcp -config /etc/pgedge/nla-server.yaml
 
 # Environment
 Environment="PGEDGE_POSTGRES_CONNECTION_STRING=postgres://postgres@localhost/postgres?sslmode=prefer"
@@ -168,7 +168,7 @@ LimitNPROC=4096
 # Logging
 StandardOutput=journal
 StandardError=journal
-SyslogIdentifier=pgedge-mcp-server
+SyslogIdentifier=pgedge-postgres-mcp
 
 # Restart policy
 Restart=on-failure
@@ -195,7 +195,7 @@ chmod 750 /var/lib/pgedge/nla-server
 chmod 750 /var/log/pgedge/nla-server
 
 # Set binary permissions
-chmod 755 /usr/bin/pgedge-mcp-server
+chmod 755 /usr/bin/pgedge-postgres-mcp
 
 # Reload systemd
 systemctl daemon-reload
@@ -414,9 +414,9 @@ instead of Nginx. For most deployments, use Nginx as shown above.
 ```ini
 [Unit]
 Description=pgEdge Natural Language Agent - Web UI Server
-Documentation=https://github.com/pgEdge/pgedge-mcp
-After=network.target pgedge-mcp-server.service
-Requires=pgedge-mcp-server.service
+Documentation=https://github.com/pgEdge/pgedge-postgres-mcp
+After=network.target pgedge-postgres-mcp.service
+Requires=pgedge-postgres-mcp.service
 
 [Service]
 Type=simple
@@ -589,16 +589,16 @@ Regular backups are recommended:
 
 ```bash
 # Stop service before backup for consistency
-systemctl stop pgedge-mcp-server
+systemctl stop pgedge-postgres-mcp
 cp -r /var/lib/pgedge/nla-server /backup/nla-server-$(date +%Y%m%d)
-systemctl start pgedge-mcp-server
+systemctl start pgedge-postgres-mcp
 ```
 
 ---
 
 ## Package Dependencies
 
-### MCP Server (`pgedge-mcp-server`)
+### MCP Server (`pgedge-postgres-mcp`)
 **Runtime Dependencies:**
 - libc (glibc or musl)
 - systemd (for service management)
@@ -614,14 +614,14 @@ systemctl start pgedge-mcp-server
 ### Web UI (`pgedge-nla-web`)
 **Runtime Dependencies:**
 - nginx (or any web server)
-- pgedge-mcp-server (for API backend)
+- pgedge-postgres-mcp (for API backend)
 
 ### Knowledgebase (`pgedge-nla-kb`)
 **Runtime Dependencies:**
 - None (standalone SQLite database)
 
 **Optional for:**
-- pgedge-mcp-server (enables similarity_search tool)
+- pgedge-postgres-mcp (enables similarity_search tool)
 
 ---
 
@@ -630,13 +630,13 @@ systemctl start pgedge-mcp-server
 ### Common Metadata
 ```
 License: PostgreSQL License
-Homepage: https://github.com/pgEdge/pgedge-mcp
+Homepage: https://github.com/pgEdge/pgedge-postgres-mcp
 Maintainer: pgEdge, Inc. <support@pgedge.com>
 ```
 
 ### Package Descriptions
 
-**pgedge-mcp-server:**
+**pgedge-postgres-mcp:**
 ```
 Summary: pgEdge Natural Language Agent - MCP Server
 Description: Model Context Protocol (MCP) server that enables natural language
@@ -711,7 +711,7 @@ Before packaging, verify builds are production-ready:
 
 ```bash
 # 1. Verify binaries are stripped and optimized
-file bin/pgedge-mcp-server
+file bin/pgedge-postgres-mcp
 # Should show: "ELF 64-bit LSB executable ... stripped"
 
 # 2. Verify web build is minified
@@ -719,7 +719,7 @@ ls -lh web/dist/assets/
 # JS files should be small (minified and gzipped)
 
 # 3. Check for debug symbols (should be removed)
-nm bin/pgedge-mcp-server | grep -i debug
+nm bin/pgedge-postgres-mcp | grep -i debug
 # Should return nothing
 
 # 4. Verify no test files in distribution
@@ -739,11 +739,11 @@ find bin/ -name "*test*"
 └── custom-definitions.yaml         # Custom prompts/resources (optional)
 
 /usr/bin/
-├── pgedge-mcp-server              # Server binary
+├── pgedge-postgres-mcp              # Server binary
 └── pgedge-nla-cli                 # CLI binary
 
 /usr/lib/systemd/system/
-├── pgedge-mcp-server.service      # Server systemd unit
+├── pgedge-postgres-mcp.service      # Server systemd unit
 └── pgedge-nla-web.service         # Web UI systemd unit (optional)
 
 /usr/share/pgedge/
@@ -766,7 +766,7 @@ find bin/ -name "*test*"
 └── nla-server/                    # Server logs (if file logging enabled)
 
 /usr/share/doc/
-├── pgedge-mcp-server/
+├── pgedge-postgres-mcp/
 │   ├── README.md
 │   └── LICENSE
 ├── pgedge-nla-cli/
@@ -790,15 +790,15 @@ Include these in package documentation:
 ### 1. Server Setup
 ```bash
 # Create initial admin token
-sudo -u pgedge pgedge-mcp-server -add-token -token-note "Admin token"
+sudo -u pgedge pgedge-postgres-mcp -add-token -token-note "Admin token"
 
 # Configure database connection
 sudo vim /etc/pgedge/nla-server.yaml
 
 # Start service
-sudo systemctl enable pgedge-mcp-server
-sudo systemctl start pgedge-mcp-server
-sudo systemctl status pgedge-mcp-server
+sudo systemctl enable pgedge-postgres-mcp
+sudo systemctl start pgedge-postgres-mcp
+sudo systemctl status pgedge-postgres-mcp
 ```
 
 ### 2. Web UI Setup (with Nginx)
@@ -858,10 +858,10 @@ pgedge-pg-mcp-cli
 For systems with SELinux enabled, you need to provide a custom policy module to allow
 the MCP server to function properly.
 
-**SELinux Policy Module** (`pgedge-mcp-server.te`):
+**SELinux Policy Module** (`pgedge-postgres-mcp.te`):
 
 ```te
-policy_module(pgedge-mcp-server, 1.0.0)
+policy_module(pgedge-postgres-mcp, 1.0.0)
 
 require {
     type unconfined_t;
@@ -916,15 +916,15 @@ allow pgedge_mcp_t self:process { setrlimit };
 
 ```bash
 # Compile the policy
-checkmodule -M -m -o pgedge-mcp-server.mod pgedge-mcp-server.te
-semodule_package -o pgedge-mcp-server.pp -m pgedge-mcp-server.mod
+checkmodule -M -m -o pgedge-postgres-mcp.mod pgedge-postgres-mcp.te
+semodule_package -o pgedge-postgres-mcp.pp -m pgedge-postgres-mcp.mod
 
 # Install the module
-semodule -i pgedge-mcp-server.pp
+semodule -i pgedge-postgres-mcp.pp
 
 # Label the binary
-semanage fcontext -a -t pgedge_mcp_exec_t '/usr/bin/pgedge-mcp-server'
-restorecon -v /usr/bin/pgedge-mcp-server
+semanage fcontext -a -t pgedge_mcp_exec_t '/usr/bin/pgedge-postgres-mcp'
+restorecon -v /usr/bin/pgedge-postgres-mcp
 
 # Label data directories
 semanage fcontext -a -t var_lib_t '/var/lib/pgedge/nla-server(/.*)?'
@@ -937,11 +937,11 @@ restorecon -Rv /var/lib/pgedge/nla-server
 # Install SELinux policy if SELinux is enabled
 if [ -x /usr/sbin/selinuxenabled ] && /usr/sbin/selinuxenabled; then
     # Install policy module
-    /usr/sbin/semodule -i /usr/share/selinux/packages/pgedge-mcp-server.pp 2>/dev/null || true
+    /usr/sbin/semodule -i /usr/share/selinux/packages/pgedge-postgres-mcp.pp 2>/dev/null || true
 
     # Set file contexts
-    /usr/sbin/semanage fcontext -a -t pgedge_mcp_exec_t '/usr/bin/pgedge-mcp-server' 2>/dev/null || true
-    /usr/sbin/restorecon -v /usr/bin/pgedge-mcp-server 2>/dev/null || true
+    /usr/sbin/semanage fcontext -a -t pgedge_mcp_exec_t '/usr/bin/pgedge-postgres-mcp' 2>/dev/null || true
+    /usr/sbin/restorecon -v /usr/bin/pgedge-postgres-mcp 2>/dev/null || true
 
     /usr/sbin/semanage fcontext -a -t var_lib_t '/var/lib/pgedge/nla-server(/.*)?'  2>/dev/null || true
     /usr/sbin/restorecon -Rv /var/lib/pgedge/nla-server 2>/dev/null || true
@@ -950,8 +950,8 @@ fi
 
 **Include in Package:**
 ```
-/usr/share/selinux/packages/pgedge-mcp-server.pp
-/usr/share/selinux/devel/include/contrib/pgedge-mcp-server.if
+/usr/share/selinux/packages/pgedge-postgres-mcp.pp
+/usr/share/selinux/devel/include/contrib/pgedge-postgres-mcp.if
 ```
 
 ---
@@ -960,18 +960,18 @@ fi
 
 For systems with AppArmor enabled, provide a profile to confine the MCP server.
 
-**AppArmor Profile** (`/etc/apparmor.d/usr.bin.pgedge-mcp-server`):
+**AppArmor Profile** (`/etc/apparmor.d/usr.bin.pgedge-postgres-mcp`):
 
 ```apparmor
 #include <tunables/global>
 
-/usr/bin/pgedge-mcp-server {
+/usr/bin/pgedge-postgres-mcp {
   #include <abstractions/base>
   #include <abstractions/nameservice>
   #include <abstractions/openssl>
 
   # Binary execution
-  /usr/bin/pgedge-mcp-server mr,
+  /usr/bin/pgedge-postgres-mcp mr,
 
   # Configuration files
   /etc/pgedge/** r,
@@ -1035,11 +1035,11 @@ For systems with AppArmor enabled, provide a profile to confine the MCP server.
 # Install AppArmor profile if AppArmor is enabled
 if [ -x /sbin/apparmor_parser ] && [ -d /etc/apparmor.d ]; then
     # Load the profile
-    /sbin/apparmor_parser -r /etc/apparmor.d/usr.bin.pgedge-mcp-server 2>/dev/null || true
+    /sbin/apparmor_parser -r /etc/apparmor.d/usr.bin.pgedge-postgres-mcp 2>/dev/null || true
 
     # Enable the profile on boot
     if [ -d /etc/apparmor.d/force-complain ]; then
-        ln -sf /etc/apparmor.d/usr.bin.pgedge-mcp-server \
+        ln -sf /etc/apparmor.d/usr.bin.pgedge-postgres-mcp \
                /etc/apparmor.d/force-complain/ 2>/dev/null || true
     fi
 fi
@@ -1049,22 +1049,22 @@ fi
 
 ```bash
 # Load in complain mode first (logs violations but doesn't block)
-aa-complain /usr/bin/pgedge-mcp-server
+aa-complain /usr/bin/pgedge-postgres-mcp
 
 # Test the service
-systemctl start pgedge-mcp-server
-systemctl status pgedge-mcp-server
+systemctl start pgedge-postgres-mcp
+systemctl status pgedge-postgres-mcp
 
 # Check for violations
 aa-logprof
 
 # Once satisfied, switch to enforce mode
-aa-enforce /usr/bin/pgedge-mcp-server
+aa-enforce /usr/bin/pgedge-postgres-mcp
 ```
 
 **Include in Package:**
 ```
-/etc/apparmor.d/usr.bin.pgedge-mcp-server
+/etc/apparmor.d/usr.bin.pgedge-postgres-mcp
 ```
 
 **Package Dependencies** (for Ubuntu/Debian):

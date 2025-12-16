@@ -1,10 +1,12 @@
-# pgEdge Natural Language Agent
+# pgEdge Postgres MCP Server
 
-[![CI - MCP Server](https://github.com/pgEdge/pgedge-mcp/workflows/CI%20-%20MCP%20Server/badge.svg)](https://github.com/pgEdge/pgedge-mcp/actions/workflows/ci-server.yml)
-[![CI - CLI Client](https://github.com/pgEdge/pgedge-mcp/workflows/CI%20-%20CLI%20Client/badge.svg)](https://github.com/pgEdge/pgedge-mcp/actions/workflows/ci-cli-client.yml)
-[![CI - Web Client](https://github.com/pgEdge/pgedge-mcp/workflows/CI%20-%20Web%20Client/badge.svg)](https://github.com/pgEdge/pgedge-mcp/actions/workflows/ci-web-client.yml)
-[![CI - Docker Compose](https://github.com/pgEdge/pgedge-mcp/workflows/CI%20-%20Docker/badge.svg)](https://github.com/pgEdge/pgedge-mcp/actions/workflows/ci-docker.yml)
-[![CI - Documentation](https://github.com/pgEdge/pgedge-mcp/workflows/CI%20-%20Documentation/badge.svg)](https://github.com/pgEdge/pgedge-mcp/actions/workflows/ci-docs.yml)
+[![CI - MCP Server](https://github.com/pgEdge/pgedge-postgres-mcp/workflows/CI%20-%20MCP%20Server/badge.svg)](https://github.com/pgEdge/pgedge-postgres-mcp/actions/workflows/ci-server.yml)
+[![CI - CLI Client](https://github.com/pgEdge/pgedge-postgres-mcp/workflows/CI%20-%20CLI%20Client/badge.svg)](https://github.com/pgEdge/pgedge-postgres-mcp/actions/workflows/ci-cli-client.yml)
+[![CI - Web Client](https://github.com/pgEdge/pgedge-postgres-mcp/workflows/CI%20-%20Web%20Client/badge.svg)](https://github.com/pgEdge/pgedge-postgres-mcp/actions/workflows/ci-web-client.yml)
+[![CI - Docker Compose](https://github.com/pgEdge/pgedge-postgres-mcp/workflows/CI%20-%20Docker/badge.svg)](https://github.com/pgEdge/pgedge-postgres-mcp/actions/workflows/ci-docker.yml)
+[![CI - Documentation](https://github.com/pgEdge/pgedge-postgres-mcp/workflows/CI%20-%20Documentation/badge.svg)](https://github.com/pgEdge/pgedge-postgres-mcp/actions/workflows/ci-docs.yml)
+[![Release](https://github.com/pgEdge/pgedge-postgres-mcp/workflows/Release/badge.svg)](https://github.com/pgEdge/pgedge-postgres-mcp/actions/workflows/release.yml)
+[![Docker - Build and Publish](https://github.com/pgEdge/pgedge-postgres-mcp/workflows/Docker%20-%20Build%20and%20Publish/badge.svg)](https://github.com/pgEdge/pgedge-postgres-mcp/actions/workflows/docker-publish.yml)
 
 A Model Context Protocol (MCP) server that enables **SQL queries** against
 PostgreSQL databases through MCP-compatible clients like Claude Desktop.
@@ -49,15 +51,17 @@ cd pgedge-postgres-mcp
 make build
 ```
 
-### 2. Configure for Claude Desktop
+### 2. Configure for Claude Code and/or Claude Desktop
 
-**macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
+**Claude Code**: `.mcp.json` in each of your project directories  
+**Claude Desktop on macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`  
+**Claude Desktop on Windows**: `%APPDATA%\\Claude\\claude_desktop_config.json`
 
 ```json
 {
   "mcpServers": {
     "pgedge": {
-      "command": "/absolute/path/to/bin/pgedge-mcp-server"
+      "command": "/absolute/path/to/bin/pgedge-postgres-mcp"
     }
   }
 }
@@ -65,14 +69,14 @@ make build
 
 ### 3. Connect to Your Database
 
-Update your Claude Desktop configuration to include database connection
+Update your Claude Code and/or Claude Desktop configuration to include database connection
 parameters:
 
 ```json
 {
   "mcpServers": {
     "pgedge": {
-      "command": "/absolute/path/to/bin/pgedge-mcp-server",
+      "command": "/absolute/path/to/bin/pgedge-postgres-mcp",
       "env": {
         "PGHOST": "localhost",
         "PGPORT": "5432",
@@ -99,7 +103,7 @@ Then configure without PGPASSWORD in the config:
 {
   "mcpServers": {
     "pgedge": {
-      "command": "/absolute/path/to/bin/pgedge-mcp-server",
+      "command": "/absolute/path/to/bin/pgedge-postgres-mcp",
       "env": {
         "PGHOST": "localhost",
         "PGPORT": "5432",
@@ -139,10 +143,10 @@ Run as a standalone HTTP server for direct API access:
 
 ```bash
 # HTTP
-./bin/pgedge-mcp-server -http
+./bin/pgedge-postgres-mcp -http
 
 # HTTPS with TLS
-./bin/pgedge-mcp-server -http -tls \
+./bin/pgedge-postgres-mcp -http -tls \
   -cert server.crt \
   -key server.key
 ```
@@ -265,6 +269,7 @@ docker-compose up -d
 
 See **[Deployment Guide](docs/guide/deployment.md)** for complete
 documentation including:
+
 - Individual container builds
 - Production deployment with reverse proxy
 - Security hardening
@@ -361,7 +366,7 @@ golangci-lint run
 
 # Run locally (configure database connection via environment variables or
 # config file)
-./bin/pgedge-mcp-server
+./bin/pgedge-postgres-mcp
 ```
 
 #### Web UI Tests
@@ -413,7 +418,7 @@ This software is released under The PostgreSQL License.
 
 - **📖 Documentation**: [docs/index.md](docs/index.md)
 - **🐛 Issues**:
-  [GitHub Issues](https://github.com/pgEdge/pgedge-nla/issues)
+  [GitHub Issues](https://github.com/pgEdge/pgedge-postgres-mcp/issues)
 - **💡 Examples**: [Query Examples](docs/reference/examples.md)
 
 ## Related Projects

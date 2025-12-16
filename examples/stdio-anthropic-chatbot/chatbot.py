@@ -18,7 +18,7 @@ Usage:
     2. Run the chatbot:
        python chatbot.py
 
-For more details, see: https://github.com/pgEdge/pgedge-mcp/blob/main/docs/stdio-anthropic-chatbot.md
+For more details, see: https://github.com/pgEdge/pgedge-postgres-mcp/blob/main/docs/stdio-anthropic-chatbot.md
 """
 
 import asyncio
@@ -224,13 +224,13 @@ async def main():
     """Main entry point."""
     # Path to your pgEdge Natural Language Agent binary
     # Adjust this path as needed
-    server_path = os.getenv("PGEDGE_MCP_SERVER_PATH", "../../bin/pgedge-mcp-server")
+    server_path = os.getenv("PGEDGE_MCP_SERVER_PATH", "../../bin/pgedge-postgres-mcp")
 
     # Check if server exists
     if not os.path.exists(server_path):
         print(f"Error: Server not found at {server_path}")
         print("\nPlease either:")
-        print("  1. Build the server: cd ../.. && go build -o bin/pgedge-mcp-server ./cmd/pgedge-pg-mcp-svr")
+        print("  1. Build the server: cd ../.. && go build -o bin/pgedge-postgres-mcp ./cmd/pgedge-pg-mcp-svr")
         print("  2. Set PGEDGE_MCP_SERVER_PATH environment variable to the correct path")
         return
 

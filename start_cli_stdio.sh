@@ -10,7 +10,7 @@
 # This script starts the CLI chat client in stdio mode. The CLI client
 # will automatically spawn the MCP server as a subprocess and communicate
 # via standard input/output. The MCP server will automatically use its
-# config file (bin/pgedge-mcp-server-stdio.yaml) located in the same directory
+# config file (bin/pgedge-postgres-mcp-stdio.yaml) located in the same directory
 # as the server binary.
 #
 # Usage:
@@ -41,13 +41,13 @@ INTERNAL_CHAT_DIR="$PROJECT_DIR/internal/chat"
 
 # Binaries
 CLI_BIN="$BIN_DIR/pgedge-nla-cli"
-SERVER_BIN="$BIN_DIR/pgedge-mcp-server"
+SERVER_BIN="$BIN_DIR/pgedge-postgres-mcp"
 
 # Configuration file (can be overridden with CONFIG_FILE env var)
 CONFIG_FILE="${CONFIG_FILE:-$BIN_DIR/pgedge-nla-cli-stdio.yaml}"
 
 # Server config
-SERVER_CONFIG="$BIN_DIR/pgedge-mcp-server-stdio.yaml"
+SERVER_CONFIG="$BIN_DIR/pgedge-postgres-mcp-stdio.yaml"
 
 echo -e "${BLUE}╔════════════════════════════════════════════════════════════╗${NC}"
 echo -e "${BLUE}║     pgEdge MCP CLI Client Startup (Stdio Mode)             ║${NC}"
@@ -125,7 +125,7 @@ if [ ! -f "$SERVER_CONFIG" ]; then
     echo "  $SERVER_CONFIG"
     echo ""
     echo "You can copy the example config file:"
-    echo "  cp $BIN_DIR/pgedge-mcp-server.yaml.example $SERVER_CONFIG"
+    echo "  cp $BIN_DIR/pgedge-postgres-mcp.yaml.example $SERVER_CONFIG"
     exit 1
 fi
 

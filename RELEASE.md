@@ -22,7 +22,7 @@ Each release creates the following artifacts:
 
 Architecture-specific archives containing:
 
-- `pgedge-mcp-server` binary
+- `pgedge-postgres-mcp` binary
 - Documentation (README.md, LICENCE.md, docs/)
 - Example configuration files
 
@@ -82,7 +82,7 @@ Verify the generated archives:
 # Extract and test server binary
 tar -xzf dist/pgedge-nla-server_*_linux_x86_64.tar.gz
 cd pgedge-nla-server_*_linux_x86_64
-./pgedge-mcp-server --help
+./pgedge-postgres-mcp --help
 
 # Extract and test CLI binary
 tar -xzf dist/pgedge-nla-cli_*_linux_x86_64.tar.gz
@@ -141,13 +141,13 @@ When you push a tag starting with `v`, the GitHub Actions workflow
 Check the GitHub Actions workflow:
 
 ```
-https://github.com/pgEdge/pgedge-mcp/actions
+https://github.com/pgEdge/pgedge-postgres-mcp/actions
 ```
 
 Once complete, verify the release:
 
 ```
-https://github.com/pgEdge/pgedge-mcp/releases
+https://github.com/pgEdge/pgedge-postgres-mcp/releases
 ```
 
 ## Release Workflow Details

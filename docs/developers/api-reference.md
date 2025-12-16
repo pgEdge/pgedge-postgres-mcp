@@ -125,6 +125,134 @@ Health check endpoint (no authentication required).
 }
 ```
 
+### GET /api/databases
+
+Lists all databases accessible to the authenticated user.
+
+**Request:**
+```http
+GET /api/databases HTTP/1.1
+Authorization: Bearer <session-token>
+```
+
+**Response:**
+```json
+{
+    "databases": [
+        {
+            "name": "production",
+            "host": "localhost",
+            "port": 5432,
+            "database": "myapp",
+            "user": "appuser",
+            "sslmode": "require"
+        },
+        {
+            "name": "analytics",
+            "host": "analytics.example.com",
+            "port": 5432,
+            "database": "analytics",
+            "user": "analyst",
+            "sslmode": "require"
+        }
+    ],
+    "current": "production"
+}
+```
+
+**Response Fields:**
+
+- `databases` - Array of accessible database configurations
+    - `name` - Unique name for this database connection
+    - `host` - Database server hostname
+    - `port` - Database server port
+    - `database` - PostgreSQL database name
+    - `user` - Database username
+    - `sslmode` - SSL connection mode
+- `current` - Name of the currently selected database
+
+**Access Control:**
+
+- Users only see databases listed in their `available_databases` configuration
+- API tokens only see their bound database (if configured)
+- In STDIO mode or with authentication disabled, all configured databases are
+  visible
+
+**Implementation:**
+[internal/api/databases.go](https://github.com/pgEdge/pgedge-postgres-mcp/blob/main/internal/api/databases.go)
+
+### POST /api/databases/select
+
+Selects a database as the current database for subsequent operations.
+
+**Request:**
+```http
+POST /api/databases/select HTTP/1.1
+Content-Type: application/json
+Authorization: Bearer <session-token>
+
+{
+    "name": "analytics"
+}
+```
+
+**Parameters:**
+
+- `name` (required) - Name of the database to select
+
+**Success Response (200):**
+```json
+{
+    "success": true,
+    "current": "analytics",
+    "message": "Database selected successfully"
+}
+```
+
+**Error Responses:**
+
+*Invalid request (400):*
+```json
+{
+    "success": false,
+    "error": "Database name is required"
+}
+```
+
+*Database not found (404):*
+```json
+{
+    "success": false,
+    "error": "Database not found"
+}
+```
+
+*Access denied (403):*
+```json
+{
+    "success": false,
+    "error": "Access denied to this database"
+}
+```
+
+*API token bound to different database (403):*
+```json
+{
+    "success": false,
+    "error": "API token is bound to a different database"
+}
+```
+
+**Notes:**
+
+- Database selection is per-session (tied to the authentication token)
+- API tokens with a bound database cannot switch to a different database
+- Users can only select databases they have access to
+- The selected database persists for the duration of the session
+
+**Implementation:**
+[internal/api/databases.go](https://github.com/pgEdge/pgedge-postgres-mcp/blob/main/internal/api/databases.go)
+
 ### GET /api/user/info
 
 Returns information about the authenticated user.
@@ -235,6 +363,203 @@ The compactor uses a 5-tier classification system:
 - **Transient** - Low-value messages (short acknowledgments)
 
 **Implementation:** [internal/compactor/](https://github.com/pgEdge/pgedge-postgres-mcp/tree/main/internal/compactor)
+
+## Conversations API
+
+The conversations API provides endpoints for managing chat history persistence.
+These endpoints are only available when user authentication is enabled.
+
+### GET /api/conversations
+
+Lists conversations for the authenticated user.
+
+**Request:**
+```http
+GET /api/conversations?limit=50&offset=0 HTTP/1.1
+Authorization: Bearer <session-token>
+```
+
+**Query Parameters:**
+
+- `limit` (optional) - Maximum number of conversations to return (default: 50)
+- `offset` (optional) - Number of conversations to skip for pagination
+  (default: 0)
+
+**Response:**
+```json
+{
+    "conversations": [
+        {
+            "id": "conv_abc123",
+            "title": "Database schema exploration",
+            "connection": "production",
+            "created_at": "2025-01-15T10:30:00Z",
+            "updated_at": "2025-01-15T11:45:00Z",
+            "preview": "Show me the users table..."
+        }
+    ]
+}
+```
+
+### POST /api/conversations
+
+Creates a new conversation.
+
+**Request:**
+```http
+POST /api/conversations HTTP/1.1
+Content-Type: application/json
+Authorization: Bearer <session-token>
+
+{
+    "provider": "anthropic",
+    "model": "claude-sonnet-4-20250514",
+    "connection": "production",
+    "messages": [
+        {
+            "role": "user",
+            "content": "Show me the users table"
+        },
+        {
+            "role": "assistant",
+            "content": "Here's the schema for the users table..."
+        }
+    ]
+}
+```
+
+**Response (201 Created):**
+```json
+{
+    "id": "conv_abc123",
+    "username": "alice",
+    "title": "Show me the users table",
+    "provider": "anthropic",
+    "model": "claude-sonnet-4-20250514",
+    "connection": "production",
+    "messages": [...],
+    "created_at": "2025-01-15T10:30:00Z",
+    "updated_at": "2025-01-15T10:30:00Z"
+}
+```
+
+### GET /api/conversations/{id}
+
+Retrieves a specific conversation.
+
+**Request:**
+```http
+GET /api/conversations/conv_abc123 HTTP/1.1
+Authorization: Bearer <session-token>
+```
+
+**Response:**
+```json
+{
+    "id": "conv_abc123",
+    "username": "alice",
+    "title": "Database schema exploration",
+    "provider": "anthropic",
+    "model": "claude-sonnet-4-20250514",
+    "connection": "production",
+    "messages": [
+        {
+            "role": "user",
+            "content": "Show me the users table",
+            "timestamp": "2025-01-15T10:30:00Z"
+        },
+        {
+            "role": "assistant",
+            "content": "Here's the schema...",
+            "timestamp": "2025-01-15T10:30:05Z",
+            "provider": "anthropic",
+            "model": "claude-sonnet-4-20250514"
+        }
+    ],
+    "created_at": "2025-01-15T10:30:00Z",
+    "updated_at": "2025-01-15T11:45:00Z"
+}
+```
+
+### PUT /api/conversations/{id}
+
+Updates a conversation (replaces all messages).
+
+**Request:**
+```http
+PUT /api/conversations/conv_abc123 HTTP/1.1
+Content-Type: application/json
+Authorization: Bearer <session-token>
+
+{
+    "provider": "anthropic",
+    "model": "claude-sonnet-4-20250514",
+    "connection": "production",
+    "messages": [...]
+}
+```
+
+**Response:** Same as GET response with updated data.
+
+### PATCH /api/conversations/{id}
+
+Renames a conversation.
+
+**Request:**
+```http
+PATCH /api/conversations/conv_abc123 HTTP/1.1
+Content-Type: application/json
+Authorization: Bearer <session-token>
+
+{
+    "title": "New conversation title"
+}
+```
+
+**Response:**
+```json
+{
+    "success": true
+}
+```
+
+### DELETE /api/conversations/{id}
+
+Deletes a specific conversation.
+
+**Request:**
+```http
+DELETE /api/conversations/conv_abc123 HTTP/1.1
+Authorization: Bearer <session-token>
+```
+
+**Response:**
+```json
+{
+    "success": true
+}
+```
+
+### DELETE /api/conversations?all=true
+
+Deletes all conversations for the authenticated user.
+
+**Request:**
+```http
+DELETE /api/conversations?all=true HTTP/1.1
+Authorization: Bearer <session-token>
+```
+
+**Response:**
+```json
+{
+    "success": true,
+    "deleted": 15
+}
+```
+
+**Implementation:**
+[internal/conversations/](https://github.com/pgEdge/pgedge-postgres-mcp/tree/main/internal/conversations)
 
 ## LLM Proxy Endpoints
 

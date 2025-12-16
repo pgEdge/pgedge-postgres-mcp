@@ -168,6 +168,40 @@ func TestChunkSection_LargeSection(t *testing.T) {
 	}
 }
 
+func TestChunkSection_HighCharacterRatio(t *testing.T) {
+	// Create content with high character-to-word ratio (simulating technical XML content)
+	// Each "word" is very long to exceed MaxChunkChars with few words
+	longWord := strings.Repeat("abcdefghij", 30) // 300 char "word"
+	// 15 words * 300 chars = 4500 chars, but only 15 words (under word limit)
+	largeContent := strings.Repeat(longWord+" ", 15)
+
+	section := Section{
+		Heading: "Technical Section",
+		Content: largeContent,
+		Level:   1,
+	}
+
+	doc := &kbtypes.Document{
+		Title:          "Test",
+		ProjectName:    "Test",
+		ProjectVersion: "1.0",
+	}
+
+	chunks := chunkSection(section, doc)
+
+	// Should produce multiple chunks due to character limit
+	if len(chunks) <= 1 {
+		t.Error("High char-ratio content should produce multiple chunks")
+	}
+
+	// Verify all chunks are within character limit
+	for i, chunk := range chunks {
+		if len(chunk.Text) > MaxChunkChars+100 { // Allow small buffer for heading
+			t.Errorf("Chunk %d exceeds character limit: %d chars", i, len(chunk.Text))
+		}
+	}
+}
+
 func TestTokenize(t *testing.T) {
 	tests := []struct {
 		name          string

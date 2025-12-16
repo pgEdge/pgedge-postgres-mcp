@@ -72,7 +72,7 @@ This script will:
 - Use existing user files from the `bin/` directory
 
 The MCP server supports both authentication methods simultaneously:
-- **Service Tokens**: Long-lived API tokens from `pgedge-mcp-server-tokens.yaml` (for programmatic access)
+- **Service Tokens**: Long-lived API tokens from `pgedge-postgres-mcp-tokens.yaml` (for programmatic access)
 - **User Authentication**: Username/password authentication via `authenticate_user` tool (used by web interface)
 
 Both authentication methods create session tokens that provide per-token database connection isolation for security and resource management.
@@ -104,7 +104,7 @@ http:
     address: ":8080"
     auth:
         enabled: true
-        token_file: "./pgedge-mcp-server-tokens.yaml"
+        token_file: "./pgedge-postgres-mcp-tokens.yaml"
 ```
 
 **LLM Proxy (for chat functionality):**
@@ -128,7 +128,7 @@ llm:
 
 **User Authentication:**
 ```yaml
-user_file: "./pgedge-mcp-server-users.yaml"
+user_file: "./pgedge-postgres-mcp-users.yaml"
 ```
 
 See [MCP Server Configuration Documentation](../docs/configuration.md) for complete configuration options.
@@ -179,7 +179,7 @@ cd ..
 
 # Option 2: Manual startup in separate terminals
 # Terminal 1: Start MCP server
-./bin/pgedge-mcp-server --config bin/pgedge-pg-mcp-web.yaml
+./bin/pgedge-postgres-mcp --config bin/pgedge-pg-mcp-web.yaml
 
 # Terminal 2: Start Vite dev server (frontend)
 cd web
@@ -399,7 +399,7 @@ them:
 - Try hard refresh (Cmd+Shift+R on Mac, Ctrl+Shift+R on Windows/Linux)
 
 **Cannot login:**
-- Verify user exists in `pgedge-mcp-server-users.yaml`
+- Verify user exists in `pgedge-postgres-mcp-users.yaml`
 - Check MCP server is running in HTTP mode with authentication enabled
 - Ensure MCP server is accessible at the configured URL
 - Check browser console and MCP server logs for errors

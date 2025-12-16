@@ -209,7 +209,7 @@ To backup the data directory:
 docker-compose stop mcp-server
 
 # Backup using docker cp
-docker cp pgedge-mcp-server:/app/data ./backup-$(date +%Y%m%d)
+docker cp pgedge-postgres-mcp:/app/data ./backup-$(date +%Y%m%d)
 
 # Or if using a host mount
 cp -r ./data ./backup-$(date +%Y%m%d)
@@ -515,7 +515,7 @@ For Kubernetes, restrict network traffic with NetworkPolicies:
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: pgedge-mcp-server
+  name: pgedge-postgres-mcp
 spec:
   podSelector:
     matchLabels:
@@ -554,23 +554,23 @@ spec:
 docker-compose logs -f
 
 # Specific service
-docker-compose logs -f pgedge-mcp-server
+docker-compose logs -f pgedge-postgres-mcp
 
 # Last 100 lines
-docker-compose logs --tail=100 pgedge-mcp-server
+docker-compose logs --tail=100 pgedge-postgres-mcp
 ```
 
 **Kubernetes:**
 
 ```bash
 # Server logs
-kubectl logs -f deployment/pgedge-mcp-server -n pgedge
+kubectl logs -f deployment/pgedge-postgres-mcp -n pgedge
 
 # Web UI logs
 kubectl logs -f deployment/pgedge-nla-web -n pgedge
 
 # Previous container logs (after crash)
-kubectl logs deployment/pgedge-mcp-server -n pgedge --previous
+kubectl logs deployment/pgedge-postgres-mcp -n pgedge --previous
 
 # All pods with label
 kubectl logs -l app.kubernetes.io/component=server -n pgedge --tail=100
@@ -585,7 +585,7 @@ kubectl logs -l app.kubernetes.io/component=server -n pgedge --tail=100
 docker ps
 
 # Inspect health check
-docker inspect pgedge-mcp-server | jq '.[0].State.Health'
+docker inspect pgedge-postgres-mcp | jq '.[0].State.Health'
 
 # Manual health check
 curl http://localhost:8080/health
@@ -598,10 +598,10 @@ curl http://localhost:8080/health
 kubectl get pods -n pgedge
 
 # Describe pod (includes events)
-kubectl describe pod pgedge-mcp-server-xxx -n pgedge
+kubectl describe pod pgedge-postgres-mcp-xxx -n pgedge
 
 # Port forward and test
-kubectl port-forward svc/pgedge-mcp-server 8080:8080 -n pgedge
+kubectl port-forward svc/pgedge-postgres-mcp 8080:8080 -n pgedge
 curl http://localhost:8080/health
 ```
 
@@ -611,26 +611,26 @@ curl http://localhost:8080/health
 
 ```bash
 # Execute shell in running container
-docker exec -it pgedge-mcp-server sh
+docker exec -it pgedge-postgres-mcp sh
 
 # Check processes
-docker exec pgedge-mcp-server ps aux
+docker exec pgedge-postgres-mcp ps aux
 
 # Check network connectivity
-docker exec pgedge-mcp-server wget -O- http://postgres:5432
+docker exec pgedge-postgres-mcp wget -O- http://postgres:5432
 ```
 
 **Kubernetes:**
 
 ```bash
 # Execute shell in pod
-kubectl exec -it deployment/pgedge-mcp-server -n pgedge -- sh
+kubectl exec -it deployment/pgedge-postgres-mcp -n pgedge -- sh
 
 # Debug with ephemeral container (Kubernetes 1.23+)
-kubectl debug -it pgedge-mcp-server-xxx -n pgedge --image=alpine --target=server
+kubectl debug -it pgedge-postgres-mcp-xxx -n pgedge --image=alpine --target=server
 
 # Check connectivity to postgres
-kubectl exec deployment/pgedge-mcp-server -n pgedge -- \
+kubectl exec deployment/pgedge-postgres-mcp -n pgedge -- \
   wget -qO- http://postgres-postgresql:5432 || echo "Cannot connect"
 ```
 
@@ -640,14 +640,14 @@ kubectl exec deployment/pgedge-mcp-server -n pgedge -- \
 
 ```bash
 # Check logs for errors
-kubectl logs deployment/pgedge-mcp-server -n pgedge | grep -i error
+kubectl logs deployment/pgedge-postgres-mcp -n pgedge | grep -i error
 
 # Verify database connection
-kubectl exec deployment/pgedge-mcp-server -n pgedge -- \
+kubectl exec deployment/pgedge-postgres-mcp -n pgedge -- \
   env | grep POSTGRES
 
 # Check if config is mounted
-kubectl exec deployment/pgedge-mcp-server -n pgedge -- \
+kubectl exec deployment/pgedge-postgres-mcp -n pgedge -- \
   cat /etc/pgedge/mcp-server.yaml
 ```
 
@@ -659,7 +659,7 @@ kubectl run -it --rm debug --image=postgres:17-alpine -- \
   psql postgresql://postgres:password@postgres-postgresql:5432/postgres
 
 # Check DNS resolution
-kubectl exec deployment/pgedge-mcp-server -n pgedge -- \
+kubectl exec deployment/pgedge-postgres-mcp -n pgedge -- \
   nslookup postgres-postgresql
 ```
 
@@ -670,7 +670,7 @@ kubectl exec deployment/pgedge-mcp-server -n pgedge -- \
 kubectl top pods -n pgedge
 
 # Describe pod to see events
-kubectl describe pod pgedge-mcp-server-xxx -n pgedge | grep -A 5 Events
+kubectl describe pod pgedge-postgres-mcp-xxx -n pgedge | grep -A 5 Events
 
 # Increase resources in values.yaml and upgrade
 helm upgrade pgedge-nla examples/helm/pgedge-nla -f values.yaml

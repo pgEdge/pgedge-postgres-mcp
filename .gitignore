@@ -7,7 +7,7 @@ bin/
 
 # Test binary
 *.test
-/pgedge-mcp-server
+/pgedge-postgres-mcp
 /pgedge-nla-cli
 /pgedge-nla-kb-builder
 /pgedge-pg-mcp-svr

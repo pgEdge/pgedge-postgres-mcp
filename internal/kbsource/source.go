@@ -102,8 +102,17 @@ func fetchGitSource(source kbconfig.DocumentSource, docSourcePath string, skipUp
 	// Checkout specific branch or tag if specified
 	if source.Branch != "" {
 		fmt.Printf("  Checking out branch: %s\n", source.Branch)
-		if err := gitCheckout(repoPath, source.Branch); err != nil {
-			return SourceInfo{}, fmt.Errorf("failed to checkout branch: %w", err)
+		if !skipUpdates {
+			// Use checkout -B to create/reset local branch to match remote
+			// This handles both new clones and existing repos with behind branches
+			if err := gitCheckoutBranch(repoPath, source.Branch); err != nil {
+				return SourceInfo{}, fmt.Errorf("failed to checkout branch: %w", err)
+			}
+		} else {
+			// Just checkout without updating
+			if err := gitCheckout(repoPath, source.Branch); err != nil {
+				return SourceInfo{}, fmt.Errorf("failed to checkout branch: %w", err)
+			}
 		}
 	} else if source.Tag != "" {
 		fmt.Printf("  Checking out tag: %s\n", source.Tag)
@@ -206,6 +215,29 @@ func gitCheckout(path, ref string) error {
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	return cmd.Run()
+}
+
+// gitCheckoutBranch checks out a branch and resets it to match the remote.
+// Uses "git checkout -B <branch> origin/<branch>" to create/reset the local
+// branch to match the remote, handling cases where the local branch doesn't
+// exist or is behind.
+func gitCheckoutBranch(path, branch string) error {
+	// Try checkout -B first (creates/resets local branch to match remote)
+	cmd := exec.Command("git", "checkout", "-B", branch, "origin/"+branch)
+	cmd.Dir = path
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	err := cmd.Run()
+	if err != nil {
+		// Fallback to regular checkout if origin/<branch> doesn't exist
+		// (e.g., if it's actually a tag misconfigured as a branch)
+		cmd = exec.Command("git", "checkout", branch)
+		cmd.Dir = path
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		return cmd.Run()
+	}
+	return nil
 }
 
 // sanitizeName converts a name to a safe directory name

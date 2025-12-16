@@ -26,17 +26,17 @@ mcp:
     # Stdio Mode Configuration
     # -------------------------
     # Path to MCP server binary (for stdio mode)
-    # Default: ./bin/pgedge-mcp-server
+    # Default: ./bin/pgedge-postgres-mcp
     # Environment variable: PGEDGE_MCP_SERVER_PATH
     # Command line flag: -mcp-server-path
-    server_path: ./bin/pgedge-mcp-server
+    server_path: ./bin/pgedge-postgres-mcp
 
     # Path to MCP server config file (for stdio mode)
     # If specified, the --config flag will be passed to the server binary
     # If not specified, the server will use its default config file lookup
     # Default: (none - server uses default config lookup)
     # Environment variable: PGEDGE_MCP_SERVER_CONFIG_PATH
-    server_config_path: ./bin/pgedge-mcp-server-stdio.yaml
+    server_config_path: ./bin/pgedge-postgres-mcp-stdio.yaml
 
     # -------------------------
     # HTTP Mode Configuration
@@ -49,14 +49,35 @@ mcp:
     # Command line flag: -mcp-url
     # url: http://localhost:8080
 
-    # Authentication token for HTTP mode
+    # Authentication mode for HTTP mode
+    # Options:
+    #   none:  No authentication (for servers with auth disabled)
+    #   token: API token authentication (default)
+    #   user:  Username/password authentication
+    # Default: user (will prompt for credentials)
+    # Environment variable: PGEDGE_MCP_AUTH_MODE
+    # Command line flag: -mcp-auth-mode
+    # auth_mode: user
+
+    # Authentication token (for token auth mode)
     # Token priority: PGEDGE_MCP_TOKEN env var >
     #                 ~/.pgedge-pg-mcp-cli-token file >
     #                 this config value >
     #                 prompt at startup
     # Environment variable: PGEDGE_MCP_TOKEN
     # Token file: ~/.pgedge-pg-mcp-cli-token
+    # Command line flag: -mcp-token
     # token: your-token-here
+
+    # Username for HTTP mode (for user auth mode)
+    # Environment variable: PGEDGE_MCP_USERNAME
+    # Command line flag: -mcp-username
+    # username: your-username
+
+    # Password for HTTP mode (for user auth mode)
+    # Environment variable: PGEDGE_MCP_PASSWORD
+    # Command line flag: -mcp-password
+    # password: your-password
 
     # Use TLS/HTTPS for HTTP mode
     # Default: false
@@ -185,8 +206,8 @@ ui:
 ```yaml
 mcp:
     mode: stdio
-    server_path: ./bin/pgedge-mcp-server
-    server_config_path: ./bin/pgedge-mcp-server-stdio.yaml
+    server_path: ./bin/pgedge-postgres-mcp
+    server_config_path: ./bin/pgedge-postgres-mcp-stdio.yaml
 
 llm:
     provider: anthropic
@@ -206,8 +227,8 @@ export PGEDGE_ANTHROPIC_API_KEY="your-key-here"
 ```yaml
 mcp:
     mode: stdio
-    server_path: ./bin/pgedge-mcp-server
-    server_config_path: ./bin/pgedge-mcp-server-stdio.yaml
+    server_path: ./bin/pgedge-postgres-mcp
+    server_config_path: ./bin/pgedge-postgres-mcp-stdio.yaml
 
 llm:
     provider: openai
@@ -222,12 +243,13 @@ export PGEDGE_OPENAI_API_KEY="your-key-here"
 ./bin/pgedge-nla-cli
 ```
 
-### HTTP Mode with Authentication
+### HTTP Mode with Token Authentication
 
 ```yaml
 mcp:
     mode: http
     url: https://mcp.example.com:8080
+    auth_mode: token
     tls: true
 
 llm:
@@ -243,13 +265,35 @@ export PGEDGE_MCP_TOKEN="your-mcp-token"
 ./bin/pgedge-nla-cli
 ```
 
+### HTTP Mode without Authentication
+
+For servers with authentication disabled:
+
+```yaml
+mcp:
+    mode: http
+    url: http://localhost:8080
+    auth_mode: none
+
+llm:
+    provider: anthropic
+    model: claude-sonnet-4-20250514
+```
+
+Then run:
+
+```bash
+export PGEDGE_ANTHROPIC_API_KEY="your-key-here"
+./bin/pgedge-nla-cli
+```
+
 ### Local Setup with Ollama
 
 ```yaml
 mcp:
     mode: stdio
-    server_path: ./bin/pgedge-mcp-server
-    server_config_path: ./bin/pgedge-mcp-server-stdio.yaml
+    server_path: ./bin/pgedge-postgres-mcp
+    server_config_path: ./bin/pgedge-postgres-mcp-stdio.yaml
 
 llm:
     provider: ollama
@@ -289,7 +333,10 @@ The chat client supports the following environment variables (in order of preced
 - `PGEDGE_MCP_SERVER_CONFIG_PATH`: Path to MCP server config file (stdio
     mode)
 - `PGEDGE_MCP_URL`: MCP server URL (http mode)
-- `PGEDGE_MCP_TOKEN`: Authentication token (http mode)
+- `PGEDGE_MCP_AUTH_MODE`: Authentication mode (`none`, `token`, or `user`)
+- `PGEDGE_MCP_TOKEN`: Authentication token (for token auth mode)
+- `PGEDGE_MCP_USERNAME`: Username (for user auth mode)
+- `PGEDGE_MCP_PASSWORD`: Password (for user auth mode)
 
 ### LLM Configuration
 
@@ -308,11 +355,20 @@ All configuration options can be overridden with command line flags:
     -config /path/to/config.yaml \
     -mcp-mode http \
     -mcp-url https://mcp.example.com:8080 \
+    -mcp-auth-mode token \
+    -mcp-token your-mcp-token \
     -llm-provider anthropic \
     -llm-model claude-opus-4-20250514 \
     -anthropic-api-key your-anthropic-key \
     -no-color
 ```
+
+Available MCP authentication flags:
+
+- `-mcp-auth-mode`: Authentication mode (`none`, `token`, or `user`)
+- `-mcp-token`: Authentication token (for token mode)
+- `-mcp-username`: Username (for user mode)
+- `-mcp-password`: Password (for user mode)
 
 Run `./bin/pgedge-nla-cli --help` to see all available flags.
 

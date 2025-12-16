@@ -17,8 +17,8 @@ before:
 
 builds:
     # MCP Server - arm64 (all platforms)
-    - id: pgedge-mcp-server-arm64
-      binary: pgedge-mcp-server
+    - id: pgedge-postgres-mcp-arm64
+      binary: pgedge-postgres-mcp
       main: ./cmd/pgedge-pg-mcp-svr
       env:
           - CGO_ENABLED=0
@@ -75,15 +75,14 @@ archives:
     # Server archive - arm64 only
     - id: server-arm64
       builds:
-          - pgedge-mcp-server-arm64
+          - pgedge-postgres-mcp-arm64
       name_template: "{{ .ProjectName }}-server_{{ .Version }}_{{ .Os }}_arm64"
       files:
           - README.md
           - LICENCE.md
           - docs/**/*
-          - examples/pgedge-mcp-server-custom.yaml
+          - examples/pgedge-postgres-mcp-custom.yaml
           - examples/.env.example
-          - bin/kb.db
 
     # CLI archive - arm64 only
     - id: cli-arm64
@@ -106,6 +105,7 @@ archives:
           - LICENCE.md
           - examples/pgedge-nla-kb-builder.yaml
           - kb/README.md
+          - bin/kb.db
 
 snapshot:
     version_template: "{{ incpatch .Version }}-next"

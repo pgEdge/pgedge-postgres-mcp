@@ -18,6 +18,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"os/exec"
 	"strings"
 	"time"
 
@@ -97,8 +98,23 @@ func NewClient(cfg *Config, overrides *ConfigOverrides) (*Client, error) {
 	}, nil
 }
 
+// sanitizeTerminal ensures the terminal is in a sane state.
+// This fixes issues if a previous run exited without restoring terminal settings
+// (e.g., if the program crashed while in raw mode).
+func (c *Client) sanitizeTerminal() {
+	// Use stty sane to reset terminal to a sensible state
+	// This is a no-op if terminal is already in a good state
+	cmd := exec.Command("stty", "sane")
+	cmd.Stdin = os.Stdin
+	_ = cmd.Run() //nolint:errcheck // Best-effort terminal reset, errors are expected on non-TTY
+}
+
 // Run starts the chat client
 func (c *Client) Run(ctx context.Context) error {
+	// Ensure terminal is in a sane state at startup
+	// This fixes issues if a previous run exited without restoring terminal settings
+	c.sanitizeTerminal()
+
 	// Connect to MCP server
 	if err := c.connectToMCP(ctx); err != nil {
 		return fmt.Errorf("failed to connect to MCP server: %w", err)
@@ -171,7 +187,11 @@ func (c *Client) connectToMCP(ctx context.Context) error {
 		// HTTP mode
 		var token string
 
-		if c.config.MCP.AuthMode == "user" {
+		if c.config.MCP.AuthMode == "none" {
+			// No authentication - connect without a token
+			// Used when server has auth disabled
+			token = ""
+		} else if c.config.MCP.AuthMode == "user" {
 			// User authentication mode
 			username := c.config.MCP.Username
 			password := c.config.MCP.Password
@@ -209,7 +229,7 @@ func (c *Client) connectToMCP(ctx context.Context) error {
 			}
 			token = sessionToken
 		} else {
-			// Token authentication mode
+			// Token authentication mode (default for non-"none", non-"user")
 			token = c.config.MCP.Token
 			if token == "" {
 				// Prompt for token
@@ -744,6 +764,8 @@ func (c *Client) tryServerCompaction(messages []Message, maxTokens, recentWindow
 // localCompactMessages performs basic local compaction.
 // Strategy: Keep the first user message and the last N messages.
 // This preserves the original query context while maintaining recent conversation flow.
+// IMPORTANT: Ensures tool_use/tool_result message pairs are kept together to avoid
+// API errors from orphaned tool references.
 func (c *Client) localCompactMessages(messages []Message, maxRecentMessages int) []Message {
 	compacted := make([]Message, 0, maxRecentMessages+1)
 
@@ -757,6 +779,12 @@ func (c *Client) localCompactMessages(messages []Message, maxRecentMessages int)
 	if startIdx < 1 {
 		startIdx = 1 // Skip first message since we already added it
 	}
+
+	// Ensure we don't break tool_use/tool_result pairs
+	// If the first message we're keeping contains tool_results, we must also
+	// keep the preceding assistant message that contains the tool_use blocks
+	startIdx = c.adjustStartForToolPairs(messages, startIdx)
+
 	compacted = append(compacted, messages[startIdx:]...)
 
 	if c.config.UI.Debug {
@@ -765,6 +793,52 @@ func (c *Client) localCompactMessages(messages []Message, maxRecentMessages int)
 	}
 
 	return compacted
+}
+
+// adjustStartForToolPairs adjusts the start index to ensure tool_use/tool_result
+// message pairs are kept together. If the message at startIdx contains tool_results,
+// we need to include the preceding assistant message with tool_use blocks.
+func (c *Client) adjustStartForToolPairs(messages []Message, startIdx int) int {
+	if startIdx <= 1 || startIdx >= len(messages) {
+		return startIdx
+	}
+
+	// Check if the message at startIdx is a user message with tool_results
+	msg := messages[startIdx]
+	if msg.Role != "user" {
+		return startIdx
+	}
+
+	// Check if this message contains tool_result blocks
+	if c.hasToolResults(msg) {
+		// Include the preceding assistant message (which should have tool_use)
+		if startIdx > 1 {
+			startIdx--
+		}
+	}
+
+	return startIdx
+}
+
+// hasToolResults checks if a message contains tool_result blocks.
+func (c *Client) hasToolResults(msg Message) bool {
+	content, ok := msg.Content.([]ToolResult)
+	if ok && len(content) > 0 {
+		return true
+	}
+
+	// Also check for []interface{} format (from JSON unmarshaling)
+	if contentSlice, ok := msg.Content.([]interface{}); ok {
+		for _, item := range contentSlice {
+			if itemMap, ok := item.(map[string]interface{}); ok {
+				if itemType, ok := itemMap["type"].(string); ok && itemType == "tool_result" {
+					return true
+				}
+			}
+		}
+	}
+
+	return false
 }
 
 func (c *Client) processQuery(ctx context.Context, query string) error {
@@ -799,6 +873,8 @@ func (c *Client) processQuery(ctx context.Context, query string) error {
 		response, err := c.llm.Chat(reqCtx, compactedMessages, c.tools)
 		if err != nil {
 			close(thinkingDone)
+			// Wait for ListenForEscape to restore terminal from raw mode
+			time.Sleep(50 * time.Millisecond)
 			// Check if this was a user cancellation (Escape key)
 			if reqCtx.Err() == context.Canceled && ctx.Err() == nil {
 				// User canceled with Escape - keep the query in history
@@ -888,6 +964,8 @@ func (c *Client) processQuery(ctx context.Context, query string) error {
 
 		// Got final response
 		close(thinkingDone)
+		// Wait for ListenForEscape to restore terminal from raw mode
+		time.Sleep(50 * time.Millisecond)
 
 		// Extract and display text content
 		var textParts []string
@@ -910,6 +988,8 @@ func (c *Client) processQuery(ctx context.Context, query string) error {
 	}
 
 	close(thinkingDone)
+	// Wait for ListenForEscape to restore terminal from raw mode
+	time.Sleep(50 * time.Millisecond)
 	return fmt.Errorf("reached maximum number of tool calls (%d)", maxAgenticLoops)
 }
 

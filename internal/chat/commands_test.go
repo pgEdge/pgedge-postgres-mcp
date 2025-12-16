@@ -161,12 +161,12 @@ func TestHandleSetColor(t *testing.T) {
 		value           string
 		expectedNoColor bool // NoColor is the inverse of Color
 	}{
-		{"on", "on", false},       // color on = noColor false
+		{"on", "on", false}, // color on = noColor false
 		{"ON uppercase", "ON", false},
 		{"true", "true", false},
 		{"1", "1", false},
 		{"yes", "yes", false},
-		{"off", "off", true},      // color off = noColor true
+		{"off", "off", true}, // color off = noColor true
 		{"OFF uppercase", "OFF", true},
 		{"false", "false", true},
 		{"0", "0", true},

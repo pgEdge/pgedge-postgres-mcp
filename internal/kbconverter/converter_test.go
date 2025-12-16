@@ -298,3 +298,125 @@ func TestGetSupportedExtensions(t *testing.T) {
 		}
 	}
 }
+
+func TestCleanMarkdownForRAG(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{
+			name:     "strip image with alt text",
+			input:    "Here is an image: ![diagram of flow](images/flow.png) in the text.",
+			expected: "Here is an image: diagram of flow in the text.",
+		},
+		{
+			name:     "strip image without alt text",
+			input:    "Here is an image: ![](images/empty.png) gone.",
+			expected: "Here is an image: gone.",
+		},
+		{
+			name:     "strip link keep text",
+			input:    "Check the [PostgreSQL docs](https://postgresql.org/docs) for more.",
+			expected: "Check the PostgreSQL docs for more.",
+		},
+		{
+			name:     "strip empty link",
+			input:    "Empty link [](https://example.com) removed.",
+			expected: "Empty link removed.",
+		},
+		{
+			name:     "strip reference-style link definitions",
+			input:    "Some text.\n\n[link1]: https://example.com\n[link2]: https://other.com \"Title\"\n\nMore text.",
+			expected: "Some text.\n\nMore text.",
+		},
+		{
+			name:     "collapse multiple spaces",
+			input:    "Too   many    spaces    here.",
+			expected: "Too many spaces here.",
+		},
+		{
+			name:     "preserve code indentation",
+			input:    "Code:\n\n    if x > 0:\n        print(x)\n\nDone.",
+			expected: "Code:\n\n    if x > 0:\n        print(x)\n\nDone.",
+		},
+		{
+			name:     "collapse excessive newlines",
+			input:    "First paragraph.\n\n\n\n\nSecond paragraph.",
+			expected: "First paragraph.\n\nSecond paragraph.",
+		},
+		{
+			name:     "remove trailing whitespace",
+			input:    "Line with trailing spaces   \nAnother line  ",
+			expected: "Line with trailing spaces\nAnother line",
+		},
+		{
+			name:     "trim document whitespace",
+			input:    "\n\n  Content here  \n\n",
+			expected: "Content here",
+		},
+		{
+			name:     "preserve headings and formatting",
+			input:    "# Title\n\nSome **bold** and *italic* text.\n\n## Section\n\nMore content.",
+			expected: "# Title\n\nSome **bold** and *italic* text.\n\n## Section\n\nMore content.",
+		},
+		{
+			name:     "preserve code blocks",
+			input:    "Example:\n\n```python\ndef foo():\n    pass\n```\n\nDone.",
+			expected: "Example:\n\n```python\ndef foo():\n    pass\n```\n\nDone.",
+		},
+		{
+			name:     "complex document",
+			input:    "# Guide\n\nSee the ![icon](img/icon.png) and read [the docs](http://example.com).\n\n\n\nNext section with   extra spaces.",
+			expected: "# Guide\n\nSee the icon and read the docs.\n\nNext section with extra spaces.",
+		},
+		{
+			name:     "simplify ASCII table borders",
+			input:    "+------------------------------+---------------------------------------------------+\n| Column 1                     | Description                                       |\n+------------------------------+---------------------------------------------------+",
+			expected: "+-+-+\n| Column 1 | Description |\n+-+-+",
+		},
+		{
+			name:     "simplify RST separator lines",
+			input:    "Header\n======\n\nContent\n------",
+			expected: "Header\n---\n\nContent\n---",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := CleanMarkdownForRAG(tt.input)
+			if result != tt.expected {
+				t.Errorf("CleanMarkdownForRAG():\ngot:      %q\nexpected: %q", result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestConvertAppliesCleanup(t *testing.T) {
+	// Test that Convert applies the RAG cleanup
+	markdown := `# Test
+
+Check [this link](http://example.com) and ![image](img.png).
+`
+
+	result, _, err := Convert([]byte(markdown), kbtypes.TypeMarkdown)
+	if err != nil {
+		t.Fatalf("Convert failed: %v", err)
+	}
+
+	// Links should be stripped
+	if strings.Contains(result, "http://example.com") {
+		t.Error("Convert should strip URLs from links")
+	}
+	if !strings.Contains(result, "this link") {
+		t.Error("Convert should preserve link text")
+	}
+
+	// Images should be stripped
+	if strings.Contains(result, "img.png") {
+		t.Error("Convert should strip image paths")
+	}
+	if !strings.Contains(result, "image") {
+		t.Error("Convert should preserve image alt text")
+	}
+}

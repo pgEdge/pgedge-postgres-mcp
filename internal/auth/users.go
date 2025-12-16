@@ -388,13 +388,13 @@ type UserInfo struct {
 // GetDefaultUserPath returns the default user file path
 // Searches /etc/pgedge/ first, then binary directory
 func GetDefaultUserPath(binaryPath string) string {
-	systemPath := "/etc/pgedge/pgedge-mcp-server-users.yaml"
+	systemPath := "/etc/pgedge/pgedge-postgres-mcp-users.yaml"
 	if _, err := os.Stat(systemPath); err == nil {
 		return systemPath
 	}
 
 	dir := filepath.Dir(binaryPath)
-	return filepath.Join(dir, "pgedge-mcp-server-users.yaml")
+	return filepath.Join(dir, "pgedge-postgres-mcp-users.yaml")
 }
 
 // InitializeUserStore creates a new empty user store

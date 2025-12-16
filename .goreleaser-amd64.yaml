@@ -17,8 +17,8 @@ before:
 
 builds:
     # MCP Server - amd64 (all platforms)
-    - id: pgedge-mcp-server-amd64
-      binary: pgedge-mcp-server
+    - id: pgedge-postgres-mcp-amd64
+      binary: pgedge-postgres-mcp
       main: ./cmd/pgedge-pg-mcp-svr
       env:
           - CGO_ENABLED=0
@@ -77,7 +77,7 @@ archives:
     # Server archive - amd64 only
     - id: server-amd64
       builds:
-          - pgedge-mcp-server-amd64
+          - pgedge-postgres-mcp-amd64
       name_template: >-
           {{ .ProjectName }}-server_
           {{- .Version }}_
@@ -89,9 +89,8 @@ archives:
           - README.md
           - LICENCE.md
           - docs/**/*
-          - examples/pgedge-mcp-server-custom.yaml
+          - examples/pgedge-postgres-mcp-custom.yaml
           - examples/.env.example
-          - bin/kb.db
 
     # CLI archive - amd64 only
     - id: cli-amd64
@@ -120,6 +119,7 @@ archives:
           - LICENCE.md
           - examples/pgedge-nla-kb-builder.yaml
           - kb/README.md
+          - bin/kb.db
 
     # Web UI archive (noarch - built in build-web job, not here)
     # Web UI is architecture-independent and built once in the workflow

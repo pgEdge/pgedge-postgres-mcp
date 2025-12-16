@@ -7,6 +7,115 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/),
 and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0-beta1] - 2025-12-15
+
+### Changed
+
+This release marks the transition from alpha to beta status, indicating the
+software is now feature-complete and ready for broader testing.
+
+#### Internal
+
+- Updated Claude Code configuration
+
+## [1.0.0-alpha6] - 2025-12-12
+
+### Added
+
+#### CLI Features
+
+- Added `none` authentication mode for CLI client to connect to servers with
+  authentication disabled (`-mcp-auth-mode none`)
+
+#### Knowledgebase
+
+- Release workflow now builds kb.db with embeddings from all three providers
+  (OpenAI, Voyage AI, Ollama)
+
+### Changed
+
+#### Naming
+
+- Renamed server binary from `pgedge-postgres-mcp` to `pgedge-nla-svr`
+
+#### Knowledgebase Builder
+
+- Reduced chunk sizes to avoid hitting Ollama model token limits (250 words
+  target, 300 max)
+- Added character-based chunk limiting (3000 chars max) for technical content
+  with high character-to-word ratios (XML/SGML)
+- Improved markdown cleanup when building knowledgebase (removes images, link
+  URLs, simplifies table borders)
+- Added ASCII table border simplification to reduce token usage
+
+### Fixed
+
+- Fixed lint warnings in test files (unused types and unusedwrite warnings)
+- Fixed tests that failed without database connection
+- Fixed git branch handling when building knowledgebase (uses checkout -B to
+  handle behind branches)
+- Improved git pull handling when checking out branches for knowledgebase
+  building
+
+### Infrastructure
+
+- Added Claude Code instructions file for development workflow
+
+## [1.0.0-alpha5] - 2025-12-11
+
+### Added
+
+#### CLI Features
+
+- Ability to cancel in-flight LLM queries by pressing Escape key
+- Support for enabling/disabling colorization via configuration
+- Terminal sanitization at startup to recover from broken terminal states
+
+#### Web UI
+
+- Login page animation
+
+### Changed
+
+#### Cross-Platform Compatibility
+
+- Refactored syscall package usage into platform-specific files for proper
+  cross-platform support (darwin, linux, windows)
+- Improved terminal raw mode handling in escape key detection
+
+#### UI Improvements
+
+- Updated web UI styling to better match pgEdge Cloud design
+- Removed unnecessary checks for LLM environment variables
+
+### Fixed
+
+#### Critical Bug Fixes
+
+- **CLI Output Bug**: Fixed staircase indentation issue where CLI output
+  progressively indented to the right
+- **Terminal State**: Fixed terminal being left in broken state after CLI
+  exit due to raw mode not being properly restored
+- **Compaction Bug**: Fixed tool_use and tool_result messages being
+  separated during conversation compaction, which caused Anthropic API
+  errors (400 Bad Request with "tool_use_id not found")
+
+#### Other Fixes
+
+- Fixed first load of a conversation not displaying correctly in web UI
+- Fixed broken documentation URLs in README after docs restructuring
+
+### Infrastructure
+
+- GitHub Actions workflow improvements:
+    - Build kb.db using goreleaser
+    - Include kb.db in kb-builder archive
+    - Use token to pull private repos
+    - Create bin directory before using it in release workflow
+    - Fix build command issues
+    - Fix dirty git state error in workflow
+    - Use architecture-specific runners for release builds
+
 ## [1.0.0-alpha4] - 2025-12-08
 
 ### Added
@@ -346,7 +455,10 @@ and this project adheres to
 - CI/CD pipeline documentation
 - Testing guide for contributors
 
-[Unreleased]: https://github.com/pgEdge/pgedge-postgres-mcp/compare/v1.0.0-alpha4...HEAD
+[Unreleased]: https://github.com/pgEdge/pgedge-nla/compare/v1.0.0-beta1...HEAD
+[1.0.0-beta1]: https://github.com/pgEdge/pgedge-nla/releases/tag/v1.0.0-beta1
+[1.0.0-alpha6]: https://github.com/pgEdge/pgedge-nla/releases/tag/v1.0.0-alpha6
+[1.0.0-alpha5]: https://github.com/pgEdge/pgedge-nla/releases/tag/v1.0.0-alpha5
 [1.0.0-alpha4]: https://github.com/pgEdge/pgedge-postgres-mcp/releases/tag/v1.0.0-alpha4
 [1.0.0-alpha3]: https://github.com/pgEdge/pgedge-postgres-mcp/releases/tag/v1.0.0-alpha3
 [1.0.0-alpha2]: https://github.com/pgEdge/pgedge-postgres-mcp/releases/tag/v1.0.0-alpha2

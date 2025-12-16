@@ -11,9 +11,9 @@
 #   - Add to .gitignore
 #
 # TOKEN MANAGEMENT COMMANDS:
-#   - Create new token:  ./bin/pgedge-mcp-server -add-token
-#   - List all tokens:   ./bin/pgedge-mcp-server -list-tokens
-#   - Remove a token:    ./bin/pgedge-mcp-server -remove-token <id-or-hash-prefix>
+#   - Create new token:  ./bin/pgedge-postgres-mcp -add-token
+#   - List all tokens:   ./bin/pgedge-postgres-mcp -list-tokens
+#   - Remove a token:    ./bin/pgedge-postgres-mcp -remove-token <id-or-hash-prefix>
 #
 # AUTHENTICATION MODES:
 #   The server supports two authentication modes:
@@ -92,7 +92,7 @@ tokens:
 # ============================================================================
 
 # Example 1: Creating a new token
-# $ ./bin/pgedge-mcp-server -add-token
+# $ ./bin/pgedge-postgres-mcp -add-token
 # Enter an annotation/description for this token: Production API - Team B
 # Enter expiration date (YYYY-MM-DD) or press Enter for no expiration: 2025-12-31
 #
@@ -103,7 +103,7 @@ tokens:
 # Hash: b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5
 
 # Example 2: Listing all tokens
-# $ ./bin/pgedge-mcp-server -list-tokens
+# $ ./bin/pgedge-postgres-mcp -list-tokens
 # Tokens:
 #   ID: prod-api-2024-01
 #   Hash: a7b3c8d9... (first 12 chars)
@@ -112,11 +112,11 @@ tokens:
 #   Expires: 2025-12-31 23:59:59
 
 # Example 3: Removing a token by ID
-# $ ./bin/pgedge-mcp-server -remove-token prod-api-2024-01
+# $ ./bin/pgedge-postgres-mcp -remove-token prod-api-2024-01
 # Token 'prod-api-2024-01' removed successfully
 
 # Example 4: Removing a token by hash prefix (min 8 characters)
-# $ ./bin/pgedge-mcp-server -remove-token a7b3c8d9
+# $ ./bin/pgedge-postgres-mcp -remove-token a7b3c8d9
 # Token with hash prefix 'a7b3c8d9' removed successfully
 
 # ============================================================================
@@ -126,19 +126,19 @@ tokens:
 # Global Mode (default):
 # All tokens share database connections
 # To use: Just run the server normally
-# $ ./bin/pgedge-mcp-server -http
+# $ ./bin/pgedge-postgres-mcp -http
 
 # Per-Token Mode:
 # Each token has isolated database connections stored in this file
 # To use: Add -auth-mode per-token flag
-# $ ./bin/pgedge-mcp-server -http -auth-mode per-token
+# $ ./bin/pgedge-postgres-mcp -http -auth-mode per-token
 
 # ============================================================================
 # SECURITY BEST PRACTICES
 # ============================================================================
 
 # 1. Set proper file permissions (required):
-#    chmod 600 pgedge-mcp-server-tokens.yaml
+#    chmod 600 pgedge-postgres-mcp-tokens.yaml
 
 # 2. Store tokens securely:
 #    - Use environment variables or secret managers for the actual tokens

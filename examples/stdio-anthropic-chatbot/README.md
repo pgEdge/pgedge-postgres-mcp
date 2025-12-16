@@ -29,7 +29,7 @@ export PGPASSWORD="mypass"  # Or use ~/.pgpass file for better security
 
 ```bash
 cd ../..
-go build -o bin/pgedge-mcp-server ./cmd/pgedge-pg-mcp-svr
+go build -o bin/pgedge-postgres-mcp ./cmd/pgedge-pg-mcp-svr
 ```
 
 **4. Run the chatbot:**
@@ -90,7 +90,7 @@ For more details, see the [Stdio + Anthropic Claude Chatbot](../../docs/stdio-an
 
 - `ANTHROPIC_API_KEY` (required): Your Anthropic API key
 - PostgreSQL connection variables (required): `PGHOST`, `PGPORT`, `PGDATABASE`, `PGUSER`, `PGPASSWORD` (or use ~/.pgpass file)
-- `PGEDGE_MCP_SERVER_PATH` (optional): Custom path to the MCP server binary (default: `../../bin/pgedge-mcp-server`)
+- `PGEDGE_MCP_SERVER_PATH` (optional): Custom path to the MCP server binary (default: `../../bin/pgedge-postgres-mcp`)
 
 ## Troubleshooting
 
@@ -99,13 +99,13 @@ For more details, see the [Stdio + Anthropic Claude Chatbot](../../docs/stdio-an
 Make sure you've built the server:
 
 ```bash
-cd ../.. && go build -o bin/pgedge-mcp-server ./cmd/pgedge-pg-mcp-svr
+cd ../.. && go build -o bin/pgedge-postgres-mcp ./cmd/pgedge-pg-mcp-svr
 ```
 
 Or set the path explicitly:
 
 ```bash
-export PGEDGE_MCP_SERVER_PATH="/path/to/pgedge-mcp-server"
+export PGEDGE_MCP_SERVER_PATH="/path/to/pgedge-postgres-mcp"
 ```
 
 **"ANTHROPIC_API_KEY environment variable is required":**

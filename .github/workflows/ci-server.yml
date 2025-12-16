@@ -80,12 +80,12 @@ jobs:
             - name: Build server
               run: |
                   mkdir -p bin
-                  go build -v -o bin/pgedge-mcp-server ./cmd/pgedge-pg-mcp-svr
+                  go build -v -o bin/pgedge-postgres-mcp ./cmd/pgedge-pg-mcp-svr
 
             - name: Verify binary
               run: |
-                  ls -lh bin/pgedge-mcp-server
-                  file bin/pgedge-mcp-server
+                  ls -lh bin/pgedge-postgres-mcp
+                  file bin/pgedge-postgres-mcp
 
             - name: Run server unit tests
               run: go test -v -race -coverprofile=coverage.out -covermode=atomic ./internal/mcp/... ./internal/auth/... ./internal/config/... ./internal/crypto/... ./internal/database/... ./internal/resources/... ./internal/tools/... ./cmd/pgedge-pg-mcp-svr/...
@@ -120,8 +120,8 @@ jobs:
               if: matrix.postgres-version == '18'
               uses: actions/upload-artifact@v4
               with:
-                  name: pgedge-mcp-server-linux-amd64
-                  path: bin/pgedge-mcp-server
+                  name: pgedge-postgres-mcp-linux-amd64
+                  path: bin/pgedge-postgres-mcp
                   retention-days: 7
 
             - name: Upload coverage artifact

@@ -39,14 +39,14 @@ INTERNAL_CHAT_DIR="$PROJECT_DIR/internal/chat"
 
 # Binaries
 CLI_BIN="$BIN_DIR/pgedge-nla-cli"
-SERVER_BIN="$BIN_DIR/pgedge-mcp-server"
+SERVER_BIN="$BIN_DIR/pgedge-postgres-mcp"
 
 # Configuration files
-SERVER_CONFIG="$BIN_DIR/pgedge-mcp-server-http.yaml"
+SERVER_CONFIG="$BIN_DIR/pgedge-postgres-mcp-http.yaml"
 CLI_CONFIG="${CONFIG_FILE:-$BIN_DIR/pgedge-nla-cli-http.yaml}"
 
 # Log files
-SERVER_LOG="/tmp/pgedge-mcp-server.log"
+SERVER_LOG="/tmp/pgedge-postgres-mcp.log"
 
 # PID file for cleanup
 MCP_SERVER_PID=""

@@ -40,4 +40,4 @@ COPY --from=builder --chown=1001:1001 /workspace/pgedge-nla-cli /app/pgedge-nla-
 ENTRYPOINT ["/app/pgedge-nla-cli"]
 
 # Default arguments (can be overridden)
-CMD ["-mcp-mode", "http", "-mcp-url", "http://mcp-server:8080"]
+CMD ["-mcp-mode", "http", "-mcp-url", "http://postgres-mcp:8080"]

@@ -1,7 +1,7 @@
 .PHONY: build build-server build-client build-kb-builder clean clean-server clean-client clean-kb-builder test test-server test-client test-kb-builder run install help lint lint-server lint-client fmt format gofmt kb
 
 # Binary names and directories
-SERVER_BINARY=pgedge-mcp-server
+SERVER_BINARY=pgedge-postgres-mcp
 CLIENT_BINARY=pgedge-nla-cli
 KB_BUILDER_BINARY=pgedge-nla-kb-builder
 BIN_DIR=bin

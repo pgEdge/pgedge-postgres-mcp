@@ -103,8 +103,13 @@ func (ui *UI) PrintAssistantResponse(text string) {
 	maxWidth := ui.getThinkingMaxWidth()
 	fmt.Print("\r" + strings.Repeat(" ", maxWidth) + "\r\n\n")
 
-	// Print assistant label
-	fmt.Print(ui.colorize(ColorBlue, "Assistant: "))
+	// Print assistant label on its own line when markdown is enabled
+	// This prevents glamour's word-wrap from getting confused about cursor position
+	if ui.RenderMarkdown {
+		fmt.Println(ui.colorize(ColorBlue, "Assistant:"))
+	} else {
+		fmt.Print(ui.colorize(ColorBlue, "Assistant: "))
+	}
 
 	// Render markdown if enabled
 	if ui.RenderMarkdown {
@@ -138,7 +143,9 @@ func (ui *UI) PrintAssistantResponse(text string) {
 		if err == nil {
 			rendered, err := r.Render(text)
 			if err == nil {
-				fmt.Print(rendered)
+				// Trim excess whitespace that glamour sometimes adds
+				rendered = strings.TrimSpace(rendered)
+				fmt.Println(rendered)
 				return
 			}
 			// If rendering fails, fall back to plain text
@@ -151,6 +158,8 @@ func (ui *UI) PrintAssistantResponse(text string) {
 
 // PrintSystemMessage prints a system message
 func (ui *UI) PrintSystemMessage(text string) {
+	// Reset cursor to column 0 to handle any leftover positioning from readline
+	fmt.Print("\r")
 	fmt.Println(ui.colorize(ColorYellow, "System: ") + text)
 }
 
