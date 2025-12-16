@@ -364,6 +364,203 @@ The compactor uses a 5-tier classification system:
 
 **Implementation:** [internal/compactor/](https://github.com/pgEdge/pgedge-postgres-mcp/tree/main/internal/compactor)
 
+## Conversations API
+
+The conversations API provides endpoints for managing chat history persistence.
+These endpoints are only available when user authentication is enabled.
+
+### GET /api/conversations
+
+Lists conversations for the authenticated user.
+
+**Request:**
+```http
+GET /api/conversations?limit=50&offset=0 HTTP/1.1
+Authorization: Bearer <session-token>
+```
+
+**Query Parameters:**
+
+- `limit` (optional) - Maximum number of conversations to return (default: 50)
+- `offset` (optional) - Number of conversations to skip for pagination
+  (default: 0)
+
+**Response:**
+```json
+{
+    "conversations": [
+        {
+            "id": "conv_abc123",
+            "title": "Database schema exploration",
+            "connection": "production",
+            "created_at": "2025-01-15T10:30:00Z",
+            "updated_at": "2025-01-15T11:45:00Z",
+            "preview": "Show me the users table..."
+        }
+    ]
+}
+```
+
+### POST /api/conversations
+
+Creates a new conversation.
+
+**Request:**
+```http
+POST /api/conversations HTTP/1.1
+Content-Type: application/json
+Authorization: Bearer <session-token>
+
+{
+    "provider": "anthropic",
+    "model": "claude-sonnet-4-20250514",
+    "connection": "production",
+    "messages": [
+        {
+            "role": "user",
+            "content": "Show me the users table"
+        },
+        {
+            "role": "assistant",
+            "content": "Here's the schema for the users table..."
+        }
+    ]
+}
+```
+
+**Response (201 Created):**
+```json
+{
+    "id": "conv_abc123",
+    "username": "alice",
+    "title": "Show me the users table",
+    "provider": "anthropic",
+    "model": "claude-sonnet-4-20250514",
+    "connection": "production",
+    "messages": [...],
+    "created_at": "2025-01-15T10:30:00Z",
+    "updated_at": "2025-01-15T10:30:00Z"
+}
+```
+
+### GET /api/conversations/{id}
+
+Retrieves a specific conversation.
+
+**Request:**
+```http
+GET /api/conversations/conv_abc123 HTTP/1.1
+Authorization: Bearer <session-token>
+```
+
+**Response:**
+```json
+{
+    "id": "conv_abc123",
+    "username": "alice",
+    "title": "Database schema exploration",
+    "provider": "anthropic",
+    "model": "claude-sonnet-4-20250514",
+    "connection": "production",
+    "messages": [
+        {
+            "role": "user",
+            "content": "Show me the users table",
+            "timestamp": "2025-01-15T10:30:00Z"
+        },
+        {
+            "role": "assistant",
+            "content": "Here's the schema...",
+            "timestamp": "2025-01-15T10:30:05Z",
+            "provider": "anthropic",
+            "model": "claude-sonnet-4-20250514"
+        }
+    ],
+    "created_at": "2025-01-15T10:30:00Z",
+    "updated_at": "2025-01-15T11:45:00Z"
+}
+```
+
+### PUT /api/conversations/{id}
+
+Updates a conversation (replaces all messages).
+
+**Request:**
+```http
+PUT /api/conversations/conv_abc123 HTTP/1.1
+Content-Type: application/json
+Authorization: Bearer <session-token>
+
+{
+    "provider": "anthropic",
+    "model": "claude-sonnet-4-20250514",
+    "connection": "production",
+    "messages": [...]
+}
+```
+
+**Response:** Same as GET response with updated data.
+
+### PATCH /api/conversations/{id}
+
+Renames a conversation.
+
+**Request:**
+```http
+PATCH /api/conversations/conv_abc123 HTTP/1.1
+Content-Type: application/json
+Authorization: Bearer <session-token>
+
+{
+    "title": "New conversation title"
+}
+```
+
+**Response:**
+```json
+{
+    "success": true
+}
+```
+
+### DELETE /api/conversations/{id}
+
+Deletes a specific conversation.
+
+**Request:**
+```http
+DELETE /api/conversations/conv_abc123 HTTP/1.1
+Authorization: Bearer <session-token>
+```
+
+**Response:**
+```json
+{
+    "success": true
+}
+```
+
+### DELETE /api/conversations?all=true
+
+Deletes all conversations for the authenticated user.
+
+**Request:**
+```http
+DELETE /api/conversations?all=true HTTP/1.1
+Authorization: Bearer <session-token>
+```
+
+**Response:**
+```json
+{
+    "success": true,
+    "deleted": 15
+}
+```
+
+**Implementation:**
+[internal/conversations/](https://github.com/pgEdge/pgedge-postgres-mcp/tree/main/internal/conversations)
+
 ## LLM Proxy Endpoints
 
 The LLM proxy provides REST API endpoints for chat functionality. See the
