@@ -23,7 +23,7 @@ on:
 
 env:
     REGISTRY: ghcr.io
-    IMAGE_NAME_SERVER: pgedge/mcp-server
+    IMAGE_NAME_SERVER: pgedge/postgres-mcp
     IMAGE_NAME_WEB: pgedge/nla-web
     IMAGE_NAME_CLI: pgedge/nla-cli
 

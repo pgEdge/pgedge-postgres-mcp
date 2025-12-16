@@ -1,6 +1,6 @@
 services:
     # MCP Server - Backend service providing database tools
-    mcp-server:
+    postgres-mcp:
         build:
             context: .
             dockerfile: Dockerfile.server
@@ -64,7 +64,7 @@ services:
         ports:
             - "${WEB_CLIENT_PORT:-8081}:8081"
         depends_on:
-            mcp-server:
+            postgres-mcp:
                 condition: service_healthy
         networks:
             - pgedge-network
@@ -90,7 +90,7 @@ services:
     #     environment:
     #         # MCP connection
     #         - PGEDGE_MCP_MODE=http
-    #         - PGEDGE_MCP_URL=http://mcp-server:8080
+    #         - PGEDGE_MCP_URL=http://postgres-mcp:8080
     #         - PGEDGE_MCP_TOKEN=${MCP_CLIENT_TOKEN}
     #         # LLM configuration
     #         - PGEDGE_LLM_PROVIDER=${PGEDGE_LLM_PROVIDER:-anthropic}
@@ -101,7 +101,7 @@ services:
     #         # UI configuration
     #         - NO_COLOR=${NO_COLOR:-}
     #     depends_on:
-    #         mcp-server:
+    #         postgres-mcp:
     #             condition: service_healthy
     #     networks:
     #         - pgedge-network
