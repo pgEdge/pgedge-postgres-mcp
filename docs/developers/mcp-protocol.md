@@ -50,8 +50,6 @@ The server supports two transport modes:
 ./bin/pgedge-postgres-mcp -http -addr ":8080"
 ```
 
-For deployment details, see [Deployment Guide](../guide/deployment.md).
-
 ## MCP Capabilities
 
 The server advertises these capabilities during initialization:
@@ -569,13 +567,3 @@ Tests verify:
 - Streaming support (HTTP mode)
 
 For more testing information, see [Testing Guide](../contributing/testing.md).
-
-## Related Documentation
-
-- [Tools Documentation](../reference/tools.md) - Detailed tool reference
-- [Resources Documentation](../reference/resources.md) - Detailed resource reference
-- [Deployment Guide](../guide/deployment.md) - HTTP/HTTPS mode deployment
-- [Authentication Guide](../guide/authentication.md) - HTTP authentication
-- [Examples](../reference/examples.md) - Query examples and patterns
-- [Testing Guide](../contributing/testing.md) - Testing procedures
-- [Architecture Guide](../contributing/architecture.md) - Implementation details

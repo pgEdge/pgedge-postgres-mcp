@@ -295,6 +295,5 @@ The complete source code for this example is available in the [`examples/http-ol
 ## Next Steps
 
 - Try the [Stdio + Anthropic Claude Chatbot](stdio-anthropic-chatbot.md) for a simpler setup with more powerful LLM
-- Learn about [HTTP mode configuration](../guide/deployment.md) for production
 - Explore [authentication options](../guide/authentication.md) for securing your HTTP endpoint
 - Learn about [available tools](../reference/tools.md) you can use

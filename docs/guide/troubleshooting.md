@@ -1,5 +1,258 @@
 # Troubleshooting Guide
 
+## Troubleshooting Configuration Issues
+
+### Configuration Not Loading
+
+```bash
+# Check if config file exists
+ls -la bin/pgedge-postgres-mcp.yaml
+
+# Use explicit path
+./bin/pgedge-postgres-mcp -config /full/path/to/config.yaml
+
+# Check file permissions
+chmod 600 bin/pgedge-postgres-mcp.yaml  # Should be readable
+```
+
+
+## Troubleshooting Build Issues
+
+When building and deploying the MCP server and agent, you might encounter the following issues:
+
+### Port Already in Use
+
+```bash
+lsof -i :8080
+# Kill the process or use a different port with -addr
+```
+
+### Database Connection Failed
+
+```bash
+# Test connection directly
+psql -h localhost -U postgres -d mydb -c "SELECT 1"
+
+# Check environment variables
+env | grep PG
+```
+
+### Docker Can't Reach Host Database
+
+- macOS/Windows: Use `host.docker.internal`
+- Linux: Use `172.17.0.1` or configure Docker network
+
+### Certificate Issues
+
+```bash
+# Verify certificate matches key
+openssl x509 -noout -modulus -in server.crt | openssl md5
+openssl rsa -noout -modulus -in server.key | openssl md5
+# Both should match
+
+# Check expiration
+openssl x509 -in server.crt -noout -dates
+```
+
+
+## Troubleshooting Web Client Issues
+
+### Connection Issues
+
+If you see a red connection indicator:
+
+1. Check that the MCP server is running
+2. Verify database credentials in the server configuration
+3. Check network connectivity to the database host
+
+### Slow Responses
+
+- Try a faster model (e.g., `claude-sonnet` instead of `claude-opus`)
+- Enable response streaming in server configuration
+- Check your LLM provider's rate limits
+
+### Authentication Errors
+
+- Verify your username and password
+- Check that the user exists (use `-list-users` on the server)
+- Ensure authentication is enabled in server configuration
+
+
+## Troubleshooting CLI Client Issues
+
+### Connection Errors
+
+**Problem**: "Failed to connect to MCP server"
+
+**Solutions**:
+
+- In stdio mode, verify the server path is correct: `-mcp-server-path ./bin/pgedge-postgres-mcp`
+- In HTTP mode, verify the URL is correct: `-mcp-url http://localhost:8080`
+- Check if the MCP server is running (in HTTP mode)
+- Verify authentication token is set (in HTTP mode with auth enabled)
+
+### LLM Errors
+
+**Problem**: "LLM error: authentication failed"
+
+**Solutions**:
+
+- For Anthropic: Verify `ANTHROPIC_API_KEY` is set correctly
+- For Ollama: Verify Ollama is running (`ollama serve`) and the model is pulled (`ollama pull llama3`)
+- Check the model name is correct
+
+**Problem**: "Ollama: model not found"
+
+**Solutions**:
+
+```bash
+# List available models
+ollama list
+
+# Pull the model you want to use
+ollama pull llama3
+```
+
+### Configuration Issues
+
+**Problem**: "Configuration error: invalid mode"
+
+**Solutions**:
+
+- Valid modes are `stdio` or `http`
+- Check your configuration file or command-line flags
+- Mode must be specified if not using default
+
+**Problem**: "Missing API key for Anthropic"
+
+**Solutions**:
+
+- Set the `PGEDGE_ANTHROPIC_API_KEY` environment variable
+- Or add `anthropic_api_key` to your configuration file under `llm:`
+- Or use the `-anthropic-api-key` command-line flag
+
+### Terminal/Display Issues
+
+**Problem**: Colors look wrong or garbled
+
+**Solutions**:
+
+- Disable colors with the `NO_COLOR=1` environment variable
+- Or use the `-no-color` flag
+- Or add `no_color: true` to your configuration file under `ui:`
+
+**Problem**: History not working
+
+**Solutions**:
+
+- Check that `~/.pgedge-nla-cli-history` is writable
+- The history file is created automatically on first use
+- On some terminals, readline features may be limited
+
+
+## Troubleshooting Authentication Errors
+
+#### Invalid Credentials
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "error": {
+    "code": -32603,
+    "message": "Tool execution error",
+    "data": "authentication failed: invalid username or password"
+  }
+}
+```
+
+#### Disabled User Account
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "error": {
+    "code": -32603,
+    "message": "Tool execution error",
+    "data": "authentication failed: user account is disabled"
+  }
+}
+```
+
+#### Expired Session Token
+
+```json
+{
+  "error": "Unauthorized"
+}
+```
+
+HTTP Status: `401 Unauthorized`
+
+**Solution**: Re-authenticate to get a new session token
+
+
+## Troubleshooting
+
+### Token File Not Found
+
+```bash
+# Error message:
+ERROR: Token file not found: /path/to/pgedge-postgres-mcp-tokens.yaml
+Create tokens with: ./pgedge-postgres-mcp -add-token
+Or disable authentication with: -no-auth
+```
+
+**Solution**:
+```bash
+# Create first token
+./bin/pgedge-postgres-mcp -add-token
+```
+
+### Token Authentication Fails
+
+```bash
+# Check token file exists and has correct permissions
+ls -la pgedge-postgres-mcp-tokens.yaml  # Should show -rw------- (600)
+
+# List tokens to verify token exists
+./bin/pgedge-postgres-mcp -list-tokens
+
+# Check for expired tokens
+./bin/pgedge-postgres-mcp -list-tokens | grep "Status: Expired"
+```
+
+### Cannot Remove Token
+
+```bash
+# Error: Token not found
+# Solution: Use at least 8 characters of the hash
+./bin/pgedge-postgres-mcp -list-tokens  # Get the hash
+./bin/pgedge-postgres-mcp -remove-token b3f805a4  # Use 8+ chars
+```
+
+### Server Won't Start (Auth Enabled)
+
+If auth is enabled but no token file exists:
+
+```bash
+# Option 1: Create a token file
+./bin/pgedge-postgres-mcp -add-token
+
+# Option 2: Disable auth temporarily
+./bin/pgedge-postgres-mcp -http -no-auth
+```
+
+
+
+
+
+
+
+
+
+
 ## Server Exits Immediately After Initialize
 
 ### Symptoms
@@ -270,7 +523,7 @@ Look for:
 4. **Review generated SQL:**
 
     The response includes the generated SQL. If it's wrong, you can:
-    
+
     - Provide feedback in your next message
     - Add more schema comments
     - Rephrase your question
