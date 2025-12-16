@@ -98,7 +98,7 @@ jobs:
                   timeout=60
                   elapsed=0
                   while [ $elapsed -lt $timeout ]; do
-                    if docker compose ps | grep mcp-server | grep -q "healthy"; then
+                    if docker compose ps | grep postgres-mcp | grep -q "healthy"; then
                       echo "MCP server is healthy"
                       exit 0
                     fi
@@ -108,7 +108,7 @@ jobs:
                   done
                   echo "ERROR: MCP server failed to become healthy"
                   docker compose ps
-                  docker compose logs mcp-server
+                  docker compose logs postgres-mcp
                   exit 1
               timeout-minutes: 2
 
@@ -160,7 +160,7 @@ jobs:
 
                   # Debug: Check if token file exists and show contents
                   echo "Checking token file in container..."
-                  docker compose exec -T mcp-server cat /app/data/tokens.json || echo "Token file not accessible"
+                  docker compose exec -T postgres-mcp cat /app/data/tokens.json || echo "Token file not accessible"
 
                   response=$(curl -s -X POST http://localhost:8080/mcp/v1 \
                     -H "Authorization: Bearer test-token-1" \
@@ -175,7 +175,7 @@ jobs:
                   else
                     echo "✗ tools/list endpoint response invalid"
                     echo "Full response: $response"
-                    docker compose logs mcp-server | tail -50
+                    docker compose logs postgres-mcp | tail -50
                     exit 1
                   fi
 
@@ -285,7 +285,7 @@ jobs:
               if: failure()
               run: |
                   echo "=== MCP Server Logs ==="
-                  docker compose logs mcp-server
+                  docker compose logs postgres-mcp
                   echo ""
                   echo "=== Web Client Logs ==="
                   docker compose logs web-client
@@ -366,7 +366,7 @@ jobs:
                     echo "✓ Server is running"
                   else
                     echo "✗ Server is not accessible"
-                    docker compose logs mcp-server
+                    docker compose logs postgres-mcp
                     exit 1
                   fi
 
