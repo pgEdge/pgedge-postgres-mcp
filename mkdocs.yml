@@ -63,6 +63,7 @@ nav:
   - Installing the MCP Server:
       - Deploying on Docker: guide/deploy_docker.md
       - Deploying from Source: guide/deploy_source.md
+      - Accessing Online Help: guide/help.md
   - Configuring the MCP Server:
       - Specifying Configuration Preferences: guide/configuration.md
       - Using Environment Variables to Specify Options: guide/env_variable_config.md
@@ -80,7 +81,9 @@ nav:
           - Authentication - Overview: guide/authentication.md
           - Authentication - User Management: guide/auth_user.md
           - Authentication - Token Management: guide/auth_token.md
-      - Security: guide/security.md
+      - Security:
+          - Security Checklist: guide/security.md
+          - Security Management Practices: guide/security_mgmt.md
   - Reference:
       - Tools: reference/tools.md
       - Resources: reference/resources.md

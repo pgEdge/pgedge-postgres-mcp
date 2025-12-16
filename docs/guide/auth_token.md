@@ -41,8 +41,6 @@ To specify a custom file location, use the `-token-file` keyword and the followi
 - File permissions automatically set to **0600** (owner read/write only)
 - Original token cannot be retrieved from the file
 
-See [Security Guide - Connection Isolation](security.md#connection-isolation) for more details.
-
 When managing tokens, keep the following best practices in mind:
 
 **Token Lifecycle Management**
