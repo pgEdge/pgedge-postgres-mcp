@@ -13,7 +13,7 @@ You should never:
 - Use `.gitignore` for configuration files that contain credentials.
 - Never hardcode security details in scripts.
 
-You should:
+You should instead:
 
 - Consider using secret management systems (Vault, AWS Secrets Manager, etc.).
 - In production, use a `~/.pgpass` file or similar secure credential storage.
