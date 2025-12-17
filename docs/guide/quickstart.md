@@ -34,7 +34,7 @@ After meeting the prerequisites, you're ready to install the AI Toolkit.  There 
 
 The single command option is the fastest way to get started.  Execute the following command:
 
-`/bin/sh -c "$(curl -fsSL https://downloads.pgedge.com/quickstart/mcp/pgedge-ait-demo.sh)`
+`/bin/sh -c "$(curl -fsSL https://downloads.pgedge.com/quickstart/mcp/pgedge-ait-demo.sh)"`
 
 This command will:
 
