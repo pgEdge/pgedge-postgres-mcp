@@ -1,6 +1,6 @@
-# pgEdge AI Toolkit Quickstart
+# pgEdge MCP Server and AI Toolkit Quickstart
 
-In this Quickstart, we'll walk you through getting started with pgEdge Natural Language Agent. This Quickstart creates a:
+In this Quickstart, we'll walk you through getting started with the MCP server. This guide creates a:
 
 - **PostgreSQL 17** - pgEdge PostgreSQL distribution
 - **Northwind Dataset** - Classic demo database with orders, customers, products
@@ -10,16 +10,16 @@ In this Quickstart, we'll walk you through getting started with pgEdge Natural L
 
 The Northwind database is a classic SQL Server sample database containing:
 
-- **13 Tables**: Categories, Customers, Employees, Orders, Products, Shippers, Suppliers, etc.
+- **13 Tables**: `Categories`, `Customers`, `Employees`, `Orders`, `Products`, `Shippers`, `Suppliers`, etc.
 - **~1000 Rows**: Realistic business data for testing and demos
-- **Schema**: `northwind` (keeps your public schema clean)
+- **1 Schema**: `northwind` (keeps your `public` schema clean)
 
 The dataset is perfect for testing natural language queries, joins, aggregations, and analytics, and is installed with the Quickstart.
 
 
 ## Prerequisites
 
-Before running the QuickStart:
+Before running the deployment steps:
 
 - Install Docker Desktop
 - Obtain an LLM API key (Anthropic or OpenAI)
@@ -38,15 +38,18 @@ The single command option is the fastest way to get started.  Execute the follow
 
 This command will:
 
-- Download `docker-compose.yml` and `.env.example` from the same location
-- Prompt you for your API key(s) securely
-- Start all services automatically
-- Display connection details when ready
+- Download `docker-compose.yml` and `.env.example` from the same location.
+- Prompt you for your API key(s) securely.
+- Start all services automatically.
+- Display connection details when ready.
 
-**Note**: The installer creates a temporary workspace in `/tmp` and runs the demo from that location.
+!!! note 
 
-Sample output from running the demo script:
-```
+    The installer creates a temporary workspace in `/tmp` and runs the demo from that location.
+
+Sample output from running the `demo` script:
+
+```bash
 $ /bin/sh -c "$(curl -fsSL https://downloads.pgedge.com/quickstart/mcp/pgedge-ait-demo.sh)"
 ℹ  Creating workspace: /tmp/pgedge-download.28085
 ℹ  Downloading files
@@ -107,38 +110,54 @@ For more information: https://github.com/pgEdge/pgedge-nla
 
 Then, navigate to the address of the MCP Server (`http://localhost:8081`) and use these queries to test the server:
 
-- What tables are in the database?
-- Show me the top 10 products by sales
-- Which customers have placed more than 5 orders?
-- Analyze order trends by month
+- `What tables are in the database?`
+- `Show me the top 10 products by sales`
+- `Which customers have placed more than 5 orders?`
+- `Analyze order trends by month`
 
 
 ## Three-Step Quickstart
 
 For a more traditional setup, you can:
 
-1. Make a working directory
-   - mkdir ~/pgEdge-ait-demo
-   - ~/pgEdge-ait-demo
+1. Make a working directory:
+
+```bash
+mkdir ~/pgEdge-ait-demo
+~/pgEdge-ait-demo
+```
+
 2. Download the demo artifacts:
-   - curl -fsSLO https://downloads.pgedge.com/quickstart/mcp/docker-compose.yml
-   - curl -fsSLO https://downloads.pgedge.com/quickstart/mcp/.env.example
+
+```bash
+curl -fsSLO https://downloads.pgedge.com/quickstart/mcp/docker-compose.yml
+curl -fsSLO https://downloads.pgedge.com/quickstart/mcp/.env.example
+```
+
 3. Configure your API key
-   - cp .env.example .env
-   - Edit .env and add PGEDGE_ANTHROPIC_API_KEY and/or PGEDGE_OPENAI_API_KEY
+
+```bash
+cp .env.example .env
+```
+
+Then, edit `.env` and add `PGEDGE_ANTHROPIC_API_KEY` and/or `PGEDGE_OPENAI_API_KEY`.
+
 4. Use the following command to start the Docker container.
-   - docker compose up
+
+```bash
+docker compose up
+```
 
 During deployment:
 
-1. **PostgreSQL** starts and downloads the Northwind dataset (~230KB)
-2. **The Northwind** dataset loads (13 tables, ~1000 rows)
-3. **The MCP Server** connects and analyzes schema
-4. **The Web UI** starts and connects to MCP Server
-5. **Ready!** Login and start querying
+    1. PostgreSQL starts and downloads the Northwind dataset (~230KB)
+    2. The Northwind dataset loads (13 tables, ~1000 rows)
+    3. The MCP Server connects and analyzes your schema
+    4. The Web UI starts and connects to MCP Server
 
 Once all services are healthy, you can access them as follows (~60 seconds):
-```
+
+```bash
 Web Client Interface:
   http://localhost:8081
   Login: demo / demo123
@@ -153,28 +172,35 @@ MCP Server API:
   http://localhost:8080
   Bearer Token: demo-token-12345
 ```
-Then, you can navigate to the address of the MCP Server (http://localhost:8080) and use these queries to test the server:
 
-- What tables are in the database?
-- Show me the top 10 products by sales
-- Which customers have placed more than 5 orders?
-- Analyze order trends by month
+Then, you can navigate to the address of the MCP Server (`http://localhost:8080`) and use these queries to test the server:
 
-**Managing the Demo Environment**
+- `What tables are in the database?`
+- `Show me the top 10 products by sales`
+- `Which customers have placed more than 5 orders?`
+- `Analyze order trends by month`
+
+
+## Managing the Service and Reviewing Log Files
 
 Use the following commands to stop the server:
 
-1. Stop (keeps data):
-   - docker compose down
-2. Stop and remove volumes (fresh start)
-   - docker compose down -v
+Stop (retains data):
 
-Use the following commands to view the log files:
+`docker compose down`
 
-1. All services
-   - docker compose logs -f
-2. Specific service
-   - docker compose logs -f postgres
-   - docker compose logs -f postgres-mcp
-   - docker compose logs -f web-client
+Stop and remove volumes (creating a fresh start):
 
+`docker compose down -v`
+
+Use the following command to view the log files for all services
+
+`docker compose logs -f`
+
+Or review the log file for a specific service:
+
+```bash
+docker compose logs -f postgres
+docker compose logs -f postgres-mcp
+docker compose logs -f web-client
+bash
