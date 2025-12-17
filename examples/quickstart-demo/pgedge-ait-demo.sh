@@ -54,18 +54,17 @@ download() {
 # Secure prompt (hidden input)
 prompt_secret() {
   label="$1"
-  varname="$2"
 
-  printf "%s%s%s\n" "$BOLD" "$label" "$RESET"
-  printf "%s(Leave blank to skip)%s\n" "$DIM" "$RESET"
-  printf "%s› %s" "$DIM" "$RESET"
+  printf "%s%s%s\n" "$BOLD" "$label" "$RESET" >&2
+  printf "%s(Leave blank to skip)%s\n" "$DIM" "$RESET" >&2
+  printf "%s› %s" "$DIM" "$RESET" >&2
 
   stty -echo 2>/dev/null || true
   IFS= read -r value || value=""
   stty echo 2>/dev/null || true
-  printf "\n"
+  printf "\n" >&2
 
-  eval "$varname=\$value"
+  printf "%s" "$value"
 }
 
 # Update or append KEY=VALUE in .env
@@ -102,11 +101,8 @@ ok "Downloads complete"
 printf "\n%spgEdge AI Toolkit Demo setup%s\n" "$BOLD" "$RESET"
 printf "%sYou need to specify an API key for Anthropic or OpenAI (or both)%s\n\n" "$DIM" "$RESET"
 
-ANTHROPIC_KEY=""
-OPENAI_KEY=""
-
-prompt_secret "Anthropic API key" ANTHROPIC_KEY
-prompt_secret "OpenAI API key" OPENAI_KEY
+ANTHROPIC_KEY=$(prompt_secret "Anthropic API key")
+OPENAI_KEY=$(prompt_secret "OpenAI API key")
 
 if [ -z "$ANTHROPIC_KEY" ] && [ -z "$OPENAI_KEY" ]; then
   die "You must provide at least one API key (Anthropic or OpenAI)."
