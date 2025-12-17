@@ -2,19 +2,19 @@
 
 In this Quickstart, we'll walk you through getting started with the MCP server. This guide creates a:
 
-- **PostgreSQL 17** - pgEdge PostgreSQL distribution
-- **Northwind Dataset** - Classic demo database with orders, customers, products
-- **pgEdge MCP Server** - Natural language interface to your database
-- **pgEdge Web UI** - Modern chat interface for querying with natural language
-- **Pre-configured** - Demo credentials work out of the box
+- **PostgreSQL 17** - pgEdge PostgreSQL distribution
+- **Northwind Dataset** - Classic demo database with orders, customers, products
+- **pgEdge MCP Server** - Natural language interface to your database
+- **pgEdge Web UI** - Modern chat interface for querying with natural language
+- **Pre-configured** - Demo credentials work out of the box
 
 The Northwind database is a classic SQL Server sample database containing:
 
 - **13 Tables**: `Categories`, `Customers`, `Employees`, `Orders`, `Products`, `Shippers`, `Suppliers`, etc.
 - **~1000 Rows**: Realistic business data for testing and demos
-- **1 Schema**: `northwind` (keeps your `public` schema clean)
+- **1 Schema**: `northwind` (keeps your `public` schema clean)
 
-The dataset is perfect for testing natural language queries, joins, aggregations, and analytics, and is installed with the Quickstart.
+The dataset is perfect for testing natural language queries, joins, aggregations, and analytics, and is installed with the Quickstart.
 
 
 ## Prerequisites
@@ -38,14 +38,14 @@ The single command option is the fastest way to get started.  Execute the follow
 
 This command will:
 
-- Download `docker-compose.yml` and `.env.example` from the same location.
+- Download `docker-compose.yml` and `.env.example` from the same location.
 - Prompt you for your API key(s) securely.
 - Start all services automatically.
 - Display connection details when ready.
 
-!!! note 
+!!! note
 
-    The installer creates a temporary workspace in `/tmp` and runs the demo from that location.
+    The installer creates a temporary workspace in `/tmp` and runs the demo from that location.
 
 Sample output from running the `demo` script:
 
@@ -91,10 +91,9 @@ Web Client Interface:
   Login: demo / demo123
 
 PostgreSQL Database:
-  Host: localhost:5432
   Database: northwind
   User: demo / demo123
-  Connect: PGPASSWORD=demo123 psql -h localhost -p 5432 -U demo -d northwind
+  Connect: docker exec -it pgedge-quickstart-db psql -U demo -d northwind
 
 MCP Server API:
   http://localhost:8080
@@ -105,7 +104,7 @@ MCP Server API:
 Workspace: /tmp/pgedge-download.28085
 To stop: cd /tmp/pgedge-download.28085 && docker compose down -v
 
-For more information: https://github.com/pgEdge/pgedge-nla
+For more information: https://github.com/pgEdge/pgedge-postgres-mcp
 ```
 
 Then, navigate to the address of the MCP Server (`http://localhost:8081`) and use these queries to test the server:
@@ -123,8 +122,8 @@ For a more traditional setup, you can:
 Make a working directory:
 
 ```bash
-mkdir ~/pgEdge-ait-demo
-~/pgEdge-ait-demo
+mkdir ~/pgedge-ait-demo
+cd ~/pgedge-ait-demo
 ```
 
 Download the demo artifacts:
@@ -150,12 +149,12 @@ docker compose up
 
 During deployment:
 
-    1. PostgreSQL starts and downloads the Northwind dataset (~230KB)
-    2. The Northwind dataset loads (13 tables, ~1000 rows)
-    3. The MCP Server connects and analyzes your schema
-    4. The Web UI starts and connects to MCP Server
+    1. PostgreSQL starts and downloads the Northwind dataset (~230KB)
+    2. The Northwind dataset loads (13 tables, ~1000 rows)
+    3. The MCP Server connects and analyzes your schema
+    4. The Web UI starts and connects to MCP Server
 
-Once all services are healthy, you can access them as follows (~60 seconds):
+Once all services are healthy, you can access them as follows (~60 seconds):
 
 ```bash
 Web Client Interface:
@@ -163,10 +162,9 @@ Web Client Interface:
   Login: demo / demo123
 
 PostgreSQL Database:
-  Host: localhost:5432
   Database: northwind
   User: demo / demo123
-  Connect: PGPASSWORD=demo123 psql -h localhost -p 5432 -U demo -d northwind
+  Connect: docker exec -it pgedge-quickstart-db psql -U demo -d northwind
 
 MCP Server API:
   http://localhost:8080
@@ -203,4 +201,4 @@ Or review the log file for a specific service:
 docker compose logs -f postgres
 docker compose logs -f postgres-mcp
 docker compose logs -f web-client
-bash
+```
