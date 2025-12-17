@@ -160,6 +160,9 @@ func (c *Client) Run(ctx context.Context) error {
 		c.prompts = prompts
 	}
 
+	// Restore saved database preference for this server
+	c.restoreDatabasePreference(ctx)
+
 	// Initialize LLM client
 	if err := c.initializeLLM(); err != nil {
 		return fmt.Errorf("failed to initialize LLM: %w", err)
