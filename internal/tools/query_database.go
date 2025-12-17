@@ -82,6 +82,12 @@ To avoid rate limits (30,000 input tokens/minute):
 						"minimum":     1,
 						"maximum":     1000,
 					},
+					"offset": map[string]interface{}{
+						"type":        "integer",
+						"description": "Number of rows to skip before returning results (for pagination). Use with limit to page through large result sets. Example: offset=100 with limit=100 returns rows 101-200.",
+						"default":     0,
+						"minimum":     0,
+					},
 				},
 				Required: []string{"query"},
 			},
@@ -144,20 +150,40 @@ To avoid rate limits (30,000 input tokens/minute):
 			// Use the cleaned query as SQL
 			sqlQuery := strings.TrimSpace(queryCtx.CleanedQuery)
 
-			// Auto-inject LIMIT if specified and not already present in query
+			// Determine the limit to use
+			limit := 100 // default
 			if limitVal, ok := args["limit"]; ok {
-				var limit int
 				switch v := limitVal.(type) {
 				case float64:
 					limit = int(v)
 				case int:
 					limit = v
 				}
+			}
 
-				// Only inject LIMIT if query doesn't already have one
-				if limit > 0 && !strings.Contains(strings.ToUpper(sqlQuery), "LIMIT") {
-					sqlQuery = fmt.Sprintf("%s LIMIT %d", sqlQuery, limit)
+			// Determine the offset to use
+			offset := 0 // default
+			if offsetVal, ok := args["offset"]; ok {
+				switch v := offsetVal.(type) {
+				case float64:
+					offset = int(v)
+				case int:
+					offset = v
 				}
+			}
+
+			// Track if query already had LIMIT/OFFSET clauses
+			upperQuery := strings.ToUpper(sqlQuery)
+			hasExistingLimit := strings.Contains(upperQuery, "LIMIT")
+			hasExistingOffset := strings.Contains(upperQuery, "OFFSET")
+
+			// Only inject LIMIT/OFFSET if query doesn't already have them
+			// Fetch limit+1 to detect if more rows exist
+			if limit > 0 && !hasExistingLimit {
+				sqlQuery = fmt.Sprintf("%s LIMIT %d", sqlQuery, limit+1)
+			}
+			if offset > 0 && !hasExistingOffset {
+				sqlQuery = fmt.Sprintf("%s OFFSET %d", sqlQuery, offset)
 			}
 
 			// Execute the SQL query on the appropriate connection in a read-only transaction
@@ -222,6 +248,13 @@ To avoid rate limits (30,000 input tokens/minute):
 				return mcp.NewToolError(fmt.Sprintf("Error iterating rows: %v", err))
 			}
 
+			// Check if results were truncated (we fetched limit+1 to detect this)
+			wasTruncated := false
+			if !hasExistingLimit && limit > 0 && len(results) > limit {
+				wasTruncated = true
+				results = results[:limit] // Truncate to requested limit
+			}
+
 			// Format results as TSV (tab-separated values)
 			resultsTSV := FormatResultsAsTSV(columnNames, results)
 
@@ -242,12 +275,31 @@ To avoid rate limits (30,000 input tokens/minute):
 			}
 
 			sb.WriteString(fmt.Sprintf("SQL Query:\n%s\n\n", sqlQuery))
-			sb.WriteString(fmt.Sprintf("Results (%d rows):\n%s", len(results), resultsTSV))
+
+			// Build the results header with pagination info
+			if offset > 0 {
+				// Show row range when using pagination
+				startRow := offset + 1
+				endRow := offset + len(results)
+				if wasTruncated {
+					sb.WriteString(fmt.Sprintf("Results (rows %d-%d, more available - use offset=%d for next page):\n%s",
+						startRow, endRow, offset+limit, resultsTSV))
+				} else {
+					sb.WriteString(fmt.Sprintf("Results (rows %d-%d):\n%s", startRow, endRow, resultsTSV))
+				}
+			} else if wasTruncated {
+				sb.WriteString(fmt.Sprintf("Results (%d rows shown, more available - use offset=%d for next page or count_rows for total):\n%s",
+					len(results), limit, resultsTSV))
+			} else {
+				sb.WriteString(fmt.Sprintf("Results (%d rows):\n%s", len(results), resultsTSV))
+			}
 
 			// Log execution metrics
 			logging.Info("query_database_executed",
 				"query_length", len(sqlQuery),
 				"rows_returned", len(results),
+				"offset", offset,
+				"was_truncated", wasTruncated,
 				"estimated_tokens", len(resultsTSV)/4,
 			)
 

@@ -66,6 +66,7 @@ type ToolsConfig struct {
 	ExecuteExplain      *bool `yaml:"execute_explain"`      // Execute EXPLAIN queries (default: true)
 	GenerateEmbedding   *bool `yaml:"generate_embedding"`   // Generate text embeddings (default: true)
 	SearchKnowledgebase *bool `yaml:"search_knowledgebase"` // Search knowledgebase (default: true)
+	CountRows           *bool `yaml:"count_rows"`           // Count table rows (default: true)
 }
 
 // ResourcesConfig holds configuration for enabling/disabling built-in resources
@@ -98,6 +99,8 @@ func (c *ToolsConfig) IsToolEnabled(toolName string) bool {
 		return c.GenerateEmbedding == nil || *c.GenerateEmbedding
 	case "search_knowledgebase":
 		return c.SearchKnowledgebase == nil || *c.SearchKnowledgebase
+	case "count_rows":
+		return c.CountRows == nil || *c.CountRows
 	default:
 		return true // Unknown tools are enabled by default
 	}

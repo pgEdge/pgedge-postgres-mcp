@@ -150,6 +150,7 @@ func TestToolsConfig_IsToolEnabled(t *testing.T) {
 		{"execute_explain nil", ToolsConfig{}, "execute_explain", true},
 		{"generate_embedding nil", ToolsConfig{}, "generate_embedding", true},
 		{"search_knowledgebase nil", ToolsConfig{}, "search_knowledgebase", true},
+		{"count_rows nil", ToolsConfig{}, "count_rows", true},
 	}
 
 	for _, tt := range tests {
