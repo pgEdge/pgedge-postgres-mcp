@@ -91,10 +91,9 @@ Web Client Interface:
   Login: demo / demo123
 
 PostgreSQL Database:
-  Host: localhost:5432
   Database: northwind
   User: demo / demo123
-  Connect: PGPASSWORD=demo123 psql -h localhost -p 5432 -U demo -d northwind
+  Connect: docker exec -it pgedge-quickstart-db psql -U demo -d northwind
 
 MCP Server API:
   http://localhost:8080
@@ -163,10 +162,9 @@ Web Client Interface:
   Login: demo / demo123
 
 PostgreSQL Database:
-  Host: localhost:5432
   Database: northwind
   User: demo / demo123
-  Connect: PGPASSWORD=demo123 psql -h localhost -p 5432 -U demo -d northwind
+  Connect: docker exec -it pgedge-quickstart-db psql -U demo -d northwind
 
 MCP Server API:
   http://localhost:8080

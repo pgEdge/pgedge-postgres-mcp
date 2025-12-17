@@ -117,5 +117,6 @@ configs:
         content: |-
             #!/usr/bin/env bash
             set -Eeo pipefail
-            echo "host all all 0.0.0.0/0 md5" >> "$$PGDATA/pg_hba.conf"
-            echo "host all all ::/0 md5" >> "$$PGDATA/pg_hba.conf"
+            # Network access is restricted to Docker network for security
+            # Users can connect from host using: docker exec -it pgedge-quickstart-db psql -U demo -d northwind
+            echo "PostgreSQL network access limited to Docker network"
