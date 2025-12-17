@@ -39,11 +39,11 @@ func TestGetDefaultPreferences(t *testing.T) {
 	}
 
 	// Check model defaults
-	if prefs.ProviderModels["anthropic"] != "claude-sonnet-4-20250514" {
-		t.Errorf("Expected anthropic model to be 'claude-sonnet-4-20250514', got %q", prefs.ProviderModels["anthropic"])
+	if prefs.ProviderModels["anthropic"] != "claude-sonnet-4-5-20250929" {
+		t.Errorf("Expected anthropic model to be 'claude-sonnet-4-5-20250929', got %q", prefs.ProviderModels["anthropic"])
 	}
-	if prefs.ProviderModels["openai"] != "gpt-5.1" {
-		t.Errorf("Expected openai model to be 'gpt-5.1', got %q", prefs.ProviderModels["openai"])
+	if prefs.ProviderModels["openai"] != "gpt-4o" {
+		t.Errorf("Expected openai model to be 'gpt-4o', got %q", prefs.ProviderModels["openai"])
 	}
 	if prefs.ProviderModels["ollama"] != "qwen3-coder:latest" {
 		t.Errorf("Expected ollama model to be 'qwen3-coder:latest', got %q", prefs.ProviderModels["ollama"])

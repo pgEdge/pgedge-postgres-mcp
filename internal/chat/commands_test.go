@@ -261,7 +261,7 @@ func TestHandleSetLLMProvider(t *testing.T) {
 			cfg := &Config{
 				LLM: LLMConfig{
 					Provider:        "anthropic",
-					Model:           "claude-sonnet-4-20250514",
+					Model:           "claude-sonnet-4-5-20250929",
 					AnthropicAPIKey: "test-key",
 					OpenAIAPIKey:    "test-key",
 					OllamaURL:       "http://localhost:11434",
@@ -305,7 +305,7 @@ func TestHandleSetLLMModel(t *testing.T) {
 	cfg := &Config{
 		LLM: LLMConfig{
 			Provider:        "anthropic",
-			Model:           "claude-sonnet-4-20250514",
+			Model:           "claude-sonnet-4-5-20250929",
 			AnthropicAPIKey: "test-key",
 		},
 		UI: UIConfig{
