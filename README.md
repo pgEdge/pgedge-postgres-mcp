@@ -195,21 +195,49 @@ which is then executed by this server.
 Run as a standalone HTTP server for direct API access:
 
 ```bash
-# HTTP
-./bin/pgedge-postgres-mcp -http
+# HTTP without authentication (development only)
+./bin/pgedge-postgres-mcp -http -no-auth
 
-# HTTPS with TLS
+# HTTP with token authentication (recommended)
+./bin/pgedge-postgres-mcp -http -auth-token-file tokens.json
+
+# HTTPS with TLS and authentication
 ./bin/pgedge-postgres-mcp -http -tls \
   -cert server.crt \
-  -key server.key
+  -key server.key \
+  -auth-token-file tokens.json
 ```
+
+> **Note:** Authentication is enabled by default in HTTP mode. Use `-no-auth` to
+> disable it for local development, or provide an authentication token file with
+> `-auth-token-file`. See the
+> **[Authentication Guide](docs/guide/authentication.md)** for token setup.
 
 **API Endpoint:** `POST http://localhost:8080/mcp/v1`
 
-Example request:
+Example request (with authentication):
+
 ```bash
 curl -X POST http://localhost:8080/mcp/v1 \
   -H "Authorization: Bearer your-token" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "jsonrpc": "2.0",
+    "id": 1,
+    "method": "tools/call",
+    "params": {
+      "name": "query_database",
+      "arguments": {
+        "natural_language_query": "Show all users"
+      }
+    }
+  }'
+```
+
+Example request (without authentication):
+
+```bash
+curl -X POST http://localhost:8080/mcp/v1 \
   -H "Content-Type: application/json" \
   -d '{
     "jsonrpc": "2.0",
