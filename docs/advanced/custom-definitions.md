@@ -154,14 +154,14 @@ prompts:
 
 #### SQL Resources
 
-Execute a SQL query and return results as JSON.
+Execute a SQL query and return results in TSV (tab-separated values) format
+for token efficiency.
 
 ```yaml
 resources:
   - uri: custom://resource-name    # Required: Unique URI
     name: Display Name             # Required: Human-readable name
     description: What it returns   # Optional: Description
-    mimeType: application/json     # Optional: Default is application/json
     type: sql                      # Required: Resource type
     sql: SELECT * FROM users       # Required: SQL query to execute
 ```
@@ -170,8 +170,9 @@ resources:
 
 - Executes query using the appropriate database connection
 - Respects per-token connection isolation in authenticated mode
-- Returns results as JSON array of objects
-- Column names become JSON object keys
+- Returns results in TSV format (first row is column headers)
+- Escapes tabs, newlines, and carriage returns in values
+- Token-efficient output for LLM consumption
 
 **Example**:
 
@@ -466,7 +467,6 @@ Current limitations (may be addressed in future versions):
 - No hot-reloading (requires server restart)
 - No conditional logic in prompts
 - No resource templates with arguments
-- Limited to JSON output for resources
 
 ## Related Documentation
 

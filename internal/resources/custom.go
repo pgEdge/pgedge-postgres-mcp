@@ -14,12 +14,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"pgedge-postgres-mcp/internal/database"
 	"pgedge-postgres-mcp/internal/definitions"
 	"pgedge-postgres-mcp/internal/mcp"
-
-	"github.com/jackc/pgx/v5"
+	"pgedge-postgres-mcp/internal/tsv"
 )
 
 // RegisterSQL registers a SQL-based resource
@@ -32,37 +32,66 @@ func (r *ContextAwareRegistry) RegisterSQL(def definitions.ResourceDefinition) e
 		return fmt.Errorf("SQL query is required for SQL resource")
 	}
 
-	// Create handler that executes SQL query
+	// Create handler that executes SQL query and returns TSV format
 	handler := func(ctx context.Context, dbClient *database.Client) (mcp.ResourceContent, error) {
-		processor := func(rows pgx.Rows) (interface{}, error) {
-			var results []map[string]interface{}
-
-			for rows.Next() {
-				// Get column names
-				fieldDescriptions := rows.FieldDescriptions()
-				values := make([]interface{}, len(fieldDescriptions))
-				valuePtrs := make([]interface{}, len(fieldDescriptions))
-				for i := range values {
-					valuePtrs[i] = &values[i]
-				}
-
-				// Scan row
-				if err := rows.Scan(valuePtrs...); err != nil {
-					return nil, fmt.Errorf("row scan error: %w", err)
-				}
-
-				// Build row map
-				row := make(map[string]interface{})
-				for i, fd := range fieldDescriptions {
-					row[string(fd.Name)] = values[i]
-				}
-				results = append(results, row)
-			}
-
-			return results, nil
+		// Check if metadata is loaded
+		if !dbClient.IsMetadataLoaded() {
+			return mcp.NewResourceError(def.URI, mcp.DatabaseNotReadyErrorShort)
 		}
 
-		return database.ExecuteResourceQuery(dbClient, def.URI, def.SQL, processor)
+		// Get connection pool
+		pool := dbClient.GetPool()
+		if pool == nil {
+			return mcp.ResourceContent{}, fmt.Errorf("no connection pool available")
+		}
+
+		// Execute query
+		rows, err := pool.Query(ctx, def.SQL)
+		if err != nil {
+			return mcp.ResourceContent{}, fmt.Errorf("failed to query: %w", err)
+		}
+		defer rows.Close()
+
+		// Build TSV output
+		var output strings.Builder
+
+		// Get column names for header
+		fieldDescriptions := rows.FieldDescriptions()
+		columnNames := make([]string, len(fieldDescriptions))
+		for i, fd := range fieldDescriptions {
+			columnNames[i] = string(fd.Name)
+		}
+		output.WriteString(strings.Join(columnNames, "\t"))
+		output.WriteString("\n")
+
+		// Process rows
+		for rows.Next() {
+			values := make([]interface{}, len(fieldDescriptions))
+			valuePtrs := make([]interface{}, len(fieldDescriptions))
+			for i := range values {
+				valuePtrs[i] = &values[i]
+			}
+
+			// Scan row
+			if err := rows.Scan(valuePtrs...); err != nil {
+				return mcp.ResourceContent{}, fmt.Errorf("row scan error: %w", err)
+			}
+
+			// Build TSV row
+			rowValues := make([]string, len(values))
+			for i, v := range values {
+				rowValues[i] = tsv.FormatValue(v)
+			}
+			output.WriteString(strings.Join(rowValues, "\t"))
+			output.WriteString("\n")
+		}
+
+		// Check for row iteration errors
+		if err := rows.Err(); err != nil {
+			return mcp.ResourceContent{}, fmt.Errorf("error iterating rows: %w", err)
+		}
+
+		return mcp.NewResourceSuccess(def.URI, "text/tab-separated-values", output.String())
 	}
 
 	// Register resource
@@ -71,7 +100,7 @@ func (r *ContextAwareRegistry) RegisterSQL(def definitions.ResourceDefinition) e
 			URI:         def.URI,
 			Name:        def.Name,
 			Description: def.Description,
-			MimeType:    def.MimeType,
+			MimeType:    "text/tab-separated-values",
 		},
 		handler: handler,
 	}
