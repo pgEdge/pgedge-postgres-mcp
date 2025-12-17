@@ -17,8 +17,6 @@ services:
             - source: relax-pg-hba
               target: /docker-entrypoint-initdb.d/02-relax-pg-hba.sh
               mode: 0755
-        ports:
-            - "${POSTGRES_PORT:-5432}:5432"
         networks:
             - pgedge-quickstart
         restart: unless-stopped
