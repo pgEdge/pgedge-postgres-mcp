@@ -120,21 +120,21 @@ Then, navigate to the address of the MCP Server (`http://localhost:8081`) and us
 
 For a more traditional setup, you can:
 
-1. Make a working directory:
+Make a working directory:
 
 ```bash
 mkdir ~/pgEdge-ait-demo
 ~/pgEdge-ait-demo
 ```
 
-2. Download the demo artifacts:
+Download the demo artifacts:
 
 ```bash
 curl -fsSLO https://downloads.pgedge.com/quickstart/mcp/docker-compose.yml
 curl -fsSLO https://downloads.pgedge.com/quickstart/mcp/.env.example
 ```
 
-3. Configure your API key
+Configure your API key
 
 ```bash
 cp .env.example .env
@@ -142,7 +142,7 @@ cp .env.example .env
 
 Then, edit `.env` and add `PGEDGE_ANTHROPIC_API_KEY` and/or `PGEDGE_OPENAI_API_KEY`.
 
-4. Use the following command to start the Docker container.
+Use the following command to start the Docker container.
 
 ```bash
 docker compose up
