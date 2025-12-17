@@ -1,0 +1,40 @@
+# pgEdge PostgreSQL MCP Server - Token Authentication File
+#
+# This file defines API tokens for programmatic access to the MCP server.
+# Tokens are used for service-to-service authentication or CLI access in
+# HTTP mode with token authentication.
+#
+# Copy this file to bin/pgedge-postgres-mcp-tokens.yaml and edit as needed.
+#
+# Usage:
+#   cp examples/pgedge-postgres-mcp-tokens.yaml.example bin/pgedge-postgres-mcp-tokens.yaml
+#
+# IMPORTANT: Do NOT manually create token hashes. Use the server's token
+# management tools instead:
+#
+#   # Create a new token (will display the token - save it securely!)
+#   ./bin/pgedge-postgres-mcp token add --annotation "My API Token"
+#
+#   # Create token with expiration
+#   ./bin/pgedge-postgres-mcp token add --annotation "Temp Token" --expires 24h
+#
+#   # Create token restricted to specific database
+#   ./bin/pgedge-postgres-mcp token add --annotation "DB Token" --database mydb
+#
+#   # List tokens
+#   ./bin/pgedge-postgres-mcp token list
+#
+#   # Delete token
+#   ./bin/pgedge-postgres-mcp token delete --id token-123456789
+
+# Tokens are stored with SHA256 hashes for security.
+# The structure below shows the format but you should use the CLI to manage
+# tokens.
+tokens:
+    # Example token entry (created by CLI):
+    # token-1234567890:
+    #     hash: abc123...  # SHA256 hash of actual token - DO NOT create manually
+    #     expires_at: null  # or ISO8601 timestamp for expiring tokens
+    #     annotation: API Access Token
+    #     created_at: 2025-01-01T00:00:00Z
+    #     database: null  # or specific database name to restrict access

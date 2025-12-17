@@ -1,0 +1,42 @@
+# pgEdge PostgreSQL MCP Server - User Authentication File
+#
+# This file defines users who can authenticate to the MCP server via the web
+# client or CLI in HTTP mode with user authentication.
+#
+# Copy this file to bin/pgedge-postgres-mcp-users.yaml and edit as needed.
+#
+# Usage:
+#   cp examples/pgedge-postgres-mcp-users.yaml.example bin/pgedge-postgres-mcp-users.yaml
+#
+# IMPORTANT: Do NOT manually create password hashes. Use the server's user
+# management tools instead:
+#
+#   # Create a new user (will prompt for password)
+#   ./bin/pgedge-postgres-mcp user add --username myuser --annotation "My User"
+#
+#   # List users
+#   ./bin/pgedge-postgres-mcp user list
+#
+#   # Change password
+#   ./bin/pgedge-postgres-mcp user passwd --username myuser
+#
+#   # Enable/disable user
+#   ./bin/pgedge-postgres-mcp user enable --username myuser
+#   ./bin/pgedge-postgres-mcp user disable --username myuser
+#
+#   # Delete user
+#   ./bin/pgedge-postgres-mcp user delete --username myuser
+
+# Users are stored with bcrypt-hashed passwords for security.
+# The structure below shows the format but you should use the CLI to manage
+# users.
+users:
+    # Example user entry (created by CLI):
+    # admin:
+    #     username: admin
+    #     password_hash: $2a$12$...  # bcrypt hash - DO NOT create manually
+    #     created_at: 2025-01-01T00:00:00Z
+    #     last_login: null
+    #     enabled: true
+    #     annotation: Administrator
+    #     failed_attempts: 0

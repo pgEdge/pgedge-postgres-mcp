@@ -258,10 +258,15 @@ A production-ready, full-featured command-line chat interface is available for
 interacting with your PostgreSQL database using natural language:
 
 ```bash
-# Quick start - Stdio mode (MCP server as subprocess)
+# Stdio mode setup (MCP server as subprocess)
+cp examples/pgedge-postgres-mcp-stdio.yaml.example bin/pgedge-postgres-mcp-stdio.yaml
+cp examples/pgedge-nla-cli-stdio.yaml.example bin/pgedge-nla-cli-stdio.yaml
+# Edit config files with your database settings, then:
 ./start_cli_stdio.sh
 
-# Quick start - HTTP mode (MCP server via HTTP with auth)
+# HTTP mode setup (MCP server via HTTP with auth)
+# First set up web client config (see Web Client section), then:
+cp examples/pgedge-nla-cli-http.yaml.example bin/pgedge-nla-cli-http.yaml
 ./start_cli_http.sh
 ```
 
@@ -306,18 +311,31 @@ A web-based management interface is available for monitoring and interacting
 with the MCP server:
 
 ```bash
-# Quick start (starts both MCP server and web interface)
+# 1. Copy example config files
+cp examples/pgedge-postgres-mcp-http.yaml.example bin/pgedge-postgres-mcp-http.yaml
+cp examples/pgedge-postgres-mcp-users.yaml.example bin/pgedge-postgres-mcp-users.yaml
+cp examples/pgedge-postgres-mcp-tokens.yaml.example bin/pgedge-postgres-mcp-tokens.yaml
+
+# 2. Edit config with your database and LLM settings
+nano bin/pgedge-postgres-mcp-http.yaml
+
+# 3. Create a user for web login
+./bin/pgedge-postgres-mcp user add --username myuser --annotation "My User"
+
+# 4. Start the web client (starts both MCP server and web interface)
 ./start_web_client.sh
 ```
 
 **Features:**
+
 - 🔐 Secure authentication using MCP server credentials
 - 📊 Real-time PostgreSQL system information
 - 🌓 Light/dark theme support
 - 📱 Responsive design for desktop and mobile
 
 **Access:**
-- Web Interface: http://localhost:3000
+
+- Web Interface: http://localhost:5173
 - MCP Server API: http://localhost:8080
 
 See [web/README.md](web/README.md) for detailed documentation.

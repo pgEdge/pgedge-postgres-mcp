@@ -1,0 +1,53 @@
+# pgEdge PostgreSQL MCP Chat Client Configuration - HTTP Mode
+#
+# This configuration connects the CLI chat client to a remote MCP server.
+# Copy this file to bin/pgedge-nla-cli-http.yaml and edit as needed.
+#
+# Usage:
+#   cp examples/pgedge-nla-cli-http.yaml.example bin/pgedge-nla-cli-http.yaml
+#   # Edit bin/pgedge-nla-cli-http.yaml with your settings
+#   ./start_cli_http.sh
+
+# MCP server connection configuration
+mcp:
+    mode: "http"
+    url: "http://127.0.0.1:8080"
+
+    # Authentication mode: "user" or "token"
+    auth_mode: "user"
+
+    # User authentication (will prompt if not set)
+    # username: "myuser"
+    # password: ""  # Will prompt if empty
+
+    # Token authentication (alternative to user auth)
+    # auth_mode: "token"
+    # token: ""  # Or use PGEDGE_MCP_TOKEN environment variable
+
+    tls: false  # Set to true for HTTPS connections
+
+# LLM provider configuration
+llm:
+    provider: "anthropic"  # Options: "anthropic", "openai", "ollama"
+    model: "claude-sonnet-4-5"
+
+    # API key files (recommended for production)
+    anthropic_api_key_file: "~/.anthropic-api-key"
+    openai_api_key_file: "~/.openai-api-key"
+
+    # Or use environment variables: ANTHROPIC_API_KEY, OPENAI_API_KEY
+
+    # Ollama configuration (for local LLM)
+    ollama_url: "http://127.0.0.1:11434"
+
+    max_tokens: 4096
+    temperature: 0.7
+
+# UI configuration
+ui:
+    no_color: false  # Disable colored output (also set via NO_COLOR env var)
+    display_status_messages: true  # Show status messages during tool execution
+    render_markdown: true  # Render markdown with formatting and syntax highlighting
+
+# Chat history file (optional)
+# history_file: "~/.pgedge-nla-cli-history"

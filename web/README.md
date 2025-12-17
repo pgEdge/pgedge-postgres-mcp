@@ -59,17 +59,31 @@ The web client uses a **two-tier architecture** communicating directly with the 
 
 ## Quick Start
 
-The easiest way to start the web client is using the provided startup script from the project root:
+Before starting the web client, you need to create configuration files:
 
 ```bash
+# 1. Copy example config files from the project root
+cp examples/pgedge-postgres-mcp-http.yaml.example bin/pgedge-postgres-mcp-http.yaml
+cp examples/pgedge-postgres-mcp-users.yaml.example bin/pgedge-postgres-mcp-users.yaml
+cp examples/pgedge-postgres-mcp-tokens.yaml.example bin/pgedge-postgres-mcp-tokens.yaml
+
+# 2. Edit the config file with your database connection and LLM settings
+nano bin/pgedge-postgres-mcp-http.yaml
+
+# 3. Create a user for web login (will prompt for password)
+./bin/pgedge-postgres-mcp user add --username myuser --annotation "My User"
+
+# 4. Start the web client
 ./start_web_client.sh
 ```
 
 This script will:
-- Start the MCP server in HTTP mode (port 8080) with authentication and LLM proxy enabled
+
+- Start the MCP server in HTTP mode (port 8080) with authentication and LLM proxy
+  enabled
 - Start the Vite development server (port 5173) for the frontend
-- Use pre-configured settings from `bin/pgedge-pg-mcp-web.yaml`
-- Use existing user files from the `bin/` directory
+- Use settings from `bin/pgedge-postgres-mcp-http.yaml`
+- Use user/token files from the `bin/` directory
 
 The MCP server supports both authentication methods simultaneously:
 - **Service Tokens**: Long-lived API tokens from `pgedge-postgres-mcp-tokens.yaml` (for programmatic access)
@@ -81,11 +95,13 @@ Then open [http://localhost:5173](http://localhost:5173) in your browser.
 
 ## Configuration
 
-The web client is configured entirely through the MCP server's configuration file (`bin/pgedge-pg-mcp-web.yaml`). No separate web client configuration is needed.
+The web client is configured entirely through the MCP server's configuration
+file (`bin/pgedge-postgres-mcp-http.yaml`). No separate web client configuration
+is needed.
 
 ### MCP Server Configuration
 
-Edit `bin/pgedge-pg-mcp-web.yaml` to configure:
+Edit `bin/pgedge-postgres-mcp-http.yaml` to configure:
 
 **Database Connection:**
 ```yaml
