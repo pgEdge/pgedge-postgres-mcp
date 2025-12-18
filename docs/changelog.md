@@ -7,6 +7,74 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/),
 and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+#### Token Management
+
+- New `count_rows` tool for lightweight row counting before querying large
+  tables
+- Pagination support (`offset` parameter) in `query_database` tool for paging
+  through large result sets
+- Truncation detection in query results (fetches limit+1 rows to show "more
+  data available" indicator)
+
+#### Configuration Templates
+
+- Added example configuration files in `examples/` directory:
+    - `pgedge-postgres-mcp-http.yaml.example` - MCP server HTTP mode config
+    - `pgedge-postgres-mcp-stdio.yaml.example` - MCP server stdio mode config
+    - `pgedge-nla-cli-http.yaml.example` - CLI client HTTP mode config
+    - `pgedge-nla-cli-stdio.yaml.example` - CLI client stdio mode config
+    - `pgedge-postgres-mcp-users.yaml.example` - User authentication template
+    - `pgedge-postgres-mcp-tokens.yaml.example` - Token authentication template
+
+#### CI/CD
+
+- Claude PR review GitHub Action workflow for automated code reviews
+- CodeRabbit configuration for additional PR analysis
+
+### Changed
+
+#### Token Efficiency
+
+- Query results now returned in TSV format instead of JSON for better token
+  efficiency
+- Custom SQL resource data returned in TSV format
+- `get_schema_info` tool returns results in TSV format with additional relevant
+  information and supports more targeted calls
+- Removed redundant resource for retrieving schema info
+
+#### Model Selection
+
+- Model family matching when reloading saved conversations (handles
+  date-suffixed model names like `claude-opus-4-5-20251101`)
+- Web UI now uses family matching for model selection persistence
+- CLI now restores database preference on load
+- Added debug messages for model loading troubleshooting
+
+#### Documentation
+
+- Comprehensive documentation restructuring for online publication
+- Added configuration setup instructions to README Web Client and CLI sections
+- Added Quickstart guide
+- Updated security documentation
+- Added conversations API and database selection API documentation
+- Fixed various documentation formatting issues and environment variable
+  references
+
+#### Docker
+
+- Renamed `mcp-server` to `postgres-mcp` in Docker configuration (#12)
+
+### Fixed
+
+- CLI preference saving now works correctly
+- Fixed test expecting wrong number of resources (1 instead of 2)
+- Updated tests to expect 7 tools after count_rows addition
+- Various typo fixes in documentation and configuration
+
 ## [1.0.0-beta1] - 2025-12-15
 
 ### Changed
