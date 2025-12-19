@@ -82,6 +82,8 @@ nav:
       - Connecting with the Web Client: guide/web-client.md
       - Using the Go Chat Client: guide/cli-client.md
       - Configuring the Server for use with Claude Desktop: guide/claude_desktop.md
+  - Managing an MCP Server:
+      - Reviewing Server Logs: guide/server_logs.md
   - Authentication and Security:
       - Authentication:
           - Authentication - Overview: guide/authentication.md
@@ -101,9 +103,9 @@ nav:
           - CLI Client: reference/config-examples/cli-client.md
           - KB Builder: reference/config-examples/kb-builder.md
   - Advanced Topics:
-      - Custom Definitions: advanced/custom-definitions.md
-      - Knowledgebase: advanced/knowledgebase.md
-      - LLM Proxy: advanced/llm-proxy.md
+      - Creating Custom Definitions: advanced/custom-definitions.md
+      - Configuring and Using Knowledgebase Search: advanced/knowledgebase.md
+      - Using the LLM Proxy: advanced/llm-proxy.md
   - For Developers:
       - For Developers - Overview: developers/overview.md
       - MCP Protocol: developers/mcp-protocol.md

@@ -1,12 +1,8 @@
 # LLM Proxy
 
-The MCP server includes an LLM proxy service that enables web clients to chat
-with various LLM providers while keeping API keys secure on the server side.
+The MCP server includes an LLM proxy service that enables web clients to chat with various LLM providers while keeping API keys secure on the server side. This guide covers the LLM proxy architecture, endpoints, configuration, and how to build client applications that use it.
 
-This guide covers the LLM proxy architecture, endpoints, configuration, and how
-to build client applications that use it.
-
-## Overview
+The following diagram illustrates the LLM proxy architecture and how clients interact with the MCP server to access LLM providers.
 
 ```
 ┌─────────────┐
@@ -32,12 +28,12 @@ to build client applications that use it.
 
 ```
 
-**Key Benefits:**
+The LLM proxy provides the following key benefits:
 
-- API keys never leave the server
-- Centralized LLM provider management
-- Client-side agentic loop with server-side LLM access
-- Consistent authentication model
+- API keys never leave the server.
+- Centralized LLM provider management.
+- Client-side agentic loop with server-side LLM access.
+- Consistent authentication model.
 
 ## LLM Proxy Endpoints
 
@@ -45,8 +41,9 @@ The LLM proxy provides three REST API endpoints:
 
 ### GET /api/llm/providers
 
-Returns the list of configured LLM providers based on which API keys are
-available.
+Returns the list of configured LLM providers based on which API keys are available.
+
+In the following example, the request retrieves the list of available LLM providers.
 
 **Request:**
 ```http
@@ -85,6 +82,8 @@ Authorization: Bearer <session-token>
 
 Lists available models for the specified provider.
 
+In the following example, the request retrieves the list of available models for the Ollama provider.
+
 **Request:**
 ```http
 GET /api/llm/models?provider=ollama HTTP/1.1
@@ -105,11 +104,9 @@ Authorization: Bearer <session-token>
 
 **Provider-specific behavior:**
 
-- **Anthropic**: Returns static list of Claude models (no public API for model
-  listing)
-- **OpenAI**: Calls OpenAI's models API
-- **Ollama**: Calls Ollama's `/api/tags` endpoint at configured
-  PGEDGE_OLLAMA_URL
+- **Anthropic**: Returns a static list of Claude models (no public API for model listing).
+- **OpenAI**: Calls the OpenAI models API.
+- **Ollama**: Calls the Ollama `/api/tags` endpoint at the configured PGEDGE_OLLAMA_URL.
 
 **Implementation:** [internal/llmproxy/proxy.go:138-200](https://github.com/pgEdge/pgedge-postgres-mcp/blob/main/internal/llmproxy/proxy.go#L138-L200)
 
@@ -117,7 +114,10 @@ Authorization: Bearer <session-token>
 
 Sends a chat request to the configured LLM provider with tool support.
 
+In the following example, the request sends a chat message with tools to the LLM provider.
+
 **Request:**
+
 ```json
 {
   "messages": [
@@ -142,6 +142,7 @@ Sends a chat request to the configured LLM provider with tool support.
 ```
 
 **Response:**
+
 ```json
 {
   "content": [
@@ -158,9 +159,11 @@ Sends a chat request to the configured LLM provider with tool support.
 
 **Implementation:** [internal/llmproxy/proxy.go:202-295](https://github.com/pgEdge/pgedge-postgres-mcp/blob/main/internal/llmproxy/proxy.go#L202-L295)
 
-## Configuration
+## Configuring the LLM Proxy
 
-The LLM proxy is configured via environment variables and YAML config:
+The LLM proxy is configured via environment variables and YAML config.
+
+In the following example, the configuration file specifies the LLM provider, model, and API key settings.
 
 ```yaml
 # Configuration file: pgedge-pg-mcp-web.yaml
@@ -190,29 +193,30 @@ llm:
 
 API keys are loaded in the following order (highest to lowest):
 
-1. Environment variables (`PGEDGE_ANTHROPIC_API_KEY`, `PGEDGE_OPENAI_API_KEY`)
-2. API key files (`anthropic_api_key_file`, `openai_api_key_file`)
-3. Direct configuration values (not recommended)
+1. Environment variables (`PGEDGE_ANTHROPIC_API_KEY`, `PGEDGE_OPENAI_API_KEY`).
+2. API key files (`anthropic_api_key_file`, `openai_api_key_file`).
+3. Direct configuration values (not recommended).
 
 **Environment variables:**
 
-- `PGEDGE_LLM_ENABLED`: Enable/disable LLM proxy (default: true)
-- `PGEDGE_LLM_PROVIDER`: Default provider
-- `PGEDGE_LLM_MODEL`: Default model
-- `PGEDGE_ANTHROPIC_API_KEY` or `ANTHROPIC_API_KEY`: Anthropic API key
-- `PGEDGE_OPENAI_API_KEY` or `OPENAI_API_KEY`: OpenAI API key
-- `PGEDGE_OLLAMA_URL`: Ollama server URL (used for both embeddings and LLM)
-- `PGEDGE_LLM_MAX_TOKENS`: Maximum tokens per response
-- `PGEDGE_LLM_TEMPERATURE`: LLM temperature (0.0-1.0)
+- `PGEDGE_LLM_ENABLED`: Enable/disable the LLM proxy (default: true).
+- `PGEDGE_LLM_PROVIDER`: The default provider.
+- `PGEDGE_LLM_MODEL`: The default model.
+- `PGEDGE_ANTHROPIC_API_KEY` or `ANTHROPIC_API_KEY`: The Anthropic API key.
+- `PGEDGE_OPENAI_API_KEY` or `OPENAI_API_KEY`: The OpenAI API key.
+- `PGEDGE_OLLAMA_URL`: The Ollama server URL (used for both embeddings and LLM).
+- `PGEDGE_LLM_MAX_TOKENS`: The maximum tokens per response.
+- `PGEDGE_LLM_TEMPERATURE`: The LLM temperature (0.0-1.0).
 
 **Implementation:** [internal/config/config.go:459-489](https://github.com/pgEdge/pgedge-postgres-mcp/blob/main/internal/config/config.go#L459-L489)
 
 ## Building Web Clients with JSON-RPC
 
-The web client communicates directly with the MCP server via JSON-RPC 2.0 over
-HTTP, matching the CLI client architecture.
+The web client communicates directly with the MCP server via JSON-RPC 2.0 over HTTP, matching the CLI client architecture.
 
 ### Natural Language Agent Client Implementation
+
+In the following example, the MCPClient class implements JSON-RPC 2.0 communication with the MCP server.
 
 **File:** [web/src/lib/mcp-client.js](https://github.com/pgEdge/pgedge-postgres-mcp/blob/main/web/src/lib/mcp-client.js)
 
@@ -256,6 +260,8 @@ export class MCPClient {
 
 ### Authentication Flow
 
+In the following example, the authentication flow uses the `authenticate_user` tool to obtain a session token.
+
 **Authentication via `authenticate_user` Tool:**
 
 ```javascript
@@ -281,6 +287,8 @@ const login = async (username, password) => {
 
 **Session Validation:**
 
+In the following example, the session validation checks the token by calling the MCP server.
+
 ```javascript
 const checkAuth = async () => {
     // Validate session by calling MCP server
@@ -300,8 +308,9 @@ const checkAuth = async () => {
 
 ### Client-Side Agentic Loop
 
-The web client implements the agentic loop in React, calling MCP tools via
-JSON-RPC:
+The web client implements the agentic loop in React, calling MCP tools via JSON-RPC.
+
+In the following example, the agentic loop processes user queries by iteratively calling the LLM and executing tools.
 
 ```javascript
 // web/src/components/ChatInterface.jsx
@@ -366,10 +375,3 @@ const processQuery = async (userMessage) => {
     }
 };
 ```
-
-## See Also
-
-- [API Reference](../developers/api-reference.md) - Complete API endpoint documentation
-- [MCP Protocol](../developers/mcp-protocol.md) - MCP protocol specification
-- [Architecture](../contributing/architecture.md) - System architecture overview
-- [Configuration](../guide/configuration.md) - Server configuration options

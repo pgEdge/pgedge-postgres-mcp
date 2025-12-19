@@ -1,29 +1,43 @@
-# knowledgebase search
+# Configuring and Using Knowledgebase Search
 
 The `search_knowledgebase` tool provides semantic search over pre-built
 documentation databases, allowing you to search PostgreSQL documentation,
 pgEdge product documentation, and other technical resources.
 
-## overview
-
-Unlike `similarity_search` which searches your own data in PostgreSQL, the
+Unlike the `similarity_search` which searches your own data in PostgreSQL, the
 `search_knowledgebase` tool searches curated documentation that has been
 pre-processed and indexed for efficient semantic retrieval.
 
-## when to use
-
 Use `search_knowledgebase` when you need information about:
 
-- PostgreSQL features, syntax, and functions
-- pgEdge products and capabilities
-- Other documented technologies included in the knowledgebase
+- PostgreSQL features, syntax, and functions.
+- pgEdge products and capabilities.
+- Other documented technologies included in the Knowledgebase.
 
 Use `similarity_search` when you need to search your own data stored in
 PostgreSQL tables.
 
-## configuration
+**Best Practices**
 
-To enable knowledgebase search, add to your server configuration:
+* **Start broad**: Begin with general queries, then refine based on results.
+* **Use filters**: Add project/version filters when you know what you're
+   looking for.
+* **Check multiple results**: Review several results for comprehensive
+   information.
+* **Combine with other tools**: Use with `query_database` to apply
+   documentation knowledge to actual queries.
+
+!!! Limitations
+
+    - Results are limited to pre-built documentation.
+    - Database must be periodically rebuilt to include new documentation.
+    - Requires storage space for the knowledgebase database file.
+    - Search quality depends on embedding provider consistency.
+
+
+## Configuring Knowledgebase Search
+
+To enable Knowledgebase search, add the following code snippet to your server configuration:
 
 ```yaml
 knowledgebase:
@@ -46,31 +60,35 @@ knowledgebase:
     # embedding_openai_api_key: ""
 ```
 
-**IMPORTANT:** The knowledgebase embedding configuration is **completely
+**IMPORTANT:** The Knowledgebase embedding configuration is **completely
 independent** from the `embedding` and `llm` sections. This allows you to:
 
 - Use different embedding providers for semantic search vs. the
     `generate_embeddings` tool
-- Use different API keys for knowledgebase search
+- Use different API keys for Knowledgebase search
 - Configure each section separately via environment variables
-    (`PGEDGE_KB_*` prefix for knowledgebase)
+    (`PGEDGE_KB_*` prefix for Knowledgebase)
 
 **Requirements:**
 
-- A pre-built knowledgebase database file (`.db` file)
-- Embedding provider configured for knowledgebase search
-- Same embedding provider and model used to build the database
+- A pre-built Knowledgebase database file (`.db` file).
+- Embedding provider configured for Knowledgebase search.
+- Same embedding provider and model used to build the database.
 
 **See also:**
 
-- [Server Configuration Example](../reference/config-examples/server.md) - Complete server config
-    with knowledgebase section
+- [Server Configuration Example](../reference/config-examples/server.md) - Complete server configuration with Knowledgebase section.
 - [KB Builder Configuration](../reference/config-examples/kb-builder.md) - Building the
-    knowledgebase database
+    knowledgebase database.
 
-## usage
 
-### basic search
+## Using the Tool
+
+The `search_knowledgebase` tool supports several search patterns to help you find relevant documentation.
+
+### Basic Search
+
+The simplest way to search is with just a query string.
 
 ```
 Tool: search_knowledgebase
@@ -78,7 +96,9 @@ Args:
   query: "PostgreSQL window functions"
 ```
 
-### filtered search
+### Performing a Filtered Search
+
+You can narrow your search results by filtering on project name or version.
 
 Search within a specific project:
 
@@ -99,7 +119,9 @@ Args:
   project_version: "17"
 ```
 
-### adjust result count
+### Adjusting the Result Count
+
+You can control how many results are returned.
 
 ```
 Tool: search_knowledgebase
@@ -110,28 +132,32 @@ Args:
 
 Default is 5 results, maximum is 20.
 
-## parameters
+**Parameters**
 
-| parameter | type | required | description |
+| Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
 | `query` | string | yes | Natural language search query |
 | `project_name` | string | no | Filter by project name |
 | `project_version` | string | no | Filter by project version |
 | `top_n` | integer | no | Number of results (default: 5, max: 20) |
 
-## output format
+**Output Format**
 
 Results include:
 
-- **Text**: The relevant documentation chunk
-- **Title**: Document title
-- **Section**: Section heading within the document
-- **Project**: Project name and version
-- **Similarity**: Relevance score (0-1, higher is more relevant)
+- **Text**: The relevant documentation chunk.
+- **Title**: Document title.
+- **Section**: Section heading within the document.
+- **Project**: Project name and version.
+- **Similarity**: Relevance score (0-1, higher is more relevant).
 
-## examples
+## Examples
 
-### example 1: general query
+The following examples demonstrate common use cases for Knowledgebase search.
+
+### Example 1: General Query
+
+In the following example, the `search_knowledgebase` tool uses a general query to find documentation about composite indexes in PostgreSQL.
 
 ```
 Query: "How do I create a composite index in PostgreSQL?"
@@ -142,7 +168,9 @@ Results:
 - Performance considerations
 ```
 
-### example 2: version-specific query
+### Example 2: Version-Specific Query
+
+In the following example, the `search_knowledgebase` tool uses project and version filters to find documentation specific to PostgreSQL 17.
 
 ```
 Query: "MERGE statement"
@@ -155,7 +183,9 @@ Results:
 - Comparison with INSERT...ON CONFLICT
 ```
 
-### example 3: product-specific query
+### Example 3: Product-Specific Query
+
+In the following example, the `search_knowledgebase` tool uses a project filter to find pgEdge-specific documentation about multi-master replication.
 
 ```
 Query: "multi-master replication"
@@ -167,80 +197,21 @@ Results:
 - Conflict resolution
 ```
 
-## building a knowledgebase
+## Building a Knowledgebase
 
 Knowledgebase databases are built using the `kb-builder` tool. This is an
 internal tool for project developers - contact your administrator if you need
-a custom knowledgebase built.
+a custom Knowledgebase built.
 
-The standard knowledgebase includes:
+The standard Knowledgebase includes:
 
-- PostgreSQL official documentation (multiple versions)
-- pgEdge product documentation
-- Related tools and extensions
+- PostgreSQL official documentation (multiple versions).
+- pgEdge product documentation.
+- Related tools and extensions.
 
-## troubleshooting
+## See Also
 
-### no results found
-
-**Cause**: Query may be too specific or use terminology not in the
-documentation.
-
-**Solution**: Try broader search terms or rephrase the query.
-
-### wrong project results
-
-**Cause**: Not filtering by project name.
-
-**Solution**: Add `project_name` parameter to filter results.
-
-### embedding provider mismatch
-
-**Cause**: Server embedding provider differs from the one used to build the
-database.
-
-**Solution**: Configure the server to use the same embedding provider. The
-database contains embeddings from multiple providers - the server will
-automatically use the one that matches its configuration.
-
-### knowledgebase not available
-
-**Cause**: Knowledgebase not enabled in configuration or database file missing.
-
-**Solution**: Check server configuration and verify `database_path` points to a
-valid knowledgebase database file.
-
-## comparison with similarity_search
-
-| feature | search_knowledgebase | similarity_search |
-|---------|---------------------|-------------------|
-| **data source** | pre-built documentation | user's postgresql tables |
-| **use case** | technical documentation | user's own data |
-| **setup** | requires kb database | requires vector columns |
-| **updates** | static (rebuild needed) | dynamic (live data) |
-| **scope** | curated content | any table data |
-
-## best practices
-
-1. **Start broad**: Begin with general queries, then refine based on results
-2. **Use filters**: Add project/version filters when you know what you're
-   looking for
-3. **Check multiple results**: Review several results for comprehensive
-   information
-4. **Combine with other tools**: Use with `query_database` to apply
-   documentation knowledge to actual queries
-
-## limitations
-
-- Results limited to pre-built documentation
-- Database must be periodically rebuilt to include new documentation
-- Requires storage space for the knowledgebase database file
-- Search quality depends on embedding provider consistency
-
-## see also
-
-- [Server Configuration Example](../reference/config-examples/server.md) - Complete server config
-    with knowledgebase section
+- [Server Configuration Example](../reference/config-examples/server.md) - Complete server configuration with a knowledgebase section.
 - [KB Builder Configuration](../reference/config-examples/kb-builder.md) - Building the
-    knowledgebase database
-- [Available Tools](../reference/tools.md) - Overview of all MCP tools
+    Knowledgebase database.
+- [Available Tools](../reference/tools.md) - Overview of all MCP tools.
