@@ -1,6 +1,6 @@
-# Configuring the Agent for Multiple Databases
+# Configuring the MCP Server for Multiple Databases
 
-The Natural Language Agent supports configuring multiple PostgreSQL databases,
+The MCP server supports configuring multiple PostgreSQL databases,
 allowing users to switch between different database connections at runtime.
 This is particularly useful for environments with separate development,
 staging, and production databases, or when providing access to multiple

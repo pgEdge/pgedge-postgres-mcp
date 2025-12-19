@@ -348,9 +348,9 @@ func testListTools(t *testing.T, server *MCPServer) {
 		t.Fatal("tools array not found in result")
 	}
 
-	// With database connected at startup, all 6 tools should be available
-	if len(tools) != 6 {
-		t.Errorf("Expected exactly 6 tools with database connection, got %d", len(tools))
+	// With database connected at startup, all 7 tools should be available
+	if len(tools) != 7 {
+		t.Errorf("Expected exactly 7 tools with database connection, got %d", len(tools))
 	}
 
 	// Verify expected tools exist
@@ -361,6 +361,7 @@ func testListTools(t *testing.T, server *MCPServer) {
 		"read_resource":      false,
 		"generate_embedding": false,
 		"execute_explain":    false,
+		"count_rows":         false,
 	}
 
 	for _, tool := range tools {
@@ -405,14 +406,13 @@ func testListResources(t *testing.T, server *MCPServer) {
 		t.Fatal("resources array not found in result")
 	}
 
-	if len(resources) < 2 {
-		t.Errorf("Expected at least 2 resources, got %d", len(resources))
+	if len(resources) < 1 {
+		t.Errorf("Expected at least 1 resource, got %d", len(resources))
 	}
 
 	// Verify expected resources exist
 	expectedResources := map[string]bool{
-		"pg://system_info":     false,
-		"pg://database/schema": false,
+		"pg://system_info": false,
 	}
 
 	for _, resource := range resources {

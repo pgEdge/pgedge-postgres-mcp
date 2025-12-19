@@ -1,6 +1,7 @@
 # Testing Guide
 
-This document describes the test coverage for the Natural Language Agent, with a focus on multi-LLM provider support.
+This document describes the test coverage for the MCP server and Natural
+Language Agents, with a focus on multi-LLM provider support.
 
 ## Test Structure
 

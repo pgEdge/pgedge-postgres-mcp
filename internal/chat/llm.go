@@ -330,20 +330,20 @@ When executing tools:
 			CacheSavingsPercentage: savePercent,
 		}
 
-		// Log to stderr for CLI
+		// Log to stderr for CLI (use \r\n to clear spinner line first)
 		if anthropicResp.Usage.CacheCreationInputTokens > 0 || anthropicResp.Usage.CacheReadInputTokens > 0 {
-			fmt.Fprintf(os.Stderr, "\n[LLM] [DEBUG] Anthropic - Prompt Cache: Created %d tokens, Read %d tokens (saved ~%.0f%% on input)\n",
+			fmt.Fprintf(os.Stderr, "\r\n[LLM] [DEBUG] Anthropic - Prompt Cache: Created %d tokens, Read %d tokens (saved ~%.0f%% on input)\n",
 				anthropicResp.Usage.CacheCreationInputTokens,
 				anthropicResp.Usage.CacheReadInputTokens,
 				savePercent,
 			)
-			fmt.Fprintf(os.Stderr, "[LLM] [DEBUG] Anthropic - Tokens: Input %d, Output %d, Total %d\n",
+			fmt.Fprintf(os.Stderr, "\r[LLM] [DEBUG] Anthropic - Tokens: Input %d, Output %d, Total %d\n",
 				anthropicResp.Usage.InputTokens,
 				anthropicResp.Usage.OutputTokens,
 				anthropicResp.Usage.InputTokens+anthropicResp.Usage.OutputTokens,
 			)
 		} else {
-			fmt.Fprintf(os.Stderr, "\n[LLM] [DEBUG] Anthropic - Tokens: Input %d, Output %d, Total %d\n",
+			fmt.Fprintf(os.Stderr, "\r\n[LLM] [DEBUG] Anthropic - Tokens: Input %d, Output %d, Total %d\n",
 				anthropicResp.Usage.InputTokens,
 				anthropicResp.Usage.OutputTokens,
 				anthropicResp.Usage.InputTokens+anthropicResp.Usage.OutputTokens,
@@ -659,7 +659,7 @@ IMPORTANT INSTRUCTIONS:
 			}
 
 			// Log to stderr for CLI
-			fmt.Fprintf(os.Stderr, "\n[LLM] [DEBUG] Ollama - Response: tool_use (Ollama does not provide token counts)\n")
+			fmt.Fprintf(os.Stderr, "\r\n[LLM] [DEBUG] Ollama - Response: tool_use (Ollama does not provide token counts)\n")
 		}
 
 		return LLMResponse{
@@ -693,7 +693,7 @@ IMPORTANT INSTRUCTIONS:
 				}
 
 				// Log to stderr for CLI
-				fmt.Fprintf(os.Stderr, "\n[LLM] [DEBUG] Ollama - Response: tool_use (Ollama does not provide token counts)\n")
+				fmt.Fprintf(os.Stderr, "\r\n[LLM] [DEBUG] Ollama - Response: tool_use (Ollama does not provide token counts)\n")
 			}
 
 			return LLMResponse{
@@ -724,7 +724,7 @@ IMPORTANT INSTRUCTIONS:
 		}
 
 		// Log to stderr for CLI
-		fmt.Fprintf(os.Stderr, "\n[LLM] [DEBUG] Ollama - Response: end_turn (Ollama does not provide token counts)\n")
+		fmt.Fprintf(os.Stderr, "\r\n[LLM] [DEBUG] Ollama - Response: end_turn (Ollama does not provide token counts)\n")
 	}
 
 	return LLMResponse{
@@ -1213,7 +1213,7 @@ When executing tools:
 				}
 
 				// Log to stderr for CLI
-				fmt.Fprintf(os.Stderr, "\n[LLM] [DEBUG] OpenAI - Tokens: Prompt %d, Completion %d, Total %d\n",
+				fmt.Fprintf(os.Stderr, "\r\n[LLM] [DEBUG] OpenAI - Tokens: Prompt %d, Completion %d, Total %d\n",
 					openaiResp.Usage.PromptTokens,
 					openaiResp.Usage.CompletionTokens,
 					openaiResp.Usage.TotalTokens,
@@ -1290,7 +1290,7 @@ When executing tools:
 		}
 
 		// Log to stderr for CLI
-		fmt.Fprintf(os.Stderr, "\n[LLM] [DEBUG] OpenAI - Tokens: Prompt %d, Completion %d, Total %d\n",
+		fmt.Fprintf(os.Stderr, "\r\n[LLM] [DEBUG] OpenAI - Tokens: Prompt %d, Completion %d, Total %d\n",
 			openaiResp.Usage.PromptTokens,
 			openaiResp.Usage.CompletionTokens,
 			openaiResp.Usage.TotalTokens,

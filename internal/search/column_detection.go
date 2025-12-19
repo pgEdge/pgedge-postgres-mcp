@@ -23,16 +23,18 @@ func DetectColumnTypes(tableInfo database.TableInfo, sampleData map[string]strin
 
 	// Find vector columns and their corresponding text columns
 	vectorCols := make(map[string]database.ColumnInfo) // map[textCol]vectorCol
-	for _, col := range tableInfo.Columns {
+	for i := range tableInfo.Columns {
+		col := &tableInfo.Columns[i]
 		if col.IsVectorColumn {
 			// Try to find corresponding text column
 			textColName := inferTextColumnName(col.ColumnName)
-			vectorCols[textColName] = col
+			vectorCols[textColName] = *col
 		}
 	}
 
 	// Analyze each text column
-	for _, col := range tableInfo.Columns {
+	for i := range tableInfo.Columns {
+		col := &tableInfo.Columns[i]
 		// Skip non-text columns and vector columns
 		if col.IsVectorColumn {
 			continue

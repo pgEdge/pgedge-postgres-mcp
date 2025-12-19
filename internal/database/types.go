@@ -25,6 +25,12 @@ type ColumnInfo struct {
 	DataType         string
 	IsNullable       string
 	Description      string
-	IsVectorColumn   bool // True if this is a pgvector column
-	VectorDimensions int  // Number of dimensions for vector columns (0 if not a vector)
+	IsPrimaryKey     bool   // True if this column is part of the primary key
+	IsUnique         bool   // True if this column has a unique constraint (excluding PK)
+	ForeignKeyRef    string // Reference in format "schema.table.column" if FK, empty otherwise
+	IsIndexed        bool   // True if this column is part of any index
+	IsIdentity       string // Identity generation: "" (none), "a" (ALWAYS), "d" (BY DEFAULT)
+	DefaultValue     string // Default value expression if any, empty otherwise
+	IsVectorColumn   bool   // True if this is a pgvector column
+	VectorDimensions int    // Number of dimensions for vector columns (0 if not a vector)
 }

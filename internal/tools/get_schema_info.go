@@ -31,8 +31,8 @@ Use get_schema_info when you need to:
 - Understand table structure (columns, types, constraints)
 - Find tables with specific capabilities (e.g., vector columns)
 - Learn column names before writing queries
-- Check data types and nullable constraints
-- Understand primary/foreign key relationships
+- Check data types, nullable, and unique constraints
+- Understand primary/foreign key relationships for JOINs
 </usecase>
 
 <why_use_this_first>
@@ -45,20 +45,26 @@ ALWAYS call this tool FIRST when:
 </why_use_this_first>
 
 <key_features>
-Returns comprehensive information:
+Returns comprehensive information in TSV format (one row per column):
+- schema, table, type, table_desc, column, data_type, nullable, col_desc, is_pk, is_unique, fk_ref, is_indexed, identity, default, is_vector, vector_dims
 - All tables and views in the database
 - Column names, data types, nullable status
-- Primary keys and foreign key relationships
+- Primary key (is_pk) and unique constraint (is_unique) indicators
+- Foreign key references (fk_ref) in format "schema.table.column"
+- Index membership (is_indexed) for query optimization hints
+- Identity columns (identity): "a" for ALWAYS, "d" for BY DEFAULT, empty if not identity
+- Default values for columns (default)
 - Table and column descriptions from pg_description
 - Vector column detection (pgvector extension)
 - Schema organization
 </key_features>
 
 <filtering_options>
-- No parameters: Returns summary if >10 tables, full details otherwise
-- schema_name="public": Filter to specific schema only (always full details)
+- No parameters: Returns summary if >10 tables, TSV details otherwise
+- schema_name="public": Filter to specific schema only (always TSV details)
+- table_name="users" (with schema_name): Get columns for specific table only
 - vector_tables_only=true: Show only tables with pgvector columns (reduces output 10x)
-- compact=true: Return table names + column names only (reduces output 70%)
+- compact=true: Return table names only (no column details)
 </filtering_options>
 
 <auto_summary_mode>
@@ -77,18 +83,21 @@ filter to get full details for specific schemas.
 ✓ "What tables are available?" → get_schema_info()
 ✓ "Show me tables with vector columns" → get_schema_info(vector_tables_only=true)
 ✓ "What's in the public schema?" → get_schema_info(schema_name="public")
+✓ "Show me the users table structure" → get_schema_info(schema_name="public", table_name="users")
 ✓ Before writing: "SELECT * FROM users..." → get_schema_info() first to confirm 'users' table exists
 </examples>
 
 <important>
-This tool provides MORE detail than the pg://database-schema resource, which only shows table names and owners. Use this tool for comprehensive schema exploration.
+Results are returned in TSV (tab-separated values) format for token efficiency.
+Use this tool for comprehensive schema exploration.
 </important>
 
 <rate_limit_awareness>
 To avoid rate limits when calling this tool:
 - Use schema_name="specific_schema" to filter output (reduces tokens by 90%)
+- Use table_name="specific_table" with schema_name for single table details (reduces tokens by 95%)
 - Use vector_tables_only=true when preparing for similarity_search (reduces output 10x)
-- Use compact=true for a concise summary (table names + column names only)
+- Use compact=true for table names only (no column details)
 - Avoid calling without parameters in large databases (can return 10k+ tokens)
 - Call once and cache results in conversation rather than repeatedly
 - If exploring large schemas, filter by schema_name first
@@ -100,6 +109,10 @@ To avoid rate limits when calling this tool:
 						"type":        "string",
 						"description": "Optional: specific schema name to get info for. If not provided, returns all schemas.",
 					},
+					"table_name": map[string]interface{}{
+						"type":        "string",
+						"description": "Optional: specific table name to get columns for. Requires schema_name to also be provided.",
+					},
 					"vector_tables_only": map[string]interface{}{
 						"type":        "boolean",
 						"description": "Optional: if true, only return tables with vector columns (for semantic search). Reduces output significantly.",
@@ -107,7 +120,7 @@ To avoid rate limits when calling this tool:
 					},
 					"compact": map[string]interface{}{
 						"type":        "boolean",
-						"description": "Optional: if true, return compact output (table names + column names only, no types/descriptions). Reduces output by 70%.",
+						"description": "Optional: if true, return table names only (no column details). Use for quick overview.",
 						"default":     false,
 					},
 				},
@@ -119,6 +132,16 @@ To avoid rate limits when calling this tool:
 				schemaName = "" // Default to empty string (all schemas)
 			}
 
+			tableName, ok := args["table_name"].(string)
+			if !ok {
+				tableName = ""
+			}
+
+			// Validate: table_name requires schema_name
+			if tableName != "" && schemaName == "" {
+				return mcp.NewToolError("table_name requires schema_name to be specified")
+			}
+
 			vectorTablesOnly := false
 			if vectorOnly, ok := args["vector_tables_only"].(bool); ok {
 				vectorTablesOnly = vectorOnly
@@ -127,6 +150,11 @@ To avoid rate limits when calling this tool:
 			compactMode := false
 			if compact, ok := args["compact"].(bool); ok {
 				compactMode = compact
+			}
+
+			// If table_name is specified, ignore compact mode (user wants column details)
+			if tableName != "" {
+				compactMode = false
 			}
 
 			// Check if metadata is loaded
@@ -153,10 +181,15 @@ To avoid rate limits when calling this tool:
 					continue
 				}
 
+				// Filter by table if requested
+				if tableName != "" && table.TableName != tableName {
+					continue
+				}
+
 				// Check for vector columns
 				hasVectorColumn := false
-				for _, col := range table.Columns {
-					if col.IsVectorColumn {
+				for i := range table.Columns {
+					if table.Columns[i].IsVectorColumn {
 						hasVectorColumn = true
 						break
 					}
@@ -182,7 +215,7 @@ To avoid rate limits when calling this tool:
 			}
 
 			// Auto-summary mode: when no filters applied and many tables
-			autoSummary := schemaName == "" && !vectorTablesOnly && !compactMode &&
+			autoSummary := schemaName == "" && tableName == "" && !vectorTablesOnly && !compactMode &&
 				totalMatched > summaryThreshold
 
 			var sb strings.Builder
@@ -232,58 +265,94 @@ To avoid rate limits when calling this tool:
 				sb.WriteString("   → get_schema_info(compact=true)\n")
 				sb.WriteString("</next_steps>\n")
 			} else {
-				// Standard output modes (filtered, compact, or full)
-				sb.WriteString("Database Schema Information:\n")
-				sb.WriteString("============================\n")
+				// Standard output modes: TSV format
+				if compactMode {
+					// Compact mode: table names only (no column details)
+					sb.WriteString("schema\ttable\ttype\ttable_desc\n")
 
-				for _, table := range metadata {
-					// Filter by schema if requested
-					if schemaName != "" && table.SchemaName != schemaName {
-						continue
-					}
-
-					// Filter for vector tables only if requested
-					if vectorTablesOnly {
-						hasVectorColumn := false
-						for _, col := range table.Columns {
-							if col.IsVectorColumn {
-								hasVectorColumn = true
-								break
-							}
-						}
-						if !hasVectorColumn {
+					for _, table := range metadata {
+						// Filter by schema if requested
+						if schemaName != "" && table.SchemaName != schemaName {
 							continue
 						}
-					}
 
-					if compactMode {
-						// Compact output: table name + column names only
-						sb.WriteString(fmt.Sprintf("\n%s.%s: ", table.SchemaName, table.TableName))
-						colNames := make([]string, len(table.Columns))
-						for i, col := range table.Columns {
-							colNames[i] = col.ColumnName
+						// Filter by table if requested
+						if tableName != "" && table.TableName != tableName {
+							continue
 						}
-						sb.WriteString(strings.Join(colNames, ", "))
+
+						// Filter for vector tables only if requested
+						if vectorTablesOnly {
+							hasVectorColumn := false
+							for i := range table.Columns {
+								if table.Columns[i].IsVectorColumn {
+									hasVectorColumn = true
+									break
+								}
+							}
+							if !hasVectorColumn {
+								continue
+							}
+						}
+
+						sb.WriteString(BuildTSVRow(
+							table.SchemaName,
+							table.TableName,
+							table.TableType,
+							table.Description,
+						))
 						sb.WriteString("\n")
-					} else {
-						// Full output with types and descriptions
-						sb.WriteString(fmt.Sprintf("\n%s.%s (%s)\n",
-							table.SchemaName, table.TableName, table.TableType))
-						if table.Description != "" {
-							sb.WriteString(fmt.Sprintf("  Description: %s\n", table.Description))
+					}
+				} else {
+					// Full mode: one row per column with all details
+					sb.WriteString("schema\ttable\ttype\ttable_desc\tcolumn\tdata_type\tnullable\tcol_desc\tis_pk\tis_unique\tfk_ref\tis_indexed\tidentity\tdefault\tis_vector\tvector_dims\n")
+
+					for _, table := range metadata {
+						// Filter by schema if requested
+						if schemaName != "" && table.SchemaName != schemaName {
+							continue
 						}
 
-						sb.WriteString("  Columns:\n")
-						for _, col := range table.Columns {
-							sb.WriteString(fmt.Sprintf("    - %s: %s",
-								col.ColumnName, col.DataType))
-							if col.IsNullable == "YES" {
-								sb.WriteString(" (nullable)")
+						// Filter by table if requested
+						if tableName != "" && table.TableName != tableName {
+							continue
+						}
+
+						// Filter for vector tables only if requested
+						if vectorTablesOnly {
+							hasVectorColumn := false
+							for i := range table.Columns {
+								if table.Columns[i].IsVectorColumn {
+									hasVectorColumn = true
+									break
+								}
 							}
-							if col.Description != "" {
-								sb.WriteString(fmt.Sprintf("\n      Description: %s",
-									col.Description))
+							if !hasVectorColumn {
+								continue
 							}
+						}
+
+						// Output one row per column
+						for i := range table.Columns {
+							col := &table.Columns[i]
+							sb.WriteString(BuildTSVRow(
+								table.SchemaName,
+								table.TableName,
+								table.TableType,
+								table.Description,
+								col.ColumnName,
+								col.DataType,
+								col.IsNullable,
+								col.Description,
+								fmt.Sprintf("%t", col.IsPrimaryKey),
+								fmt.Sprintf("%t", col.IsUnique),
+								col.ForeignKeyRef,
+								fmt.Sprintf("%t", col.IsIndexed),
+								col.IsIdentity,
+								col.DefaultValue,
+								fmt.Sprintf("%t", col.IsVectorColumn),
+								fmt.Sprintf("%d", col.VectorDimensions),
+							))
 							sb.WriteString("\n")
 						}
 					}
@@ -305,7 +374,13 @@ To avoid rate limits when calling this tool:
 				emptyMsg.WriteString("</current_connection>\n\n")
 
 				emptyMsg.WriteString("<diagnosis>\n")
-				if schemaName != "" && vectorTablesOnly {
+				if tableName != "" {
+					emptyMsg.WriteString(fmt.Sprintf("Table '%s.%s' not found.\n", schemaName, tableName))
+					emptyMsg.WriteString("Possible reasons:\n")
+					emptyMsg.WriteString("1. Table name is misspelled (PostgreSQL is case-sensitive)\n")
+					emptyMsg.WriteString("2. Table exists in a different schema\n")
+					emptyMsg.WriteString("3. You don't have permission to view this table\n")
+				} else if schemaName != "" && vectorTablesOnly {
 					emptyMsg.WriteString(fmt.Sprintf("No tables with vector columns found in schema '%s'.\n", schemaName))
 					emptyMsg.WriteString("Possible reasons:\n")
 					emptyMsg.WriteString("1. Schema name is misspelled or doesn't exist\n")
@@ -340,7 +415,10 @@ To avoid rate limits when calling this tool:
 				emptyMsg.WriteString("2. List all databases to find the right one:\n")
 				emptyMsg.WriteString("   → query_database(query=\"SELECT datname FROM pg_database WHERE datistemplate = false\", limit=20)\n\n")
 
-				if schemaName != "" {
+				if tableName != "" {
+					emptyMsg.WriteString("3. List all tables in the schema to find the correct name:\n")
+					emptyMsg.WriteString(fmt.Sprintf("   → get_schema_info(schema_name=%q, compact=true)\n\n", schemaName))
+				} else if schemaName != "" {
 					emptyMsg.WriteString("3. List all available schemas:\n")
 					emptyMsg.WriteString("   → query_database(query=\"SELECT schema_name FROM information_schema.schemata ORDER BY schema_name\", limit=50)\n\n")
 					emptyMsg.WriteString("4. Try without schema filter:\n")

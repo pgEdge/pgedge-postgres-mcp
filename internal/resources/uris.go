@@ -15,7 +15,4 @@ package resources
 const (
 	// System Information Resources
 	URISystemInfo = "pg://system_info"
-
-	// Database Schema Resources
-	URIDatabaseSchema = "pg://database/schema"
 )

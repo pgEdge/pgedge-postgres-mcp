@@ -787,6 +787,26 @@ func (c *Client) getServerKey() string {
 	return "local"
 }
 
+// restoreDatabasePreference restores the saved database preference for this server
+func (c *Client) restoreDatabasePreference(ctx context.Context) {
+	serverKey := c.getServerKey()
+	savedDB := c.preferences.GetDatabaseForServer(serverKey)
+	if savedDB == "" {
+		return // No saved preference
+	}
+
+	// Try to select the saved database
+	if err := c.mcp.SelectDatabase(ctx, savedDB); err != nil {
+		// Log but don't fail - database might no longer exist
+		if c.config.UI.Debug {
+			fmt.Fprintf(os.Stderr, "[DEBUG] Failed to restore saved database %q: %v\n", savedDB, err)
+		}
+		// Clear the invalid preference
+		c.preferences.SetDatabaseForServer(serverKey, "")
+		_ = SavePreferences(c.preferences) //nolint:errcheck // Best effort cleanup
+	}
+}
+
 // handleListDatabases handles /list databases command - lists available databases
 func (c *Client) handleListDatabases(ctx context.Context) bool {
 	// Use the MCPClient interface method (works for both HTTP and STDIO modes)

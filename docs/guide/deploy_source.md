@@ -55,11 +55,11 @@ Specify the name of your embedding provider in the `EMBEDDING PROVIDER CONFIGURA
 # ============================================================================
 # EMBEDDING PROVIDER CONFIGURATION
 # ============================================================================
-# Provider for text embeddings: anthropic, openai, or ollama
-PGEDGE_EMBEDDING_PROVIDER=anthropic
+# Provider for text embeddings: voyage, openai, or ollama
+PGEDGE_EMBEDDING_PROVIDER=voyage
 
 # Model to use for embeddings
-# Anthropic: voyage-3, voyage-3-large (requires API key)
+# Voyage: voyage-3, voyage-3-large (requires API key)
 # OpenAI: text-embedding-3-small, text-embedding-3-large (requires API key)
 # Ollama: nomic-embed-text, mxbai-embed-large (requires local Ollama)
 PGEDGE_EMBEDDING_MODEL=voyage-3

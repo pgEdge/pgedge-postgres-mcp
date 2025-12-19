@@ -42,32 +42,27 @@ Use read_resource when:
 </usecase>
 
 <available_resources>
-1. pg://database-schema
-   - Lightweight table listing (schema, table name, owner only)
-   - Quick overview without column details
-
-2. pg://system-info
+1. pg://system_info
    - PostgreSQL version, OS, architecture
    - Connection details (host, port, user, database)
    - Platform information for compatibility checks
 </available_resources>
 
 <alternatives>
-For better results, consider these tools instead:
-- get_schema_info tool: Much more detailed than pg://database-schema
-  - Shows columns, types, constraints, descriptions
-  - Supports filtering (schema_name, vector_tables_only)
-  - Better for query writing and schema exploration
+For detailed schema information, use the get_schema_info tool:
+- Shows columns, types, constraints, descriptions
+- Supports filtering (schema_name, table_name, vector_tables_only)
+- TSV format for token efficiency
 
-- Native resources/read: Use if your client supports it
-  - More efficient (pull model)
-  - Better caching
-  - Standard MCP approach
+Native resources/read: Use if your client supports it
+- More efficient (pull model)
+- Better caching
+- Standard MCP approach
 </alternatives>
 
 <usage>
 - List all resources: read_resource(list=true)
-- Read specific resource: read_resource(uri="pg://system-info")
+- Read specific resource: read_resource(uri="pg://system_info")
 </usage>`,
 			InputSchema: mcp.InputSchema{
 				Type: "object",

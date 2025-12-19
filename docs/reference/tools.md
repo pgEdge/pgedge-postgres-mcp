@@ -1,6 +1,6 @@
 # MCP Tools
 
-The Natural Language Agent provides various tools that enable SQL database
+The MCP server provides various tools that enable SQL database
 interaction, advanced semantic search, embedding generation, resource reading,
 and more.
 
@@ -190,9 +190,59 @@ See the [documentation](../guide/configuration.md) for configuration details.
 
 ### get_schema_info
 
-**PRIMARY TOOL for discovering database tables and schema information.** Retrieves detailed database schema information including tables, views, columns, data types, constraints (primary/foreign keys), and comments from pg_description. **ALWAYS use this tool first when you need to know what tables exist in the database.**
+**PRIMARY TOOL for discovering database tables and schema information.** Retrieves
+detailed database schema information including tables, views, columns, data
+types, constraints, indexes, identity columns, default values, and comments
+from pg_description. **ALWAYS use this tool first when you need to know what
+tables exist in the database.**
 
-**Input** (optional):
+**Parameters**:
+
+- `schema_name` (optional): Filter to a specific schema (e.g., `"public"`)
+- `table_name` (optional): Filter to a specific table. Requires `schema_name`
+  to also be provided
+- `vector_tables_only` (optional): If `true`, only return tables with pgvector
+  columns. Reduces output significantly (default: `false`)
+- `compact` (optional): If `true`, return table names only without column
+  details. Use for quick overview (default: `false`)
+
+**Output Format**:
+
+Results are returned in TSV (tab-separated values) format for token efficiency.
+The columns are:
+
+- `schema` - Schema name
+- `table` - Table name
+- `type` - TABLE, VIEW, or MATERIALIZED VIEW
+- `table_desc` - Table description from pg_description
+- `column` - Column name
+- `data_type` - PostgreSQL data type
+- `nullable` - YES or NO
+- `col_desc` - Column description
+- `is_pk` - true if part of primary key
+- `is_unique` - true if has unique constraint (excluding PK)
+- `fk_ref` - Foreign key reference in format "schema.table.column" if FK
+- `is_indexed` - true if column is part of any index
+- `identity` - "a" for GENERATED ALWAYS, "d" for BY DEFAULT, empty otherwise
+- `default` - Default value expression if any
+- `is_vector` - true if pgvector column
+- `vector_dims` - Number of dimensions for vector columns (0 if not vector)
+
+**Auto-Summary Mode**:
+
+When called without filters on databases with >10 tables, automatically returns
+a compact summary showing table counts per schema and suggested next calls.
+This prevents overwhelming token usage on large databases.
+
+**Input Examples**:
+
+Get all schema info (returns summary if >10 tables):
+
+```json
+{}
+```
+
+Get details for a specific schema:
 
 ```json
 {
@@ -200,22 +250,49 @@ See the [documentation](../guide/configuration.md) for configuration details.
 }
 ```
 
-**Output**:
+Get columns for a specific table:
+
+```json
+{
+  "schema_name": "public",
+  "table_name": "users"
+}
+```
+
+Find tables with vector columns:
+
+```json
+{
+  "vector_tables_only": true
+}
+```
+
+Quick table list (no column details):
+
+```json
+{
+  "compact": true
+}
+```
+
+**Output Example** (single table):
 
 ```
-Database Schema Information:
-============================
+Database: postgres://user@localhost/mydb
 
-public.users (TABLE)
-  Description: User accounts and authentication
-  Columns:
-    - id: bigint
-    - username: character varying(255)
-      Description: Unique username for login
-    - created_at: timestamp with time zone (nullable)
-      Description: Account creation timestamp
-    ...
+schema	table	type	table_desc	column	data_type	nullable	col_desc	is_pk	is_unique	fk_ref	is_indexed	identity	default	is_vector	vector_dims
+public	users	TABLE	User accounts	id	bigint	NO	Primary key	true	false		true	a		false	0
+public	users	TABLE	User accounts	email	text	NO	User email	false	true		true			false	0
+public	users	TABLE	User accounts	created_at	timestamptz	YES		false	false		false		now()	false	0
 ```
+
+**Use Cases**:
+
+- **Discover Tables**: Find what tables exist before querying
+- **Understand Relationships**: Use `fk_ref` to understand table joins
+- **Query Optimization**: Check `is_indexed` to write efficient queries
+- **Vector Search Setup**: Use `vector_tables_only` to find tables for
+  `similarity_search`
 
 ### query_database
 
@@ -276,7 +353,6 @@ Read a specific resource:
 
 **Available Resource URIs**:
 
-- `pg://database/schema` - Lightweight overview of all database tables (names and owners)
 - `pg://system_info` - PostgreSQL version, OS, and build architecture
 
 See [Resources](resources.md) for detailed information.
@@ -456,6 +532,7 @@ building and configuring the documentation knowledgebase.
 
 **Example Response**:
 
+{% raw %}
 ```
 Similarity Search Results: "How does PostgreSQL handle vector similarity search?"
 ================================================================================
@@ -498,6 +575,7 @@ graph structure that enables fast approximate nearest neighbor search...
 
 Total: 5 chunks, ~687 tokens
 ```
+{% endraw %}
 
 **Key Features**:
 

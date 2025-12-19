@@ -172,7 +172,7 @@ secret_file: ""
 # Environment variables (apply to first database):
 #   PGEDGE_DB_HOST or PGHOST
 #   PGEDGE_DB_PORT or PGPORT
-#   PGEDGE_DB_DATABASE or PGDATABASE
+#   PGEDGE_DB_NAME or PGDATABASE
 #   PGEDGE_DB_USER or PGUSER
 #   PGEDGE_DB_PASSWORD or PGPASSWORD (or use .pgpass file)
 #   PGEDGE_DB_SSLMODE or PGSSLMODE
@@ -402,10 +402,6 @@ builtins:
         # pg://system_info - PostgreSQL version and system information
         # Default: true
         system_info: true
-
-        # pg://database/schema - Lightweight table listing
-        # Default: true
-        database_schema: true
 
     # -------------------------
     # Prompts

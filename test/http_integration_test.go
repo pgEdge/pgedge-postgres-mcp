@@ -492,9 +492,9 @@ func testHTTPListTools(t *testing.T, server *HTTPMCPServer) {
 		t.Fatal("tools array not found in result")
 	}
 
-	// We now have 6 tools (removed connection management tools, added execute_explain)
-	if len(tools) != 6 {
-		t.Errorf("Expected exactly 6 tools, got %d", len(tools))
+	// We now have 7 tools (removed connection management tools, added execute_explain and count_rows)
+	if len(tools) != 7 {
+		t.Errorf("Expected exactly 7 tools, got %d", len(tools))
 	}
 
 	t.Logf("HTTP ListTools test passed, found %d tools", len(tools))
@@ -520,8 +520,8 @@ func testHTTPListResources(t *testing.T, server *HTTPMCPServer) {
 		t.Fatal("resources array not found in result")
 	}
 
-	if len(resources) != 2 {
-		t.Errorf("Expected exactly 2 resources, got %d", len(resources))
+	if len(resources) != 1 {
+		t.Errorf("Expected exactly 1 resource (pg://system_info), got %d", len(resources))
 	}
 
 	t.Logf("HTTP ListResources test passed, found %d resources", len(resources))

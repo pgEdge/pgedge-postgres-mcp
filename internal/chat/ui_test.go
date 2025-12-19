@@ -214,7 +214,7 @@ func TestUI_PrintToolExecution_WithURI(t *testing.T) {
 	os.Stdout = w
 
 	ui.PrintToolExecution("read_resource", map[string]interface{}{
-		"uri": "pg://database/schema",
+		"uri": "pg://system_info",
 	})
 
 	w.Close()
@@ -233,8 +233,8 @@ func TestUI_PrintToolExecution_WithURI(t *testing.T) {
 		t.Error("Output should contain 'read_resource'")
 	}
 
-	if !strings.Contains(output, "pg://database/schema") {
-		t.Error("Output should contain 'pg://database/schema'")
+	if !strings.Contains(output, "pg://system_info") {
+		t.Error("Output should contain 'pg://system_info'")
 	}
 }
 

@@ -1,0 +1,104 @@
+# pgEdge PostgreSQL MCP Server Configuration - HTTP Mode
+#
+# This configuration runs the MCP server in HTTP mode for the web client.
+# Copy this file to bin/pgedge-postgres-mcp-http.yaml and edit as needed.
+#
+# Usage:
+#   cp examples/pgedge-postgres-mcp-http.yaml.example bin/pgedge-postgres-mcp-http.yaml
+#   # Edit bin/pgedge-postgres-mcp-http.yaml with your settings
+#   ./start_web_client.sh
+
+# HTTP mode configuration
+http:
+    enabled: true
+    address: ":8080"
+    tls:
+        enabled: false
+        cert_file: "./server.crt"
+        key_file: "./server.key"
+        chain_file: ""
+    auth:
+        enabled: true
+        token_file: "./pgedge-postgres-mcp-tokens.yaml"
+        max_failed_attempts_before_lockout: 5
+        rate_limit_window_minutes: 15
+        rate_limit_max_attempts: 10
+
+# User authentication file (for web client login)
+user_file: "./pgedge-postgres-mcp-users.yaml"
+
+# Database connection configuration
+# Multiple databases can be configured; each must have a unique name.
+# Use available_to_users to restrict access to specific users (empty = all users)
+databases:
+    - name: "mydb"
+      host: "localhost"
+      port: 5432
+      database: "mydb"
+      user: "postgres"
+      password: ""  # Leave empty to use .pgpass file
+      sslmode: "prefer"
+      pool_max_conns: 10
+      pool_min_conns: 2
+      pool_max_conn_idle_time: "5m"
+      available_to_users: []  # Empty = available to all users
+
+    # Add more databases as needed:
+    # - name: "production"
+    #   host: "prod-db.example.com"
+    #   port: 5432
+    #   database: "production"
+    #   user: "app_user"
+    #   password: ""
+    #   sslmode: "require"
+    #   available_to_users: ["admin", "developer"]
+
+# Embedding generation configuration
+# Enable to allow generating embeddings for semantic search
+embedding:
+    enabled: false
+    provider: "openai"  # Options: "voyage", "openai", "ollama"
+    model: "text-embedding-3-small"
+
+    # API key files (recommended for production)
+    # voyage_api_key_file: "~/.voyage-api-key"
+    # openai_api_key_file: "~/.openai-api-key"
+
+    # Or use environment variables: VOYAGE_API_KEY, OPENAI_API_KEY
+
+# LLM configuration for web client chat
+# REQUIRED for the web client to function
+llm:
+    enabled: true
+    provider: "anthropic"  # Options: "anthropic", "openai", "ollama"
+    model: "claude-sonnet-4-5"
+
+    # API key files (recommended for production)
+    anthropic_api_key_file: "~/.anthropic-api-key"
+    openai_api_key_file: "~/.openai-api-key"
+
+    # Or use environment variables: ANTHROPIC_API_KEY, OPENAI_API_KEY
+
+    # Ollama configuration (for local LLM)
+    ollama_url: "http://127.0.0.1:11434"
+
+    max_tokens: 4096
+    temperature: 0.7
+
+# Knowledgebase configuration (optional)
+# Enable to allow searching pre-built documentation databases
+knowledgebase:
+    enabled: false
+    database_path: "./pgedge-nla-kb.db"
+    embedding_provider: "voyage"
+    embedding_model: "voyage-3"
+
+    # API key files for knowledgebase embeddings
+    # embedding_voyage_api_key_file: "~/.voyage-api-key"
+    # embedding_openai_api_key_file: "~/.openai-api-key"
+
+# Secret file path (for encryption key - auto-generated if not exists)
+secret_file: "./pgedge-postgres-mcp.secret"
+
+# Custom definitions file path (optional)
+# custom_definitions_path: "../examples/pgedge-postgres-mcp-custom.yaml"

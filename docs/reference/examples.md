@@ -1,7 +1,8 @@
 # Query Examples
 
 This document provides example natural language queries you can use with the
-Natural Language Agent. All examples assume you're using Claude Desktop or another MCP client with the server configured.
+MCP server. All examples assume you're using Claude Desktop or another
+MCP client with the server configured.
 
 ## Table of Contents
 
@@ -69,7 +70,7 @@ Use these queries to understand your database structure:
 
 ## Configuration Management
 
-The Natural Language Agent provides access to PostgreSQL configuration
+The MCP server provides access to PostgreSQL configuration
 parameters through the `pg://settings` resource and the
 `set_pg_configuration` tool.
 
@@ -189,7 +190,7 @@ After changing a setting, you can verify it:
 
 ## Multi-Database Queries
 
-The Natural Language Agent supports querying multiple PostgreSQL databases
+The MCP server supports querying multiple PostgreSQL databases
 without changing configuration files.
 
 ### Temporary Connection (Single Query)

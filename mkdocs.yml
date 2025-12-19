@@ -17,6 +17,11 @@ markdown_extensions:
 
 plugins:
   - search
+  - macros:
+      j2_variable_start_string: "<<"
+      j2_variable_end_string: ">>"
+      j2_comment_start_string: "<#"
+      j2_comment_end_string: "#>"
 
 theme:
   name: material

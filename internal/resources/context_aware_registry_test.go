@@ -41,8 +41,7 @@ func TestNewContextAwareRegistry(t *testing.T) {
 	cfg := &conf.Config{
 		Builtins: conf.BuiltinsConfig{
 			Resources: conf.ResourcesConfig{
-				SystemInfo:     boolPtr(true),
-				DatabaseSchema: boolPtr(true),
+				SystemInfo: boolPtr(true),
 			},
 		},
 	}
@@ -69,8 +68,7 @@ func TestContextAwareRegistry_List(t *testing.T) {
 		cfg := &conf.Config{
 			Builtins: conf.BuiltinsConfig{
 				Resources: conf.ResourcesConfig{
-					SystemInfo:     boolPtr(true),
-					DatabaseSchema: boolPtr(true),
+					SystemInfo: boolPtr(true),
 				},
 			},
 		}
@@ -78,9 +76,9 @@ func TestContextAwareRegistry_List(t *testing.T) {
 		registry := NewContextAwareRegistry(cm, false, nil, cfg)
 		resources := registry.List()
 
-		// Should have both built-in resources
-		if len(resources) < 2 {
-			t.Errorf("expected at least 2 resources, got %d", len(resources))
+		// Should have built-in resource
+		if len(resources) < 1 {
+			t.Errorf("expected at least 1 resource, got %d", len(resources))
 		}
 
 		// Verify URIs
@@ -91,17 +89,13 @@ func TestContextAwareRegistry_List(t *testing.T) {
 		if !found[URISystemInfo] {
 			t.Error("expected URISystemInfo to be in list")
 		}
-		if !found[URIDatabaseSchema] {
-			t.Error("expected URIDatabaseSchema to be in list")
-		}
 	})
 
 	t.Run("with system_info disabled", func(t *testing.T) {
 		cfg := &conf.Config{
 			Builtins: conf.BuiltinsConfig{
 				Resources: conf.ResourcesConfig{
-					SystemInfo:     boolPtr(false),
-					DatabaseSchema: boolPtr(true),
+					SystemInfo: boolPtr(false),
 				},
 			},
 		}
@@ -109,42 +103,13 @@ func TestContextAwareRegistry_List(t *testing.T) {
 		registry := NewContextAwareRegistry(cm, false, nil, cfg)
 		resources := registry.List()
 
-		// Should have database schema but not system info
+		// Should not have system info
 		found := make(map[string]bool)
 		for _, r := range resources {
 			found[r.URI] = true
 		}
 		if found[URISystemInfo] {
 			t.Error("expected URISystemInfo to be disabled")
-		}
-		if !found[URIDatabaseSchema] {
-			t.Error("expected URIDatabaseSchema to be in list")
-		}
-	})
-
-	t.Run("with database_schema disabled", func(t *testing.T) {
-		cfg := &conf.Config{
-			Builtins: conf.BuiltinsConfig{
-				Resources: conf.ResourcesConfig{
-					SystemInfo:     boolPtr(true),
-					DatabaseSchema: boolPtr(false),
-				},
-			},
-		}
-
-		registry := NewContextAwareRegistry(cm, false, nil, cfg)
-		resources := registry.List()
-
-		// Should only have system info
-		found := make(map[string]bool)
-		for _, r := range resources {
-			found[r.URI] = true
-		}
-		if !found[URISystemInfo] {
-			t.Error("expected URISystemInfo to be in list")
-		}
-		if found[URIDatabaseSchema] {
-			t.Error("expected URIDatabaseSchema to be disabled")
 		}
 	})
 }
@@ -157,8 +122,7 @@ func TestContextAwareRegistry_Read_DisabledResource(t *testing.T) {
 	cfg := &conf.Config{
 		Builtins: conf.BuiltinsConfig{
 			Resources: conf.ResourcesConfig{
-				SystemInfo:     boolPtr(false),
-				DatabaseSchema: boolPtr(false),
+				SystemInfo: boolPtr(false),
 			},
 		},
 	}
@@ -190,8 +154,7 @@ func TestContextAwareRegistry_Read_NotFound(t *testing.T) {
 	cfg := &conf.Config{
 		Builtins: conf.BuiltinsConfig{
 			Resources: conf.ResourcesConfig{
-				SystemInfo:     boolPtr(true),
-				DatabaseSchema: boolPtr(true),
+				SystemInfo: boolPtr(true),
 			},
 		},
 	}
@@ -221,8 +184,7 @@ func TestContextAwareRegistry_Read_AuthRequired(t *testing.T) {
 	cfg := &conf.Config{
 		Builtins: conf.BuiltinsConfig{
 			Resources: conf.ResourcesConfig{
-				SystemInfo:     boolPtr(true),
-				DatabaseSchema: boolPtr(true),
+				SystemInfo: boolPtr(true),
 			},
 		},
 	}
@@ -255,8 +217,7 @@ func TestContextAwareRegistry_Read_WithToken(t *testing.T) {
 	cfg := &conf.Config{
 		Builtins: conf.BuiltinsConfig{
 			Resources: conf.ResourcesConfig{
-				SystemInfo:     boolPtr(true),
-				DatabaseSchema: boolPtr(true),
+				SystemInfo: boolPtr(true),
 			},
 		},
 	}
@@ -286,8 +247,7 @@ func TestContextAwareRegistry_GetClient_AuthDisabled(t *testing.T) {
 	cfg := &conf.Config{
 		Builtins: conf.BuiltinsConfig{
 			Resources: conf.ResourcesConfig{
-				SystemInfo:     boolPtr(true),
-				DatabaseSchema: boolPtr(true),
+				SystemInfo: boolPtr(true),
 			},
 		},
 	}
@@ -334,8 +294,8 @@ func TestContextAwareRegistry_DefaultNilConfig(t *testing.T) {
 	registry := NewContextAwareRegistry(cm, false, nil, cfg)
 	resources := registry.List()
 
-	// Should have both built-in resources since nil defaults to enabled
-	if len(resources) < 2 {
-		t.Errorf("expected at least 2 resources with default config, got %d", len(resources))
+	// Should have built-in resource since nil defaults to enabled
+	if len(resources) < 1 {
+		t.Errorf("expected at least 1 resource with default config, got %d", len(resources))
 	}
 }

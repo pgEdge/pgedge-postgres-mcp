@@ -150,6 +150,7 @@ func TestToolsConfig_IsToolEnabled(t *testing.T) {
 		{"execute_explain nil", ToolsConfig{}, "execute_explain", true},
 		{"generate_embedding nil", ToolsConfig{}, "generate_embedding", true},
 		{"search_knowledgebase nil", ToolsConfig{}, "search_knowledgebase", true},
+		{"count_rows nil", ToolsConfig{}, "count_rows", true},
 	}
 
 	for _, tt := range tests {
@@ -176,8 +177,6 @@ func TestResourcesConfig_IsResourceEnabled(t *testing.T) {
 		{"explicit true", ResourcesConfig{SystemInfo: &trueVal}, "pg://system_info", true},
 		{"explicit false", ResourcesConfig{SystemInfo: &falseVal}, "pg://system_info", false},
 		{"unknown resource returns true", ResourcesConfig{}, "pg://unknown", true},
-		{"database_schema nil", ResourcesConfig{}, "pg://database/schema", true},
-		{"database_schema explicit false", ResourcesConfig{DatabaseSchema: &falseVal}, "pg://database/schema", false},
 	}
 
 	for _, tt := range tests {

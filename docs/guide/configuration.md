@@ -63,7 +63,6 @@ The following table lists the configuration options you can use to specify prope
 | `builtins.tools.generate_embedding` | N/A | N/A | Enable generate_embedding tool (default: true) |
 | `builtins.tools.search_knowledgebase` | N/A | N/A | Enable search_knowledgebase tool (default: true) |
 | `builtins.resources.system_info` | N/A | N/A | Enable pg://system_info resource (default: true) |
-| `builtins.resources.database_schema` | N/A | N/A | Enable pg://database/schema resource (default: true) |
 | `builtins.prompts.explore_database` | N/A | N/A | Enable explore-database prompt (default: true) |
 | `builtins.prompts.setup_semantic_search` | N/A | N/A | Enable setup-semantic-search prompt (default: true) |
 | `builtins.prompts.diagnose_query_issue` | N/A | N/A | Enable diagnose-query-issue prompt (default: true) |

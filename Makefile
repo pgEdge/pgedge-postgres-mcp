@@ -141,28 +141,30 @@ install: build
 	$(GO) install ./$(CLIENT_CMD_DIR)
 	@echo "Install complete: $(SERVER_BINARY) and $(CLIENT_BINARY)"
 
-# Format code
+# Format code (excludes bin/ directory which contains non-Go files with .go extension)
 fmt:
 	@echo "Formatting code..."
-	$(GO) fmt ./...
+	$(GO) fmt ./cmd/... ./internal/... ./test/...
 	@echo "Format complete"
 
 # Alias for fmt
 format: fmt
 
 # Run gofmt directly (shows files that would change, then formats)
+# Excludes bin/ directory which contains non-Go files with .go extension
 gofmt:
 	@echo "Running gofmt..."
-	@gofmt -l -w .
+	@find . -name '*.go' -not -path './bin/*' -exec gofmt -l -w {} +
 	@echo "gofmt complete"
 
 # Run linter on all code (requires golangci-lint)
+# Explicitly specifies directories to avoid bin/ which contains non-Go files with .go extension
 lint:
 	@echo "Running linter on all code..."
 	@if command -v golangci-lint >/dev/null 2>&1; then \
-		golangci-lint run; \
+		golangci-lint run ./cmd/... ./internal/... ./test/...; \
 	elif [ -f "$$(go env GOPATH)/bin/golangci-lint" ]; then \
-		$$(go env GOPATH)/bin/golangci-lint run; \
+		$$(go env GOPATH)/bin/golangci-lint run ./cmd/... ./internal/... ./test/...; \
 	else \
 		echo "golangci-lint not found. Install it with:"; \
 		echo "  go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest"; \

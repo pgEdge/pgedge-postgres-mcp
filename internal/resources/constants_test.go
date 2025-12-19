@@ -28,7 +28,6 @@ func TestURIConstants(t *testing.T) {
 		expected string
 	}{
 		{"URISystemInfo", URISystemInfo, "pg://system_info"},
-		{"URIDatabaseSchema", URIDatabaseSchema, "pg://database/schema"},
 	}
 
 	for _, tt := range tests {
@@ -42,7 +41,7 @@ func TestURIConstants(t *testing.T) {
 
 func TestURIFormat(t *testing.T) {
 	// All resource URIs should follow pg:// scheme
-	uris := []string{URISystemInfo, URIDatabaseSchema}
+	uris := []string{URISystemInfo}
 
 	for _, uri := range uris {
 		if !strings.HasPrefix(uri, "pg://") {

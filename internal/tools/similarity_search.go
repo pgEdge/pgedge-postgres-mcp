@@ -480,9 +480,9 @@ func findTableInMetadataMap(metadata map[string]database.TableInfo, tableName st
 
 func discoverVectorColumns(tableInfo database.TableInfo) []database.ColumnInfo {
 	var vectorCols []database.ColumnInfo
-	for _, col := range tableInfo.Columns {
-		if col.IsVectorColumn {
-			vectorCols = append(vectorCols, col)
+	for i := range tableInfo.Columns {
+		if tableInfo.Columns[i].IsVectorColumn {
+			vectorCols = append(vectorCols, tableInfo.Columns[i])
 		}
 	}
 	return vectorCols
@@ -493,12 +493,13 @@ func discoverTextColumns(tableInfo database.TableInfo, vectorCols []database.Col
 	var textCols []string
 	matched := make(map[string]bool)
 
-	for _, vecCol := range vectorCols {
+	for i := range vectorCols {
 		// Try to infer text column name
-		textColName := inferTextColumnName(vecCol.ColumnName)
+		textColName := inferTextColumnName(vectorCols[i].ColumnName)
 
 		// Check if this column exists in the table
-		for _, col := range tableInfo.Columns {
+		for j := range tableInfo.Columns {
+			col := &tableInfo.Columns[j]
 			if col.ColumnName == textColName && isTextDataType(col.DataType) {
 				textCols = append(textCols, col.ColumnName)
 				matched[col.ColumnName] = true
@@ -509,7 +510,8 @@ func discoverTextColumns(tableInfo database.TableInfo, vectorCols []database.Col
 
 	// If no matches found, return all text columns
 	if len(textCols) == 0 {
-		for _, col := range tableInfo.Columns {
+		for i := range tableInfo.Columns {
+			col := &tableInfo.Columns[i]
 			if !col.IsVectorColumn && isTextDataType(col.DataType) {
 				textCols = append(textCols, col.ColumnName)
 			}
@@ -674,10 +676,10 @@ func performWeightedVectorSearch(
 
 	// If no weights, use equal weighting
 	if len(weightedParts) == 0 {
-		for _, vecCol := range vectorCols {
+		for i := range vectorCols {
 			weight := 1.0 / float64(len(vectorCols))
-			weightedParts = append(weightedParts, fmt.Sprintf("(%s %s $1::vector) * %f", vecCol.ColumnName, distOp, weight))
-			weightMap[vecCol.ColumnName] = weight
+			weightedParts = append(weightedParts, fmt.Sprintf("(%s %s $1::vector) * %f", vectorCols[i].ColumnName, distOp, weight))
+			weightMap[vectorCols[i].ColumnName] = weight
 		}
 	}
 

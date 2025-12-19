@@ -58,7 +58,7 @@ database:
   port: 5432
   database: postgres
   user: postgres
-  # Password can be set via PGEDGE_POSTGRES_PASSWORD environment variable
+  # Password can be set via PGEDGE_DB_PASSWORD or PGPASSWORD environment variable
   sslmode: prefer
 
 # HTTP server settings
@@ -108,7 +108,7 @@ YAML config file. It's loaded by systemd via `EnvironmentFile=`.
 # This file is sourced by systemd service
 
 # Database password (if not using peer authentication)
-# PGEDGE_POSTGRES_PASSWORD=your-secure-password
+# PGEDGE_DB_PASSWORD=your-secure-password
 
 # LLM API Keys (for web UI LLM proxy)
 # ANTHROPIC_API_KEY=your-anthropic-api-key

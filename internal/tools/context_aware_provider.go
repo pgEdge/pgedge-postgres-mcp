@@ -79,6 +79,9 @@ func (p *ContextAwareProvider) registerDatabaseTools(registry *Registry, client 
 	if p.cfg.Builtins.Tools.IsToolEnabled("execute_explain") {
 		registry.Register("execute_explain", ExecuteExplainTool(client))
 	}
+	if p.cfg.Builtins.Tools.IsToolEnabled("count_rows") {
+		registry.Register("count_rows", CountRowsTool(client))
+	}
 }
 
 // NewContextAwareProvider creates a new context-aware tool provider

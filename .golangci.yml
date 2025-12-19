@@ -66,7 +66,7 @@ issues:
         - gocritic
   exclude-dirs:
     - vendor
-    - bin/doc-source
+    - bin
   exclude-files:
     - ".*\\.pb\\.go$"
 

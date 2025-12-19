@@ -535,7 +535,7 @@ const toolResults = await Promise.all(
 
 ```bash
 # Server-side
-export PGEDGE_DEBUG=true
+export PGEDGE_MCP_LOG_LEVEL=debug
 export PGEDGE_DB_LOG_LEVEL=debug
 export PGEDGE_LLM_LOG_LEVEL=debug
 

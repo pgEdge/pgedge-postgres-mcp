@@ -195,21 +195,49 @@ which is then executed by this server.
 Run as a standalone HTTP server for direct API access:
 
 ```bash
-# HTTP
-./bin/pgedge-postgres-mcp -http
+# HTTP without authentication (development only)
+./bin/pgedge-postgres-mcp -http -no-auth
 
-# HTTPS with TLS
+# HTTP with token authentication (recommended)
+./bin/pgedge-postgres-mcp -http -auth-token-file tokens.json
+
+# HTTPS with TLS and authentication
 ./bin/pgedge-postgres-mcp -http -tls \
   -cert server.crt \
-  -key server.key
+  -key server.key \
+  -auth-token-file tokens.json
 ```
+
+> **Note:** Authentication is enabled by default in HTTP mode. Use `-no-auth` to
+> disable it for local development, or provide an authentication token file with
+> `-auth-token-file`. See the
+> **[Authentication Guide](docs/guide/authentication.md)** for token setup.
 
 **API Endpoint:** `POST http://localhost:8080/mcp/v1`
 
-Example request:
+Example request (with authentication):
+
 ```bash
 curl -X POST http://localhost:8080/mcp/v1 \
   -H "Authorization: Bearer your-token" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "jsonrpc": "2.0",
+    "id": 1,
+    "method": "tools/call",
+    "params": {
+      "name": "query_database",
+      "arguments": {
+        "natural_language_query": "Show all users"
+      }
+    }
+  }'
+```
+
+Example request (without authentication):
+
+```bash
+curl -X POST http://localhost:8080/mcp/v1 \
   -H "Content-Type: application/json" \
   -d '{
     "jsonrpc": "2.0",
@@ -230,10 +258,15 @@ A production-ready, full-featured command-line chat interface is available for
 interacting with your PostgreSQL database using natural language:
 
 ```bash
-# Quick start - Stdio mode (MCP server as subprocess)
+# Stdio mode setup (MCP server as subprocess)
+cp examples/pgedge-postgres-mcp-stdio.yaml.example bin/pgedge-postgres-mcp-stdio.yaml
+cp examples/pgedge-nla-cli-stdio.yaml.example bin/pgedge-nla-cli-stdio.yaml
+# Edit config files with your database settings, then:
 ./start_cli_stdio.sh
 
-# Quick start - HTTP mode (MCP server via HTTP with auth)
+# HTTP mode setup (MCP server via HTTP with auth)
+# First set up web client config (see Web Client section), then:
+cp examples/pgedge-nla-cli-http.yaml.example bin/pgedge-nla-cli-http.yaml
 ./start_cli_http.sh
 ```
 
@@ -278,18 +311,31 @@ A web-based management interface is available for monitoring and interacting
 with the MCP server:
 
 ```bash
-# Quick start (starts both MCP server and web interface)
+# 1. Copy example config files
+cp examples/pgedge-postgres-mcp-http.yaml.example bin/pgedge-postgres-mcp-http.yaml
+cp examples/pgedge-postgres-mcp-users.yaml.example bin/pgedge-postgres-mcp-users.yaml
+cp examples/pgedge-postgres-mcp-tokens.yaml.example bin/pgedge-postgres-mcp-tokens.yaml
+
+# 2. Edit config with your database and LLM settings
+nano bin/pgedge-postgres-mcp-http.yaml
+
+# 3. Create a user for web login
+./bin/pgedge-postgres-mcp user add --username myuser --annotation "My User"
+
+# 4. Start the web client (starts both MCP server and web interface)
 ./start_web_client.sh
 ```
 
 **Features:**
+
 - 🔐 Secure authentication using MCP server credentials
 - 📊 Real-time PostgreSQL system information
 - 🌓 Light/dark theme support
 - 📱 Responsive design for desktop and mobile
 
 **Access:**
-- Web Interface: http://localhost:3000
+
+- Web Interface: http://localhost:5173
 - MCP Server API: http://localhost:8080
 
 See [web/README.md](web/README.md) for detailed documentation.

@@ -1,8 +1,7 @@
 # Custom Prompts and Resources
 
-The Natural Language Agent supports user-defined custom prompts and
-resources, allowing you to extend the server's functionality without
-modifying code.
+The MCP server supports user-defined custom prompts and resources, allowing
+you to extend the server's functionality without modifying code.
 
 For information about using the server's built-in resources and prompts:
 
@@ -199,7 +198,8 @@ Resources expose data or query results to the MCP client.
 
 ### SQL Resources
 
-Execute a SQL query and return results as JSON.
+Execute a SQL query and return results in TSV (tab-separated values) format
+for token efficiency.
 
 In the following example, the resource definition specifies the required fields for a SQL resource.
 
@@ -208,17 +208,17 @@ resources:
   - uri: custom://resource-name    # Required: Unique URI
     name: Display Name             # Required: Human-readable name
     description: What it returns   # Optional: Description
-    mimeType: application/json     # Optional: Default is application/json
     type: sql                      # Required: Resource type
     sql: SELECT * FROM users       # Required: SQL query to execute
 ```
 
-**Features:**
+This example:
 
-- Executes query using the appropriate database connection.
+- Executes the query using the appropriate database connection.
 - Respects per-token connection isolation in authenticated mode.
-- Returns results as JSON array of objects.
-- Column names become JSON object keys.
+- Returns results in TSV format (first row is column headers).
+- Escapes tabs, newlines, and carriage returns in values.
+- Token-efficient output for LLM consumption.
 
 **Example:**
 

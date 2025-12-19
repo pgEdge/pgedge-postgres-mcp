@@ -64,15 +64,6 @@ func (r *ContextAwareRegistry) List() []mcp.Resource {
 		})
 	}
 
-	if r.cfg.Builtins.Resources.IsResourceEnabled(URIDatabaseSchema) {
-		resources = append(resources, mcp.Resource{
-			URI:         URIDatabaseSchema,
-			Name:        "PostgreSQL Database Schema",
-			Description: "Returns a lightweight overview of all tables in the database. Lists schema names, table names, and table owners. Use get_schema_info tool for detailed column information.",
-			MimeType:    "application/json",
-		})
-	}
-
 	// Add custom resources
 	for _, customRes := range r.customResources {
 		resources = append(resources, customRes.definition)
@@ -116,7 +107,7 @@ func (r *ContextAwareRegistry) Read(ctx context.Context, uri string) (mcp.Resour
 	}
 
 	// Check if the built-in resource is enabled
-	if (uri == URISystemInfo || uri == URIDatabaseSchema) && !r.cfg.Builtins.Resources.IsResourceEnabled(uri) {
+	if uri == URISystemInfo && !r.cfg.Builtins.Resources.IsResourceEnabled(uri) {
 		return mcp.ResourceContent{
 			URI: uri,
 			Contents: []mcp.ContentItem{
@@ -133,8 +124,6 @@ func (r *ContextAwareRegistry) Read(ctx context.Context, uri string) (mcp.Resour
 	switch uri {
 	case URISystemInfo:
 		resource = PGSystemInfoResource(dbClient)
-	case URIDatabaseSchema:
-		resource = PGDatabaseSchemaResource(dbClient)
 	default:
 		return mcp.ResourceContent{
 			URI: uri,

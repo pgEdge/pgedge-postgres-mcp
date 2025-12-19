@@ -178,8 +178,8 @@ func TestGetDefaultModelForProvider(t *testing.T) {
 		provider string
 		want     string
 	}{
-		{"anthropic", "anthropic", "claude-sonnet-4-20250514"},
-		{"openai", "openai", "gpt-5.1"},
+		{"anthropic", "anthropic", "claude-sonnet-4-5-20250929"},
+		{"openai", "openai", "gpt-4o"},
 		{"ollama", "ollama", "qwen3-coder:latest"},
 		{"unknown", "unknown", ""},
 		{"empty", "", ""},
@@ -190,6 +190,96 @@ func TestGetDefaultModelForProvider(t *testing.T) {
 			got := getDefaultModelForProvider(tt.provider)
 			if got != tt.want {
 				t.Errorf("getDefaultModelForProvider(%q) = %q, want %q", tt.provider, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestExtractModelFamily(t *testing.T) {
+	tests := []struct {
+		name  string
+		model string
+		want  string
+	}{
+		{"claude opus 4.5", "claude-opus-4-5-20251101", "claude-opus-4-5-"},
+		{"claude sonnet 4.5", "claude-sonnet-4-5-20250929", "claude-sonnet-4-5-"},
+		{"claude sonnet 4", "claude-sonnet-4-20250514", "claude-sonnet-4-"},
+		{"claude 3 haiku", "claude-3-haiku-20240307", "claude-3-haiku-"},
+		{"claude 3.5 sonnet", "claude-3-5-sonnet-20241022", "claude-3-5-sonnet-"},
+		{"no date suffix", "gpt-4o-mini", ""},
+		{"short model", "model", ""},
+		{"empty", "", ""},
+		{"just date", "20251101", ""},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := extractModelFamily(tt.model)
+			if got != tt.want {
+				t.Errorf("extractModelFamily(%q) = %q, want %q", tt.model, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestFindModelFamilyMatch(t *testing.T) {
+	availableModels := []string{
+		"claude-opus-4-5-20251217",
+		"claude-opus-4-5-20251101",
+		"claude-sonnet-4-5-20250929",
+		"claude-haiku-4-5-20251001",
+		"claude-3-haiku-20240307",
+	}
+
+	tests := []struct {
+		name            string
+		savedModel      string
+		availableModels []string
+		want            string
+	}{
+		{
+			"finds newer opus version",
+			"claude-opus-4-5-20251101",
+			availableModels,
+			"claude-opus-4-5-20251217", // Should pick newest
+		},
+		{
+			"exact match preferred over family",
+			"claude-sonnet-4-5-20250929",
+			availableModels,
+			"claude-sonnet-4-5-20250929",
+		},
+		{
+			"no match returns empty",
+			"claude-opus-4-20250514",
+			availableModels,
+			"", // No models with claude-opus-4- prefix
+		},
+		{
+			"nil available models",
+			"claude-opus-4-5-20251101",
+			nil,
+			"",
+		},
+		{
+			"empty available models",
+			"claude-opus-4-5-20251101",
+			[]string{},
+			"",
+		},
+		{
+			"model without date suffix",
+			"gpt-4o",
+			[]string{"gpt-4o", "gpt-4o-mini"},
+			"",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := findModelFamilyMatch(tt.savedModel, tt.availableModels)
+			if got != tt.want {
+				t.Errorf("findModelFamilyMatch(%q, ...) = %q, want %q", tt.savedModel, got, tt.want)
 			}
 		})
 	}

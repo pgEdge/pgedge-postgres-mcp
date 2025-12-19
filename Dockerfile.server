@@ -15,7 +15,7 @@ RUN go mod download
 COPY . .
 
 # Build the server binary
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -installsuffix cgo -o pgedge-postgres-mcp ./cmd/pgedge-pg-mcp-svr
+RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o pgedge-postgres-mcp ./cmd/pgedge-pg-mcp-svr
 
 # Stage 2: Create minimal runtime image
 # Note: Using ubi9-minimal instead of ubi9-micro to get shadow-utils for user switching

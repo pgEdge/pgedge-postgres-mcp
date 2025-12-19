@@ -1,0 +1,120 @@
+services:
+    # PostgreSQL service
+    postgres:
+        image: ghcr.io/pgedge/pgedge-postgres:17-spock5-standard
+        container_name: pgedge-quickstart-db
+        command: postgres -c listen_addresses='*'
+        environment:
+            POSTGRES_USER: demo
+            POSTGRES_PASSWORD: demo123
+            POSTGRES_DB: northwind
+        volumes:
+            - postgres-data:/var/lib/postgresql/data
+        configs:
+            - source: load-northwind
+              target: /docker-entrypoint-initdb.d/01-load-northwind.sh
+              mode: 0755
+            - source: relax-pg-hba
+              target: /docker-entrypoint-initdb.d/02-relax-pg-hba.sh
+              mode: 0755
+        networks:
+            - pgedge-quickstart
+        restart: unless-stopped
+        healthcheck:
+            test: ["CMD-SHELL", "pg_isready -U demo -d northwind"]
+            interval: 5s
+            timeout: 5s
+            retries: 10
+            start_period: 30s
+
+    # MCP Server
+    postgres-mcp:
+        image: ghcr.io/pgedge/postgres-mcp:latest
+        container_name: pgedge-quickstart-mcp
+        depends_on:
+            postgres:
+                condition: service_healthy
+        environment:
+            # Database connection
+            PGEDGE_DB_HOST: postgres
+            PGEDGE_DB_PORT: 5432
+            PGEDGE_DB_NAME: northwind
+            PGEDGE_DB_USER: demo
+            PGEDGE_DB_PASSWORD: demo123
+            PGEDGE_DB_SSLMODE: disable
+            # Authentication (demo credentials)
+            INIT_USERS: demo:demo123
+            INIT_TOKENS: demo-token-12345
+            # LLM configuration (user must provide keys)
+            PGEDGE_LLM_ENABLED: ${PGEDGE_LLM_ENABLED:-true}
+            PGEDGE_LLM_PROVIDER: ${PGEDGE_LLM_PROVIDER:-anthropic}
+            PGEDGE_LLM_MODEL: ${PGEDGE_LLM_MODEL:-claude-sonnet-4-5}
+            PGEDGE_ANTHROPIC_API_KEY: ${PGEDGE_ANTHROPIC_API_KEY}
+            PGEDGE_OPENAI_API_KEY: ${PGEDGE_OPENAI_API_KEY}
+            # Embedding configuration
+            PGEDGE_EMBEDDING_PROVIDER: ${PGEDGE_EMBEDDING_PROVIDER:-anthropic}
+            PGEDGE_EMBEDDING_MODEL: ${PGEDGE_EMBEDDING_MODEL:-voyage-3}
+            # Debugging
+            PGEDGE_DEBUG: ${PGEDGE_DEBUG:-false}
+            PGEDGE_DB_LOG_LEVEL: ${PGEDGE_DB_LOG_LEVEL:-none}
+            PGEDGE_LLM_LOG_LEVEL: ${PGEDGE_LLM_LOG_LEVEL:-none}
+        volumes:
+            - mcp-data:/app/data
+        ports:
+            - "${MCP_SERVER_PORT:-8080}:8080"
+        networks:
+            - pgedge-quickstart
+        restart: unless-stopped
+        healthcheck:
+            test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+            interval: 10s
+            timeout: 5s
+            retries: 5
+            start_period: 15s
+
+    # Web Client - MCP chat interface
+    web-client:
+        image: ghcr.io/pgedge/nla-web:latest
+        container_name: pgedge-quickstart-web
+        depends_on:
+            postgres-mcp:
+                condition: service_healthy
+        ports:
+            - "${WEB_CLIENT_PORT:-8081}:8081"
+        networks:
+            - pgedge-quickstart
+        restart: unless-stopped
+        healthcheck:
+            test: ["CMD", "curl", "-f", "http://localhost:8081/health"]
+            interval: 10s
+            timeout: 5s
+            retries: 5
+            start_period: 10s
+
+volumes:
+    postgres-data:
+        driver: local
+    mcp-data:
+        driver: local
+
+networks:
+    pgedge-quickstart:
+        driver: bridge
+
+configs:
+    load-northwind:
+        content: |-
+            #!/usr/bin/env bash
+            set -e
+            echo "Loading Northwind dataset..."
+            curl -fsSL -o /tmp/northwind.sql https://downloads.pgedge.com/platform/examples/northwind/northwind.sql
+            psql -v ON_ERROR_STOP=1 --username "$$POSTGRES_USER" --dbname "$$POSTGRES_DB" -f /tmp/northwind.sql
+            rm -f /tmp/northwind.sql
+            echo "Northwind dataset loaded"
+    relax-pg-hba:
+        content: |-
+            #!/usr/bin/env bash
+            set -Eeo pipefail
+            # Network access is restricted to Docker network for security
+            # Users can connect from host using: docker exec -it pgedge-quickstart-db psql -U demo -d northwind
+            echo "PostgreSQL network access limited to Docker network"

@@ -1,0 +1,41 @@
+# pgEdge PostgreSQL MCP Chat Client Configuration - Stdio Mode
+#
+# This configuration runs the MCP server as a subprocess of the CLI client.
+# Copy this file to bin/pgedge-nla-cli-stdio.yaml and edit as needed.
+#
+# Usage:
+#   cp examples/pgedge-nla-cli-stdio.yaml.example bin/pgedge-nla-cli-stdio.yaml
+#   # Edit bin/pgedge-nla-cli-stdio.yaml with your settings
+#   ./start_cli_stdio.sh
+
+# MCP server connection configuration
+mcp:
+    mode: "stdio"
+    server_path: "./pgedge-postgres-mcp"  # Path to server binary
+    server_config_path: "./pgedge-postgres-mcp-stdio.yaml"  # Server config file
+
+# LLM provider configuration
+llm:
+    provider: "anthropic"  # Options: "anthropic", "openai", "ollama"
+    model: "claude-sonnet-4-5"
+
+    # API key files (recommended for production)
+    anthropic_api_key_file: "~/.anthropic-api-key"
+    openai_api_key_file: "~/.openai-api-key"
+
+    # Or use environment variables: ANTHROPIC_API_KEY, OPENAI_API_KEY
+
+    # Ollama configuration (for local LLM)
+    ollama_url: "http://127.0.0.1:11434"
+
+    max_tokens: 4096
+    temperature: 0.7
+
+# UI configuration
+ui:
+    no_color: false  # Disable colored output (also set via NO_COLOR env var)
+    display_status_messages: true  # Show status messages during tool execution
+    render_markdown: true  # Render markdown with formatting and syntax highlighting
+
+# Chat history file (optional)
+# history_file: "~/.pgedge-nla-cli-history"

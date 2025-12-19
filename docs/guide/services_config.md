@@ -146,7 +146,6 @@ secret_file: ""  # defaults to pgedge-postgres-mcp.secret, auto-generated if not
 #     search_knowledgebase: true
 #   resources:
 #     system_info: true
-#     database_schema: true
 #   prompts:
 #     explore_database: true
 #     setup_semantic_search: true

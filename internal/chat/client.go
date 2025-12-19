@@ -19,6 +19,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"sort"
 	"strings"
 	"time"
 
@@ -158,6 +159,9 @@ func (c *Client) Run(ctx context.Context) error {
 	} else {
 		c.prompts = prompts
 	}
+
+	// Restore saved database preference for this server
+	c.restoreDatabasePreference(ctx)
 
 	// Initialize LLM client
 	if err := c.initializeLLM(); err != nil {
@@ -375,14 +379,27 @@ func (c *Client) initializeLLM() error {
 	}
 
 	// Select the best model to use
-	selectedModel := c.selectModel(provider, availableModels)
-	c.config.LLM.Model = selectedModel
+	selection := c.selectModel(provider, availableModels)
+	c.config.LLM.Model = selection.model
 
-	// Save the selected model for this provider
-	c.preferences.SetModelForProvider(provider, selectedModel)
-	if err := SavePreferences(c.preferences); err != nil {
-		if c.config.UI.Debug {
-			fmt.Fprintf(os.Stderr, "Warning: Failed to save preferences: %v\n", err)
+	// Log if we used a family match (newer version of saved model)
+	if selection.usedFamilyMatch && c.config.UI.Debug {
+		savedModel := c.preferences.GetModelForProvider(provider)
+		fmt.Fprintf(os.Stderr, "[DEBUG] Model updated: %s → %s (newer version available)\n",
+			savedModel, selection.model)
+	}
+
+	// Only save preferences if:
+	// 1. There was no saved preference (first time using this provider)
+	// 2. We used a family match (update to newer version)
+	// Do NOT save if we fell back to default/first available - that would corrupt user's preference
+	shouldSave := !selection.hadSavedPref || selection.usedFamilyMatch
+	if shouldSave {
+		c.preferences.SetModelForProvider(provider, selection.model)
+		if err := SavePreferences(c.preferences); err != nil {
+			if c.config.UI.Debug {
+				fmt.Fprintf(os.Stderr, "Warning: Failed to save preferences: %v\n", err)
+			}
 		}
 	}
 
@@ -1006,36 +1023,169 @@ func (c *Client) SavePreferences() error {
 	return SavePreferences(c.preferences)
 }
 
+// modelSelectionResult contains the result of model selection
+type modelSelectionResult struct {
+	model           string
+	fromSavedPref   bool // true if selected from saved preference (exact or family match)
+	hadSavedPref    bool // true if there was a saved preference for this provider
+	usedFamilyMatch bool // true if a newer version in the same family was selected
+}
+
 // selectModel determines the best model to use based on:
 // 1. Command-line flag (if set via config)
-// 2. Saved preference (if valid for the current provider)
-// 3. Default for provider (if available)
-// 4. First available model from provider's list
-func (c *Client) selectModel(provider string, availableModels []string) string {
+// 2. Saved preference - exact match
+// 3. Saved preference - family match (e.g., claude-opus-4-5-20251101 → claude-opus-4-5-20251217)
+// 4. Default for provider (if available)
+// 5. First available model from provider's list
+func (c *Client) selectModel(provider string, availableModels []string) modelSelectionResult {
+	debug := c.config.UI.Debug
+
 	// If model was already set (via flag), use it (trust the user)
 	if c.config.LLM.Model != "" {
-		return c.config.LLM.Model
+		if debug {
+			fmt.Fprintf(os.Stderr, "[DEBUG] Model set via flag: %s\n", c.config.LLM.Model)
+		}
+		return modelSelectionResult{model: c.config.LLM.Model, fromSavedPref: false, hadSavedPref: false}
 	}
 
 	// Check saved preference for this provider
 	savedModel := c.preferences.GetModelForProvider(provider)
-	if savedModel != "" && isModelAvailable(savedModel, availableModels) {
-		return savedModel
+	if debug {
+		fmt.Fprintf(os.Stderr, "[DEBUG] Saved model preference for %s: %q\n", provider, savedModel)
+		if len(availableModels) > 0 {
+			fmt.Fprintf(os.Stderr, "[DEBUG] Available models (%d): %v\n", len(availableModels), availableModels)
+		} else {
+			fmt.Fprintf(os.Stderr, "[DEBUG] No available models list (API call may have failed)\n")
+		}
 	}
+
+	if savedModel != "" {
+		// Try exact match first
+		if isModelAvailable(savedModel, availableModels) {
+			if debug {
+				fmt.Fprintf(os.Stderr, "[DEBUG] Using saved model (exact match): %s\n", savedModel)
+			}
+			return modelSelectionResult{model: savedModel, fromSavedPref: true, hadSavedPref: true}
+		}
+
+		if debug {
+			fmt.Fprintf(os.Stderr, "[DEBUG] Saved model %q not in available models, trying family match\n", savedModel)
+		}
+
+		// Try family match (e.g., claude-opus-4-5-* when saved is claude-opus-4-5-20251101)
+		// This handles Anthropic releasing newer versions of the same model
+		if familyMatch := findModelFamilyMatch(savedModel, availableModels); familyMatch != "" {
+			if debug {
+				fmt.Fprintf(os.Stderr, "[DEBUG] Family match found: %s → %s\n", savedModel, familyMatch)
+			}
+			return modelSelectionResult{
+				model:           familyMatch,
+				fromSavedPref:   true,
+				hadSavedPref:    true,
+				usedFamilyMatch: true,
+			}
+		}
+
+		if debug {
+			family := extractModelFamily(savedModel)
+			fmt.Fprintf(os.Stderr, "[DEBUG] No family match found for %q (family: %q)\n", savedModel, family)
+		}
+
+		// Saved preference exists but couldn't be matched
+		// Fall through to defaults, but remember we had a saved pref
+	}
+
+	hadSaved := savedModel != ""
 
 	// Use default for provider
 	defaultModel := getDefaultModelForProvider(provider)
 	if isModelAvailable(defaultModel, availableModels) {
-		return defaultModel
+		if debug && hadSaved {
+			fmt.Fprintf(os.Stderr, "[DEBUG] Falling back to provider default: %s (saved preference %q not available)\n",
+				defaultModel, savedModel)
+		}
+		return modelSelectionResult{model: defaultModel, fromSavedPref: false, hadSavedPref: hadSaved}
 	}
 
 	// Fall back to first available model
 	if len(availableModels) > 0 {
-		return availableModels[0]
+		if debug {
+			fmt.Fprintf(os.Stderr, "[DEBUG] Falling back to first available model: %s (default %q also not available)\n",
+				availableModels[0], defaultModel)
+		}
+		return modelSelectionResult{model: availableModels[0], fromSavedPref: false, hadSavedPref: hadSaved}
 	}
 
 	// Last resort: use default even if not validated
-	return defaultModel
+	if debug {
+		fmt.Fprintf(os.Stderr, "[DEBUG] No models available, using default: %s\n", defaultModel)
+	}
+	return modelSelectionResult{model: defaultModel, fromSavedPref: false, hadSavedPref: hadSaved}
+}
+
+// findModelFamilyMatch finds a model in availableModels that matches the family of savedModel.
+// Family matching: "claude-opus-4-5-20251101" matches "claude-opus-4-5-*"
+// Returns the latest (by date suffix) matching model, or empty string if no match.
+func findModelFamilyMatch(savedModel string, availableModels []string) string {
+	if len(availableModels) == 0 {
+		return ""
+	}
+
+	// Extract family prefix (everything before the last date segment)
+	// e.g., "claude-opus-4-5-20251101" → "claude-opus-4-5-"
+	family := extractModelFamily(savedModel)
+	if family == "" {
+		return ""
+	}
+
+	// Find all models with the SAME family (exact family match, not prefix)
+	// e.g., claude-opus-4-5- should not match claude-opus-4- or claude-opus-4-5-1-
+	var matches []string
+	for _, m := range availableModels {
+		modelFamily := extractModelFamily(m)
+		if modelFamily == family {
+			matches = append(matches, m)
+		}
+	}
+
+	if len(matches) == 0 {
+		return ""
+	}
+
+	// Return the latest version (highest date suffix)
+	// Models are typically returned sorted, but sort to be safe
+	sort.Strings(matches)
+	return matches[len(matches)-1]
+}
+
+// extractModelFamily extracts the model family prefix from a model ID.
+// Returns the prefix including trailing hyphen, or empty string if not parseable.
+// Examples:
+//   - "claude-opus-4-5-20251101" → "claude-opus-4-5-"
+//   - "claude-sonnet-4-20250514" → "claude-sonnet-4-"
+//   - "gpt-4o-mini" → "" (no date suffix pattern)
+func extractModelFamily(model string) string {
+	// Look for a date suffix pattern: -YYYYMMDD at the end
+	// The date is 8 digits after a hyphen
+	if len(model) < 9 {
+		return ""
+	}
+
+	// Check if last 8 chars are digits (date)
+	suffix := model[len(model)-8:]
+	for _, c := range suffix {
+		if c < '0' || c > '9' {
+			return "" // Not a date suffix
+		}
+	}
+
+	// Check there's a hyphen before the date
+	if len(model) < 10 || model[len(model)-9] != '-' {
+		return ""
+	}
+
+	// Return everything up to and including the hyphen before the date
+	return model[:len(model)-8]
 }
 
 // isModelAvailable checks if model is in the available list
@@ -1056,9 +1206,9 @@ func isModelAvailable(model string, availableModels []string) bool {
 func getDefaultModelForProvider(provider string) string {
 	switch provider {
 	case "anthropic":
-		return "claude-sonnet-4-20250514"
+		return "claude-sonnet-4-5-20250929"
 	case "openai":
-		return "gpt-5.1"
+		return "gpt-4o"
 	case "ollama":
 		return "qwen3-coder:latest"
 	default:

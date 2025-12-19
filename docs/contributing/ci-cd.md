@@ -1,6 +1,7 @@
 # CI/CD Guide
 
-This document describes the continuous integration and continuous deployment workflows for the Natural Language Agent.
+This document describes the continuous integration and continuous deployment
+workflows for the MCP server and Natural Language Agents.
 
 ## Overview
 
@@ -327,6 +328,7 @@ jobs:
 
 ### Setup
 
+{% raw %}
 ```bash
 # Install pre-commit hook
 cat > .git/hooks/pre-commit << 'EOF'
@@ -351,6 +353,7 @@ EOF
 
 chmod +x .git/hooks/pre-commit
 ```
+{% endraw %}
 
 ### Skip Hook (When Needed)
 

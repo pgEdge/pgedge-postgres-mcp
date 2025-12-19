@@ -18,7 +18,6 @@ builtins:
     search_knowledgebase: true  # Search documentation knowledgebase
   resources:
     system_info: true           # pg://system_info
-    database_schema: true       # pg://database/schema
   prompts:
     explore_database: true      # explore-database prompt
     setup_semantic_search: true # setup-semantic-search prompt

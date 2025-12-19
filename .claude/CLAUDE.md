@@ -5,7 +5,7 @@ These rules ensure consistency, quality, and maintainability.
 
 ## General
 
-- ALways kill the MCP server and Vite server when no longer needed if they have
+- Always kill the MCP server and Vite server when no longer needed if they have
   been started to test something.
 
 ## Code Style

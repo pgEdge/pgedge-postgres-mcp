@@ -1,0 +1,80 @@
+# pgEdge PostgreSQL MCP Server Configuration - Stdio Mode
+#
+# This configuration runs the MCP server in stdio mode for Claude Desktop
+# or CLI client integration.
+# Copy this file to bin/pgedge-postgres-mcp-stdio.yaml and edit as needed.
+#
+# Usage:
+#   cp examples/pgedge-postgres-mcp-stdio.yaml.example bin/pgedge-postgres-mcp-stdio.yaml
+#   # Edit bin/pgedge-postgres-mcp-stdio.yaml with your settings
+#   ./start_cli_stdio.sh
+
+# Database connection configuration
+# Multiple databases can be configured; each must have a unique name.
+# In stdio mode, all configured databases are available.
+databases:
+    - name: "mydb"
+      host: "localhost"
+      port: 5432
+      database: "mydb"
+      user: "postgres"
+      password: ""  # Leave empty to use .pgpass file
+      sslmode: "prefer"
+      pool_max_conns: 10
+      pool_min_conns: 2
+      pool_max_conn_idle_time: "5m"
+
+    # Add more databases as needed:
+    # - name: "analytics"
+    #   host: "localhost"
+    #   port: 5432
+    #   database: "analytics"
+    #   user: "postgres"
+    #   password: ""
+    #   sslmode: "prefer"
+
+# Embedding generation configuration
+# Enable to allow generating embeddings for semantic search
+embedding:
+    enabled: false
+    provider: "openai"  # Options: "voyage", "openai", "ollama"
+    model: "text-embedding-3-small"
+
+    # API key files (recommended for production)
+    # voyage_api_key_file: "~/.voyage-api-key"
+    # openai_api_key_file: "~/.openai-api-key"
+
+    # Or use environment variables: VOYAGE_API_KEY, OPENAI_API_KEY
+
+    # Model Dimensions by Provider:
+    # Voyage AI:
+    #   - voyage-3: 1024 dimensions
+    #   - voyage-3-lite: 512 dimensions
+    # OpenAI:
+    #   - text-embedding-3-large: 3072 dimensions
+    #   - text-embedding-3-small: 1536 dimensions
+    # Ollama:
+    #   - nomic-embed-text: 768 dimensions
+    #   - mxbai-embed-large: 1024 dimensions
+
+# LLM configuration (not used in stdio mode - CLI handles LLM directly)
+llm:
+    enabled: false
+
+# Knowledgebase configuration (optional)
+# Enable to allow searching pre-built documentation databases
+knowledgebase:
+    enabled: false
+    database_path: "./pgedge-nla-kb.db"
+    embedding_provider: "voyage"
+    embedding_model: "voyage-3"
+
+    # API key files for knowledgebase embeddings
+    # embedding_voyage_api_key_file: "~/.voyage-api-key"
+    # embedding_openai_api_key_file: "~/.openai-api-key"
+
+# Secret file path (for encryption key - auto-generated if not exists)
+secret_file: "./pgedge-postgres-mcp.secret"
+
+# Custom definitions file path (optional)
+# custom_definitions_path: "../examples/pgedge-postgres-mcp-custom.yaml"

@@ -83,7 +83,7 @@ func LoadConfig(configPath string) (*Config, error) {
 		},
 		LLM: LLMConfig{
 			Provider:        getEnvOrDefault("PGEDGE_LLM_PROVIDER", "anthropic"),
-			Model:           getEnvOrDefault("PGEDGE_LLM_MODEL", "claude-sonnet-4-20250514"),
+			Model:           getEnvOrDefault("PGEDGE_LLM_MODEL", "claude-sonnet-4-5-20250929"),
 			AnthropicAPIKey: getEnvWithFallback("PGEDGE_ANTHROPIC_API_KEY", "ANTHROPIC_API_KEY"),
 			OpenAIAPIKey:    getEnvWithFallback("PGEDGE_OPENAI_API_KEY", "OPENAI_API_KEY"),
 			OllamaURL:       getEnvOrDefault("PGEDGE_OLLAMA_URL", "http://localhost:11434"),
@@ -204,21 +204,21 @@ func (c *Config) Validate() error {
 			return fmt.Errorf("PGEDGE_ANTHROPIC_API_KEY environment variable or anthropic_api_key config is required for Anthropic")
 		}
 		if c.LLM.Model == "" {
-			c.LLM.Model = "claude-sonnet-4-20250514"
+			c.LLM.Model = "claude-sonnet-4-5-20250929"
 		}
 	} else if c.LLM.Provider == "openai" {
 		if c.LLM.OpenAIAPIKey == "" {
 			return fmt.Errorf("PGEDGE_OPENAI_API_KEY environment variable or openai_api_key config is required for OpenAI")
 		}
 		if c.LLM.Model == "" {
-			c.LLM.Model = "gpt-5-main"
+			c.LLM.Model = "gpt-4o"
 		}
 	} else {
 		if c.LLM.OllamaURL == "" {
 			c.LLM.OllamaURL = "http://localhost:11434"
 		}
 		if c.LLM.Model == "" {
-			c.LLM.Model = "llama3"
+			c.LLM.Model = "qwen3-coder:latest"
 		}
 	}
 

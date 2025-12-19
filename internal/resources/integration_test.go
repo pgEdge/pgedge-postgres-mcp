@@ -47,11 +47,6 @@ func TestAllResources_Integration(t *testing.T) {
 			resource:     PGSystemInfoResource(client),
 			requiresData: false,
 		},
-		{
-			name:         "pg://database/schema",
-			resource:     PGDatabaseSchemaResource(client),
-			requiresData: false,
-		},
 	}
 
 	for _, tt := range tests {

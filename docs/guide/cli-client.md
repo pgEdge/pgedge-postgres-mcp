@@ -298,6 +298,7 @@ ollama pull llama3
 
 Create a configuration file and use it:
 
+{% raw %}
 ```bash
 # Create config file
 cat > .pgedge-pg-mcp-cli.yaml << EOF
@@ -315,6 +316,7 @@ EOF
 # Run with config file
 ./bin/pgedge-nla-cli -config .pgedge-pg-mcp-cli.yaml
 ```
+{% endraw %}
 
 ## Interactive Commands
 

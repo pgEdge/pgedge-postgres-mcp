@@ -1,6 +1,8 @@
 # Authentication Guide
 
-The Natural Language Agent includes built-in authentication with two methods: API tokens for machine-to-machine communication and user accounts for interactive authentication.
+The MCP server includes built-in authentication with two methods: API tokens
+for machine-to-machine communication and user accounts for interactive
+authentication.
 
 - Use an [*API Token*](auth_token.md) for direct machine-to-machine access.  Tokens are long-lived and easily managed by administrators.
 - Use a [*User Account*](auth_user.md) for interactive applications; an account is session-based, and users can manage own password access.
@@ -110,7 +112,7 @@ The following command enables a locked account:
 
 ## Automatic File Reloading
 
-The Natural Language Agent automatically detects and reloads changes to token
+The MCP server automatically detects and reloads changes to token
 and user files without requiring a server restart. This enables hot updates
 to authentication credentials while the server is running.
 
