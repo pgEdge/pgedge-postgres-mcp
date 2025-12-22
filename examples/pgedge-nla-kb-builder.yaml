@@ -39,10 +39,10 @@ sources:
       project_version: "14"
 
     - git_url: "https://github.com/pgadmin-org/pgadmin4.git"
-      tag: "REL-9_11"
+      tag: "REL-9_10"
       doc_path: "docs/en_US"
       project_name: "pgAdmin 4"
-      project_version: "9.11"
+      project_version: "9.10"
 
     - git_url: "https://github.com/pgadmin-org/pgadmin4.git"
       tag: "REL-8_14"
@@ -73,28 +73,28 @@ sources:
       project_name: "pgEdge Enterprise"
 
     - git_url: "https://github.com/pgEdge/pgedge-postgres-mcp.git"
-      tag: "v1.0.0-alpha6"
+      tag: "v1.0.0-beta1"
       doc_path: "docs"
       project_name: "pgEdge Postgres MCP"
-      project_version: "1.0.0-alpha6"
+      project_version: "1.0.0-beta1"
 
     - git_url: "https://github.com/pgEdge/pgedge-anonymizer.git"
-      tag: "v1.0.0-alpha4"
+      tag: "v1.0.0-beta2"
       doc_path: "docs"
       project_name: "pgEdge Anonymizer"
-      project_version: "1.0.0-alpha4"
+      project_version: "1.0.0-beta2"
 
     - git_url: "https://github.com/pgEdge/pgedge-docloader.git"
-      tag: "v1.0.0-alpha5"
+      tag: "v1.0.0-beta1"
       doc_path: "docs"
       project_name: "pgEdge Docloader"
-      project_version: "1.0.0-alpha5"
+      project_version: "1.0.0-beta1"
 
     - git_url: "https://github.com/pgEdge/pgedge-rag-server.git"
-      tag: "v1.0.0-alpha5"
+      tag: "v1.0.0-beta2"
       doc_path: "docs"
       project_name: "pgEdge RAG Server"
-      project_version: "1.0.0-alpha5"
+      project_version: "1.0.0-beta2"
 
     - git_url: "https://github.com/pgEdge/spock.git"
       tag: "v5.0.4"
@@ -103,10 +103,10 @@ sources:
       project_version: "5.0.4"
 
     - git_url: "https://github.com/pgEdge/control-plane.git"
-      tag: "v0.5.1"
+      tag: "v0.6.1"
       doc_path: "docs"
       project_name: "pgEdge Control Plane"
-      project_version: "0.5.1"
+      project_version: "0.6.1"
 
     - git_url: "https://github.com/pgEdge/snowflake.git"
       tag: "v2.4"
@@ -115,16 +115,16 @@ sources:
       project_version: "2.4"
 
     - git_url: "https://github.com/pgEdge/lolor.git"
-      branch: "main"
+      branch: "v1.2.2"
       doc_path: "docs"
       project_name: "pgEdge LOLOR"
-      project_version: "1.2.1"
+      project_version: "1.2.2"
 
     - git_url: "https://github.com/pgEdge/pgedge-helm.git"
-      tag: "v0.0.4"
+      tag: "v0.1.0"
       doc_path: "docs"
       project_name: "pgEdge Helm"
-      project_version: "0.0.4"
+      project_version: "0.1.0"
 
     - git_url: "https://github.com/pgEdge/ace.git"
       tag: "v1.4.2"
@@ -133,10 +133,10 @@ sources:
       project_version: "1.4.2"
 
     - git_url: "https://github.com/pgEdge/pgedge-vectorizer.git"
-      tag: "v1.0-alpha5"
+      tag: "v1.0-beta1"
       doc_path: "docs"
       project_name: "pgEdge Vectorizer"
-      project_version: "1.0-alpha4"
+      project_version: "1.0-beta1"
 
     - git_url: "https://github.com/pgbouncer/pgbouncer.git"
       tag: "pgbouncer_1_25_0"
@@ -151,10 +151,10 @@ sources:
       project_version: "2.57.0"
 
     - git_url: "https://github.com/postgis/postgis.git"
-      tag: "3.6.1"
+      tag: "3.5.3"
       doc_path: "doc"
       project_name: "PostGIS"
-      project_version: "3.6.1"
+      project_version: "3.5.3"
 
     - git_url: "https://github.com/pgvector/pgvector.git"
       tag: "v0.8.1"
@@ -169,10 +169,10 @@ sources:
       project_version: "18.0"
 
     - git_url: "https://github.com/psycopg/psycopg.git"
-      tag: "3.2.13"
+      tag: "2.9.10"
       doc_path: "docs"
       project_name: "psycopg3"
-      project_version: "3.2.13"
+      project_version: "2.9.10"
 
     # Example: Local documentation
     # - local_path: "~/projects/my-docs"
