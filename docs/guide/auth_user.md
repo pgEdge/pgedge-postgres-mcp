@@ -5,7 +5,28 @@ User accounts provide interactive authentication with session-based access. User
 - Use an [*API Token*](auth_token.md) for direct machine-to-machine access.  Tokens are long-lived and easily managed by administrators.
 - Use a [*User Account*](auth_user.md) for interactive applications; an account is session-based, and users can manage own password access.
 
-By default, user details are stored in a file named `pgedge-postgres-mcp-users.yaml` in the same directory as the MCP server binary.  The file has bcrypt-hashed passwords (cost factor 12), and requires that permissions are set to `0600` (owner read/write only).  Each session token generated as a result of user authentication is 32 bytes, and is valid for 24-hour validity.
+## Default File Locations
+
+The server searches for the user file in the following order:
+
+1. `/etc/pgedge/pgedge-postgres-mcp-users.yaml` (system-wide)
+2. `<binary-directory>/pgedge-postgres-mcp-users.yaml` (next to the binary)
+
+If the system path doesn't exist, the server falls back to the binary directory.
+This means if your binary is installed in `/usr/bin/`, the default user file
+path will be `/usr/bin/pgedge-postgres-mcp-users.yaml`.
+
+For production deployments, create the system directory:
+
+```bash
+sudo mkdir -p /etc/pgedge
+sudo chown $USER:$USER /etc/pgedge
+```
+
+The user file uses bcrypt-hashed passwords (cost factor 12), and requires that
+permissions are set to `0600` (owner read/write only). Each session token
+generated as a result of user authentication is 32 bytes and valid for 24
+hours.
 
 When configuring user authentication, you should keep the following best practices in mind:
 
@@ -131,3 +152,21 @@ To specify the location of a custom user file:
 # Specify custom user file path
 ./bin/pgedge-postgres-mcp -user-file /etc/pgedge/pgedge-postgres-mcp-users.yaml -list-users
 ```
+
+!!! warning "Consistent Path Usage Required"
+
+    When using custom file paths, you must specify the same path for **both**
+    user management commands and server startup. Each command invocation is
+    independent - the server does not "remember" paths used in previous
+    commands.
+
+    ```bash
+    # Add a user at a custom path
+    ./bin/pgedge-postgres-mcp -user-file /my/custom/users.yaml -add-user
+
+    # Start server with the SAME custom path
+    ./bin/pgedge-postgres-mcp -http -user-file /my/custom/users.yaml
+    ```
+
+    For convenience, use a configuration file or environment variable to avoid
+    repeating the path on every command.

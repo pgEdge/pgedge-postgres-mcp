@@ -248,6 +248,71 @@ You can create a new token file using the following command:
 ./bin/pgedge-postgres-mcp -add-token
 ```
 
+### Token/User Files in Unexpected Location
+
+If you find token or user files being created in unexpected locations (such
+as `/usr/bin/`), this is due to the default path fallback behavior.
+
+**How default paths work:**
+
+1. The server first checks for system paths:
+    - Tokens: `/etc/pgedge/postgres-mcp/pgedge-postgres-mcp-tokens.yaml`
+    - Users: `/etc/pgedge/pgedge-postgres-mcp-users.yaml`
+2. If these don't exist, it falls back to the binary directory
+
+If your binary is installed in `/usr/bin/`, files will be created there
+unless you:
+
+- Create the `/etc/pgedge/` directory structure
+- Use a custom path via `-token-file` or `-user-file` flags
+- Specify paths in your configuration file
+- Set `PGEDGE_AUTH_TOKEN_FILE` environment variable
+
+**Solution for production deployments:**
+
+```bash
+# Create system directories
+sudo mkdir -p /etc/pgedge/postgres-mcp
+sudo chown $USER:$USER /etc/pgedge /etc/pgedge/postgres-mcp
+```
+
+### Tokens Created But Authentication Fails
+
+If you create tokens successfully but the server fails to find them, you may
+be using different file paths for token management and server startup.
+
+**Cause:** Each command invocation is independent. The server does not
+"remember" custom paths used in previous commands.
+
+**Example of the problem:**
+
+```bash
+# Create token at custom path
+./bin/pgedge-postgres-mcp -token-file /custom/path/tokens.yaml -add-token
+
+# Start server WITHOUT specifying the custom path - FAILS
+./bin/pgedge-postgres-mcp -http
+# ERROR: Token file not found: /default/path/tokens.yaml
+```
+
+**Solution:** Use the same path consistently:
+
+```bash
+# Create token
+./bin/pgedge-postgres-mcp -token-file /custom/path/tokens.yaml -add-token
+
+# Start server with SAME path
+./bin/pgedge-postgres-mcp -http -token-file /custom/path/tokens.yaml
+```
+
+Or better, specify the path in your configuration file:
+
+```yaml
+http:
+  auth:
+    token_file: "/custom/path/tokens.yaml"
+```
+
 ### Token Authentication Fails
 
 If token authentication fails, you should verify that the token file exists and has the correct permissions. In the following example, the commands check the token file permissions, list available tokens, and identify expired tokens.
