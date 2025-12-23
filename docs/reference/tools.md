@@ -1,43 +1,51 @@
 # MCP Tools
 
-The MCP server provides various tools that enable SQL database
-interaction, advanced semantic search, embedding generation, resource reading,
-and more.
+The MCP server provides various tools that enable SQL database interaction, advanced semantic search, embedding generation, resource reading, and more. You can explicitly tell the LLM to invoke a particular tool, but in most cases the LLM will select tooling based on what it is trying to achieve and the descriptions of the tools within the code.
 
-## Disabling Tools
+The .yaml snippets on this page demonstrate configurations for each tool; you can use the configurations in your configuration file or environment variables (as appropriate) to specify tool behaviors.
 
-Individual tools can be disabled via configuration to restrict what the LLM
-can access. See [Enabling/Disabling Built-in Features](../guide/feature_config.md)
-for details.
+You can disable an individual tool via the server configuration to restrict what the LLM can access. See [Enabling/Disabling Built-in Features](../guide/feature_config.md) for details.
 
 When a tool is disabled:
 
-- It is not advertised to the LLM in the `tools/list` response
-- Attempts to execute it return an error message
+* It is not advertised to the LLM in the `tools/list` response.
+* Attempts to execute it return an error message.
 
-**Note**: The `read_resource` tool is always enabled as it's required for
-listing resources.
+!!! note
 
-## Available Tools
+    The `read_resource` tool is always enabled as it's required to list resources.
 
-### execute_explain
+The tools in the following sections are available through the MCP server component.
 
-Executes EXPLAIN ANALYZE on a SQL query to analyze query performance and
-execution plans.
 
-**Prerequisites**:
+## execute_explain
 
-- Query must be a SELECT statement
-- Queries are executed in read-only transactions
+The `execute_explain` tool executes `EXPLAIN ANALYZE` on a SQL query to analyze query performance and execution plans.
 
-**Parameters**:
+**Use Cases**
 
-- `query` (required): The SELECT query to analyze
-- `analyze` (optional): Run EXPLAIN ANALYZE for actual timing (default: true)
-- `buffers` (optional): Include buffer usage statistics (default: true)
-- `format` (optional): Output format - "text" or "json" (default: "text")
+* **Query Optimization**: Identify slow queries and bottlenecks.
+* **Index Planning**: Determine which indexes would improve performance.
+* **Understanding Execution**: Learn how PostgreSQL processes your queries.
+* **Debugging**: Diagnose why queries are slower than expected.
 
-**Input Example**:
+!!! note "To Ensure Security"
+
+    * The query must be a `SELECT` statement.
+    * Queries are executed in read-only transactions.
+
+**Parameters**
+
+| Name | Required | Description |
+|------|----------|-------------|
+| `query` | Required | The `SELECT` query to analyze. |
+| `analyze` | Optional | Run `EXPLAIN ANALYZE` for actual timing (default: `true`). |
+| `buffers` | Optional | Include buffer usage statistics (default: `true`). |
+| `format` | Optional | Output format - `text` or `json` (default: `text`). |
+
+**Example**
+
+In the following example, the `execute_explain` tool analyzes a query that searches for users with specific email domains:
 
 ```json
 {
@@ -48,7 +56,7 @@ execution plans.
 }
 ```
 
-**Output**:
+Returns:
 
 ```
 EXPLAIN ANALYZE Results
@@ -73,28 +81,78 @@ Analysis:
 - Filter removed 988 rows - WHERE clause selectivity is low
 ```
 
-**Use Cases**:
 
-- **Query Optimization**: Identify slow queries and bottlenecks
-- **Index Planning**: Determine which indexes would improve performance
-- **Understanding Execution**: Learn how PostgreSQL processes your queries
-- **Debugging**: Diagnose why queries are slower than expected
+## generate_embedding
 
-**Security**: Queries are executed in read-only transactions. Only SELECT
-statements are allowed.
+The `generate_embedding` tool generates vector embeddings from text using OpenAI, Voyage AI (cloud), or Ollama (local). This tool enables converting natural language queries into embedding vectors for semantic search.
 
-### generate_embedding
+**Use Cases**
 
-Generate vector embeddings from text using OpenAI, Voyage AI (cloud), or Ollama (local). Enables converting natural language queries into embedding vectors for semantic search.
+* **Semantic Search**: Generate query embeddings for vector similarity search.
+* **RAG Systems**: Convert questions into embeddings to find relevant context.
+* **Document Clustering**: Generate embeddings for grouping similar documents.
+* **Content Recommendation**: Create embeddings for matching similar content.
 
-**Prerequisites**:
+!!! note
 
-- Embedding generation must be enabled in server configuration
-- For OpenAI: Valid API key must be configured
-- For Voyage AI: Valid API key must be configured
-- For Ollama: Ollama must be running with an embedding model installed
+    * Your server configuration must enable embedding generation.
+    * OpenAI requires a valid API key.
+    * Voyage AI requires a valid API key.
+    * Ollama must be running with an embedding model installed.
 
-**Input**:
+Use the following syntax to enable the `generate_embedding` tool in your server configuration file:
+
+```yaml
+embedding:
+  enabled: true
+  provider: "openai"  # Options: "openai", "voyage", or "ollama"
+  model: "text-embedding-3-small"
+  openai_api_key: ""  # Set via OPENAI_API_KEY environment variable
+```
+
+Additionally, you can enable logging to debug embedding API calls.
+
+```bash
+export PGEDGE_LLM_LOG_LEVEL="info"  # or "debug" or "trace"
+```
+
+**Parameters**
+
+| Name | Required | Description |
+|------|----------|-------------|
+| `text` | Required | The text to convert into an embedding vector. |
+
+The generate_embedding tool returns an error if:
+
+* embedding generation is not enabled in configuration.
+* the embedding provider is not accessible (Ollama not running, invalid API key).
+* the `text` property is empty.
+* the API request fails (rate limits, network issues).
+
+**Supported Providers and Models**
+
+OpenAI (Cloud):
+
+* `text-embedding-3-small`: 1536 dimensions (recommended, compatible with most databases).
+* `text-embedding-3-large`: 3072 dimensions (higher quality).
+* `text-embedding-ada-002`: 1536 dimensions (legacy).
+
+Voyage AI (Cloud):
+
+* `voyage-3`: 1024 dimensions (recommended).
+* `voyage-3-lite`: 512 dimensions (cost-effective).
+* `voyage-2`: 1024 dimensions.
+* `voyage-2-lite`: 1024 dimensions.
+
+Ollama (Local):
+
+* `nomic-embed-text`: 768 dimensions (recommended).
+* `mxbai-embed-large`: 1024 dimensions.
+* `all-minilm`: 384 dimensions.
+
+**Example**
+
+In the following example, the `generate_embedding` tool converts a query about vector similarity search into an embedding vector:
 
 ```json
 {
@@ -102,11 +160,7 @@ Generate vector embeddings from text using OpenAI, Voyage AI (cloud), or Ollama 
 }
 ```
 
-**Parameters**:
-
-- `text` (required): The text to convert into an embedding vector
-
-**Output**:
+The tool returns an embedding vector that can be used for semantic search operations or stored in a pgvector column:
 
 ```
 Generated Embedding:
@@ -121,128 +175,40 @@ Embedding Vector (first 10 dimensions):
 Full embedding vector returned with 768 dimensions.
 ```
 
-**Use Cases**:
 
-- **Semantic Search**: Generate query embeddings for vector similarity search
-- **RAG Systems**: Convert questions into embeddings to find relevant context
-- **Document Clustering**: Generate embeddings for grouping similar documents
-- **Content Recommendation**: Create embeddings for matching similar content
+## get_schema_info
 
-**Configuration**:
+The `get_schema_info` tool is the primary tool for discovering database tables and schema information. This tool retrieves detailed database schema information including tables, views, columns, data types, constraints, indexes, identity columns, default values, and comments from `pg_description`.
 
-Enable in your server configuration file:
+!!! note
 
-```yaml
-embedding:
-  enabled: true
-  provider: "openai"  # Options: "openai", "voyage", or "ollama"
-  model: "text-embedding-3-small"
-  openai_api_key: ""  # Set via OPENAI_API_KEY environment variable
-```
+    **ALWAYS** use this tool first when you need to know what tables exist in the database.
 
-**Supported Providers and Models**:
+**Use Cases**
 
-OpenAI (Cloud):
+* **Discover Tables**: Find what tables exist before querying.
+* **Understand Relationships**: Use `fk_ref` to understand table joins.
+* **Query Optimization**: Check `is_indexed` to write efficient queries.
+* **Vector Search Setup**: Use `vector_tables_only` to find tables for `similarity_search`.
 
-- `text-embedding-3-small`: 1536 dimensions (recommended, compatible with most databases)
-- `text-embedding-3-large`: 3072 dimensions (higher quality)
-- `text-embedding-ada-002`: 1536 dimensions (legacy)
+**Configuring `get_schema_info`**
 
-Voyage AI (Cloud):
+You can optionally use the following properties when configuring `get_schema_info`:
 
-- `voyage-3`: 1024 dimensions (recommended)
-- `voyage-3-lite`: 512 dimensions (cost-effective)
-- `voyage-2`: 1024 dimensions
-- `voyage-2-lite`: 1024 dimensions
+| Name | Required | Description |
+|------|----------|-------------|
+| `schema_name` | Optional | Filter to a specific schema (e.g., `"public"`). |
+| `table_name` | Optional | Filter to a specific table. Requires `schema_name` to also be provided. |
+| `vector_tables_only` | Optional | If `true`, only return tables with pgvector columns. Reduces output significantly (default: `false`). |
+| `compact` | Optional | If `true`, return table names only without column details. Use for quick overview (default: `false`). |
 
-Ollama (Local):
-
-- `nomic-embed-text`: 768 dimensions (recommended)
-- `mxbai-embed-large`: 1024 dimensions
-- `all-minilm`: 384 dimensions
-
-**Example Usage**:
-
-```json
-{
-  "text": "What is vector similarity search?"
-}
-```
-
-Returns an embedding vector that can be used for semantic search operations or stored in a pgvector column.
-
-**Error Handling**:
-
-- Returns error if embedding generation is not enabled in configuration
-- Returns error if embedding provider is not accessible (Ollama not running, invalid API key)
-- Returns error if text is empty
-- Returns error if API request fails (rate limits, network issues)
-
-**Debugging**:
-
-Enable logging to debug embedding API calls:
-
-```bash
-export PGEDGE_LLM_LOG_LEVEL="info"  # or "debug" or "trace"
-```
-
-See the [documentation](../guide/configuration.md) for configuration details.
-
-### get_schema_info
-
-**PRIMARY TOOL for discovering database tables and schema information.** Retrieves
-detailed database schema information including tables, views, columns, data
-types, constraints, indexes, identity columns, default values, and comments
-from pg_description. **ALWAYS use this tool first when you need to know what
-tables exist in the database.**
-
-**Parameters**:
-
-- `schema_name` (optional): Filter to a specific schema (e.g., `"public"`)
-- `table_name` (optional): Filter to a specific table. Requires `schema_name`
-  to also be provided
-- `vector_tables_only` (optional): If `true`, only return tables with pgvector
-  columns. Reduces output significantly (default: `false`)
-- `compact` (optional): If `true`, return table names only without column
-  details. Use for quick overview (default: `false`)
-
-**Output Format**:
-
-Results are returned in TSV (tab-separated values) format for token efficiency.
-The columns are:
-
-- `schema` - Schema name
-- `table` - Table name
-- `type` - TABLE, VIEW, or MATERIALIZED VIEW
-- `table_desc` - Table description from pg_description
-- `column` - Column name
-- `data_type` - PostgreSQL data type
-- `nullable` - YES or NO
-- `col_desc` - Column description
-- `is_pk` - true if part of primary key
-- `is_unique` - true if has unique constraint (excluding PK)
-- `fk_ref` - Foreign key reference in format "schema.table.column" if FK
-- `is_indexed` - true if column is part of any index
-- `identity` - "a" for GENERATED ALWAYS, "d" for BY DEFAULT, empty otherwise
-- `default` - Default value expression if any
-- `is_vector` - true if pgvector column
-- `vector_dims` - Number of dimensions for vector columns (0 if not vector)
-
-**Auto-Summary Mode**:
-
-When called without filters on databases with >10 tables, automatically returns
-a compact summary showing table counts per schema and suggested next calls.
-This prevents overwhelming token usage on large databases.
-
-**Input Examples**:
-
-Get all schema info (returns summary if >10 tables):
+With the following configuration, the `get_schema_info` tool retrieves all schema information (returns summary if >10 tables).
 
 ```json
 {}
 ```
 
-Get details for a specific schema:
+With the following configuration, the `get_schema_info` tool retrieves details for a specific schema.
 
 ```json
 {
@@ -250,7 +216,54 @@ Get details for a specific schema:
 }
 ```
 
-Get columns for a specific table:
+With the following configuration, the `get_schema_info` tool finds tables with vector columns.
+
+```json
+{
+  "vector_tables_only": true
+}
+```
+
+With the following configuration, the `get_schema_info` tool generates a quick table list without column details.
+
+```json
+{
+  "compact": true
+}
+```
+
+!!! info "Auto-Summary Mode"
+
+        When called without filters on databases with >10 tables, the tool automatically
+        returns a compact summary showing table counts per schema and suggested next calls.
+        This prevents overwhelming token usage on large databases.
+
+**Result Formats**
+
+Results are returned in TSV (tab-separated values) format for token efficiency. The columns are:
+
+| Name | Description |
+|------|-------------|
+| `schema` | Schema name. |
+| `table` | Table name. |
+| `type` | TABLE, VIEW, or MATERIALIZED VIEW. |
+| `table_desc` | Table description from pg_description. |
+| `column` | Column name. |
+| `data_type` | PostgreSQL data type. |
+| `nullable` | YES or NO. |
+| `col_desc` | Column description. |
+| `is_pk` | true if part of primary key. |
+| `is_unique` | true if has unique constraint (excluding PK). |
+| `fk_ref` | Foreign key reference in format "schema.table.column" if FK. |
+| `is_indexed` | true if column is part of any index. |
+| `identity` | "a" for GENERATED ALWAYS, "d" for BY DEFAULT, empty otherwise. |
+| `default` | Default value expression if any. |
+| `is_vector` | true if pgvector column. |
+| `vector_dims` | Number of dimensions for vector columns (0 if not vector). |
+
+**Example**
+
+In the following example, the `get_schema_info` tool retrieves columns for a specific table.
 
 ```json
 {
@@ -259,23 +272,7 @@ Get columns for a specific table:
 }
 ```
 
-Find tables with vector columns:
-
-```json
-{
-  "vector_tables_only": true
-}
-```
-
-Quick table list (no column details):
-
-```json
-{
-  "compact": true
-}
-```
-
-**Output Example** (single table):
+Configured to return information about a single table, the `get_schema_info` tool returns:
 
 ```
 Database: postgres://user@localhost/mydb
@@ -286,21 +283,20 @@ public	users	TABLE	User accounts	email	text	NO	User email	false	true		true			fal
 public	users	TABLE	User accounts	created_at	timestamptz	YES		false	false		false		now()	false	0
 ```
 
-**Use Cases**:
 
-- **Discover Tables**: Find what tables exist before querying
-- **Understand Relationships**: Use `fk_ref` to understand table joins
-- **Query Optimization**: Check `is_indexed` to write efficient queries
-- **Vector Search Setup**: Use `vector_tables_only` to find tables for
-  `similarity_search`
+## query_database
 
-### query_database
+The `query_database` tool executes a SQL query against the PostgreSQL database.
 
-Executes a SQL query against the PostgreSQL database.
+!!! note
+
+    When using MCP clients like Claude Desktop, the client's LLM can translate natural language into SQL queries that are then executed by this server.
+
+Note that for security, all queries are executed in read-only transactions using `SET TRANSACTION READ ONLY`, preventing `INSERT`, `UPDATE`, `DELETE`, and other data modifications. Write operations will fail with `cannot execute ... in a read-only transaction`.
 
 **Input Examples**:
 
-Basic query:
+In the following example, the `query_database` tool executes a basic query to retrieve recent users.
 
 ```json
 {
@@ -308,7 +304,7 @@ Basic query:
 }
 ```
 
-**Output**:
+The query returns:
 
 ```
 SQL Query: SELECT * FROM users WHERE created_at >= NOW() - INTERVAL '7 days' ORDER BY created_at DESC
@@ -325,17 +321,26 @@ Results (15 rows):
 ]
 ```
 
-**Note**: When using MCP clients like Claude Desktop, the client's LLM can translate natural language into SQL queries that are then executed by this server.
 
-**Security**: All queries are executed in read-only transactions using `SET TRANSACTION READ ONLY`, preventing INSERT, UPDATE, DELETE, and other data modifications. Write operations will fail with "cannot execute ... in a read-only transaction".
+## read_resource
 
-### read_resource
+The `read_resource` tool reads MCP resources by their URI. This tool provides access to system information and statistics.
 
-Reads MCP resources by their URI. Provides access to system information and statistics.
+!!! note
 
-**Input Examples**:
+    The `read_resource` tool is always enabled as it's required to list resources.
 
-List all available resources:
+
+**Available Resource URIs**
+
+* `pg://system_info` - PostgreSQL version, OS, and build architecture.
+
+See [Resources](resources.md) for detailed information.
+
+
+**Examples**
+
+In the following example, the `read_resource` tool is configured to list all available resources:
 
 ```json
 {
@@ -343,7 +348,7 @@ List all available resources:
 }
 ```
 
-Read a specific resource:
+In the following example, the `read_resource` tool is configured to read a specific resource:
 
 ```json
 {
@@ -351,55 +356,46 @@ Read a specific resource:
 }
 ```
 
-**Available Resource URIs**:
 
-- `pg://system_info` - PostgreSQL version, OS, and build architecture
+## search_knowledgebase
 
-See [Resources](resources.md) for detailed information.
+The `search_knowledgebase` tool searches the pre-built documentation knowledgebase for relevant information about PostgreSQL, pgEdge products, and other documented technologies.
 
-### search_knowledgebase
+**Use Cases**
 
-Search the pre-built documentation knowledgebase for relevant information about
-PostgreSQL, pgEdge products, and other documented technologies.
+* **PostgreSQL Reference**: Find syntax and usage for SQL features.
+* **Product Documentation**: Search pgEdge or other product documentation.
+* **Best Practices**: Find recommendations and guidelines.
+* **Troubleshooting**: Search for error messages and solutions.
 
-**Prerequisites**:
+**Note that:**
 
-- Knowledgebase must be enabled in server configuration
-- A knowledgebase database must be built using the `kb-builder` tool
+* The knowledgebase must be enabled in server configuration.
+* A knowledgebase database must be built using the `kb-builder` tool.
 
-**Parameters**:
+See [Knowledgebase Configuration](../advanced/knowledgebase.md) for details.
 
-- `query` (required unless `list_products` is true): Natural language search
-  query
-- `project_names` (optional): Array of project/product names to filter by
-  (e.g., `["PostgreSQL"]`, `["pgEdge", "pgAdmin"]`)
-- `project_versions` (optional): Array of project/product versions to filter
-  by (e.g., `["17"]`, `["16", "17"]`)
-- `top_n` (optional): Number of results to return (default: 5, max: 20)
-- `list_products` (optional): If true, returns only the list of available
-  products and versions in the knowledgebase (ignores other parameters)
+To use the tool, enable the `search_knowledgebase` tool in your server configuration file:
 
-**Input Examples**:
-
-List available products:
-
-```json
-{
-  "list_products": true
-}
+```yaml
+knowledgebase:
+  enabled: true
+  database_path: "/path/to/knowledgebase.db"
 ```
 
-Search with single product filter:
+**Parameters**
 
-```json
-{
-  "query": "PostgreSQL window functions",
-  "project_names": ["PostgreSQL"],
-  "top_n": 10
-}
-```
+| Name | Required | Description |
+|------|----------|-------------|
+| `query` | Required unless `list_products` is true | Natural language search query. |
+| `project_names` | Optional | Array of project/product names to filter by (e.g., `["PostgreSQL"]`, `["pgEdge", "pgAdmin"]`). |
+| `project_versions` | Optional | Array of project/product versions to filter by (e.g., `["17"]`, `["16", "17"]`). |
+| `top_n` | Optional | Number of results to return (default: 5, max: 20). |
+| `list_products` | Optional | If true, returns only the list of available products and versions in the knowledgebase (ignores other parameters). |
 
-Search across multiple products and versions:
+**Examples**
+
+In the following example, the `search_knowledgebase` tool searches across multiple products and versions:
 
 ```json
 {
@@ -409,7 +405,7 @@ Search across multiple products and versions:
 }
 ```
 
-**Output** (list_products):
+The search returns:
 
 ```
 Available Products in Knowledgebase
@@ -426,7 +422,16 @@ Product: pgEdge
 Total: 2980 chunks across all products
 ```
 
-**Output** (search):
+In the next example, the `search_knowledgebase` tool searches with a single product filter:
+
+```json
+{
+  "query": "PostgreSQL window functions",
+  "project_names": ["PostgreSQL"],
+  "top_n": 10
+}
+```
+The search returns:
 
 ```
 Knowledgebase Search Results: "PostgreSQL window functions"
@@ -464,60 +469,79 @@ calculation that can be done with an aggregate function...
 Total: 5 results
 ```
 
-**Use Cases**:
 
-- **PostgreSQL Reference**: Find syntax and usage for SQL features
-- **Product Documentation**: Search pgEdge or other product documentation
-- **Best Practices**: Find recommendations and guidelines
-- **Troubleshooting**: Search for error messages and solutions
+## similarity_search
 
-**Configuration**:
+The `similarity_search` tool provides advanced hybrid search combining vector similarity with BM25 lexical matching and MMR diversity filtering. This tool is ideal for searching through large documents like Wikipedia articles without requiring you to pre-chunk data.
 
-Enable in your server configuration file:
+Unlike the previous `semantic_search` and `search_similar` tools, this implementation provides:
 
-```yaml
-knowledgebase:
-  enabled: true
-  database_path: "/path/to/knowledgebase.db"
+* Automatic chunking of large documents at query time (no pre-chunking required).
+* Intelligent weighting that automatically identifies title vs content columns and weights them appropriately.
+* Combined semantic (vector) and lexical (BM25) matching for better results.
+* Maximal Marginal Relevance (MMR) diversity to prevent returning redundant chunks from the same document.
+* Automatic token budget management to respect API rate limits.
+* Compatibility with any table structure.
+
+**Use Cases**
+
+* **Knowledge Base Search**: Find relevant documentation chunks for RAG systems.
+* **Wikipedia/Encyclopedia Search**: Search through large articles efficiently.
+* **Customer Support**: Search through support articles and FAQs.
+* **Research**: Find relevant sections in academic papers or reports.
+* **Code Search**: Find relevant code snippets (if using code embeddings).
+
+`similarity_search` performs the following steps:
+
+1. Automatically detects pgvector columns in your table and corresponding text columns.
+2. Analyzes column names, descriptions, and sample data to identify title vs content columns, weighting content more heavily (70% vs 30%).
+3. Generates embedding from your search query using the configured provider.
+4. Performs weighted semantic search across all vector columns.
+5. Breaks retrieved documents into overlapping chunks (default: 100 tokens per chunk, 25 token overlap).
+6. Scores chunks using BM25 lexical matching for precision.
+7. Applies Maximal Marginal Relevance to avoid returning too many chunks from the same document.
+8. Returns as many relevant chunks as possible within the token limit (default: 1000 tokens).
+
+!!! tip
+
+    If you don't know the exact table name, call `get_schema_info` first to discover available tables with vector columns (use `vector_tables_only=true` to reduce output).
+
+**Note that:**
+
+* The table must have at least one pgvector column.
+* Embedding generation must be enabled in server configuration.
+* Corresponding text columns must exist (e.g., `title` for `title_embedding`).
+
+**Parameters**
+
+| Name | Required | Description |
+|------|----------|-------------|
+| `table_name` | Required | Table to search (can include schema: `'schema.table'`). |
+| `query_text` | Required | Natural language search query. |
+| `top_n` | Optional | Number of rows from vector search (default: 10). |
+| `chunk_size_tokens` | Optional | Maximum tokens per chunk (default: 100). |
+| `lambda` | Optional | MMR diversity parameter - 0.0=max diversity, 1.0=max relevance (default: 0.6). |
+| `max_output_tokens` | Optional | Maximum total tokens to return (default: 1000). |
+| `distance_metric` | Optional | `'cosine'`, `'l2'`, or `'inner_product'` (default: `'cosine'`). |
+
+**Performance Tips**
+
+You can improve tool performance by:
+
+* Creating indexes on vector columns for faster search.
+* Adjusting `top_n` based on your use case (more rows = better recall but slower).
+* Using higher `lambda` (0.7-0.8) for focused queries, lower (0.4-0.5) for exploratory search.
+* Adjusting `chunk_size_tokens` based on your documents (smaller chunks for dense content).
+
+In the following example, the SQL statement creates an index on the vector column for faster search.
+
+```sql
+CREATE INDEX ON wikipedia_articles USING ivfflat (content_embedding vector_cosine_ops);
 ```
 
-See [Knowledgebase Configuration](../advanced/knowledgebase.md) for details on
-building and configuring the documentation knowledgebase.
-
-### similarity_search
-
-**Advanced hybrid search** combining vector similarity with BM25 lexical matching and MMR diversity filtering. This tool is ideal for searching through large documents like Wikipedia articles without requiring users to pre-chunk their data.
-
-**IMPORTANT**: If you don't know the exact table name, call `get_schema_info` first to discover available tables with vector columns (use `vector_tables_only=true` to reduce output).
-
-**How It Works**:
-
-1. **Auto-Discovery**: Automatically detects pgvector columns in your table and corresponding text columns
-2. **Smart Weighting**: Analyzes column names, descriptions, and sample data to identify title vs content columns, weighting content more heavily (70% vs 30%)
-3. **Query Embedding**: Generates embedding from your search query using the configured provider
-4. **Vector Search**: Performs weighted semantic search across all vector columns
-5. **Intelligent Chunking**: Breaks retrieved documents into overlapping chunks (default: 100 tokens per chunk, 25 token overlap)
-6. **BM25 Re-ranking**: Scores chunks using BM25 lexical matching for precision
-7. **MMR Diversity**: Applies Maximal Marginal Relevance to avoid returning too many chunks from the same document
-8. **Token Budget**: Returns as many relevant chunks as possible within the token limit (default: 1000 tokens)
-
-**Prerequisites**:
-
-- Table must have at least one pgvector column
-- Embedding generation must be enabled in server configuration
-- Corresponding text columns must exist (e.g., `title` for `title_embedding`)
-
-**Parameters**:
-
-- `table_name` (required): Table to search (can include schema: `'schema.table'`)
-- `query_text` (required): Natural language search query
-- `top_n` (optional): Number of rows from vector search (default: 10)
-- `chunk_size_tokens` (optional): Maximum tokens per chunk (default: 100)
-- `lambda` (optional): MMR diversity parameter - 0.0=max diversity, 1.0=max relevance (default: 0.6)
-- `max_output_tokens` (optional): Maximum total tokens to return (default: 1000)
-- `distance_metric` (optional): `'cosine'`, `'l2'`, or `'inner_product'` (default: `'cosine'`)
-
 **Example** - Wikipedia Search:
+
+In the following example, the `similarity_search` tool searches Wikipedia articles for information about PostgreSQL vector similarity search.
 
 ```json
 {
@@ -530,10 +554,11 @@ building and configuring the documentation knowledgebase.
 }
 ```
 
-**Example Response**:
+Returns:
 
 {% raw %}
-```
+
+```bash
 Similarity Search Results: "How does PostgreSQL handle vector similarity search?"
 ================================================================================
 
@@ -576,40 +601,3 @@ graph structure that enables fast approximate nearest neighbor search...
 Total: 5 chunks, ~687 tokens
 ```
 {% endraw %}
-
-**Key Features**:
-
-- **No Pre-Chunking Required**: Users don't need to chunk their data in advance - the tool handles it at query time
-- **Smart Column Detection**: Automatically identifies title vs content columns and weights them appropriately
-- **Hybrid Search**: Combines semantic (vector) and lexical (BM25) matching for better results
-- **Diversity Filtering**: Prevents returning redundant chunks from the same document
-- **Token-Aware**: Respects token limits to avoid API rate limit issues
-
-**Use Cases**:
-
-- **Knowledge Base Search**: Find relevant documentation chunks for RAG systems
-- **Wikipedia/Encyclopedia Search**: Search through large articles efficiently
-- **Customer Support**: Search through support articles and FAQs
-- **Research**: Find relevant sections in academic papers or reports
-- **Code Search**: Find relevant code snippets (if using code embeddings)
-
-**Comparison with Old Tools**:
-
-Unlike the previous `semantic_search` and `search_similar` tools, this new implementation:
-
-- Automatically chunks large documents at query time
-- Uses BM25 for improved lexical matching
-- Applies MMR diversity to avoid redundancy
-- Intelligently weights title vs content columns
-- Manages token budgets automatically
-- Works with any table structure (no pre-chunking required)
-
-**Performance Tips**:
-
-- Create indexes on vector columns for faster search:
-  ```sql
-  CREATE INDEX ON wikipedia_articles USING ivfflat (content_embedding vector_cosine_ops);
-  ```
-- Adjust `top_n` based on your use case (more rows = better recall but slower)
-- Use higher `lambda` (0.7-0.8) for focused queries, lower (0.4-0.5) for exploratory search
-- Adjust `chunk_size_tokens` based on your documents (smaller chunks for dense content)
