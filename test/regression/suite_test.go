@@ -9,6 +9,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jedib0t/go-pretty/v6/table"
+	"github.com/jedib0t/go-pretty/v6/text"
 	"github.com/stretchr/testify/suite"
 )
 
@@ -19,6 +21,14 @@ const (
 	LogLevelMinimal  LogLevel = iota // Only test names and status
 	LogLevelDetailed                 // All logs (default)
 )
+
+// TestResult tracks individual test execution details
+type TestResult struct {
+	Name      string
+	Status    string
+	Duration  time.Duration
+	StartTime time.Time
+}
 
 // RegressionTestSuite runs basic regression tests
 type RegressionTestSuite struct {
@@ -36,11 +46,17 @@ type RegressionTestSuite struct {
 		postgresqlInstalled  bool
 		mcpPackagesInstalled bool
 	}
+
+	// Track test results for summary
+	testResults   []TestResult
+	suiteStartTime time.Time
 }
 
 // SetupSuite runs once before all tests
 func (s *RegressionTestSuite) SetupSuite() {
 	s.ctx = context.Background()
+	s.suiteStartTime = time.Now()
+	s.testResults = make([]TestResult, 0)
 
 	// Determine execution mode
 	s.execMode = s.getExecutionMode()
@@ -171,6 +187,13 @@ func (s *RegressionTestSuite) logDetailed(format string, args ...interface{}) {
 func (s *RegressionTestSuite) SetupTest() {
 	s.logDetailed("=== Setting up %s executor for: %s ===", s.execMode.String(), s.T().Name())
 
+	// Track test start time
+	s.testResults = append(s.testResults, TestResult{
+		Name:      s.T().Name(),
+		StartTime: time.Now(),
+		Status:    "RUNNING",
+	})
+
 	var err error
 	s.executor, err = NewExecutor(s.execMode, s.osImage)
 	s.Require().NoError(err, "Failed to create executor")
@@ -183,6 +206,17 @@ func (s *RegressionTestSuite) SetupTest() {
 
 // TearDownTest runs after each test
 func (s *RegressionTestSuite) TearDownTest() {
+	// Update test result with final status and duration
+	if len(s.testResults) > 0 {
+		idx := len(s.testResults) - 1
+		s.testResults[idx].Duration = time.Since(s.testResults[idx].StartTime)
+		if s.T().Failed() {
+			s.testResults[idx].Status = "FAIL"
+		} else {
+			s.testResults[idx].Status = "PASS"
+		}
+	}
+
 	// Always show test result in minimal mode
 	if s.logLevel == LogLevelMinimal {
 		if s.T().Failed() {
@@ -213,13 +247,92 @@ func (s *RegressionTestSuite) TearDownTest() {
 
 // TearDownSuite runs once after all tests
 func (s *RegressionTestSuite) TearDownSuite() {
+	// Always show beautiful summary
+	s.printTestSummary()
+
 	if s.logLevel == LogLevelDetailed {
-		s.T().Log("=== Test suite completed ===")
 		if s.execMode == ModeLocal {
 			s.T().Log("Tests completed on local machine")
 		} else {
 			s.T().Log("All Docker containers have been cleaned up")
 		}
+	}
+}
+
+// printTestSummary displays a beautiful formatted summary of test results
+func (s *RegressionTestSuite) printTestSummary() {
+	totalDuration := time.Since(s.suiteStartTime)
+
+	// Count passes and failures
+	passCount, failCount := 0, 0
+	for _, result := range s.testResults {
+		if result.Status == "PASS" {
+			passCount++
+		} else if result.Status == "FAIL" {
+			failCount++
+		}
+	}
+
+	// Create the summary table
+	t := table.NewWriter()
+	t.SetOutputMirror(os.Stdout)
+	t.SetStyle(table.StyleColoredBright)
+
+	// Configure title
+	t.SetTitle("🧪 pgEdge MCP Regression Test Suite - Summary")
+
+	// Add headers
+	t.AppendHeader(table.Row{"#", "Test Name", "Status", "Duration"})
+
+	// Add test results
+	for i, result := range s.testResults {
+		testName := strings.TrimPrefix(result.Name, "TestRegressionSuite/")
+
+		var status string
+		if result.Status == "PASS" {
+			status = text.FgGreen.Sprintf("✓ PASS")
+		} else if result.Status == "FAIL" {
+			status = text.FgRed.Sprintf("✗ FAIL")
+		} else {
+			status = text.FgYellow.Sprintf("⚠ %s", result.Status)
+		}
+
+		duration := result.Duration.Round(time.Millisecond)
+		t.AppendRow(table.Row{i + 1, testName, status, duration})
+	}
+
+	// Add separator before footer
+	t.AppendSeparator()
+
+	// Add footer with totals
+	totalTests := len(s.testResults)
+	var statusSummary string
+	if failCount > 0 {
+		statusSummary = text.FgRed.Sprintf("%d passed, %d failed", passCount, failCount)
+	} else {
+		statusSummary = text.FgGreen.Sprintf("All %d tests passed! ✨", passCount)
+	}
+
+	t.AppendFooter(table.Row{"", fmt.Sprintf("Total: %d tests", totalTests), statusSummary, totalDuration.Round(time.Millisecond)})
+
+	// Print banner and table
+	fmt.Println("\n" + strings.Repeat("=", 80))
+	t.Render()
+	fmt.Println(strings.Repeat("=", 80))
+
+	// Print execution context
+	fmt.Printf("\n📋 Execution Mode: %s\n", text.FgCyan.Sprint(s.execMode.String()))
+	if s.execMode != ModeLocal {
+		fmt.Printf("🐳 OS Image: %s\n", text.FgCyan.Sprint(s.osImage))
+	}
+	fmt.Printf("📦 Repository: %s\n", text.FgCyan.Sprint(s.repoURL))
+	fmt.Printf("⏱️  Total Duration: %s\n", text.FgCyan.Sprint(totalDuration.Round(time.Millisecond)))
+
+	// Print final status
+	if failCount > 0 {
+		fmt.Printf("\n%s\n\n", text.FgRed.Sprint("❌ TEST SUITE FAILED"))
+	} else {
+		fmt.Printf("\n%s\n\n", text.FgGreen.Sprint("✅ TEST SUITE PASSED"))
 	}
 }
 
