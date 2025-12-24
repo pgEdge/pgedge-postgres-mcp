@@ -79,6 +79,7 @@ help:
 	@echo "Environment variables:"
 	@echo "  TEST_EXEC_MODE       - Execution mode: container, container-systemd, local"
 	@echo "  TEST_OS_IMAGE        - Docker image to test (e.g., debian:12)"
+	@echo "  TEST_LOG_LEVEL       - Log verbosity: minimal (summary only) or detailed (default)"
 	@echo "  PGEDGE_REPO_URL      - Repository URL for packages"
 	@echo "  CI                   - Set to disable interactive prompts"
 	@echo ""
@@ -86,3 +87,4 @@ help:
 	@echo "  make test-systemd                                    # Systemd container"
 	@echo "  TEST_OS_IMAGE=ubuntu:22.04 make test-systemd         # Ubuntu with systemd"
 	@echo "  TEST_EXEC_MODE=local make test                       # Local execution"
+	@echo "  TEST_LOG_LEVEL=minimal make test-rocky               # Summary output only"

@@ -12,6 +12,14 @@ import (
 	"github.com/stretchr/testify/suite"
 )
 
+// LogLevel defines the verbosity of test output
+type LogLevel int
+
+const (
+	LogLevelMinimal  LogLevel = iota // Only test names and status
+	LogLevelDetailed                 // All logs (default)
+)
+
 // RegressionTestSuite runs basic regression tests
 type RegressionTestSuite struct {
 	suite.Suite
@@ -20,6 +28,14 @@ type RegressionTestSuite struct {
 	osImage  string
 	repoURL  string
 	execMode ExecutionMode
+	logLevel LogLevel
+
+	// Track setup state to avoid redundant operations
+	setupState struct {
+		repoInstalled        bool
+		postgresqlInstalled  bool
+		mcpPackagesInstalled bool
+	}
 }
 
 // SetupSuite runs once before all tests
@@ -28,6 +44,17 @@ func (s *RegressionTestSuite) SetupSuite() {
 
 	// Determine execution mode
 	s.execMode = s.getExecutionMode()
+
+	// Determine log level from environment
+	logLevelStr := strings.ToLower(os.Getenv("TEST_LOG_LEVEL"))
+	switch logLevelStr {
+	case "minimal", "min", "summary":
+		s.logLevel = LogLevelMinimal
+	case "detailed", "detail", "verbose", "":
+		s.logLevel = LogLevelDetailed
+	default:
+		s.logLevel = LogLevelDetailed
+	}
 
 	// Get OS image from environment or use default (only for container modes)
 	s.osImage = os.Getenv("TEST_OS_IMAGE")
@@ -41,11 +68,13 @@ func (s *RegressionTestSuite) SetupSuite() {
 		s.repoURL = "https://apt.pgedge.com" // Example repo URL
 	}
 
-	s.T().Logf("Execution mode: %s", s.execMode.String())
-	if s.execMode != ModeLocal {
-		s.T().Logf("Testing with OS image: %s", s.osImage)
+	if s.logLevel == LogLevelDetailed {
+		s.T().Logf("Execution mode: %s", s.execMode.String())
+		if s.execMode != ModeLocal {
+			s.T().Logf("Testing with OS image: %s", s.osImage)
+		}
+		s.T().Logf("Using repository: %s", s.repoURL)
 	}
-	s.T().Logf("Using repository: %s", s.repoURL)
 }
 
 // getExecutionMode determines the execution mode from environment or user prompt
@@ -131,9 +160,16 @@ func (s *RegressionTestSuite) promptExecutionMode() ExecutionMode {
 	}
 }
 
+// logDetailed logs only when in detailed mode
+func (s *RegressionTestSuite) logDetailed(format string, args ...interface{}) {
+	if s.logLevel == LogLevelDetailed {
+		s.T().Logf(format, args...)
+	}
+}
+
 // SetupTest runs before each test
 func (s *RegressionTestSuite) SetupTest() {
-	s.T().Logf("=== Setting up %s executor for: %s ===", s.execMode.String(), s.T().Name())
+	s.logDetailed("=== Setting up %s executor for: %s ===", s.execMode.String(), s.T().Name())
 
 	var err error
 	s.executor, err = NewExecutor(s.execMode, s.osImage)
@@ -142,14 +178,23 @@ func (s *RegressionTestSuite) SetupTest() {
 	err = s.executor.Start(s.ctx)
 	s.Require().NoError(err, "Failed to start executor")
 
-	s.T().Logf("Executor (%s) started successfully", s.execMode.String())
+	s.logDetailed("Executor (%s) started successfully", s.execMode.String())
 }
 
 // TearDownTest runs after each test
 func (s *RegressionTestSuite) TearDownTest() {
+	// Always show test result in minimal mode
+	if s.logLevel == LogLevelMinimal {
+		if s.T().Failed() {
+			s.T().Logf("%-50s ✗ FAIL", s.T().Name())
+		} else {
+			s.T().Logf("%-50s ✓ PASS", s.T().Name())
+		}
+	}
+
 	if s.executor != nil {
 		if s.T().Failed() {
-			// Print logs on failure
+			// Print logs on failure (even in minimal mode for debugging)
 			logs, _ := s.executor.GetLogs(s.ctx)
 			s.T().Logf("Executor logs:\n%s", logs)
 		}
@@ -159,20 +204,22 @@ func (s *RegressionTestSuite) TearDownTest() {
 
 		// Cleanup executor
 		if err := s.executor.Cleanup(ctx); err != nil {
-			s.T().Logf("Warning: Executor cleanup failed: %v", err)
+			s.logDetailed("Warning: Executor cleanup failed: %v", err)
 		} else {
-			s.T().Logf("Executor cleaned up successfully")
+			s.logDetailed("Executor cleaned up successfully")
 		}
 	}
 }
 
 // TearDownSuite runs once after all tests
 func (s *RegressionTestSuite) TearDownSuite() {
-	s.T().Log("=== Test suite completed ===")
-	if s.execMode == ModeLocal {
-		s.T().Log("Tests completed on local machine")
-	} else {
-		s.T().Log("All Docker containers have been cleaned up")
+	if s.logLevel == LogLevelDetailed {
+		s.T().Log("=== Test suite completed ===")
+		if s.execMode == ModeLocal {
+			s.T().Log("Tests completed on local machine")
+		} else {
+			s.T().Log("All Docker containers have been cleaned up")
+		}
 	}
 }
 
@@ -226,11 +273,59 @@ func (s *RegressionTestSuite) getOSType() (isDebian bool, isRHEL bool) {
 }
 
 // ========================================================================
+// Helper Methods for Setup (with state tracking)
+// ========================================================================
+
+// ensureRepositoryInstalled ensures the repository is installed (runs only once)
+func (s *RegressionTestSuite) ensureRepositoryInstalled() {
+	if s.setupState.repoInstalled {
+		return // Already installed
+	}
+
+	s.logDetailed("Installing pgEdge repository...")
+	s.installRepository()
+	s.setupState.repoInstalled = true
+}
+
+// ensurePostgreSQLInstalled ensures PostgreSQL is installed (runs only once)
+func (s *RegressionTestSuite) ensurePostgreSQLInstalled() {
+	if s.setupState.postgresqlInstalled {
+		return // Already installed
+	}
+
+	// PostgreSQL requires repository first
+	s.ensureRepositoryInstalled()
+
+	s.logDetailed("Installing and configuring PostgreSQL...")
+	s.installPostgreSQL()
+	s.setupState.postgresqlInstalled = true
+}
+
+// ensureMCPPackagesInstalled ensures MCP packages are installed (runs only once)
+func (s *RegressionTestSuite) ensureMCPPackagesInstalled() {
+	if s.setupState.mcpPackagesInstalled {
+		return // Already installed
+	}
+
+	// MCP packages require PostgreSQL first
+	s.ensurePostgreSQLInstalled()
+
+	s.logDetailed("Installing MCP server packages...")
+	s.installMCPPackages()
+	s.setupState.mcpPackagesInstalled = true
+}
+
+// ========================================================================
 // TEST 01: Repository Installation
 // ========================================================================
 func (s *RegressionTestSuite) Test01_RepositoryInstallation() {
 	s.T().Log("TEST 01: Installing pgEdge repository")
+	s.ensureRepositoryInstalled()
+	s.T().Log("✓ Repository installed successfully")
+}
 
+// installRepository performs the actual repository installation
+func (s *RegressionTestSuite) installRepository() {
 	// Determine package manager based on OS type
 	isDebian, isRHEL := s.getOSType()
 
@@ -288,8 +383,6 @@ func (s *RegressionTestSuite) Test01_RepositoryInstallation() {
 	} else {
 		s.Fail("Unsupported OS")
 	}
-
-	s.T().Log("✓ Repository installed successfully")
 }
 
 // ========================================================================
@@ -297,14 +390,17 @@ func (s *RegressionTestSuite) Test01_RepositoryInstallation() {
 // ========================================================================
 func (s *RegressionTestSuite) Test02_PostgreSQLSetup() {
 	s.T().Log("TEST 02: Installing and configuring pgEdge PostgreSQL")
+	s.ensurePostgreSQLInstalled()
+	s.T().Log("✓ PostgreSQL installed and configured successfully")
+}
 
-	// First install repository (this test can run independently)
-	s.Test01_RepositoryInstallation()
+// installPostgreSQL performs the actual PostgreSQL installation
+func (s *RegressionTestSuite) installPostgreSQL() {
 
 	isDebian, _ := s.getOSType()
 
 	// Step 1: Install PostgreSQL packages
-	s.T().Log("Step 1: Installing PostgreSQL packages")
+	s.logDetailed("Step 1: Installing PostgreSQL packages")
 	var pgPackages []string
 	if isDebian {
 		pgPackages = []string{
@@ -324,7 +420,7 @@ func (s *RegressionTestSuite) Test02_PostgreSQLSetup() {
 	}
 
 	// Step 2: Initialize PostgreSQL database
-	s.T().Log("Step 2: Initializing PostgreSQL database")
+	s.logDetailed("Step 2: Initializing PostgreSQL database")
 	if isDebian {
 		// Debian/Ubuntu initialization
 		output, exitCode, err := s.execCmd(s.ctx, "pg_ctlcluster 18 main start")
@@ -334,7 +430,7 @@ func (s *RegressionTestSuite) Test02_PostgreSQLSetup() {
 		// RHEL/Rocky initialization (manual, not systemd)
 
 		// Stop any existing PostgreSQL instance
-		s.T().Log("  Stopping any existing PostgreSQL instances...")
+		s.logDetailed("  Stopping any existing PostgreSQL instances...")
 		stopCmd := "su - postgres -c '/usr/pgsql-18/bin/pg_ctl -D /var/lib/pgsql/18/data stop' 2>/dev/null || true"
 		s.execCmd(s.ctx, stopCmd) // Ignore errors
 
@@ -345,12 +441,12 @@ func (s *RegressionTestSuite) Test02_PostgreSQLSetup() {
 		time.Sleep(2 * time.Second)
 
 		// Remove existing data directory if it exists
-		s.T().Log("  Cleaning up existing data directory...")
+		s.logDetailed("  Cleaning up existing data directory...")
 		cleanupCmd := "rm -rf /var/lib/pgsql/18/data"
 		s.execCmd(s.ctx, cleanupCmd)
 
 		// Initialize database
-		s.T().Log("  Initializing new PostgreSQL 18 database...")
+		s.logDetailed("  Initializing new PostgreSQL 18 database...")
 		initCmd := "su - postgres -c '/usr/pgsql-18/bin/initdb -D /var/lib/pgsql/18/data'"
 		output, exitCode, err := s.execCmd(s.ctx, initCmd)
 		s.NoError(err, "PostgreSQL initdb failed: %s", output)
@@ -363,7 +459,7 @@ func (s *RegressionTestSuite) Test02_PostgreSQLSetup() {
 		s.Equal(0, exitCode, "pg_hba.conf config failed: %s", output)
 
 		// Start PostgreSQL manually
-		s.T().Log("  Starting PostgreSQL 18...")
+		s.logDetailed("  Starting PostgreSQL 18...")
 		startCmd := "su - postgres -c '/usr/pgsql-18/bin/pg_ctl -D /var/lib/pgsql/18/data -l /var/lib/pgsql/18/data/logfile start'"
 		output, exitCode, err = s.execCmd(s.ctx, startCmd)
 		s.NoError(err, "PostgreSQL start failed: %s", output)
@@ -374,14 +470,14 @@ func (s *RegressionTestSuite) Test02_PostgreSQLSetup() {
 	}
 
 	// Step 3: Set postgres user password
-	s.T().Log("Step 3: Setting postgres user password")
+	s.logDetailed("Step 3: Setting postgres user password")
 	setPwCmd := `su - postgres -c "psql -c \"ALTER USER postgres WITH PASSWORD 'postgres123';\""`
 	output, exitCode, err := s.execCmd(s.ctx, setPwCmd)
 	s.NoError(err, "Failed to set postgres password: %s", output)
 	s.Equal(0, exitCode, "Set password failed: %s", output)
 
 	// Step 4: Create MCP database
-	s.T().Log("Step 4: Creating MCP database")
+	s.logDetailed("Step 4: Creating MCP database")
 	// First, try to drop the database if it exists
 	dropDbCmd := `su - postgres -c "psql -c \"DROP DATABASE IF EXISTS mcp_server;\""`
 	s.execCmd(s.ctx, dropDbCmd) // Ignore errors
@@ -390,8 +486,6 @@ func (s *RegressionTestSuite) Test02_PostgreSQLSetup() {
 	output, exitCode, err = s.execCmd(s.ctx, createDbCmd)
 	s.NoError(err, "Failed to create MCP database: %s", output)
 	s.Equal(0, exitCode, "Create database failed: %s", output)
-
-	s.T().Log("✓ PostgreSQL installed and configured successfully")
 }
 
 // ========================================================================
@@ -399,14 +493,17 @@ func (s *RegressionTestSuite) Test02_PostgreSQLSetup() {
 // ========================================================================
 func (s *RegressionTestSuite) Test03_MCPServerInstallation() {
 	s.T().Log("TEST 03: Installing MCP server packages")
+	s.ensureMCPPackagesInstalled()
+	s.T().Log("✓ All MCP server packages installed and configured successfully")
+}
 
-	// First setup PostgreSQL
-	s.Test02_PostgreSQLSetup()
+// installMCPPackages performs the actual MCP package installation
+func (s *RegressionTestSuite) installMCPPackages() {
 
 	isDebian, _ := s.getOSType()
 
 	// Step 1: Install MCP server packages
-	s.T().Log("Step 1: Installing MCP server packages")
+	s.logDetailed("Step 1: Installing MCP server packages")
 	var packages []string
 	if isDebian {
 		packages = []string{
@@ -431,7 +528,7 @@ func (s *RegressionTestSuite) Test03_MCPServerInstallation() {
 	}
 
 	// Step 2: Update MCP server configuration
-	s.T().Log("Step 2: Updating MCP server configuration files")
+	s.logDetailed("Step 2: Updating MCP server configuration files")
 
 	// Update postgres-mcp.yaml
 	yamlConfig := `cat > /etc/pgedge/postgres-mcp.yaml << 'EOF'
@@ -462,8 +559,6 @@ EOF`
 	output, exitCode, err = s.execCmd(s.ctx, envConfig)
 	s.NoError(err, "Failed to update postgres-mcp.env: %s", output)
 	s.Equal(0, exitCode, "Update env failed: %s", output)
-
-	s.T().Log("✓ All MCP server packages installed and configured successfully")
 }
 
 // ========================================================================
@@ -472,8 +567,8 @@ EOF`
 func (s *RegressionTestSuite) Test04_InstallationValidation() {
 	s.T().Log("TEST 04: Validating MCP server installation")
 
-	// Install package first
-	s.Test03_MCPServerInstallation()
+	// Ensure packages are installed
+	s.ensureMCPPackagesInstalled()
 
 	// Check 1: Binary exists and is executable
 	output, exitCode, err := s.execCmd(s.ctx, "test -x /usr/bin/pgedge-postgres-mcp && echo 'OK'")
@@ -519,8 +614,8 @@ func (s *RegressionTestSuite) Test04_InstallationValidation() {
 func (s *RegressionTestSuite) Test05_TokenManagement() {
 	s.T().Log("TEST 05: Testing token management commands")
 
-	// Install package first
-	s.Test03_MCPServerInstallation()
+	// Ensure packages are installed
+	s.ensureMCPPackagesInstalled()
 
 	// Test 1: Create token (using config file for database connection)
 	createCmd := `/usr/bin/pgedge-postgres-mcp -config /etc/pgedge/postgres-mcp.yaml -add-token -token-file /etc/pgedge/pgedge-postgres-mcp-tokens.yaml -token-note "test-token"`
@@ -557,8 +652,8 @@ func (s *RegressionTestSuite) Test05_TokenManagement() {
 func (s *RegressionTestSuite) Test06_UserManagement() {
 	s.T().Log("TEST 06: Testing user management commands")
 
-	// Install package first
-	s.Test03_MCPServerInstallation()
+	// Ensure packages are installed
+	s.ensureMCPPackagesInstalled()
 
 	// Test 1: Create user (using config file for database connection)
 	createCmd := `/usr/bin/pgedge-postgres-mcp -config /etc/pgedge/postgres-mcp.yaml -add-user -user-file /etc/pgedge/pgedge-postgres-mcp-users.yaml -username testuser -password testpass123 -user-note "test user"`
@@ -595,8 +690,8 @@ func (s *RegressionTestSuite) Test06_UserManagement() {
 func (s *RegressionTestSuite) Test07_PackageFilesVerification() {
 	s.T().Log("TEST 07: Verifying installed package files and permissions")
 
-	// Ensure packages are installed first
-	s.Test03_MCPServerInstallation()
+	// Ensure packages are installed
+	s.ensureMCPPackagesInstalled()
 
 	// ====================================================================
 	// 1. Verify binaries in /usr/bin with executable permissions
@@ -846,8 +941,8 @@ func (s *RegressionTestSuite) Test07_PackageFilesVerification() {
 func (s *RegressionTestSuite) Test08_ServiceManagement() {
 	s.T().Log("TEST 08: Testing MCP server service management")
 
-	// Ensure packages are installed first
-	s.Test03_MCPServerInstallation()
+	// Ensure packages are installed
+	s.ensureMCPPackagesInstalled()
 
 	// Determine if we can use systemd based on execution mode
 	canUseSystemd := s.execMode == ModeContainerSystemd || s.execMode == ModeLocal
@@ -858,7 +953,7 @@ func (s *RegressionTestSuite) Test08_ServiceManagement() {
 		// ====================================================================
 		// 1. Reload systemd daemon to recognize the new service
 		// ====================================================================
-		s.T().Log("Step 1: Reloading systemd daemon...")
+		s.logDetailed("Step 1: Reloading systemd daemon...")
 		output, exitCode, err := s.execCmd(s.ctx, "systemctl daemon-reload")
 		s.NoError(err, "Failed to reload systemd daemon: %s", output)
 		s.Equal(0, exitCode, "systemctl daemon-reload failed: %s", output)
@@ -866,7 +961,7 @@ func (s *RegressionTestSuite) Test08_ServiceManagement() {
 		// ====================================================================
 		// 2. Enable the service (so it starts on boot)
 		// ====================================================================
-		s.T().Log("Step 2: Enabling pgedge-postgres-mcp service...")
+		s.logDetailed("Step 2: Enabling pgedge-postgres-mcp service...")
 		output, exitCode, err = s.execCmd(s.ctx, "systemctl enable pgedge-postgres-mcp.service")
 		s.NoError(err, "Failed to enable service: %s", output)
 		s.Equal(0, exitCode, "systemctl enable failed: %s", output)
@@ -874,7 +969,7 @@ func (s *RegressionTestSuite) Test08_ServiceManagement() {
 		// ====================================================================
 		// 3. Start the service
 		// ====================================================================
-		s.T().Log("Step 3: Starting pgedge-postgres-mcp service...")
+		s.logDetailed("Step 3: Starting pgedge-postgres-mcp service...")
 		output, exitCode, err = s.execCmd(s.ctx, "systemctl start pgedge-postgres-mcp.service")
 		s.NoError(err, "Failed to start service: %s", output)
 		s.Equal(0, exitCode, "systemctl start failed: %s", output)
@@ -885,7 +980,7 @@ func (s *RegressionTestSuite) Test08_ServiceManagement() {
 		// ====================================================================
 		// 4. Check service status
 		// ====================================================================
-		s.T().Log("Step 4: Checking service status...")
+		s.logDetailed("Step 4: Checking service status...")
 		output, exitCode, err = s.execCmd(s.ctx, "systemctl status pgedge-postgres-mcp.service")
 		// Note: systemctl status returns 0 if active, 3 if not running, 4 if unknown
 		if exitCode != 0 {
@@ -897,7 +992,7 @@ func (s *RegressionTestSuite) Test08_ServiceManagement() {
 		// ====================================================================
 		// 5. Verify service is active
 		// ====================================================================
-		s.T().Log("Step 5: Verifying service is active...")
+		s.logDetailed("Step 5: Verifying service is active...")
 		output, exitCode, err = s.execCmd(s.ctx, "systemctl is-active pgedge-postgres-mcp.service")
 		s.NoError(err, "Failed to check if service is active: %s", output)
 		s.Equal(0, exitCode, "Service is not active: %s", output)
@@ -908,7 +1003,7 @@ func (s *RegressionTestSuite) Test08_ServiceManagement() {
 		// ====================================================================
 		// 6. Check if service is listening on the configured port
 		// ====================================================================
-		s.T().Log("Step 6: Verifying service is listening on port 8080...")
+		s.logDetailed("Step 6: Verifying service is listening on port 8080...")
 		// Try multiple times with a small delay
 		var portCheckSuccess bool
 		for i := 0; i < 5; i++ {
@@ -931,7 +1026,7 @@ func (s *RegressionTestSuite) Test08_ServiceManagement() {
 		// ====================================================================
 		// 7. Test HTTP endpoint (basic connectivity)
 		// ====================================================================
-		s.T().Log("Step 7: Testing HTTP endpoint connectivity...")
+		s.logDetailed("Step 7: Testing HTTP endpoint connectivity...")
 		output, exitCode, err = s.execCmd(s.ctx, "curl -s -o /dev/null -w '%{http_code}' http://localhost:8080/ || echo 'curl_failed'")
 		if exitCode == 0 && !strings.Contains(output, "curl_failed") {
 			s.T().Logf("  ✓ HTTP endpoint responded with status: %s", strings.TrimSpace(output))
@@ -948,7 +1043,7 @@ func (s *RegressionTestSuite) Test08_ServiceManagement() {
 		// ====================================================================
 		// 1. Start the service manually in the background
 		// ====================================================================
-		s.T().Log("Step 1: Starting pgedge-postgres-mcp manually...")
+		s.logDetailed("Step 1: Starting pgedge-postgres-mcp manually...")
 
 		// Create a simple script to run the service
 		startScript := `cat > /tmp/start-mcp.sh << 'EOF'
@@ -976,7 +1071,7 @@ EOF`
 		// ====================================================================
 		// 2. Check if process is running
 		// ====================================================================
-		s.T().Log("Step 2: Checking if service process is running...")
+		s.logDetailed("Step 2: Checking if service process is running...")
 		output, exitCode, err = s.execCmd(s.ctx, "ps aux | grep pgedge-postgres-mcp | grep -v grep")
 		s.NoError(err, "Failed to check process status: %s", output)
 		s.Equal(0, exitCode, "Service process is not running: %s", output)
@@ -987,7 +1082,7 @@ EOF`
 		// ====================================================================
 		// 3. Check if service is listening on the configured port
 		// ====================================================================
-		s.T().Log("Step 3: Verifying service is listening on port 8080...")
+		s.logDetailed("Step 3: Verifying service is listening on port 8080...")
 		var portCheckSuccess bool
 		for i := 0; i < 5; i++ {
 			output, exitCode, _ = s.execCmd(s.ctx, "ss -tlnp | grep :8080 || netstat -tlnp | grep :8080 || true")
@@ -1009,7 +1104,7 @@ EOF`
 		// ====================================================================
 		// 4. Test HTTP endpoint (basic connectivity)
 		// ====================================================================
-		s.T().Log("Step 4: Testing HTTP endpoint connectivity...")
+		s.logDetailed("Step 4: Testing HTTP endpoint connectivity...")
 		output, exitCode, err = s.execCmd(s.ctx, "curl -s -o /dev/null -w '%{http_code}' http://localhost:8080/ || echo 'curl_failed'")
 		if exitCode == 0 && !strings.Contains(output, "curl_failed") {
 			s.T().Logf("  ✓ HTTP endpoint responded with status: %s", strings.TrimSpace(output))
@@ -1020,7 +1115,7 @@ EOF`
 		// ====================================================================
 		// 5. Stop the service (cleanup)
 		// ====================================================================
-		s.T().Log("Step 5: Stopping service (cleanup)...")
+		s.logDetailed("Step 5: Stopping service (cleanup)...")
 		output, exitCode, err = s.execCmd(s.ctx, "kill $(cat /tmp/mcp-server.pid 2>/dev/null) 2>/dev/null || true")
 		s.NoError(err, "Failed to stop service: %s", output)
 
