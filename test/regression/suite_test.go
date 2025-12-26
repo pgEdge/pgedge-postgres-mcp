@@ -102,16 +102,14 @@ func (s *RegressionTestSuite) SetupSuite() {
 		s.osImage = "debian:12" // Default to Debian 12 for containers
 	}
 
-	// Set repository URL based on OS type
-	s.setRepositoryURL()
-
+	// Note: Repository URL will be set later when we can detect OS type
+	// For now, just log what we know
 	if s.logLevel == LogLevelDetailed {
 		s.T().Logf("Execution mode: %s", s.execMode.String())
 		if s.execMode != ModeLocal {
 			s.T().Logf("Testing with OS image: %s", s.osImage)
 		}
 		s.T().Logf("Server environment: %s", s.serverEnv.String())
-		s.T().Logf("Using repository: %s", s.repoURL)
 	}
 }
 
@@ -566,6 +564,9 @@ func (s *RegressionTestSuite) Test01_RepositoryInstallation() {
 
 // installRepository performs the actual repository installation
 func (s *RegressionTestSuite) installRepository() {
+	// Set the repository URL now that we have an executor
+	s.setRepositoryURL()
+
 	// Determine package manager based on OS type
 	isDebian, isRHEL := s.getOSType()
 
