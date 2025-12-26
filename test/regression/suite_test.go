@@ -593,17 +593,17 @@ func (s *RegressionTestSuite) installRepository() {
 			s.logDetailed("Modifying repository configuration for staging environment...")
 			// Replace 'release' with 'staging' in the repo file
 			sedCmd := "sed -i 's/\\/release\\//\\/staging\\//g' /etc/yum.repos.d/pgedge.repo"
-			output, exitCode, err := s.execCmd(s.ctx, sedCmd)
-			s.NoError(err, "Failed to modify repo file: %s", output)
-			s.Equal(0, exitCode, "Failed to modify repo file: %s", output)
+			sedOutput, sedExitCode, sedErr := s.execCmd(s.ctx, sedCmd)
+			s.NoError(sedErr, "Failed to modify repo file: %s", sedOutput)
+			s.Equal(0, sedExitCode, "Failed to modify repo file: %s", sedOutput)
 		}
 
 		// Update metadata
-		output, _, err := s.execCmd(s.ctx, "dnf check-update || true")
+		_, _, err := s.execCmd(s.ctx, "dnf check-update || true")
 		s.NoError(err, "Failed to update DNF metadata")
 
 		// Verify repository is available
-		output, exitCode, err = s.execCmd(s.ctx, "dnf search pgedge-postgres-mcp")
+		output, exitCode, err := s.execCmd(s.ctx, "dnf search pgedge-postgres-mcp")
 		s.NoError(err)
 		s.Equal(0, exitCode)
 		s.Contains(output, "pgedge-postgres-mcp", "Package should be available in repo")
