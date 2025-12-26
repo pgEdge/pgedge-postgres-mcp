@@ -1,6 +1,7 @@
 package regression
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -11,6 +12,7 @@ import (
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/mount"
 	"github.com/docker/docker/client"
+	"github.com/docker/docker/pkg/stdcopy"
 )
 
 // ContainerExecutor runs tests in a Docker container
@@ -30,17 +32,12 @@ func NewContainerExecutor(image string, enableSystemd bool) (*ContainerExecutor,
 		return nil, fmt.Errorf("failed to create Docker client: %w", err)
 	}
 
-	mode := ModeContainer
-	if enableSystemd {
-		mode = ModeContainerSystemd
-	}
-
 	return &ContainerExecutor{
 		cli:     cli,
 		image:   image,
 		name:    fmt.Sprintf("mcp-test-%d", time.Now().Unix()),
 		systemd: enableSystemd,
-		mode:    mode,
+		mode:    ModeContainerSystemd,
 	}, nil
 }
 
@@ -140,18 +137,24 @@ func (c *ContainerExecutor) Exec(ctx context.Context, cmd string) (string, int, 
 	}
 	defer resp.Close()
 
-	output, err := io.ReadAll(resp.Reader)
+	// Docker multiplexes stdout and stderr with 8-byte headers
+	// Use stdcopy to properly demultiplex the streams
+	var stdout, stderr bytes.Buffer
+	_, err = stdcopy.StdCopy(&stdout, &stderr, resp.Reader)
 	if err != nil {
 		return "", 0, fmt.Errorf("failed to read output: %w", err)
 	}
 
+	// Combine stdout and stderr
+	output := stdout.String() + stderr.String()
+
 	// Get exit code
 	inspect, err := c.cli.ContainerExecInspect(ctx, execID.ID)
 	if err != nil {
-		return string(output), 0, err
+		return output, 0, err
 	}
 
-	return string(output), inspect.ExitCode, nil
+	return output, inspect.ExitCode, nil
 }
 
 // Cleanup stops and removes the container

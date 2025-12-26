@@ -9,10 +9,8 @@ import (
 type ExecutionMode int
 
 const (
-	// ModeContainer runs tests in a Docker container
-	ModeContainer ExecutionMode = iota
 	// ModeContainerSystemd runs tests in a systemd-enabled container
-	ModeContainerSystemd
+	ModeContainerSystemd ExecutionMode = iota
 	// ModeLocal runs tests on the local machine
 	ModeLocal
 )
@@ -20,8 +18,6 @@ const (
 // String returns the string representation of the execution mode
 func (m ExecutionMode) String() string {
 	switch m {
-	case ModeContainer:
-		return "container"
 	case ModeContainerSystemd:
 		return "container-systemd"
 	case ModeLocal:
@@ -52,8 +48,6 @@ type Executor interface {
 // NewExecutor creates an executor based on the execution mode
 func NewExecutor(mode ExecutionMode, osImage string) (Executor, error) {
 	switch mode {
-	case ModeContainer:
-		return NewContainerExecutor(osImage, false)
 	case ModeContainerSystemd:
 		return NewContainerExecutor(osImage, true)
 	case ModeLocal:
