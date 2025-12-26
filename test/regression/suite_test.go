@@ -22,6 +22,26 @@ const (
 	LogLevelDetailed                 // All logs (default)
 )
 
+// ServerEnvironment defines whether to use staging or live repositories
+type ServerEnvironment int
+
+const (
+	EnvLive    ServerEnvironment = iota // Production/live repositories
+	EnvStaging                          // Staging repositories
+)
+
+// String returns the string representation of ServerEnvironment
+func (e ServerEnvironment) String() string {
+	switch e {
+	case EnvLive:
+		return "live"
+	case EnvStaging:
+		return "staging"
+	default:
+		return "unknown"
+	}
+}
+
 // TestResult tracks individual test execution details
 type TestResult struct {
 	Name      string
@@ -33,12 +53,13 @@ type TestResult struct {
 // RegressionTestSuite runs basic regression tests
 type RegressionTestSuite struct {
 	suite.Suite
-	ctx      context.Context
-	executor Executor
-	osImage  string
-	repoURL  string
-	execMode ExecutionMode
-	logLevel LogLevel
+	ctx       context.Context
+	executor  Executor
+	osImage   string
+	repoURL   string
+	execMode  ExecutionMode
+	logLevel  LogLevel
+	serverEnv ServerEnvironment
 
 	// Track setup state to avoid redundant operations
 	setupState struct {
@@ -48,7 +69,7 @@ type RegressionTestSuite struct {
 	}
 
 	// Track test results for summary
-	testResults   []TestResult
+	testResults    []TestResult
 	suiteStartTime time.Time
 }
 
@@ -60,6 +81,9 @@ func (s *RegressionTestSuite) SetupSuite() {
 
 	// Determine execution mode
 	s.execMode = s.getExecutionMode()
+
+	// Determine server environment (staging vs live)
+	s.serverEnv = s.getServerEnvironment()
 
 	// Determine log level from environment
 	logLevelStr := strings.ToLower(os.Getenv("TEST_LOG_LEVEL"))
@@ -89,6 +113,7 @@ func (s *RegressionTestSuite) SetupSuite() {
 		if s.execMode != ModeLocal {
 			s.T().Logf("Testing with OS image: %s", s.osImage)
 		}
+		s.T().Logf("Server environment: %s", s.serverEnv.String())
 		s.T().Logf("Using repository: %s", s.repoURL)
 	}
 }
@@ -122,6 +147,65 @@ func (s *RegressionTestSuite) getExecutionMode() ExecutionMode {
 // isCI checks if running in CI environment
 func (s *RegressionTestSuite) isCI() bool {
 	return os.Getenv("CI") != "" || os.Getenv("GITHUB_ACTIONS") != ""
+}
+
+// getServerEnvironment determines the server environment from environment or user prompt
+func (s *RegressionTestSuite) getServerEnvironment() ServerEnvironment {
+	// Check environment variable first
+	envStr := os.Getenv("TEST_SERVER_ENV")
+	if envStr != "" {
+		switch strings.ToLower(envStr) {
+		case "live", "production", "prod":
+			return EnvLive
+		case "staging", "stage", "stg":
+			return EnvStaging
+		default:
+			s.T().Logf("Warning: Unknown TEST_SERVER_ENV '%s', prompting user", envStr)
+		}
+	}
+
+	// If not in CI and no environment variable, prompt the user
+	if !s.isCI() {
+		return s.promptServerEnvironment()
+	}
+
+	// Default to live for CI
+	return EnvLive
+}
+
+// promptServerEnvironment prompts the user to select server environment
+func (s *RegressionTestSuite) promptServerEnvironment() ServerEnvironment {
+	fmt.Println("\n=== Server Environment Selection ===")
+	fmt.Println("Please select which server environment to use:")
+	fmt.Println()
+	fmt.Println("1. Live/Production - Use production repositories")
+	fmt.Println("2. Staging - Use staging repositories for testing")
+	fmt.Println()
+	fmt.Print("Enter your choice [1-2] (default: 1): ")
+
+	reader := bufio.NewReader(os.Stdin)
+	input, err := reader.ReadString('\n')
+	if err != nil {
+		s.T().Logf("Error reading input, using default (live): %v", err)
+		return EnvLive
+	}
+
+	input = strings.TrimSpace(input)
+	if input == "" {
+		input = "1"
+	}
+
+	switch input {
+	case "1":
+		fmt.Println("Selected: Live/Production")
+		return EnvLive
+	case "2":
+		fmt.Println("Selected: Staging")
+		return EnvStaging
+	default:
+		fmt.Printf("Invalid choice '%s', using default (live)\n", input)
+		return EnvLive
+	}
 }
 
 // promptExecutionMode prompts the user to select execution mode
@@ -325,6 +409,14 @@ func (s *RegressionTestSuite) printTestSummary() {
 	if s.execMode != ModeLocal {
 		fmt.Printf("🐳 OS Image: %s\n", text.FgCyan.Sprint(s.osImage))
 	}
+
+	// Show server environment with appropriate emoji
+	envEmoji := "🟢"
+	if s.serverEnv == EnvStaging {
+		envEmoji = "🟡"
+	}
+	fmt.Printf("%s Server Environment: %s\n", envEmoji, text.FgCyan.Sprint(s.serverEnv.String()))
+
 	fmt.Printf("📦 Repository: %s\n", text.FgCyan.Sprint(s.repoURL))
 	fmt.Printf("⏱️  Total Duration: %s\n", text.FgCyan.Sprint(totalDuration.Round(time.Millisecond)))
 
@@ -448,11 +540,17 @@ func (s *RegressionTestSuite) installRepository() {
 
 	if isDebian {
 		// Debian/Ubuntu: Install repository
+		// Determine repo component based on server environment
+		component := "release"
+		if s.serverEnv == EnvStaging {
+			component = "staging"
+		}
+
 		commands := []string{
 			"apt-get update",
 			"apt-get install -y wget gnupg",
-			// Add your actual repo setup commands here
-			"echo 'deb [trusted=yes] " + s.repoURL + " stable main' > /etc/apt/sources.list.d/pgedge.list",
+			// Add repository with appropriate component (release or staging)
+			fmt.Sprintf("echo 'deb [trusted=yes] %s %s main' > /etc/apt/sources.list.d/pgedge.list", s.repoURL, component),
 			"apt-get update",
 		}
 
@@ -483,8 +581,6 @@ func (s *RegressionTestSuite) installRepository() {
 			fmt.Sprintf("dnf -y install https://dl.fedoraproject.org/pub/epel/epel-release-latest-%s.noarch.rpm", elVersion),
 			// Install pgEdge repository
 			"dnf install -y https://dnf.pgedge.com/reporpm/pgedge-release-latest.noarch.rpm",
-			// Update metadata
-			"dnf check-update || true", // May return non-zero
 		}
 
 		for _, cmd := range commands {
@@ -492,8 +588,22 @@ func (s *RegressionTestSuite) installRepository() {
 			s.NoError(err, "Command failed: %s\nOutput: %s", cmd, output)
 		}
 
+		// For RHEL-based systems, modify repo file to use staging if needed
+		if s.serverEnv == EnvStaging {
+			s.logDetailed("Modifying repository configuration for staging environment...")
+			// Replace 'release' with 'staging' in the repo file
+			sedCmd := "sed -i 's/\\/release\\//\\/staging\\//g' /etc/yum.repos.d/pgedge.repo"
+			output, exitCode, err := s.execCmd(s.ctx, sedCmd)
+			s.NoError(err, "Failed to modify repo file: %s", output)
+			s.Equal(0, exitCode, "Failed to modify repo file: %s", output)
+		}
+
+		// Update metadata
+		output, _, err := s.execCmd(s.ctx, "dnf check-update || true")
+		s.NoError(err, "Failed to update DNF metadata")
+
 		// Verify repository is available
-		output, exitCode, err := s.execCmd(s.ctx, "dnf search pgedge-postgres-mcp")
+		output, exitCode, err = s.execCmd(s.ctx, "dnf search pgedge-postgres-mcp")
 		s.NoError(err)
 		s.Equal(0, exitCode)
 		s.Contains(output, "pgedge-postgres-mcp", "Package should be available in repo")
