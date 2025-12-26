@@ -468,6 +468,8 @@ func (s *RegressionTestSuite) execCmd(ctx context.Context, cmd string) (string, 
 		// Check if command needs sudo (package management, file operations in system dirs)
 		needsSudo := strings.HasPrefix(cmd, "apt-get") ||
 			strings.HasPrefix(cmd, "apt ") ||
+			strings.HasPrefix(cmd, "apt-cache") ||
+			strings.HasPrefix(cmd, "dpkg ") ||
 			strings.HasPrefix(cmd, "dnf ") ||
 			strings.HasPrefix(cmd, "yum ") ||
 			strings.HasPrefix(cmd, "rpm ") ||
@@ -479,7 +481,8 @@ func (s *RegressionTestSuite) execCmd(ctx context.Context, cmd string) (string, 
 			strings.Contains(cmd, "chmod ") ||
 			strings.Contains(cmd, "mkdir /etc/") ||
 			strings.Contains(cmd, "mkdir /usr/") ||
-			strings.Contains(cmd, "mkdir /var/")
+			strings.Contains(cmd, "mkdir /var/") ||
+			strings.Contains(cmd, "sed -i") && strings.Contains(cmd, "/etc/")
 
 		if needsSudo && !strings.HasPrefix(cmd, "sudo ") {
 			cmd = "sudo " + cmd
@@ -571,22 +574,14 @@ func (s *RegressionTestSuite) installRepository() {
 	isDebian, isRHEL := s.getOSType()
 
 	if isDebian {
-		// Debian/Ubuntu: Install repository
-		// Determine repo component based on server environment
-		component := "release"
-		if s.serverEnv == EnvStaging {
-			component = "staging"
-		}
-
-		// For Debian, use the base APT repository URL
-		baseURL := "https://apt.pgedge.com"
-
+		// Debian/Ubuntu: Install repository using official pgEdge release package
 		commands := []string{
 			"apt-get update",
-			"apt-get install -y wget gnupg",
-			// Add repository with appropriate component (release or staging)
-			fmt.Sprintf("echo 'deb [trusted=yes] %s %s main' > /etc/apt/sources.list.d/pgedge.list", baseURL, component),
-			"apt-get update",
+			"apt-get install -y curl gnupg lsb-release",
+			// Download and install pgedge-release package
+			"curl -sSL https://apt.pgedge.com/repodeb/pgedge-release_latest_all.deb -o /tmp/pgedge-release.deb",
+			"dpkg -i /tmp/pgedge-release.deb",
+			"rm -f /tmp/pgedge-release.deb",
 		}
 
 		for _, cmd := range commands {
@@ -595,8 +590,23 @@ func (s *RegressionTestSuite) installRepository() {
 			s.Equal(0, exitCode, "Command exited with non-zero: %s\nOutput: %s", cmd, output)
 		}
 
+		// For Debian systems, modify repo list to use staging if needed
+		if s.serverEnv == EnvStaging {
+			s.logDetailed("Modifying repository configuration for staging environment...")
+			// Replace 'release' with 'staging' in the pgedge repo list file
+			sedCmd := "sed -i 's/ release / staging /g' /etc/apt/sources.list.d/pgedge.list"
+			sedOutput, sedExitCode, sedErr := s.execCmd(s.ctx, sedCmd)
+			s.NoError(sedErr, "Failed to modify repo file: %s", sedOutput)
+			s.Equal(0, sedExitCode, "Failed to modify repo file: %s", sedOutput)
+		}
+
+		// Update package lists
+		output, exitCode, err := s.execCmd(s.ctx, "apt-get update")
+		s.NoError(err, "apt-get update failed: %s", output)
+		s.Equal(0, exitCode, "apt-get update exited with non-zero: %s", output)
+
 		// Verify repository is available
-		output, exitCode, err := s.execCmd(s.ctx, "apt-cache search pgedge-postgres-mcp")
+		output, exitCode, err = s.execCmd(s.ctx, "apt-cache search pgedge-postgres-mcp")
 		s.NoError(err)
 		s.Equal(0, exitCode)
 		s.Contains(output, "pgedge-postgres-mcp", "Package should be available in repo")
