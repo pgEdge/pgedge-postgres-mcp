@@ -102,11 +102,8 @@ func (s *RegressionTestSuite) SetupSuite() {
 		s.osImage = "debian:12" // Default to Debian 12 for containers
 	}
 
-	// Get repo URL from environment
-	s.repoURL = os.Getenv("PGEDGE_REPO_URL")
-	if s.repoURL == "" {
-		s.repoURL = "https://apt.pgedge.com" // Example repo URL
-	}
+	// Set repository URL based on OS type
+	s.setRepositoryURL()
 
 	if s.logLevel == LogLevelDetailed {
 		s.T().Logf("Execution mode: %s", s.execMode.String())
@@ -205,6 +202,40 @@ func (s *RegressionTestSuite) promptServerEnvironment() ServerEnvironment {
 	default:
 		fmt.Printf("Invalid choice '%s', using default (live)\n", input)
 		return EnvLive
+	}
+}
+
+// setRepositoryURL sets the appropriate repository URL based on OS type
+func (s *RegressionTestSuite) setRepositoryURL() {
+	// Check if user provided custom repo URL via environment variable
+	customURL := os.Getenv("PGEDGE_REPO_URL")
+	if customURL != "" {
+		s.repoURL = customURL
+		return
+	}
+
+	// Determine OS type to set appropriate repository URL
+	isDebian, isRHEL := s.getOSType()
+
+	// Build the repository URL with server environment
+	if isDebian {
+		// Debian/Ubuntu uses APT repository with component (release or staging)
+		component := "release"
+		if s.serverEnv == EnvStaging {
+			component = "staging"
+		}
+		s.repoURL = fmt.Sprintf("https://apt.pgedge.com (%s)", component)
+	} else if isRHEL {
+		// RHEL/Rocky/Alma uses DNF/YUM repository
+		// Note: The actual repo file will be modified by sed to change release->staging
+		envPath := "release"
+		if s.serverEnv == EnvStaging {
+			envPath = "staging"
+		}
+		s.repoURL = fmt.Sprintf("https://dnf.pgedge.com (%s)", envPath)
+	} else {
+		// Default to APT repository if OS type cannot be determined
+		s.repoURL = "https://apt.pgedge.com (release)"
 	}
 }
 
@@ -546,11 +577,14 @@ func (s *RegressionTestSuite) installRepository() {
 			component = "staging"
 		}
 
+		// For Debian, use the base APT repository URL
+		baseURL := "https://apt.pgedge.com"
+
 		commands := []string{
 			"apt-get update",
 			"apt-get install -y wget gnupg",
 			// Add repository with appropriate component (release or staging)
-			fmt.Sprintf("echo 'deb [trusted=yes] %s %s main' > /etc/apt/sources.list.d/pgedge.list", s.repoURL, component),
+			fmt.Sprintf("echo 'deb [trusted=yes] %s %s main' > /etc/apt/sources.list.d/pgedge.list", baseURL, component),
 			"apt-get update",
 		}
 
