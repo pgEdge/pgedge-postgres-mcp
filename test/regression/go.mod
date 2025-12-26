@@ -1,6 +1,6 @@
 module pgedge-postgres-mcp/test/regression
 
-go 1.24.0
+go 1.21
 
 require (
 	github.com/docker/docker v25.0.0+incompatible
