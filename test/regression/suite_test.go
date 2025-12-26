@@ -577,7 +577,7 @@ func (s *RegressionTestSuite) installRepository() {
 		// Debian/Ubuntu: Install repository using official pgEdge release package
 		commands := []string{
 			"apt-get update",
-			"apt-get install -y curl gnupg lsb-release",
+			"apt-get install -y curl gnupg2 lsb-release",
 			// Download and install pgedge-release package
 			"curl -sSL https://apt.pgedge.com/repodeb/pgedge-release_latest_all.deb -o /tmp/pgedge-release.deb",
 			"dpkg -i /tmp/pgedge-release.deb",
