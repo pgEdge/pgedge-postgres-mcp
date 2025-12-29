@@ -1,0 +1,6 @@
+#!/bin/bash
+# Wrapper script for Execute_Regression_suite
+# This allows running without 'make' prefix
+
+cd "$(dirname "$0")"
+make Execute_Regression_suite "$@"

@@ -29,6 +29,9 @@ go.work
 .env
 .env.local
 
+# Test configuration (user-specific)
+test/regression/.test.env
+
 # IDE
 .vscode/
 .idea/

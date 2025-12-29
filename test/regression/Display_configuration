@@ -1,0 +1,6 @@
+#!/bin/bash
+# Wrapper script for Display_configuration
+# This allows running without 'make' prefix
+
+cd "$(dirname "$0")"
+make Display_configuration "$@"

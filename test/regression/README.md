@@ -41,24 +41,51 @@ The test suite supports three execution modes:
 
 ## Quick Start
 
+### New Configuration System (Recommended)
+
+The test suite now uses an interactive configuration wizard:
+
 ```bash
 # Navigate to test directory
 cd test/regression
 
-# Initialize Go module (first time only)
-go mod init pgedge-postgres-mcp/test/regression
-go mod tidy
+# Step 1: Configure test settings (first time only)
+./Setup_configuration
 
-# Run tests (will prompt for execution mode)
-make test
+# Step 2: Run tests
+./Execute_Regression_suite
+```
 
-# Or specify execution mode via environment variable
+Or use make commands (if you prefer):
+
+```bash
+make Setup_configuration  # Configure
+make Execute_Regression_suite  # Run tests
+```
+
+Or use short aliases:
+
+```bash
+make config    # Same as Setup_configuration
+make test      # Same as Execute_Regression_suite
+```
+
+The configuration wizard guides you through selecting:
+- Execution mode (local vs container)
+- Server environment (live vs staging)
+- Container OS image (AlmaLinux, Ubuntu, Debian, etc.)
+- Log level (minimal vs detailed)
+- Test timeout
+
+Configuration is saved to `.test.env` and reused for future runs.
+
+### Legacy Method (Still Supported)
+
+```bash
+# Specify execution mode via environment variable
 TEST_EXEC_MODE=container make test           # Standard container
 TEST_EXEC_MODE=container-systemd make test   # Systemd container
 TEST_EXEC_MODE=local make test               # Local machine
-
-# Run tests on all platforms (container mode)
-make test-all
 ```
 
 ## Running Tests
@@ -235,7 +262,46 @@ dependencies needed for package management:
 
 ## Configuration
 
-### Environment Variables
+### Using the Configuration Wizard (Recommended)
+
+Run the interactive wizard:
+
+```bash
+./Setup_configuration
+```
+
+Or using make:
+
+```bash
+make Setup_configuration  # Full command
+make config              # Short alias
+```
+
+This creates a `.test.env` file with your preferences. You can:
+- View current config: `./Display_configuration` (or `make Display_configuration` or `make show-config`)
+- Reconfigure anytime: `./Setup_configuration` (or `make Setup_configuration` or `make config`)
+- Edit manually: `vim .test.env`
+
+### Manual Configuration
+
+Copy the template and edit:
+
+```bash
+cp .test.env.example .test.env
+vim .test.env
+```
+
+Example `.test.env`:
+
+```bash
+TEST_EXEC_MODE=container-systemd
+TEST_SERVER_ENV=live
+TEST_OS_IMAGE=almalinux:10
+TEST_LOG_LEVEL=minimal
+TEST_TIMEOUT=30m
+```
+
+### Environment Variables (Legacy)
 
 ```bash
 # Execution mode (optional, will prompt if not set)
@@ -243,14 +309,32 @@ export TEST_EXEC_MODE=container          # Standard container
 export TEST_EXEC_MODE=container-systemd  # Systemd-enabled container
 export TEST_EXEC_MODE=local              # Local machine
 
-# Docker image to test (for container modes only)
-export TEST_OS_IMAGE=debian:12
+# Server environment
+export TEST_SERVER_ENV=live              # Production (recommended)
+export TEST_SERVER_ENV=staging           # Staging (may timeout)
 
-# Repository URL
-export PGEDGE_REPO_URL=https://apt.pgedge.com
+# Docker image to test (for container modes only)
+export TEST_OS_IMAGE=almalinux:10
+
+# Log level
+export TEST_LOG_LEVEL=minimal            # Summary only
+export TEST_LOG_LEVEL=detailed           # Full output
+
+# Test timeout
+export TEST_TIMEOUT=30m
 
 # CI mode (disables interactive prompts, defaults to container mode)
 export CI=true
+```
+
+### Quick Override Targets
+
+Use saved config but temporarily override specific settings:
+
+```bash
+make test-local      # Override to local mode
+make test-staging    # Override to staging environment
+make test-detailed   # Override to detailed logging
 ```
 
 ## Cleanup
