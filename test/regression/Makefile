@@ -112,7 +112,15 @@ Setup_configuration config:
 		echo ""; \
 		echo "✓ Configuration saved to $(CONFIG_FILE)"; \
 		echo ""; \
-		echo "Next step: Run 'make test' to start testing"; \
+		echo "════════════════════════════════════════════════════════════════"; \
+		echo "  Next Steps"; \
+		echo "════════════════════════════════════════════════════════════════"; \
+		echo "Run tests using any of these commands:"; \
+		echo ""; \
+		echo "  ./Execute_Regression_suite    (Simplest - no 'make' needed)"; \
+		echo "  make test                      (Short alias)"; \
+		echo "  make Execute_Regression_suite  (Full command)"; \
+		echo "════════════════════════════════════════════════════════════════"; \
 	else \
 		echo ""; \
 		echo "✗ Configuration not saved."; \
@@ -128,7 +136,11 @@ check-config:
 		echo ""; \
 		echo "No configuration file found: $(CONFIG_FILE)"; \
 		echo ""; \
-		echo "Please run: make config"; \
+		echo "Please run the configuration wizard:"; \
+		echo ""; \
+		echo "  ./Setup_configuration    (Simplest - no 'make' needed)"; \
+		echo "  make config              (Short alias)"; \
+		echo "  make Setup_configuration (Full command)"; \
 		echo ""; \
 		echo "This will guide you through interactive configuration."; \
 		echo "════════════════════════════════════════════════════════════════"; \
