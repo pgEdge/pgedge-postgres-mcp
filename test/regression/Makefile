@@ -64,7 +64,7 @@ Setup_configuration config:
 		read -p "OS image [almalinux:10]: " os_image; \
 		os_image=$${os_image:-almalinux:10}; \
 	else \
-		os_image="almalinux:10"; \
+		os_image="n/a"; \
 	fi; \
 	echo ""; \
 	echo "────────────────────────────────────────────────────────────────"; \
@@ -93,7 +93,9 @@ Setup_configuration config:
 	echo "════════════════════════════════════════════════════════════════"; \
 	echo "  Execution Mode:  $$exec_mode"; \
 	echo "  Server Env:      $$server_env"; \
-	echo "  OS Image:        $$os_image"; \
+	if [ "$$exec_mode" = "container-systemd" ]; then \
+		echo "  OS Image:        $$os_image"; \
+	fi; \
 	echo "  Log Level:       $$log_level"; \
 	echo "  Timeout:         $$timeout"; \
 	echo "════════════════════════════════════════════════════════════════"; \
