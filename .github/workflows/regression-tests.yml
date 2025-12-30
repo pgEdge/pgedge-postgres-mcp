@@ -68,6 +68,11 @@ jobs:
           go mod download
           go mod verify
 
+      - name: Install aha for HTML conversion
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y aha
+
       - name: Clean up Docker
         run: |
           echo "Cleaning up old Docker images and containers..."
@@ -131,6 +136,14 @@ jobs:
           # This removes the Go test framework summary that comes after our custom summary
           awk '/^={80}$/ {print; if (printed_summary) exit} {print} /TEST SUITE (PASSED|FAILED)/ {printed_summary=1}' test-output.log
 
+          # Create a filtered summary file with just the table for artifacts
+          awk '/^={80}$/ {print; if (printed_summary) exit} {print} /TEST SUITE (PASSED|FAILED)/ {printed_summary=1}' test-output.log > test-summary.log
+
+          # Convert ANSI colors to HTML for beautiful artifact viewing
+          if command -v aha &> /dev/null; then
+            cat test-summary.log | aha --black --title "Test Summary" > test-summary.html
+          fi
+
           exit $TEST_EXIT_CODE
 
       - name: Upload test results
@@ -140,6 +153,8 @@ jobs:
           name: ${{ steps.artifact.outputs.name }}
           path: |
             test/regression/test-output.log
+            test/regression/test-summary.log
+            test/regression/test-summary.html
           retention-days: 30
 
       - name: Cleanup Docker containers
