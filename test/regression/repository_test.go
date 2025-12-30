@@ -89,8 +89,9 @@ func (s *RegressionTestSuite) installRepository() {
 		}
 
 		for _, cmd := range commands {
-			output, _, err := s.execCmd(s.ctx, cmd)
+			output, exitCode, err := s.execCmd(s.ctx, cmd)
 			s.NoError(err, "Command failed: %s\nOutput: %s", cmd, output)
+			s.Equal(0, exitCode, "Command exited with non-zero: %s\nOutput: %s", cmd, output)
 		}
 
 		// For RHEL-based systems, modify repo file to use staging if needed
