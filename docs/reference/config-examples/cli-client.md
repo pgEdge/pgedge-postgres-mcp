@@ -1,6 +1,192 @@
+# Configuring the CLI Client
+
+The chat client supports the following environment variables (in order of precedence):
+
+**MCP Connection**
+
+- `PGEDGE_MCP_MODE`: Connection mode (`stdio` or `http`)
+- `PGEDGE_MCP_SERVER_PATH`: Path to MCP server binary (stdio mode)
+- `PGEDGE_MCP_SERVER_CONFIG_PATH`: Path to MCP server config file (stdio
+    mode)
+- `PGEDGE_MCP_URL`: MCP server URL (http mode)
+- `PGEDGE_MCP_AUTH_MODE`: Authentication mode (`none`, `token`, or `user`)
+- `PGEDGE_MCP_TOKEN`: Authentication token (for token auth mode)
+- `PGEDGE_MCP_USERNAME`: Username (for user auth mode)
+- `PGEDGE_MCP_PASSWORD`: Password (for user auth mode)
+
+**LLM Configuration**
+
+- `PGEDGE_LLM_PROVIDER`: LLM provider (`anthropic`, `openai`, or `ollama`)
+- `PGEDGE_LLM_MODEL`: Model to use
+- `PGEDGE_ANTHROPIC_API_KEY`: Anthropic API key
+- `PGEDGE_OPENAI_API_KEY`: OpenAI API key
+- `PGEDGE_OLLAMA_URL`: Ollama server URL
+
+**Command Line Flags**
+
+All configuration options can be overridden with command line flags:
+
+```bash
+./bin/pgedge-nla-cli \
+    -config /path/to/config.yaml \
+    -mcp-mode http \
+    -mcp-url https://mcp.example.com:8080 \
+    -mcp-auth-mode token \
+    -mcp-token your-mcp-token \
+    -llm-provider anthropic \
+    -llm-model claude-opus-4-20250514 \
+    -anthropic-api-key your-anthropic-key \
+    -no-color
+```
+
+Available MCP authentication flags:
+
+- `-mcp-auth-mode`: Authentication mode (`none`, `token`, or `user`)
+- `-mcp-token`: Authentication token (for token mode)
+- `-mcp-username`: Username (for user mode)
+- `-mcp-password`: Password (for user mode)
+
+Run `./bin/pgedge-nla-cli --help` to see all available flags.
+
+
+## Configuration Examples
+
+The following examples demonstrate different configuration modes and use cases for the CLI client.
+
+### Stdio Mode with Anthropic Claude
+
 ```yaml
-# Natural Language Agent Chat Client Configuration Example
-#
+mcp:
+    mode: stdio
+    server_path: ./bin/pgedge-postgres-mcp
+    server_config_path: ./bin/pgedge-postgres-mcp-stdio.yaml
+
+llm:
+    provider: anthropic
+    model: claude-sonnet-4-20250514
+    # Set PGEDGE_ANTHROPIC_API_KEY environment variable
+```
+
+Then run:
+
+```bash
+export PGEDGE_ANTHROPIC_API_KEY="your-key-here"
+./bin/pgedge-nla-cli
+```
+
+### Stdio Mode with OpenAI
+
+```yaml
+mcp:
+    mode: stdio
+    server_path: ./bin/pgedge-postgres-mcp
+    server_config_path: ./bin/pgedge-postgres-mcp-stdio.yaml
+
+llm:
+    provider: openai
+    model: gpt-5-main
+    # Set PGEDGE_OPENAI_API_KEY environment variable
+```
+
+Then run:
+
+```bash
+export PGEDGE_OPENAI_API_KEY="your-key-here"
+./bin/pgedge-nla-cli
+```
+
+### HTTP Mode with Token Authentication
+
+For HTTP mode authentication, store your token in:
+
+```
+~/.pgedge-pg-mcp-cli-token
+```
+
+This file should contain only the token (no newlines or extra whitespace).
+
+```yaml
+mcp:
+    mode: http
+    url: https://mcp.example.com:8080
+    auth_mode: token
+    tls: true
+
+llm:
+    provider: anthropic
+    model: claude-sonnet-4-20250514
+```
+
+Then run:
+
+```bash
+export PGEDGE_ANTHROPIC_API_KEY="your-key-here"
+export PGEDGE_MCP_TOKEN="your-mcp-token"
+./bin/pgedge-nla-cli
+```
+
+### HTTP Mode without Authentication
+
+For servers with authentication disabled:
+
+```yaml
+mcp:
+    mode: http
+    url: http://localhost:8080
+    auth_mode: none
+
+llm:
+    provider: anthropic
+    model: claude-sonnet-4-20250514
+```
+
+Then run:
+
+```bash
+export PGEDGE_ANTHROPIC_API_KEY="your-key-here"
+./bin/pgedge-nla-cli
+```
+
+### Local Setup with Ollama
+
+```yaml
+mcp:
+    mode: stdio
+    server_path: ./bin/pgedge-postgres-mcp
+    server_config_path: ./bin/pgedge-postgres-mcp-stdio.yaml
+
+llm:
+    provider: ollama
+    model: llama3
+    ollama_url: http://localhost:11434
+```
+
+Then run:
+
+```bash
+# Make sure Ollama is running with the model pulled
+ollama pull llama3
+./bin/pgedge-nla-cli
+```
+
+### Remote HTTP Server with Ollama
+
+```yaml
+mcp:
+    mode: http
+    url: http://mcp-server.internal:8080
+
+llm:
+    provider: ollama
+    model: gpt-oss:20b
+    ollama_url: http://localhost:11434
+```
+
+
+## Natural Language Agent Chat Client Configuration Example
+
+```yaml
+
 # Configuration Priority (highest to lowest):
 #   1. Command line flags
 #   2. Environment variables
@@ -198,192 +384,3 @@ ui:
     # Command line flag: (not available, use /set command at runtime)
     render_markdown: true
 ```
-
-## Configuration Examples
-
-### Stdio Mode with Anthropic Claude
-
-```yaml
-mcp:
-    mode: stdio
-    server_path: ./bin/pgedge-postgres-mcp
-    server_config_path: ./bin/pgedge-postgres-mcp-stdio.yaml
-
-llm:
-    provider: anthropic
-    model: claude-sonnet-4-20250514
-    # Set PGEDGE_ANTHROPIC_API_KEY environment variable
-```
-
-Then run:
-
-```bash
-export PGEDGE_ANTHROPIC_API_KEY="your-key-here"
-./bin/pgedge-nla-cli
-```
-
-### Stdio Mode with OpenAI
-
-```yaml
-mcp:
-    mode: stdio
-    server_path: ./bin/pgedge-postgres-mcp
-    server_config_path: ./bin/pgedge-postgres-mcp-stdio.yaml
-
-llm:
-    provider: openai
-    model: gpt-5-main
-    # Set PGEDGE_OPENAI_API_KEY environment variable
-```
-
-Then run:
-
-```bash
-export PGEDGE_OPENAI_API_KEY="your-key-here"
-./bin/pgedge-nla-cli
-```
-
-### HTTP Mode with Token Authentication
-
-```yaml
-mcp:
-    mode: http
-    url: https://mcp.example.com:8080
-    auth_mode: token
-    tls: true
-
-llm:
-    provider: anthropic
-    model: claude-sonnet-4-20250514
-```
-
-Then run:
-
-```bash
-export PGEDGE_ANTHROPIC_API_KEY="your-key-here"
-export PGEDGE_MCP_TOKEN="your-mcp-token"
-./bin/pgedge-nla-cli
-```
-
-### HTTP Mode without Authentication
-
-For servers with authentication disabled:
-
-```yaml
-mcp:
-    mode: http
-    url: http://localhost:8080
-    auth_mode: none
-
-llm:
-    provider: anthropic
-    model: claude-sonnet-4-20250514
-```
-
-Then run:
-
-```bash
-export PGEDGE_ANTHROPIC_API_KEY="your-key-here"
-./bin/pgedge-nla-cli
-```
-
-### Local Setup with Ollama
-
-```yaml
-mcp:
-    mode: stdio
-    server_path: ./bin/pgedge-postgres-mcp
-    server_config_path: ./bin/pgedge-postgres-mcp-stdio.yaml
-
-llm:
-    provider: ollama
-    model: llama3
-    ollama_url: http://localhost:11434
-```
-
-Then run:
-
-```bash
-# Make sure Ollama is running with the model pulled
-ollama pull llama3
-./bin/pgedge-nla-cli
-```
-
-### Remote HTTP Server with Ollama
-
-```yaml
-mcp:
-    mode: http
-    url: http://mcp-server.internal:8080
-
-llm:
-    provider: ollama
-    model: gpt-oss:20b
-    ollama_url: http://localhost:11434
-```
-
-## Environment Variables
-
-The chat client supports the following environment variables (in order of precedence):
-
-### MCP Connection
-
-- `PGEDGE_MCP_MODE`: Connection mode (`stdio` or `http`)
-- `PGEDGE_MCP_SERVER_PATH`: Path to MCP server binary (stdio mode)
-- `PGEDGE_MCP_SERVER_CONFIG_PATH`: Path to MCP server config file (stdio
-    mode)
-- `PGEDGE_MCP_URL`: MCP server URL (http mode)
-- `PGEDGE_MCP_AUTH_MODE`: Authentication mode (`none`, `token`, or `user`)
-- `PGEDGE_MCP_TOKEN`: Authentication token (for token auth mode)
-- `PGEDGE_MCP_USERNAME`: Username (for user auth mode)
-- `PGEDGE_MCP_PASSWORD`: Password (for user auth mode)
-
-### LLM Configuration
-
-- `PGEDGE_LLM_PROVIDER`: LLM provider (`anthropic`, `openai`, or `ollama`)
-- `PGEDGE_LLM_MODEL`: Model to use
-- `PGEDGE_ANTHROPIC_API_KEY`: Anthropic API key
-- `PGEDGE_OPENAI_API_KEY`: OpenAI API key
-- `PGEDGE_OLLAMA_URL`: Ollama server URL
-
-## Command Line Flags
-
-All configuration options can be overridden with command line flags:
-
-```bash
-./bin/pgedge-nla-cli \
-    -config /path/to/config.yaml \
-    -mcp-mode http \
-    -mcp-url https://mcp.example.com:8080 \
-    -mcp-auth-mode token \
-    -mcp-token your-mcp-token \
-    -llm-provider anthropic \
-    -llm-model claude-opus-4-20250514 \
-    -anthropic-api-key your-anthropic-key \
-    -no-color
-```
-
-Available MCP authentication flags:
-
-- `-mcp-auth-mode`: Authentication mode (`none`, `token`, or `user`)
-- `-mcp-token`: Authentication token (for token mode)
-- `-mcp-username`: Username (for user mode)
-- `-mcp-password`: Password (for user mode)
-
-Run `./bin/pgedge-nla-cli --help` to see all available flags.
-
-## Token File Location
-
-For HTTP mode authentication, the token can be stored in:
-
-```
-~/.pgedge-pg-mcp-cli-token
-```
-
-This file should contain only the token (no newlines or extra whitespace).
-
-## See Also
-
-- [Go Chat Client Documentation](../../guide/cli-client.md) - Complete usage guide
-- [MCP Server Configuration](server.md) - Configure the MCP server
-- [Authentication](../../guide/authentication.md) - Set up API tokens for HTTP mode

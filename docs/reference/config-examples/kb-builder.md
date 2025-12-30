@@ -1,7 +1,260 @@
+# Configuring the KnowledgeBase Builder
+
+The KnowledgeBase Builder supports the following environment variables:
+
+- `OPENAI_API_KEY`: OpenAI API key (overrides api_key_file)
+- `VOYAGE_API_KEY`: Voyage AI API key (overrides api_key_file)
+
+## Building Your First KnowledgeBase
+
+The following steps walk you through the process of building a KnowledgeBase:
+
+1. Install the prerequisites:
+
+    ```bash
+    # For Ollama (optional)
+    ollama pull nomic-embed-text
+    ```
+
+2. Set up API keys (for OpenAI or Voyage):
+
+    ```bash
+    # For OpenAI
+    echo "sk-your-openai-key" > ~/.openai-api-key
+    chmod 600 ~/.openai-api-key
+
+    # For Voyage
+    echo "pa-your-voyage-key" > ~/.voyage-api-key
+    chmod 600 ~/.voyage-api-key
+    ```
+
+3. Create the configuration file:
+
+    ```bash
+    cp pgedge-nla-kb-builder.yaml.example pgedge-nla-kb-builder.yaml
+    # Edit pgedge-nla-kb-builder.yaml to configure sources and embedding providers
+    ```
+
+4. Build the KnowledgeBase:
+
+    ```bash
+    ./pgedge-nla-kb-builder --config pgedge-nla-kb-builder.yaml
+    ```
+
+5. Configure the MCP server, and add the KnowledgeBase configuration:
+
+    ```yaml
+    knowledgebase:
+        enabled: true
+        database_path: "./pgedge-nla-kb.db"
+        embedding_provider: "openai"
+        embedding_model: "text-embedding-3-small"
+        embedding_openai_api_key_file: "~/.openai-api-key"
+    ```
+
+## Incremental Updates
+
+The kb-builder supports incremental processing:
+
+- The kb-builder pulls Git repositories to get the latest changes.
+- The kb-builder reprocesses only modified files.
+- Unchanged files reuse existing chunks and embeddings.
+- Use `--skip-updates` to skip git pull during development.
+
+For example:
+
+```bash
+# Initial build (full processing)
+./pgedge-nla-kb-builder --config pgedge-nla-kb-builder.yaml
+
+# Later update (only changed files)
+./pgedge-nla-kb-builder --config pgedge-nla-kb-builder.yaml
+```
+
+## Managing Embeddings
+
+If a build fails or you enable a new provider, you can add a missing embedding with the following command:
+
+```bash
+./pgedge-nla-kb-builder --config pgedge-nla-kb-builder.yaml --add-missing-embeddings
+```
+
+This will only generate missing embeddings, skipping files that already have embeddings.
+
+**Clearing Embeddings**
+
+Use the following syntax to clear embeddings for a specific provider:
+
+```bash
+# Clear OpenAI embeddings
+./pgedge-nla-kb-builder --config pgedge-nla-kb-builder.yaml --clear-embeddings openai
+
+# Clear Voyage embeddings
+./pgedge-nla-kb-builder --config pgedge-nla-kb-builder.yaml --clear-embeddings voyage
+
+# Clear Ollama embeddings
+./pgedge-nla-kb-builder --config pgedge-nla-kb-builder.yaml --clear-embeddings ollama
+```
+
+After clearing the embedding, you can rebuild with:
+
+```bash
+./pgedge-nla-kb-builder --config pgedge-nla-kb-builder.yaml --add-missing-embeddings
+```
+
+## Embedding Content from Different Sources
+
+The following examples demonstrate using different sources for your KnowledgeBase information.
+
+### PostgreSQL Documentation Only
+
 ```yaml
-# pgEdge Knowledgebase Builder Configuration
-#
-# The kb-builder tool processes documentation from multiple sources (Git repos,
+database_path: "pgedge-nla-kb.db"
+doc_source_path: "doc-source"
+
+sources:
+    - git_url: "https://github.com/postgres/postgres.git"
+      branch: "REL_17_STABLE"
+      doc_path: "doc/src/sgml"
+      project_name: "PostgreSQL"
+      project_version: "17"
+
+embeddings:
+    openai:
+        enabled: true
+        api_key_file: "~/.openai-api-key"
+        model: "text-embedding-3-small"
+        dimensions: 1536
+
+    voyage:
+        enabled: false
+
+    ollama:
+        enabled: false
+```
+
+### Multiple PostgreSQL Versions with Voyage AI
+
+```yaml
+database_path: "postgres-multi-version-kb.db"
+doc_source_path: "postgres-docs"
+
+sources:
+    - git_url: "https://github.com/postgres/postgres.git"
+      branch: "REL_17_STABLE"
+      doc_path: "doc/src/sgml"
+      project_name: "PostgreSQL"
+      project_version: "17"
+
+    - git_url: "https://github.com/postgres/postgres.git"
+      branch: "REL_16_STABLE"
+      doc_path: "doc/src/sgml"
+      project_name: "PostgreSQL"
+      project_version: "16"
+
+    - git_url: "https://github.com/postgres/postgres.git"
+      branch: "REL_15_STABLE"
+      doc_path: "doc/src/sgml"
+      project_name: "PostgreSQL"
+      project_version: "15"
+
+embeddings:
+    openai:
+        enabled: false
+
+    voyage:
+        enabled: true
+        api_key_file: "~/.voyage-api-key"
+        model: "voyage-3"
+
+    ollama:
+        enabled: false
+```
+
+### Local Development Sources with Ollama
+
+```yaml
+database_path: "local-kb.db"
+doc_source_path: "local-docs"
+
+sources:
+    - local_path: "~/projects/myapp"
+      doc_path: "docs"
+      project_name: "MyApp"
+      project_version: "dev"
+
+    - local_path: "/opt/docs/internal"
+      doc_path: "."
+      project_name: "Internal Docs"
+      project_version: "latest"
+
+embeddings:
+    openai:
+        enabled: false
+
+    voyage:
+        enabled: false
+
+    ollama:
+        enabled: true
+        endpoint: "http://localhost:11434"
+        model: "nomic-embed-text"
+```
+
+Then run:
+
+```bash
+# Make sure Ollama is running and model is pulled
+ollama pull nomic-embed-text
+
+# Build the knowledgebase
+./pgedge-nla-kb-builder --config pgedge-nla-kb-builder.yaml
+```
+
+### Multiple Embedding Providers (Recommended for Flexibility)
+
+This configuration generates embeddings from all three providers, allowing the
+MCP server to use any available provider for search based on its own
+configuration.
+
+```yaml
+database_path: "multi-provider-kb.db"
+doc_source_path: "doc-source"
+
+sources:
+    - git_url: "https://github.com/postgres/postgres.git"
+      branch: "REL_17_STABLE"
+      doc_path: "doc/src/sgml"
+      project_name: "PostgreSQL"
+      project_version: "17"
+
+embeddings:
+    # Enable all three providers
+    # MCP server can use any one for search
+    openai:
+        enabled: true
+        api_key_file: "~/.openai-api-key"
+        model: "text-embedding-3-small"
+        dimensions: 1536
+
+    voyage:
+        enabled: true
+        api_key_file: "~/.voyage-api-key"
+        model: "voyage-3"
+
+    ollama:
+        enabled: true
+        endpoint: "http://localhost:11434"
+        model: "nomic-embed-text"
+```
+
+
+## pgEdge Knowledgebase Builder Configuration - Example
+
+The following example demonstrates a complete kb-builder configuration file with all available options.
+
+```yaml
+## The kb-builder tool processes documentation from multiple sources (Git repos,
 # local paths) and builds a searchable SQLite database with vector embeddings.
 #
 # Configuration Priority (highest to lowest):
@@ -176,261 +429,3 @@ embeddings:
 #   ./pgedge-nla-kb-builder --config pgedge-nla-kb-builder.yaml --clear-embeddings voyage
 #   ./pgedge-nla-kb-builder --config pgedge-nla-kb-builder.yaml --clear-embeddings ollama
 ```
-
-## Configuration Examples
-
-### PostgreSQL Documentation Only
-
-```yaml
-database_path: "pgedge-nla-kb.db"
-doc_source_path: "doc-source"
-
-sources:
-    - git_url: "https://github.com/postgres/postgres.git"
-      branch: "REL_17_STABLE"
-      doc_path: "doc/src/sgml"
-      project_name: "PostgreSQL"
-      project_version: "17"
-
-embeddings:
-    openai:
-        enabled: true
-        api_key_file: "~/.openai-api-key"
-        model: "text-embedding-3-small"
-        dimensions: 1536
-
-    voyage:
-        enabled: false
-
-    ollama:
-        enabled: false
-```
-
-### Multiple PostgreSQL Versions with Voyage AI
-
-```yaml
-database_path: "postgres-multi-version-kb.db"
-doc_source_path: "postgres-docs"
-
-sources:
-    - git_url: "https://github.com/postgres/postgres.git"
-      branch: "REL_17_STABLE"
-      doc_path: "doc/src/sgml"
-      project_name: "PostgreSQL"
-      project_version: "17"
-
-    - git_url: "https://github.com/postgres/postgres.git"
-      branch: "REL_16_STABLE"
-      doc_path: "doc/src/sgml"
-      project_name: "PostgreSQL"
-      project_version: "16"
-
-    - git_url: "https://github.com/postgres/postgres.git"
-      branch: "REL_15_STABLE"
-      doc_path: "doc/src/sgml"
-      project_name: "PostgreSQL"
-      project_version: "15"
-
-embeddings:
-    openai:
-        enabled: false
-
-    voyage:
-        enabled: true
-        api_key_file: "~/.voyage-api-key"
-        model: "voyage-3"
-
-    ollama:
-        enabled: false
-```
-
-### Local Development with Ollama
-
-```yaml
-database_path: "local-kb.db"
-doc_source_path: "local-docs"
-
-sources:
-    - local_path: "~/projects/myapp"
-      doc_path: "docs"
-      project_name: "MyApp"
-      project_version: "dev"
-
-    - local_path: "/opt/docs/internal"
-      doc_path: "."
-      project_name: "Internal Docs"
-      project_version: "latest"
-
-embeddings:
-    openai:
-        enabled: false
-
-    voyage:
-        enabled: false
-
-    ollama:
-        enabled: true
-        endpoint: "http://localhost:11434"
-        model: "nomic-embed-text"
-```
-
-Then run:
-
-```bash
-# Make sure Ollama is running and model is pulled
-ollama pull nomic-embed-text
-
-# Build the knowledgebase
-./pgedge-nla-kb-builder --config pgedge-nla-kb-builder.yaml
-```
-
-### Multiple Embedding Providers (Recommended for Flexibility)
-
-```yaml
-database_path: "multi-provider-kb.db"
-doc_source_path: "doc-source"
-
-sources:
-    - git_url: "https://github.com/postgres/postgres.git"
-      branch: "REL_17_STABLE"
-      doc_path: "doc/src/sgml"
-      project_name: "PostgreSQL"
-      project_version: "17"
-
-embeddings:
-    # Enable all three providers
-    # MCP server can use any one for search
-    openai:
-        enabled: true
-        api_key_file: "~/.openai-api-key"
-        model: "text-embedding-3-small"
-        dimensions: 1536
-
-    voyage:
-        enabled: true
-        api_key_file: "~/.voyage-api-key"
-        model: "voyage-3"
-
-    ollama:
-        enabled: true
-        endpoint: "http://localhost:11434"
-        model: "nomic-embed-text"
-```
-
-This configuration generates embeddings from all three providers, allowing the
-MCP server to use any available provider for search based on its own
-configuration.
-
-## Environment Variables
-
-The kb-builder supports the following environment variables:
-
-- `OPENAI_API_KEY`: OpenAI API key (overrides api_key_file)
-- `VOYAGE_API_KEY`: Voyage AI API key (overrides api_key_file)
-
-## Building Your First Knowledgebase
-
-1. **Install Prerequisites**:
-
-   ```bash
-   # For Ollama (optional)
-   ollama pull nomic-embed-text
-   ```
-
-2. **Set Up API Keys** (for OpenAI or Voyage):
-
-   ```bash
-   # For OpenAI
-   echo "sk-your-openai-key" > ~/.openai-api-key
-   chmod 600 ~/.openai-api-key
-
-   # For Voyage
-   echo "pa-your-voyage-key" > ~/.voyage-api-key
-   chmod 600 ~/.voyage-api-key
-   ```
-
-3. **Create Configuration**:
-
-   ```bash
-   cp pgedge-nla-kb-builder.yaml.example pgedge-nla-kb-builder.yaml
-   # Edit pgedge-nla-kb-builder.yaml to configure sources and embedding providers
-   ```
-
-4. **Build the Knowledgebase**:
-
-   ```bash
-   ./pgedge-nla-kb-builder --config pgedge-nla-kb-builder.yaml
-   ```
-
-5. **Configure MCP Server**:
-
-   Add to your MCP server configuration:
-
-   ```yaml
-   knowledgebase:
-       enabled: true
-       database_path: "./pgedge-nla-kb.db"
-       embedding_provider: "openai"  # Match your kb-builder provider
-       embedding_model: "text-embedding-3-small"
-       embedding_openai_api_key_file: "~/.openai-api-key"
-   ```
-
-## Incremental Updates
-
-The kb-builder supports incremental processing:
-
-- Git repositories are pulled to get latest changes
-- Only modified files are reprocessed
-- Unchanged files reuse existing chunks and embeddings
-- Use `--skip-updates` to skip git pull during development
-
-Example:
-
-```bash
-# Initial build (full processing)
-./pgedge-nla-kb-builder --config pgedge-nla-kb-builder.yaml
-
-# Later update (only changed files)
-./pgedge-nla-kb-builder --config pgedge-nla-kb-builder.yaml
-```
-
-## Managing Embeddings
-
-### Adding Missing Embeddings
-
-If a build fails or you enable a new provider later:
-
-```bash
-./pgedge-nla-kb-builder --config pgedge-nla-kb-builder.yaml --add-missing-embeddings
-```
-
-This will only generate embeddings that are missing, skipping files that
-already have embeddings.
-
-### Clearing Embeddings
-
-To clear embeddings for a specific provider:
-
-```bash
-# Clear OpenAI embeddings
-./pgedge-nla-kb-builder --config pgedge-nla-kb-builder.yaml --clear-embeddings openai
-
-# Clear Voyage embeddings
-./pgedge-nla-kb-builder --config pgedge-nla-kb-builder.yaml --clear-embeddings voyage
-
-# Clear Ollama embeddings
-./pgedge-nla-kb-builder --config pgedge-nla-kb-builder.yaml --clear-embeddings ollama
-```
-
-After clearing, you can rebuild with:
-
-```bash
-./pgedge-nla-kb-builder --config pgedge-nla-kb-builder.yaml --add-missing-embeddings
-```
-
-## See Also
-
-- [Knowledgebase Search](../../advanced/knowledgebase.md) - Using the search_knowledgebase
-    tool
-- [MCP Server Configuration](server.md) - Configure the MCP server to
-    use the knowledgebase

@@ -1,3 +1,5 @@
+# Server Configuration File - Example
+
 ```yaml
 # Natural Language Agent Configuration File
 #
