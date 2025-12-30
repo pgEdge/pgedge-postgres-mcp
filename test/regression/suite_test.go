@@ -415,10 +415,10 @@ func (s *RegressionTestSuite) printTestSummary() {
 
 	// Configure column alignments for better display
 	t.SetColumnConfigs([]table.ColumnConfig{
-		{Number: 1, Align: text.AlignRight},  // # column - right aligned
-		{Number: 2, Align: text.AlignLeft},   // Test Name - left aligned
-		{Number: 3, Align: text.AlignCenter}, // Status - centered
-		{Number: 4, Align: text.AlignRight},  // Duration - right aligned
+		{Number: 1, Align: text.AlignRight, WidthMin: 3, WidthMax: 3},    // # column - right aligned, fixed width
+		{Number: 2, Align: text.AlignLeft, WidthMin: 35},                  // Test Name - left aligned
+		{Number: 3, Align: text.AlignLeft, WidthMin: 12, WidthMax: 12},   // Status - left aligned, fixed width
+		{Number: 4, Align: text.AlignRight, WidthMin: 10, WidthMax: 10},  // Duration - right aligned, fixed width
 	})
 
 	// Add test results
@@ -429,19 +429,19 @@ func (s *RegressionTestSuite) printTestSummary() {
 		// Use simpler status format in CI to avoid rendering issues
 		if os.Getenv("CI") != "" {
 			if result.Status == "PASS" {
-				status = "✓ PASS"
+				status = "  ✓ PASS"
 			} else if result.Status == "FAIL" {
-				status = "✗ FAIL"
+				status = "  ✗ FAIL"
 			} else {
-				status = fmt.Sprintf("⚠ %s", result.Status)
+				status = fmt.Sprintf("  ⚠ %s", result.Status)
 			}
 		} else {
 			if result.Status == "PASS" {
-				status = text.FgGreen.Sprintf("✓ PASS")
+				status = text.FgGreen.Sprintf("  ✓ PASS")
 			} else if result.Status == "FAIL" {
-				status = text.FgRed.Sprintf("✗ FAIL")
+				status = text.FgRed.Sprintf("  ✗ FAIL")
 			} else {
-				status = text.FgYellow.Sprintf("⚠ %s", result.Status)
+				status = text.FgYellow.Sprintf("  ⚠ %s", result.Status)
 			}
 		}
 
