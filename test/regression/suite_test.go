@@ -398,7 +398,13 @@ func (s *RegressionTestSuite) printTestSummary() {
 	// Create the summary table
 	t := table.NewWriter()
 	t.SetOutputMirror(os.Stdout)
-	t.SetStyle(table.StyleColoredBright)
+
+	// Use simpler style for CI environments
+	if os.Getenv("CI") != "" {
+		t.SetStyle(table.StyleLight)
+	} else {
+		t.SetStyle(table.StyleColoredBright)
+	}
 
 	// Configure title
 	t.SetTitle("🧪 pgEdge MCP Regression Test Suite - Summary")
