@@ -7,6 +7,7 @@ EXAMPLE_FILE := .test.env.example
 # Set defaults if not loaded from config file
 TEST_EXEC_MODE ?= container-systemd
 TEST_SERVER_ENV ?= live
+TEST_PG_VERSION ?= 18
 TEST_OS_IMAGE ?= almalinux:10
 TEST_LOG_LEVEL ?= minimal
 TEST_TIMEOUT ?= 30m
@@ -50,9 +51,20 @@ Setup_configuration config:
 	read -p "Server environment [live]: " server_env; \
 	server_env=$${server_env:-live}; \
 	echo ""; \
+	echo "────────────────────────────────────────────────────────────────"; \
+	echo "3. POSTGRESQL VERSION"; \
+	echo "────────────────────────────────────────────────────────────────"; \
+	echo "Which PostgreSQL version should be installed and tested?"; \
+	echo "  • 16 - PostgreSQL 16"; \
+	echo "  • 17 - PostgreSQL 17"; \
+	echo "  • 18 - PostgreSQL 18 (recommended)"; \
+	echo ""; \
+	read -p "PostgreSQL version [18]: " pg_version; \
+	pg_version=$${pg_version:-18}; \
+	echo ""; \
 	if [ "$$exec_mode" = "container-systemd" ]; then \
 		echo "────────────────────────────────────────────────────────────────"; \
-		echo "3. CONTAINER OS IMAGE"; \
+		echo "4. CONTAINER OS IMAGE"; \
 		echo "────────────────────────────────────────────────────────────────"; \
 		echo "Which operating system should be tested? (container mode only)"; \
 		echo "  • almalinux:10 - AlmaLinux 10 (RHEL-based, recommended)"; \
@@ -68,7 +80,7 @@ Setup_configuration config:
 	fi; \
 	echo ""; \
 	echo "────────────────────────────────────────────────────────────────"; \
-	echo "4. LOG LEVEL"; \
+	echo "5. LOG LEVEL"; \
 	echo "────────────────────────────────────────────────────────────────"; \
 	echo "How verbose should test output be?"; \
 	echo "  • minimal  - Show only summary and failures (recommended)"; \
@@ -78,7 +90,7 @@ Setup_configuration config:
 	log_level=$${log_level:-minimal}; \
 	echo ""; \
 	echo "────────────────────────────────────────────────────────────────"; \
-	echo "5. TEST TIMEOUT"; \
+	echo "6. TEST TIMEOUT"; \
 	echo "────────────────────────────────────────────────────────────────"; \
 	echo "Maximum time to allow for full test suite:"; \
 	echo "  • 30m - 30 minutes (recommended for 'live' environment)"; \
@@ -93,6 +105,7 @@ Setup_configuration config:
 	echo "════════════════════════════════════════════════════════════════"; \
 	echo "  Execution Mode:  $$exec_mode"; \
 	echo "  Server Env:      $$server_env"; \
+	echo "  PostgreSQL Ver:  $$pg_version"; \
 	if [ "$$exec_mode" = "container-systemd" ]; then \
 		echo "  OS Image:        $$os_image"; \
 	fi; \
@@ -108,6 +121,7 @@ Setup_configuration config:
 		echo "" >> $(CONFIG_FILE); \
 		echo "TEST_EXEC_MODE=$$exec_mode" >> $(CONFIG_FILE); \
 		echo "TEST_SERVER_ENV=$$server_env" >> $(CONFIG_FILE); \
+		echo "TEST_PG_VERSION=$$pg_version" >> $(CONFIG_FILE); \
 		echo "TEST_OS_IMAGE=$$os_image" >> $(CONFIG_FILE); \
 		echo "TEST_LOG_LEVEL=$$log_level" >> $(CONFIG_FILE); \
 		echo "TEST_TIMEOUT=$$timeout" >> $(CONFIG_FILE); \
@@ -155,6 +169,7 @@ Execute_Regression_suite test: check-config deps
 	@echo "🧪 Running regression tests..."
 	@echo "   Mode: $(TEST_EXEC_MODE)"
 	@echo "   Server: $(TEST_SERVER_ENV)"
+	@echo "   PostgreSQL: $(TEST_PG_VERSION)"
 	@if [ "$(TEST_EXEC_MODE)" = "local" ]; then \
 		echo "   OS: System (auto-detect)"; \
 	else \
