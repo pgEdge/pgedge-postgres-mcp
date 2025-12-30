@@ -1,4 +1,4 @@
-# Custom Prompts and Resources
+# Creating Custom Prompts and Resources
 
 The MCP server supports user-defined custom prompts and resources, allowing
 you to extend the server's functionality without modifying code.

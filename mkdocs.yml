@@ -93,15 +93,15 @@ nav:
           - Security Checklist: guide/security.md
           - Security Management: guide/security_mgmt.md
   - Reference:
-      - Tools: reference/tools.md
-      - Resources: reference/resources.md
-      - Prompts: reference/prompts.md
-      - Examples: reference/examples.md
+      - Using MCP Tools: reference/tools.md
+      - Using MCP Resources: reference/resources.md
+      - Using MCP Prompts: reference/prompts.md
+      - Querying the Server: reference/examples.md
       - Configuration Examples:
-          - Server: reference/config-examples/server.md
-          - API Tokens: reference/config-examples/tokens.md
-          - CLI Client: reference/config-examples/cli-client.md
-          - KB Builder: reference/config-examples/kb-builder.md
+          - Server Configuration File: reference/config-examples/server.md
+          - API Token Configuration File: reference/config-examples/tokens.md
+          - CLI Client Configuration Details: reference/config-examples/cli-client.md
+          - KB Builder Configuration Details: reference/config-examples/kb-builder.md
   - Advanced Topics:
       - Creating Custom Definitions: advanced/custom-definitions.md
       - Configuring and Using Knowledgebase Search: advanced/knowledgebase.md

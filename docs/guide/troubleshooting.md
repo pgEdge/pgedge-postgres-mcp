@@ -925,3 +925,73 @@ If you are seeing a literal `{{arg_name}}` in output:
 - Ensure you passed the argument when calling the prompt.
 
 
+## Troubleshooting Queries
+
+### Query Returns Unexpected Results
+
+Try asking Claude to show the generated SQL:
+```
+"Show me users created today and display the SQL query"
+```
+
+### Connection Errors
+
+If a connection fails, verify:
+
+1. Database is accessible from your machine
+2. Credentials are correct
+3. Firewall rules allow connections
+4. SSL settings match server requirements
+
+### Slow Queries
+
+For queries taking too long:
+
+1. Check database indexes
+2. Use read replicas for analytics
+3. Limit result sets: "Show me top 100 users"
+
+
+## Troubleshooting Prompts
+
+### Prompt Not Found
+
+**Error**: "Prompt 'prompt-name' not found"
+
+**Solutions**:
+
+* Verify the prompt name using `/prompts` (CLI) or the prompt dropdown (Web UI).
+* Check for typos in the prompt name.
+* Ensure the server is running the latest version.
+
+### Missing Required Argument
+
+**Error**: "Missing required argument: argument_name"
+
+**Solutions**:
+
+* Check the prompt's required arguments using `/prompts`.
+* Provide all required arguments in the command.
+* Use quotes around values with spaces.
+
+### Invalid Argument Format
+
+**Error**: "Invalid argument format: ... (expected key=value)"
+
+**Solutions**:
+
+* Use `key=value` format for all arguments.
+* Quote values containing spaces: `key="value with spaces"`.
+* Don't use spaces around the `=` sign.
+
+### Rate Limit Exceeded
+
+**Error**: "Rate limit reached for ..."
+
+**Solutions**:
+
+* Wait 60 seconds before retrying.
+* Use more targeted queries with WHERE clauses.
+* Reduce `max_output_tokens` in similarity_search.
+* Use `limit` parameter in queries.
+* Conversation history is automatically compacted to help prevent this.

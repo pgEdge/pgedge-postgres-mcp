@@ -1,4 +1,4 @@
-# LLM Proxy
+# Using LLM Proxy
 
 The MCP server includes an LLM proxy service that enables web clients to chat with various LLM providers while keeping API keys secure on the server side. This guide covers the LLM proxy architecture, endpoints, configuration, and how to build client applications that use it.
 

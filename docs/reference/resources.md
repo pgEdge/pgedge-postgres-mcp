@@ -1,6 +1,6 @@
-# MCP Resources
+# Managing MCP Resources
 
-Resources provide read-only access to PostgreSQL system information. Resources
+Resources provide read-only access to Postgres system information. Resources
 are accessed via the `read_resource` tool or through MCP protocol resource
 methods.
 
@@ -12,20 +12,50 @@ for details.
 
 When a resource is disabled:
 
-- It is not advertised to the LLM in the `resources/list` response
-- Attempts to read it return an error message
+* It is not advertised to the LLM in the `resources/list` response.
+* Attempts to read it return an error message.
 
-## Available Resources
+You can access resources with the [read_resource](tools.md#read_resource) tool or with Natural Language (and the Claude Desktop).
 
-### pg://system_info
+### Accessing Resources with the read_resource Tool
 
-Returns PostgreSQL version, operating system, and build architecture
-information. Provides a quick and efficient way to check server version and
-platform details without executing natural language queries.
+In the following example, the [read_resource](tools.md#read_resource) tool retrieves system information using the URI:
 
-**Access**: Read the resource to view PostgreSQL system information.
+```json
+{
+  "uri": "pg://system_info"
+}
+```
 
-**Output**: JSON object with detailed system information:
+In the following example, the `read_resource` tool lists all available resources:
+
+```json
+{
+  "list": true
+}
+```
+
+### Accessing Resources with Natural Language (Claude Desktop)
+
+You can access a resource by simply asking Claude to read that resource; for example the following requests return system information:
+
+* "Show me the output from pg://system_info"
+* "What's the current PostgreSQL version?" (uses pg://system_info)
+* "What version of PostgreSQL is running?" (uses pg://system_info)
+
+
+## Using pg://system_info
+
+`pg://system_info` returns the Postgres version, operating system details, and build architecture information. The resource provides a quick and efficient way to check server version and platform details without executing natural language queries.
+
+**Use Cases:**
+
+* Quickly check PostgreSQL version without natural language queries.
+* Verify server platform and architecture.
+* Audit server build information.
+* Troubleshoot compatibility issues.
+
+When you read the resource to view PostgreSQL system information, the result is a JSON object with detailed system information. For example, the following JSON output contains PostgreSQL system information:
 
 ```json
 {
@@ -39,65 +69,29 @@ platform details without executing natural language queries.
 }
 ```
 
-**Fields:**
+**Properties**
 
-- `postgresql_version`: Short version string (e.g., "15.4")
-- `version_number`: Numeric version identifier (e.g., "150004")
-- `full_version`: Complete version string from PostgreSQL version() function
-- `operating_system`: Operating system (e.g., "linux", "darwin", "mingw32")
-- `architecture`: Full architecture string (e.g., "x86_64-pc-linux-gnu",
-  "aarch64-apple-darwin")
-- `compiler`: Compiler used to build PostgreSQL (e.g., "gcc (GCC) 11.2.0")
-- `bit_version`: Architecture bit version (e.g., "64-bit", "32-bit")
+| Name | Description |
+|------|-------------|
+| `postgresql_version` | Short version string (e.g., `15.4`). |
+| `version_number` | Numeric version identifier (e.g., `150004`). |
+| `full_version` | Complete version string from PostgreSQL version() function. |
+| `operating_system` | Operating system (e.g., `linux`, `darwin`, `mingw32`). |
+| `architecture` | Full architecture string (e.g., `x86_64-pc-linux-gnu`, `aarch64-apple-darwin`). |
+| `compiler` | Compiler used to build PostgreSQL (e.g., `gcc (GCC) 11.2.0`). |
+| `bit_version` | Architecture bit version (e.g., `64-bit`, `32-bit`). |
 
-**Use Cases:**
 
-- Quickly check PostgreSQL version without natural language queries
-- Verify server platform and architecture
-- Audit server build information
-- Troubleshoot compatibility issues
+## Finding Schema Information
 
-## Accessing Resources
+To find database schema information (tables, columns, constraints, etc.), use the `get_schema_info` tool instead of resources. The `get_schema_info` tool provides:
 
-Resources can be accessed in two ways:
-
-### 1. Via read_resource Tool
-
-```json
-{
-  "uri": "pg://system_info"
-}
-```
-
-Or list all resources:
-
-```json
-{
-  "list": true
-}
-```
-
-### 2. Via Natural Language (Claude Desktop)
-
-Simply ask Claude to read a resource:
-
-**System Information:**
-
-- "Show me the output from pg://system_info"
-- "What's the current PostgreSQL version?" (uses pg://system_info)
-- "What version of PostgreSQL is running?" (uses pg://system_info)
-
-## Schema Information
-
-For database schema information (tables, columns, constraints, etc.), use the
-`get_schema_info` tool instead of resources. It provides:
-
-- Detailed column information with data types
-- Primary key, foreign key, and unique constraints
-- Index information
-- Identity column detection
-- Default values
-- Vector column detection for similarity search
-- TSV output format for token efficiency
+* Detailed column information with data types.
+* Primary key, foreign key, and unique constraints.
+* Index information.
+* Identity column detection.
+* Default values.
+* Vector column detection for similarity search.
+* TSV output format for token efficiency.
 
 See [Tools Reference](tools.md#get_schema_info) for details.
