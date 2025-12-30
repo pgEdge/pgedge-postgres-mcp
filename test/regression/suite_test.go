@@ -381,6 +381,21 @@ func (s *RegressionTestSuite) TearDownSuite() {
 	}
 }
 
+// formatDuration formats a duration with consistent width for table alignment
+func formatDuration(d time.Duration) string {
+	d = d.Round(time.Millisecond)
+
+	// For durations >= 1 second, show with decimal seconds
+	if d >= time.Second {
+		seconds := float64(d) / float64(time.Second)
+		return fmt.Sprintf("%7.3fs", seconds)
+	}
+
+	// For durations < 1 second, show as milliseconds
+	ms := d.Milliseconds()
+	return fmt.Sprintf("%7dms", ms)
+}
+
 // printTestSummary displays a beautiful formatted summary of test results
 func (s *RegressionTestSuite) printTestSummary() {
 	totalDuration := time.Since(s.suiteStartTime)
@@ -427,8 +442,9 @@ func (s *RegressionTestSuite) printTestSummary() {
 			status = text.FgYellow.Sprintf("⚠ %s", result.Status)
 		}
 
-		duration := result.Duration.Round(time.Millisecond)
-		t.AppendRow(table.Row{i + 1, testName, status, duration})
+		// Format duration consistently for better alignment
+		durationStr := formatDuration(result.Duration)
+		t.AppendRow(table.Row{i + 1, testName, status, durationStr})
 	}
 
 	// Add separator before footer
@@ -443,7 +459,8 @@ func (s *RegressionTestSuite) printTestSummary() {
 		statusSummary = text.FgGreen.Sprintf("All %d tests passed! ✨", passCount)
 	}
 
-	t.AppendFooter(table.Row{"", fmt.Sprintf("Total: %d tests", totalTests), statusSummary, totalDuration.Round(time.Millisecond)})
+	totalDurationStr := formatDuration(totalDuration)
+	t.AppendFooter(table.Row{"", fmt.Sprintf("Total: %d tests", totalTests), statusSummary, totalDurationStr})
 
 	// Print banner and table
 	fmt.Println("\n" + strings.Repeat("=", 80))
