@@ -388,12 +388,12 @@ func formatDuration(d time.Duration) string {
 	// For durations >= 1 second, show with decimal seconds
 	if d >= time.Second {
 		seconds := float64(d) / float64(time.Second)
-		return fmt.Sprintf("%7.3fs", seconds)
+		return fmt.Sprintf("%6.3fs", seconds)
 	}
 
 	// For durations < 1 second, show as milliseconds
 	ms := d.Milliseconds()
-	return fmt.Sprintf("%7dms", ms)
+	return fmt.Sprintf("%5dms", ms)
 }
 
 // printTestSummary displays a beautiful formatted summary of test results
