@@ -310,12 +310,16 @@ SCRIPT`
 			break
 		}
 
-		if attempt == 1 {
-			s.T().Log("  ⚠ MCP server process still running, stopping it (SIGTERM)...")
-			s.execCmd(s.ctx, "pkill -f 'pgedge-postgres-mcp.*stdio'")
-		} else if attempt == 2 {
-			s.T().Log("  ⚠ MCP server process still running, force killing (SIGKILL)...")
-			s.execCmd(s.ctx, "pkill -9 -f 'pgedge-postgres-mcp.*stdio'")
+		// Get the PIDs and kill them directly
+		pids := strings.TrimSpace(output)
+		if pids != "" && pids != "no-process" {
+			if attempt == 1 {
+				s.T().Logf("  ⚠ MCP server process still running (PIDs: %s), stopping with SIGTERM...", pids)
+				s.execCmd(s.ctx, "kill "+pids)
+			} else if attempt == 2 {
+				s.T().Logf("  ⚠ MCP server process still running (PIDs: %s), force killing with SIGKILL...", pids)
+				s.execCmd(s.ctx, "kill -9 "+pids)
+			}
 		}
 		time.Sleep(2 * time.Second)
 	}
