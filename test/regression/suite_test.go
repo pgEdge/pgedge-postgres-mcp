@@ -409,6 +409,13 @@ func (s *RegressionTestSuite) printTestSummary() {
 	// Use ColoredBright - has best color coverage despite small edge gaps
 	t.SetStyle(table.StyleColoredBright)
 
+	// Fix footer visibility by customizing colors
+	// StyleColoredBright uses BgCyan+FgBlack which has poor visibility
+	// Change to BgHiCyan+FgBlack for better contrast
+	style := t.Style()
+	style.Color.Footer = text.Colors{text.BgHiCyan, text.FgBlack}
+	t.SetStyle(*style)
+
 	// Configure title
 	t.SetTitle("🧪 pgEdge MCP Regression Test Suite - Summary")
 
@@ -458,19 +465,11 @@ func (s *RegressionTestSuite) printTestSummary() {
 	// Add footer with totals
 	totalTests := len(s.testResults)
 	var statusSummary string
-	// Use simpler format in CI to avoid rendering issues
-	if os.Getenv("CI") != "" {
-		if failCount > 0 {
-			statusSummary = fmt.Sprintf("%d/%d passed", passCount, failCount)
-		} else {
-			statusSummary = fmt.Sprintf("%d/%d passed ✨", passCount, totalTests)
-		}
+	// Don't add manual ANSI colors - table style handles footer coloring
+	if failCount > 0 {
+		statusSummary = fmt.Sprintf("%d/%d PASSED", passCount, totalTests)
 	} else {
-		if failCount > 0 {
-			statusSummary = text.FgRed.Sprintf("%d/%d passed", passCount, totalTests)
-		} else {
-			statusSummary = text.FgGreen.Sprintf("%d/%d passed ✨", passCount, totalTests)
-		}
+		statusSummary = fmt.Sprintf("%d/%d PASSED ✨", passCount, totalTests)
 	}
 
 	totalDurationStr := formatDuration(totalDuration)
