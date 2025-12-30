@@ -111,15 +111,14 @@ func (s *RegressionTestSuite) SetupSuite() {
 	err = s.executor.Start(s.ctx)
 	s.Require().NoError(err, "Failed to start executor")
 
-	// For local mode, detect the actual system OS
-	if s.execMode == ModeLocal {
-		osInfo, err := s.executor.GetOSInfo(s.ctx)
-		if err == nil {
-			s.osImage = osInfo
-		} else {
-			s.osImage = "Local System"
-		}
+	// Detect the actual OS from the executor (works for both local and container modes)
+	osInfo, err := s.executor.GetOSInfo(s.ctx)
+	if err == nil && osInfo != "" {
+		s.osImage = osInfo
+	} else if s.execMode == ModeLocal {
+		s.osImage = "Local System"
 	}
+	// For container mode, keep the original image name if detection fails
 
 	if s.logLevel == LogLevelDetailed {
 		s.T().Logf("Execution mode: %s", s.execMode.String())
