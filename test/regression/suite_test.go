@@ -426,12 +426,23 @@ func (s *RegressionTestSuite) printTestSummary() {
 		testName := strings.TrimPrefix(result.Name, "TestRegressionSuite/")
 
 		var status string
-		if result.Status == "PASS" {
-			status = text.FgGreen.Sprintf("✓ PASS")
-		} else if result.Status == "FAIL" {
-			status = text.FgRed.Sprintf("✗ FAIL")
+		// Use simpler status format in CI to avoid rendering issues
+		if os.Getenv("CI") != "" {
+			if result.Status == "PASS" {
+				status = "✓ PASS"
+			} else if result.Status == "FAIL" {
+				status = "✗ FAIL"
+			} else {
+				status = fmt.Sprintf("⚠ %s", result.Status)
+			}
 		} else {
-			status = text.FgYellow.Sprintf("⚠ %s", result.Status)
+			if result.Status == "PASS" {
+				status = text.FgGreen.Sprintf("✓ PASS")
+			} else if result.Status == "FAIL" {
+				status = text.FgRed.Sprintf("✗ FAIL")
+			} else {
+				status = text.FgYellow.Sprintf("⚠ %s", result.Status)
+			}
 		}
 
 		// Format duration consistently for better alignment
@@ -445,10 +456,19 @@ func (s *RegressionTestSuite) printTestSummary() {
 	// Add footer with totals
 	totalTests := len(s.testResults)
 	var statusSummary string
-	if failCount > 0 {
-		statusSummary = text.FgRed.Sprintf("%d passed, %d failed", passCount, failCount)
+	// Use simpler format in CI to avoid rendering issues
+	if os.Getenv("CI") != "" {
+		if failCount > 0 {
+			statusSummary = fmt.Sprintf("%d passed, %d failed", passCount, failCount)
+		} else {
+			statusSummary = fmt.Sprintf("All %d tests passed! ✨", passCount)
+		}
 	} else {
-		statusSummary = text.FgGreen.Sprintf("All %d tests passed! ✨", passCount)
+		if failCount > 0 {
+			statusSummary = text.FgRed.Sprintf("%d passed, %d failed", passCount, failCount)
+		} else {
+			statusSummary = text.FgGreen.Sprintf("All %d tests passed! ✨", passCount)
+		}
 	}
 
 	totalDurationStr := formatDuration(totalDuration)
