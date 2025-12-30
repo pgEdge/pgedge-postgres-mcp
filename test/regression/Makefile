@@ -155,7 +155,11 @@ Execute_Regression_suite test: check-config deps
 	@echo "🧪 Running regression tests..."
 	@echo "   Mode: $(TEST_EXEC_MODE)"
 	@echo "   Server: $(TEST_SERVER_ENV)"
-	@echo "   OS: $(TEST_OS_IMAGE)"
+	@if [ "$(TEST_EXEC_MODE)" = "local" ]; then \
+		echo "   OS: System (auto-detect)"; \
+	else \
+		echo "   OS: $(TEST_OS_IMAGE)"; \
+	fi
 	@echo "   Log: $(TEST_LOG_LEVEL)"
 	@echo ""
 	@go test -run TestRegressionSuite -timeout $(TEST_TIMEOUT)
