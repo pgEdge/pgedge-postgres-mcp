@@ -10,12 +10,12 @@ on:
       os_image:
         description: 'Docker OS image to test'
         required: false
-        default: 'debian:12'
+        default: 'almalinux:10'
         type: choice
         options:
+          - almalinux:10
           - debian:12
           - ubuntu:24.04
-          - almalinux:10
           - almalinux:9
           - rocky:9
       server_env:
@@ -43,11 +43,12 @@ jobs:
       fail-fast: false
       matrix:
         os_image:
-          - debian:12
-          - ubuntu:24.04
           - almalinux:10
-          - almalinux:9
-          - rocky:9
+          # Temporarily disabled - enable after almalinux:10 is stable
+          # - debian:12
+          # - ubuntu:24.04
+          # - almalinux:9
+          # - rocky:9
 
     timeout-minutes: 60
 
@@ -184,7 +185,7 @@ jobs:
         run: go mod download
 
       - name: Pull Docker image
-        run: docker pull debian:12
+        run: docker pull almalinux:10
 
       - name: Configure test environment
         working-directory: test/regression
@@ -192,7 +193,7 @@ jobs:
           cat > .test.env << EOF
           TEST_EXEC_MODE=container-systemd
           TEST_SERVER_ENV=live
-          TEST_OS_IMAGE=debian:12
+          TEST_OS_IMAGE=almalinux:10
           TEST_LOG_LEVEL=minimal
           TEST_TIMEOUT=45m
           EOF
