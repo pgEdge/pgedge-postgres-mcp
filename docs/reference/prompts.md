@@ -1,4 +1,4 @@
-# MCP Prompts
+# Using MCP Prompts
 
 Prompts are reusable workflow templates that guide LLMs through complex
 multi-step processes. They provide structured guidance for common tasks like

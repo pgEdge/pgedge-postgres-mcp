@@ -1,4 +1,4 @@
-# MCP Tools
+# Using MCP Tools
 
 The MCP server provides various tools that enable SQL database interaction, advanced semantic search, embedding generation, resource reading, and more. You can explicitly tell the LLM to invoke a particular tool, but in most cases the LLM will select tooling based on what it is trying to achieve and the descriptions of the tools within the code.
 

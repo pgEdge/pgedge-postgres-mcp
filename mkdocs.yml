@@ -93,10 +93,10 @@ nav:
           - Security Checklist: guide/security.md
           - Security Management: guide/security_mgmt.md
   - Reference:
-      - Tools: reference/tools.md
-      - Resources: reference/resources.md
-      - Prompts: reference/prompts.md
-      - Examples - Querying the Server: reference/examples.md
+      - Using MCP Tools: reference/tools.md
+      - Using MCP Resources: reference/resources.md
+      - Using MCP Prompts: reference/prompts.md
+      - Querying the Server: reference/examples.md
       - Configuration Examples:
           - Server Configuration File: reference/config-examples/server.md
           - API Token Configuration File: reference/config-examples/tokens.md
