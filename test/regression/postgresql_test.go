@@ -1,6 +1,7 @@
 package regression
 
 import (
+	"fmt"
 	"time"
 )
 
@@ -21,16 +22,16 @@ func (s *RegressionTestSuite) installPostgreSQL() {
 	isDebian, _ := s.getOSType()
 
 	// Step 1: Install PostgreSQL packages
-	s.logDetailed("Step 1: Installing PostgreSQL packages")
+	s.logDetailed("Step 1: Installing PostgreSQL %s packages", s.pgVersion)
 	var pgPackages []string
 	if isDebian {
 		pgPackages = []string{
-			"apt-get install -y postgresql-18",
+			fmt.Sprintf("apt-get install -y postgresql-%s", s.pgVersion),
 		}
 	} else {
 		pgPackages = []string{
-			"dnf install -y pgedge-postgresql18-server",
-			"dnf install -y pgedge-postgresql18",
+			fmt.Sprintf("dnf install -y pgedge-postgresql%s-server", s.pgVersion),
+			fmt.Sprintf("dnf install -y pgedge-postgresql%s", s.pgVersion),
 		}
 	}
 
@@ -41,50 +42,49 @@ func (s *RegressionTestSuite) installPostgreSQL() {
 	}
 
 	// Step 2: Initialize PostgreSQL database
-	s.logDetailed("Step 2: Initializing PostgreSQL database")
+	s.logDetailed("Step 2: Initializing PostgreSQL %s database", s.pgVersion)
 	if isDebian {
 		// Debian/Ubuntu initialization
 		// Use pg_ctlcluster with --skip-systemctl-redirect to bypass systemd
 		// This avoids the systemd PID file ownership issue on Ubuntu/Debian
-		output, exitCode, err := s.execCmd(s.ctx, "pg_ctlcluster --skip-systemctl-redirect 18 main start")
+		startCmd := fmt.Sprintf("pg_ctlcluster --skip-systemctl-redirect %s main start", s.pgVersion)
+		output, exitCode, err := s.execCmd(s.ctx, startCmd)
 		s.NoError(err, "Failed to start PostgreSQL: %s", output)
 		// Exit code 0 = started successfully, Exit code 2 = already running (both are OK)
 		s.True(exitCode == 0 || exitCode == 2, "PostgreSQL start failed with unexpected exit code %d: %s", exitCode, output)
 	} else {
 		// RHEL/Rocky initialization (manual, not systemd)
 
-		// Stop any existing PostgreSQL instance
+		// Stop any existing PostgreSQL instances for cleanup
 		s.logDetailed("  Stopping any existing PostgreSQL instances...")
-		stopCmd := "su - postgres -c '/usr/pgsql-18/bin/pg_ctl -D /var/lib/pgsql/18/data stop' 2>/dev/null || true"
-		s.execCmd(s.ctx, stopCmd) // Ignore errors
-
-		// Also try older version for cleanup
-		stopCmd16 := "su - postgres -c '/usr/pgsql-16/bin/pg_ctl -D /var/lib/pgsql/16/data stop' 2>/dev/null || true"
-		s.execCmd(s.ctx, stopCmd16) // Ignore errors
+		for _, ver := range []string{"16", "17", "18"} {
+			stopCmd := fmt.Sprintf("su - postgres -c '/usr/pgsql-%s/bin/pg_ctl -D /var/lib/pgsql/%s/data stop' 2>/dev/null || true", ver, ver)
+			s.execCmd(s.ctx, stopCmd) // Ignore errors
+		}
 
 		time.Sleep(2 * time.Second)
 
 		// Remove existing data directory if it exists
 		s.logDetailed("  Cleaning up existing data directory...")
-		cleanupCmd := "rm -rf /var/lib/pgsql/18/data"
+		cleanupCmd := fmt.Sprintf("rm -rf /var/lib/pgsql/%s/data", s.pgVersion)
 		s.execCmd(s.ctx, cleanupCmd)
 
 		// Initialize database
-		s.logDetailed("  Initializing new PostgreSQL 18 database...")
-		initCmd := "su - postgres -c '/usr/pgsql-18/bin/initdb -D /var/lib/pgsql/18/data'"
+		s.logDetailed("  Initializing new PostgreSQL %s database...", s.pgVersion)
+		initCmd := fmt.Sprintf("su - postgres -c '/usr/pgsql-%s/bin/initdb -D /var/lib/pgsql/%s/data'", s.pgVersion, s.pgVersion)
 		output, exitCode, err := s.execCmd(s.ctx, initCmd)
 		s.NoError(err, "PostgreSQL initdb failed: %s", output)
 		s.Equal(0, exitCode, "PostgreSQL initdb failed: %s", output)
 
 		// Configure PostgreSQL to accept local connections
-		configCmd := `echo "host all all 127.0.0.1/32 md5" >> /var/lib/pgsql/18/data/pg_hba.conf`
+		configCmd := fmt.Sprintf(`echo "host all all 127.0.0.1/32 md5" >> /var/lib/pgsql/%s/data/pg_hba.conf`, s.pgVersion)
 		output, exitCode, err = s.execCmd(s.ctx, configCmd)
 		s.NoError(err, "Failed to configure pg_hba.conf: %s", output)
 		s.Equal(0, exitCode, "pg_hba.conf config failed: %s", output)
 
 		// Start PostgreSQL manually
-		s.logDetailed("  Starting PostgreSQL 18...")
-		startCmd := "su - postgres -c '/usr/pgsql-18/bin/pg_ctl -D /var/lib/pgsql/18/data -l /var/lib/pgsql/18/data/logfile start'"
+		s.logDetailed("  Starting PostgreSQL %s...", s.pgVersion)
+		startCmd := fmt.Sprintf("su - postgres -c '/usr/pgsql-%s/bin/pg_ctl -D /var/lib/pgsql/%s/data -l /var/lib/pgsql/%s/data/logfile start'", s.pgVersion, s.pgVersion, s.pgVersion)
 		output, exitCode, err = s.execCmd(s.ctx, startCmd)
 		s.NoError(err, "PostgreSQL start failed: %s", output)
 		s.Equal(0, exitCode, "PostgreSQL start failed: %s", output)

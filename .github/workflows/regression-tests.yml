@@ -26,6 +26,15 @@ on:
         options:
           - live
           - staging
+      pg_version:
+        description: 'PostgreSQL version'
+        required: false
+        default: '18'
+        type: choice
+        options:
+          - '16'
+          - '17'
+          - '18'
       log_level:
         description: 'Log level'
         required: false
@@ -94,6 +103,7 @@ jobs:
           # Auto-generated for GitHub Actions
           TEST_EXEC_MODE=container-systemd
           TEST_SERVER_ENV=${{ github.event.inputs.server_env || 'live' }}
+          TEST_PG_VERSION=${{ github.event.inputs.pg_version || '18' }}
           TEST_OS_IMAGE=${{ matrix.os_image }}
           TEST_LOG_LEVEL=${{ github.event.inputs.log_level || 'minimal' }}
           TEST_TIMEOUT=45m
@@ -115,6 +125,7 @@ jobs:
           CI: true
           TEST_EXEC_MODE: container-systemd
           TEST_SERVER_ENV: ${{ github.event.inputs.server_env || 'live' }}
+          TEST_PG_VERSION: ${{ github.event.inputs.pg_version || '18' }}
           TEST_OS_IMAGE: ${{ matrix.os_image }}
           TEST_LOG_LEVEL: ${{ github.event.inputs.log_level || 'minimal' }}
           TEST_TIMEOUT: 45m
@@ -123,6 +134,7 @@ jobs:
           echo "Running regression tests"
           echo "OS Image: ${{ matrix.os_image }}"
           echo "Server Environment: ${{ github.event.inputs.server_env || 'live' }}"
+          echo "PostgreSQL Version: ${{ github.event.inputs.pg_version || '18' }}"
           echo "Log Level: ${{ github.event.inputs.log_level || 'minimal' }}"
           echo "=========================================="
 
@@ -172,6 +184,7 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**OS Image:** \`${{ matrix.os_image }}\`" >> $GITHUB_STEP_SUMMARY
           echo "**Server Environment:** \`${{ github.event.inputs.server_env || 'live' }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**PostgreSQL Version:** \`${{ github.event.inputs.pg_version || '18' }}\`" >> $GITHUB_STEP_SUMMARY
           echo "**Log Level:** \`${{ github.event.inputs.log_level || 'minimal' }}\`" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
@@ -212,6 +225,7 @@ jobs:
           cat > .test.env << EOF
           TEST_EXEC_MODE=container-systemd
           TEST_SERVER_ENV=live
+          TEST_PG_VERSION=18
           TEST_OS_IMAGE=almalinux:10
           TEST_LOG_LEVEL=minimal
           TEST_TIMEOUT=45m
@@ -223,6 +237,7 @@ jobs:
           CI: true
           TEST_EXEC_MODE: container-systemd
           TEST_SERVER_ENV: live
+          TEST_PG_VERSION: 18
           TEST_OS_IMAGE: almalinux:10
           TEST_LOG_LEVEL: minimal
           TEST_TIMEOUT: 45m

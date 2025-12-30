@@ -61,6 +61,7 @@ type RegressionTestSuite struct {
 	execMode      ExecutionMode
 	logLevel      LogLevel
 	serverEnv     ServerEnvironment
+	pgVersion     string // PostgreSQL version (16, 17, or 18)
 
 	// Track setup state to avoid redundant operations
 	setupState struct {
@@ -85,6 +86,9 @@ func (s *RegressionTestSuite) SetupSuite() {
 
 	// Determine server environment (staging vs live)
 	s.serverEnv = s.getServerEnvironment()
+
+	// Determine PostgreSQL version
+	s.pgVersion = s.getPostgreSQLVersion()
 
 	// Determine log level from environment
 	logLevelStr := strings.ToLower(os.Getenv("TEST_LOG_LEVEL"))
@@ -131,6 +135,7 @@ func (s *RegressionTestSuite) SetupSuite() {
 			s.T().Logf("Testing on: %s", s.osDisplayName)
 		}
 		s.T().Logf("Server environment: %s", s.serverEnv.String())
+		s.T().Logf("PostgreSQL version: %s", s.pgVersion)
 		s.T().Logf("Executor (%s) started successfully", s.execMode.String())
 	}
 }
@@ -220,6 +225,67 @@ func (s *RegressionTestSuite) promptServerEnvironment() ServerEnvironment {
 	default:
 		fmt.Printf("Invalid choice '%s', using default (live)\n", input)
 		return EnvLive
+	}
+}
+
+// getPostgreSQLVersion determines the PostgreSQL version from environment or user prompt
+func (s *RegressionTestSuite) getPostgreSQLVersion() string {
+	// Check environment variable first
+	pgVer := os.Getenv("TEST_PG_VERSION")
+	if pgVer != "" {
+		switch pgVer {
+		case "16", "17", "18":
+			return pgVer
+		default:
+			s.T().Logf("Warning: Unknown TEST_PG_VERSION '%s', prompting user", pgVer)
+		}
+	}
+
+	// If not in CI and no environment variable, prompt the user
+	if !s.isCI() {
+		return s.promptPostgreSQLVersion()
+	}
+
+	// Default to version 18 for CI
+	return "18"
+}
+
+// promptPostgreSQLVersion prompts the user to select PostgreSQL version
+func (s *RegressionTestSuite) promptPostgreSQLVersion() string {
+	fmt.Println("\n=== PostgreSQL Version Selection ===")
+	fmt.Println("Please select which PostgreSQL version to install:")
+	fmt.Println()
+	fmt.Println("1. PostgreSQL 16")
+	fmt.Println("2. PostgreSQL 17")
+	fmt.Println("3. PostgreSQL 18 (recommended)")
+	fmt.Println()
+	fmt.Print("Enter your choice [1-3] (default: 3): ")
+
+	reader := bufio.NewReader(os.Stdin)
+	input, err := reader.ReadString('\n')
+	if err != nil {
+		s.T().Logf("Error reading input, using default (18): %v", err)
+		return "18"
+	}
+
+	input = strings.TrimSpace(input)
+	if input == "" {
+		input = "3"
+	}
+
+	switch input {
+	case "1":
+		fmt.Println("Selected: PostgreSQL 16")
+		return "16"
+	case "2":
+		fmt.Println("Selected: PostgreSQL 17")
+		return "17"
+	case "3":
+		fmt.Println("Selected: PostgreSQL 18")
+		return "18"
+	default:
+		fmt.Printf("Invalid choice '%s', using default (18)\n", input)
+		return "18"
 	}
 }
 
@@ -495,6 +561,7 @@ func (s *RegressionTestSuite) printTestSummary() {
 	}
 	fmt.Printf("%s Server Environment: %s\n", envEmoji, text.FgCyan.Sprint(s.serverEnv.String()))
 
+	fmt.Printf("🐘 PostgreSQL Version: %s\n", text.FgCyan.Sprint(s.pgVersion))
 	fmt.Printf("📦 Repository: %s\n", text.FgCyan.Sprint(s.repoURL))
 	fmt.Printf("⏱️  Total Duration: %s\n", text.FgCyan.Sprint(totalDuration.Round(time.Millisecond)))
 
