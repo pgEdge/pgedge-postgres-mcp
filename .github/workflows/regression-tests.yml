@@ -121,7 +121,17 @@ jobs:
           echo "Log Level: ${{ github.event.inputs.log_level || 'minimal' }}"
           echo "=========================================="
 
-          go test -v -timeout 45m -run TestRegressionSuite 2>&1 | tee test-output.log
+          # Run tests and capture output
+          set +e
+          go test -v -timeout 45m -run TestRegressionSuite > test-output.log 2>&1
+          TEST_EXIT_CODE=$?
+          set -e
+
+          # Display output up to and including the final separator line (80 =)
+          # This removes the Go test framework summary that comes after our custom summary
+          awk '/^={80}$/ {print; if (printed_summary) exit} {print} /TEST SUITE (PASSED|FAILED)/ {printed_summary=1}' test-output.log
+
+          exit $TEST_EXIT_CODE
 
       - name: Upload test results
         if: always()
