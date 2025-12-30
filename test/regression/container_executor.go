@@ -267,16 +267,22 @@ rm -rf /var/lib/apt/lists/*`
 			Image: finalImage,
 			Cmd:   []string{initPath},
 			Tty:   true,
+			// Stop signal for systemd
+			StopSignal: "SIGRTMIN+3",
 		},
 		&container.HostConfig{
 			Privileged: true,
 			Mounts:     mounts,
 			Tmpfs: map[string]string{
-				"/run":      "",
-				"/run/lock": "",
+				"/run":           "",
+				"/run/lock":      "",
+				"/tmp":           "",
+				"/var/lib/journal": "",
 			},
 			// Add DNS servers for network resolution
 			DNS: []string{"8.8.8.8", "8.8.4.4", "1.1.1.1"},
+			// CgroupnsMode for systemd compatibility
+			CgroupnsMode: "host",
 		},
 		nil, nil, c.name)
 	if err != nil {
