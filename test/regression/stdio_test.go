@@ -303,11 +303,20 @@ SCRIPT`
 
 	// The stdio server should have exited automatically after processing all input
 	// But let's make sure no processes are lingering
-	output, exitCode, err = s.execCmd(s.ctx, "pgrep -f 'pgedge-postgres-mcp.*stdio' || echo 'no-process'")
-	if exitCode == 0 && !strings.Contains(output, "no-process") {
-		// Process still running, kill it
-		s.T().Log("  ⚠ MCP server process still running, stopping it...")
-		s.execCmd(s.ctx, "pkill -f 'pgedge-postgres-mcp.*stdio'")
+	// Try multiple times with increasing force
+	for attempt := 1; attempt <= 3; attempt++ {
+		output, exitCode, err = s.execCmd(s.ctx, "pgrep -f 'pgedge-postgres-mcp.*stdio' || echo 'no-process'")
+		if strings.Contains(output, "no-process") {
+			break
+		}
+
+		if attempt == 1 {
+			s.T().Log("  ⚠ MCP server process still running, stopping it (SIGTERM)...")
+			s.execCmd(s.ctx, "pkill -f 'pgedge-postgres-mcp.*stdio'")
+		} else if attempt == 2 {
+			s.T().Log("  ⚠ MCP server process still running, force killing (SIGKILL)...")
+			s.execCmd(s.ctx, "pkill -9 -f 'pgedge-postgres-mcp.*stdio'")
+		}
 		time.Sleep(2 * time.Second)
 	}
 
