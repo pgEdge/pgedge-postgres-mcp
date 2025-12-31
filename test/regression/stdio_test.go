@@ -302,27 +302,43 @@ SCRIPT`
 	time.Sleep(2 * time.Second)
 
 	// Verify all processes are gone using specific pattern that won't match DNF
-	for attempt := 1; attempt <= 3; attempt++ {
+	for attempt := 1; attempt <= 5; attempt++ {
 		output, exitCode, err = s.execCmd(s.ctx, "pgrep -f '/usr/bin/pgedge-postgres-mcp.*stdio-test.yaml' || echo 'no-process'")
 		if strings.Contains(output, "no-process") {
 			break
 		}
 
-		// If processes still exist, force kill them
+		// If processes still exist, show details and force kill them
 		pids := strings.TrimSpace(output)
 		if pids != "" && pids != "no-process" {
-			// Replace newlines with spaces to handle multiple PIDs
-			pids = strings.ReplaceAll(pids, "\n", " ")
-			pids = strings.TrimSpace(pids)
+			// Show what these processes actually are
+			pidList := strings.Fields(strings.ReplaceAll(pids, "\n", " "))
+			if len(pidList) > 0 {
+				s.T().Logf("  ⚠ Found %d lingering process(es): %v", len(pidList), pidList)
+				// Show process details for debugging
+				for _, pid := range pidList {
+					psOut, _, _ := s.execCmd(s.ctx, "ps -fp "+pid+" 2>/dev/null || echo 'process-gone'")
+					if !strings.Contains(psOut, "process-gone") {
+						s.T().Logf("    Process %s: %s", pid, strings.TrimSpace(psOut))
+					}
+				}
+			}
 
-			s.T().Logf("  ⚠ MCP server process still running after pkill (PIDs: %s), force killing...", pids)
-			s.execCmd(s.ctx, "sudo kill -9 "+pids+" 2>/dev/null || kill -9 "+pids+" 2>/dev/null || true")
+			// Kill all PIDs at once
+			allPids := strings.Join(pidList, " ")
+			s.T().Logf("  ⚠ Force killing PIDs: %s", allPids)
+			s.execCmd(s.ctx, "sudo kill -9 "+allPids+" 2>/dev/null || kill -9 "+allPids+" 2>/dev/null || true")
 		}
-		time.Sleep(1 * time.Second)
+		time.Sleep(2 * time.Second)
 	}
 
-	// Verify no stdio mode processes are running
+	// Final verification - no stdio mode processes should be running
 	output, exitCode, err = s.execCmd(s.ctx, "pgrep -f '/usr/bin/pgedge-postgres-mcp.*stdio-test.yaml' || echo 'no-process'")
+	if !strings.Contains(output, "no-process") {
+		// Show detailed info about remaining processes before failing
+		s.T().Logf("  ✗ ERROR: Processes still running after cleanup attempts!")
+		s.execCmd(s.ctx, "ps aux | grep '[p]gedge-postgres-mcp.*stdio' || true")
+	}
 	s.Contains(output, "no-process", "MCP server stdio processes should be stopped")
 
 	s.T().Log("  ✓ MCP server stopped and verified")
