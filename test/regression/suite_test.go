@@ -604,10 +604,11 @@ func (s *RegressionTestSuite) animateElephant() {
 		case <-s.stopElephant:
 			return
 		case <-ticker.C:
+			// Put text first, then elephant facing the text from the right
 			if wave%2 == 0 {
-				fmt.Printf("\r🐘 Tests running...")
+				fmt.Printf("\rTests running... 🐘")
 			} else {
-				fmt.Printf("\r 🐘 Tests running...")
+				fmt.Printf("\rTests running...  🐘")
 			}
 			wave++
 		}
