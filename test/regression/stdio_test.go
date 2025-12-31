@@ -293,14 +293,11 @@ SCRIPT`
 	// The server should detect EOF on stdin and close database connections cleanly
 	time.Sleep(3 * time.Second)
 
-	// Check if any processes are still running
-	output, exitCode, err = s.execCmd(s.ctx, "pgrep -f 'pgedge-postgres-mcp.*stdio' || echo 'no-process'")
-	if !strings.Contains(output, "no-process") {
-		// Processes didn't exit gracefully, force kill them
-		s.T().Log("  ⚠ MCP server processes didn't exit gracefully, force killing...")
-		s.execCmd(s.ctx, "sudo pkill -9 -f 'pgedge-postgres-mcp.*stdio' || pkill -9 -f 'pgedge-postgres-mcp.*stdio' || true")
-		time.Sleep(1 * time.Second)
-	}
+	// Kill any remaining timeout wrappers and MCP server processes
+	// The timeout command may keep the process tree alive even after stdin closes
+	s.execCmd(s.ctx, "pkill -9 -f 'timeout.*pgedge-postgres-mcp' || true")
+	s.execCmd(s.ctx, "pkill -9 -f 'pgedge-postgres-mcp.*stdio' || true")
+	time.Sleep(1 * time.Second)
 
 	// Verify all processes are gone
 	for attempt := 1; attempt <= 3; attempt++ {
