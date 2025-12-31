@@ -303,30 +303,28 @@ SCRIPT`
 
 	// The stdio server should have exited automatically after processing all input
 	// But let's make sure no processes are lingering
-	// Try multiple times with increasing force
+	// Kill all stdio processes using pkill first (more reliable for pattern matching)
+	s.execCmd(s.ctx, "sudo pkill -9 -f 'pgedge-postgres-mcp.*stdio' || pkill -9 -f 'pgedge-postgres-mcp.*stdio' || true")
+	time.Sleep(1 * time.Second)
+
+	// Verify all processes are gone
 	for attempt := 1; attempt <= 3; attempt++ {
 		output, exitCode, err = s.execCmd(s.ctx, "pgrep -f 'pgedge-postgres-mcp.*stdio' || echo 'no-process'")
 		if strings.Contains(output, "no-process") {
 			break
 		}
 
-		// Get the PIDs and kill them directly
-		// PIDs may be on separate lines, so join them with spaces
+		// If processes still exist, force kill them
 		pids := strings.TrimSpace(output)
 		if pids != "" && pids != "no-process" {
 			// Replace newlines with spaces to handle multiple PIDs
 			pids = strings.ReplaceAll(pids, "\n", " ")
 			pids = strings.TrimSpace(pids)
 
-			if attempt == 1 {
-				s.T().Logf("  ⚠ MCP server process still running (PIDs: %s), stopping with SIGTERM...", pids)
-				s.execCmd(s.ctx, "sudo kill "+pids+" || kill "+pids)
-			} else if attempt == 2 {
-				s.T().Logf("  ⚠ MCP server process still running (PIDs: %s), force killing with SIGKILL...", pids)
-				s.execCmd(s.ctx, "sudo kill -9 "+pids+" || kill -9 "+pids)
-			}
+			s.T().Logf("  ⚠ MCP server process still running after pkill (PIDs: %s), force killing...", pids)
+			s.execCmd(s.ctx, "sudo kill -9 "+pids+" 2>/dev/null || kill -9 "+pids+" 2>/dev/null || true")
 		}
-		time.Sleep(2 * time.Second)
+		time.Sleep(1 * time.Second)
 	}
 
 	// Verify no stdio mode processes are running
