@@ -127,6 +127,9 @@ func (s *RegressionTestSuite) SetupSuite() {
 		s.osDisplayName = s.osImage
 	}
 
+	// Show elephant progress indicator at the start of test suite
+	fmt.Printf("\n🐘 → → → → → →  pgEdge Postgres MCP Regression Suite starting...\n\n")
+
 	if s.logLevel == LogLevelDetailed {
 		s.T().Logf("Execution mode: %s", s.execMode.String())
 		if s.execMode != ModeLocal {
@@ -378,18 +381,8 @@ func (s *RegressionTestSuite) logDetailed(format string, args ...interface{}) {
 	}
 }
 
-// showProgressIndicator displays a moving PostgreSQL elephant to indicate test is running
-func (s *RegressionTestSuite) showProgressIndicator() {
-	// Display moving elephant progress indicator
-	// This appears after setup and before test execution
-	fmt.Printf("\n🐘 → → → → → →  %s starting...\n\n", s.T().Name())
-}
-
 // SetupTest runs before each test
 func (s *RegressionTestSuite) SetupTest() {
-	// Show progress indicator that test is starting
-	s.showProgressIndicator()
-
 	s.logDetailed("=== Starting test: %s ===", s.T().Name())
 
 	// Track test start time
