@@ -46,6 +46,7 @@ flowchart LR
 For server operators and end users:
 
 - [Choosing the Right Solution](guide/mcp-vs-rag.md) - MCP Server vs RAG Server
+- [Best Practices - Querying the Server](guide/querying.md)
 - [Configuration](guide/configuration.md) - All configuration options
 - [Authentication](guide/authentication.md) - Users, tokens, and access control
 - [CLI Client](guide/cli-client.md) - Command-line interface
@@ -57,7 +58,10 @@ Reference Pages:
 - [Tools](reference/tools.md) - Database query, schema, search tools
 - [Resources](reference/resources.md) - System info and schema resources
 - [Prompts](reference/prompts.md) - Guided workflow prompts
-- [Examples](reference/examples.md) - Query examples
+- [Configuration Reference - Server](reference/config-examples/server.md)
+- [Configuration Reference - API Token](reference/config-examples/tokens.md)
+- [CLI Client Configuration](reference/config-examples/cli-client.md)
+- [KB Builder Configuration](reference/config-examples/kb-builder.md)
 
 For Developers building applications that use the MCP server:
 

@@ -1,6 +1,6 @@
 # Querying the Server
 
-The following approach will help you get the most out of the MCP server when working with natural language queries and database interactions.
+The following suggestions will help you get the most out of the MCP server when working with natural language queries and database interactions.
 
 **Start with Schema Discovery**
 
@@ -9,14 +9,12 @@ Before querying data, understand your database structure:
 - "Show me the database schema"
 - "What tables are available?"
 
-
 **Use Specific Table Names**
 
 Specific queries generate better SQL:
 
 - Good: "Show me orders from the last week"
 - Better: "Show me all orders from the orders table created in the last 7 days"
-
 
 **Reference Column Descriptions**
 
@@ -28,18 +26,15 @@ When working with multiple databases, test queries on development environments:
 
 - "Show users at postgres://localhost/dev_db"
 
-
 Then apply those queries to your production environment:
 
 - "Show users at postgres://prod-server/production_db"
-
 
 **Use Read Replicas for Heavy Queries**
 
 For expensive analytical queries, use read replicas:
 
 - "Generate sales report from postgres://replica-01/production_readonly"
-
 
 **Keep Connection Strings Secure**
 
@@ -48,42 +43,9 @@ Never commit connection strings with passwords to version control. Use environme
 The following sections provide examples of natural language queries you can use with the MCP server. The examples assume you're using Claude Desktop or another MCP client with the server configured.
 
 
-## Basic Data Queries
-
-These queries work against your default database connection:
-
-**Customer/User Queries**
-
-- "Show me all customers who made purchases in the last month"
-- "List all users who haven't logged in for more than 30 days"
-- "Find users who registered this week"
-- "Show me the most active users in the last quarter"
-
-**Product/Inventory Queries**
-
-- "What are the top 10 products by revenue?"
-- "Find all orders with items that are out of stock"
-- "Show me products with low inventory levels"
-- "List products that haven't sold in the last 60 days"
-
-**Analytics Queries**
-
-- "Show me the average order value by customer segment"
-- "What's the total revenue for this month?"
-- "Calculate the conversion rate by marketing channel"
-- "Show daily active users for the past 7 days"
-
-**Time-Based Queries**
-
-- "Show me all orders placed today"
-- "Find records created in the last hour"
-- "List events from the past week grouped by day"
-- "Show monthly sales trends for the last year"
-
-
 ## Schema Discovery
 
-Use these queries to understand your database structure:
+Use the following queries to understand your database structure.
 
 **General Schema Information**
 
@@ -108,11 +70,11 @@ Use these queries to understand your database structure:
 
 ## Using Queries for Configuration Management
 
-The MCP server provides access to Postgres configuration parameters through the `pg://settings` resource and the [`set_pg_configuration`](../guide/security_mgmt.md#configuration-management) tool. You can also access the `pg://settings` resource to view all Postgres configuration parameters.
+The MCP server provides access to Postgres configuration parameters through the `pg://settings` resource and the [`set_pg_configuration`](../guide/security_mgmt.md#configuration-management) tool.
 
-Some queries you might use to retrieve configuration details include the following.
+You can query the `pg://settings` resource to view Postgres configuration parameters; some useful queries that retrieve configuration details include:
 
-**Resource Access**
+**For Resource Access**
 
 - "Show me the pg://settings resource"
 - "Read the PostgreSQL settings resource"
@@ -139,10 +101,10 @@ The resource returns:
 
 ### Modifying Configuration Details
 
-Use the [`set_pg_configuration`](../guide/security_mgmt.md#configuration-management)  tool to modify PostgreSQL server configuration settings; after changing a setting, you can verify it with the following commands:
+Use the [`set_pg_configuration`](../guide/security_mgmt.md#configuration-management) tool to modify PostgreSQL server configuration settings; after changing a setting, you can verify it with the following commands:
 
 - "Show me the current value of `max_connections`"
-- ""Check if max_connections has a pending restart"
+- "Check if `max_connections` has a pending restart"
 
 **Setting Values**
 
@@ -157,7 +119,7 @@ Use the [`set_pg_configuration`](../guide/security_mgmt.md#configuration-managem
 - "Set work_mem back to default value"
 - "Restore default value for shared_buffers"
 
-### Configuration Examples by Category
+### Modifying Configuration Settings (by Category)
 
 **Connection Settings**
 
@@ -198,40 +160,83 @@ Use the [`set_pg_configuration`](../guide/security_mgmt.md#configuration-managem
 
 **Important Notes**
 
-1. **Restart Requirements**: Some parameters require a PostgreSQL restart to take effect:
-   - Connection settings (max_connections, shared_buffers)
-   - Most memory settings
-   - WAL-related settings
-   - The tool will warn you when a restart is required
+* **Restart Requirements**: Some parameters require a PostgreSQL restart to take effect:
 
-2. **Permissions**: You need superuser privileges to use `ALTER SYSTEM SET`.
+    - Connection settings (max_connections, shared_buffers)
+    - Most memory settings
+    - WAL-related settings
+    - The tool will warn you when a restart is required
 
-3. **Persistence**: Changes are written to `postgresql.auto.conf` and persist across restarts
+* **Permissions**: You need superuser privileges to use `ALTER SYSTEM SET`.
 
-4. **Reload**: The tool automatically calls `pg_reload_conf()` for parameters that don't require a restart.
+* **Persistence**: Changes are written to `postgresql.auto.conf` and persist across restarts.
+
+* **Reload**: The tool automatically calls `pg_reload_conf()` for parameters that don't require a restart.
+
+
+## Basic Data Queries
+
+The following queries work against your default database connection.
+
+**Customer/User Queries**
+
+- "Show me all customers who made purchases in the last month"
+- "List all users who haven't logged in for more than 30 days"
+- "Find users who registered this week"
+- "Show me the most active users in the last quarter"
+
+**Product/Inventory Queries**
+
+- "What are the top 10 products by revenue?"
+- "Find all orders with items that are out of stock"
+- "Show me products with low inventory levels"
+- "List products that haven't sold in the last 60 days"
+
+**Analytics Queries**
+
+- "Show me the average order value by customer segment"
+- "What's the total revenue for this month?"
+- "Calculate the conversion rate by marketing channel"
+- "Show daily active users for the past 7 days"
+
+**Time-Based Queries**
+
+- "Show me all orders placed today"
+- "Find records created in the last hour"
+- "List events from the past week grouped by day"
+- "Show monthly sales trends for the last year"
+
 
 
 ## Multi-Database Queries
 
 The MCP server supports querying multiple PostgreSQL databases without changing configuration files.
 
-**Using a Temporary Connection for a Single Query**
+When you use a temporary connection:
+
+1. The server connects to the specified database.
+2. The server loads metadata (if the metadata is not already cached).
+3. The server executes your query against that database.
+4. The server returns results.
+5. The server retains your original default connection unchanged.
+
+**Examples - Using a Temporary Connection for a Single Query**
 
 You can query a different database with a single query while keeping your default connection unchanged. Include the connection string in your natural language query using one of the following patterns:
 
-**Using "at" Pattern**
+**Using the "at" Pattern**
 
 - "Show me the table list at postgres://user:pass@localhost:5432/other_db"
 - "Count users at postgres://analytics-db:5432/analytics"
 - "What is the PostgreSQL version at postgres://localhost/test_db"
 
-**Using "from" Pattern**
+**Using the "from" Pattern**
 
 - "Show me all tables from postgres://prod-server/production_db"
 - "List database size from postgres://localhost:5433/warehouse"
 - "Get active connections from postgres://monitoring-db/metrics"
 
-**Using "on" Pattern**
+**Using the "on" Pattern**
 
 - "List all users on postgres://dev-server:5433/dev_db?sslmode=require"
 - "Show table count on postgres://staging-db/staging"
@@ -243,19 +248,20 @@ You can query a different database with a single query while keeping your defaul
 - "Show me table sizes from postgres://dba@warehouse-01/analytics?sslmode=require"
 - "List all schemas on postgres://reporting-server:5433/reports"
 
-**How it works**
-
-1. The server connects to the specified database.
-2. The server loads metadata (if not already cached).
-3. The server executes your query against that database.
-4. The server returns results.
-5. The server keeps your original default connection unchanged.
 
 ## Setting a Default Database
 
 You can permanently switch to a different database with the following queries. When you're done, you can revert to the original database with the query:
 
 - "Set default database to postgres://localhost/postgres"
+
+When you execute the query:
+
+1. The server connects to the new database.
+2. The server loads the metadata it needs from the new database.
+3. The server sets it as the default for all future queries.
+4. The server confirms the switch with a metadata summary.
+5. All subsequent queries will use this connection.
 
 **Using "Set Default" Pattern**
 
@@ -277,14 +283,6 @@ You can permanently switch to a different database with the following queries. W
 - "Set default database to postgres://analytics:5432/user_analytics?sslmode=require"
 - "Use database postgres://warehouse-db:5433/data_warehouse"
 - "Switch to postgres://backup-server/production_backup"
-
-**How it works**
-
-1. The server connects to the new database.
-2. The server loads metadata.
-3. The server sets it as the default for all future queries.
-4. The server confirms the switch with a metadata summary.
-5. All subsequent queries will use this connection.
 
 
 ## Advanced Queries

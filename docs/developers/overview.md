@@ -7,31 +7,34 @@ Agent.
 
 The MCP server provides multiple interfaces for building database applications:
 
-1. **MCP Protocol Clients** - Build chat clients that use the JSON-RPC
-   protocol
-2. **Web Applications** - Use the LLM proxy and REST APIs
-3. **Custom Integrations** - Integrate with existing applications
+- MCP Protocol clients provide chat clients that use the JSON-RPC protocol.
+- Web applications use the LLM proxy and REST APIs to access MCP services.
+- Custom integrations enable existing applications to integrate with MCP.
 
-## Quick Start
+## Getting Started with the MCP Server
 
-### 1. Understanding the Architecture
+This section gives a concise path to start developing with the MCP server.
+
+**Understanding the Architecture**
 
 The MCP server exposes two main interfaces:
 
-- **JSON-RPC (MCP Protocol)** - For MCP-compatible clients
-- **REST APIs** - For LLM proxy and utility endpoints
+- JSON-RPC (MCP Protocol) - For MCP-compatible clients
+- REST APIs - For LLM proxy and utility endpoints
 
 See [Architecture](../contributing/architecture.md) for the complete system overview.
 
-### 2. Choose Your Approach
+**Choosing Your Approach**
+
+Choose from the following deployment options when evaluating your approach:
 
 **Option A: Build an MCP Protocol Client**
 
 Best for: Creating chat clients similar to Claude Desktop
 
-- Implements Model Context Protocol (JSON-RPC 2.0)
-- Direct access to MCP tools and resources
-- Full control over agentic loop
+- The client implements the Model Context Protocol (JSON-RPC 2.0).
+- The client provides direct access to MCP tools and resources.
+- The client gives full control over the agentic loop.
 
 See: [Building Chat Clients](building-chat-clients.md)
 
@@ -39,9 +42,9 @@ See: [Building Chat Clients](building-chat-clients.md)
 
 Best for: Web applications that need AI-powered database access
 
-- Server-side API key management
-- Pre-built LLM provider integration
-- REST API endpoints
+- The server provides server-side API key management.
+- The platform includes pre-built LLM provider integration.
+- The project exposes REST API endpoints.
 
 See: [LLM Proxy](../advanced/llm-proxy.md)
 
@@ -49,48 +52,54 @@ See: [LLM Proxy](../advanced/llm-proxy.md)
 
 Best for: Custom integrations and automation
 
-- Direct JSON-RPC access to tools
-- No LLM required
-- Scriptable and automation-friendly
+- The integration offers direct JSON-RPC access to tools.
+- The approach requires no LLM for some workflows.
+- The integration is scriptable and automation-friendly.
 
 See: [API Reference](api-reference.md)
 
 ## Core Concepts
+This section describes key MCP concepts: tools, resources, and authentication.
 
-### MCP Tools
+**Using MCP Tools**
 
 MCP tools are functions that can be called via the protocol:
 
-- `query_database` - Execute natural language queries
-- `execute_sql` - Run SQL directly
-- `get_schema_info` - Get database schema
-- `hybrid_search` - BM25+MMR semantic search
-- `generate_embedding` - Create vector embeddings
+| Tool | Description |
+|---|---|
+| `query_database` | The `query_database` tool executes natural language queries. |
+| `execute_sql` | The `execute_sql` tool runs SQL directly. |
+| `get_schema_info` | The `get_schema_info` tool returns database schema information. |
+| `hybrid_search` | The `hybrid_search` tool performs BM25+MMR semantic search. |
+| `generate_embedding` | The `generate_embedding` tool creates vector embeddings. |
 
-See: [Tools Documentation](../reference/tools.md)
+For more information, see: [Tools Documentation](../reference/tools.md)
 
-### MCP Resources
+**Using MCP Resources**
 
 MCP resources provide read-only access to system information:
 
-- `pg://system_info` - PostgreSQL server information
-- `pg://stat/activity` - Current database activity
-- `pg://stat/database` - Database statistics
+| Resource | Description |
+|---|---|
+| `pg://system_info` | The `pg://system_info` resource provides PostgreSQL server information. |
+| `pg://stat/activity` | The `pg://stat/activity` resource shows current database activity. |
+| `pg://stat/database` | The `pg://stat/database` resource contains database statistics. |
 
-See: [Resources Documentation](../reference/resources.md)
+For more information, see: [Resources Documentation](../reference/resources.md)
 
 ### Authentication
 
 The server supports two authentication modes:
 
-1. **Token-based** - API tokens for automation
-2. **User-based** - Username/password for interactive clients
+* **Token-based** - API tokens for automation
+* **User-based** - Username/password for interactive clients
 
-See: [Authentication](../guide/authentication.md)
+For more informatin, see: [Authentication](../guide/authentication.md)
+
 
 ## Example: Building a Simple Client
 
-Here's a minimal example in Python:
+In the following example, the server initializes a session and builds a simple client:
 
 ```python
 import requests
@@ -102,7 +111,6 @@ SESSION_TOKEN = "your-token-here"
 
 # Initialize connection
 response = requests.post(MCP_URL, json={
-    "jsonrpc": "2.0",
     "id": 1,
     "method": "initialize",
     "params": {
@@ -138,32 +146,34 @@ print(result)
 
 ## Development Resources
 
-### Documentation
+As a developer, you can find answers to common questions in the following documentation and example links.
 
-- **[MCP Protocol Reference](mcp-protocol.md)** - Complete protocol
-  specification
-- **[API Reference](api-reference.md)** - All available endpoints
-- **[LLM Proxy](../advanced/llm-proxy.md)** - Building web clients with LLM integration
-- **[Architecture](../contributing/architecture.md)** - System design and components
+**MCP Server Documentation**
 
-### Example Implementations
+- [MCP Protocol Reference](mcp-protocol.md) - Complete protocol specification
+- [API Reference](api-reference.md) - All available endpoints
+- [LLM Proxy](../advanced/llm-proxy.md) - Building web clients with LLM integration
+- [Architecture](../contributing/architecture.md) - System design and components
 
-- **[Python Examples](building-chat-clients.md)** - Sample chat clients
-  - Stdio + Anthropic Claude
-  - HTTP + Ollama
-- **[Go CLI Client](../guide/cli-client.md)** - Full-featured reference
-  implementation
-- **[Web Client](https://github.com/pgEdge/pgedge-postgres-mcp/blob/main/web/README.md)** - React-based web interface
+**Implementation Examples**
 
-### Configuration
+- [Python Examples](building-chat-clients.md) - Sample chat clients
+    - Stdio + Anthropic Claude
+    - HTTP + Ollama
+- [Go CLI Client](../guide/cli-client.md) - Full-featured reference
+    implementation
+- [Web Client](https://github.com/pgEdge/pgedge-postgres-mcp/blob/main/web/README.md) - React-based web interface
 
-- **[Server Configuration](../guide/configuration.md)** - Configure the MCP server
-- **[Deploying the MCP Server with Docker](../guide/deploy_docker.md)** - Deploy with Docker
-- **[Deploying the MCP Server from Source](../guide/deploy_source.md)** - Deploy from Source
-- **[Query Examples](../reference/examples.md)** - Common use cases
+**Configuration Examples**
+
+- [Server Configuration](../guide/configuration.md) - Configuring the MCP server
+- [Deploying the MCP Server with Docker](../guide/deploy_docker.md) - Deploying the MCP server with Docker.
+- [Deploying the MCP Server from Source](../guide/deploy_source.md) - Deploying the server from source code.
+- [Best Practices for Querying the Server](../guide/querying.md) - Helpful hints that will improve your server queries.
 
 ## Support
 
+If you still have questions after reviewing the Development resources listed above, review the Troubleshooting page.  If you run into a problem that you suspect is coming from an issue in the server, log a bug report at the Github site.
+
 - **Questions?** See [Troubleshooting](../guide/troubleshooting.md)
 - **Bug reports:** [GitHub Issues](https://github.com/pgEdge/pgedge-postgres-mcp/issues)
-- **Examples:** [Query Examples](../reference/examples.md)

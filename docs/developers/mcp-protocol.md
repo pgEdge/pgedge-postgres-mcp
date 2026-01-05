@@ -80,12 +80,9 @@ For detailed tool documentation, see [Tools Documentation](../reference/tools.md
 
 ### Resources
 
-Four read-only resources for system information and statistics:
+Read-only resources for system information:
 
-1. **pg://system_info** - PostgreSQL version and system information
-2. **pg://settings** - Server configuration parameters
-3. **pg://stat/activity** - Current activity and connections
-4. **pg://stat/replication** - Replication status
+- **pg://system_info** - PostgreSQL version and system information
 
 For detailed resource documentation, see [Resources Documentation](../reference/resources.md).
 
