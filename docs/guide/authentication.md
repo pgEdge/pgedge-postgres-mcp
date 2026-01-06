@@ -27,8 +27,6 @@ When configuring authentication:
 * keep backups before making any major changes or bulk edits.
 * use `-list-tokens` or `-list-users` to confirm that authentication changes are performing as expected.
 
-For help resolving an authentication issue, visit the [Troubleshooting](troubleshooting.md#authentication-errors) page.
-
 Note: The `/mcp/v1` endpoint **requires authentication** (unless `-no-auth` is specified during endpoint configuration):
 
 ```bash
@@ -40,7 +38,6 @@ curl -X POST http://localhost:8080/mcp/v1 \
 # Response:
 {"error": "Unauthorized"}
 ```
-
 
 ## Rate Limiting and Account Lockout
 

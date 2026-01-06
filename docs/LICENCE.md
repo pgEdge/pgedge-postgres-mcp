@@ -1,6 +1,6 @@
 The PostgreSQL License
 
-Portions copyright (c) 2025, pgEdge, Inc.
+Portions copyright (c) 2026, pgEdge, Inc.
 
 Permission to use, copy, modify, and distribute this software and its documentation for any purpose, without fee, and without a written agreement is hereby granted, provided that the above copyright notice and this paragraph and the following two paragraphs appear in all copies.
 

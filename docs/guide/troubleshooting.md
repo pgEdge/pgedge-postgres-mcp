@@ -1,6 +1,6 @@
 # Troubleshooting Guide
 
-Troubleshooting advice on this page is sorted by topic. Before seeking additional help, you should confirm that the following items are installed and configured correctly:
+Before seeking additional help, confirm that the following items are installed and configured correctly:
 
 - PostgreSQL is running on the system.
 - You can connect to the Postgres server with psql using the expected connection string.
@@ -9,7 +9,7 @@ Troubleshooting advice on this page is sorted by topic. Before seeking additiona
 - The path to the binary is absolute and not relative.
 - Claude Desktop has been restarted after any configuration changes.
 - You have checked the Claude Desktop logs for errors.
-- The server logs show the "Starting stdio server loop..." message.
+- The server logs show the `Starting stdio server loop...` message.
 - The `ANTHROPIC_API_KEY` is set for natural language queries.
 - The database has at least one user table.
 - Your user has permissions to read the `pg_catalog` schema.
@@ -22,22 +22,23 @@ If you are still experiencing issues after trying the solutions on this page, yo
 - Try running the test script using the command `./test-connection.sh`.
 - Check the PostgreSQL logs for connection attempts and errors.
 
+The following sections address common problems, sorted by related topics.
 
-## Troubleshooting - Build Issues
+## Troubleshooting Build Issues
 
 When building and deploying the MCP server and agent, you may encounter several common issues. This section provides solutions that help you check version requirements, port conflicts, database connectivity problems, Docker networking, and certificate validation.
 
-### Go Version Requirements
+### Checking Go Version Requirements
 
-The project requires Go version 1.21 or higher. You can check your Go version using the following command:
+The project requires Go version 1.21 or higher. If you're building from source, you can check your Go version using the following command:
 
 ```bash
 go version
 ```
 
-### Dependency Issues
+### Resolving Dependency Issues
 
-If you encounter dependency problems, you can resolve them by updating and downloading the required modules. In the following example, the commands tidy the module dependencies and download all required packages.
+If you encounter dependency problems when building from source, you can resolve them by updating and downloading the required modules. In the following example, the commands tidy the module dependencies and download all required packages.
 
 ```bash
 go mod tidy
@@ -65,7 +66,7 @@ lsof -i :8080
 # Kill the process or use a different port with -addr
 ```
 
-### Database Connection Failed
+### Testing Failed Database Connections
 
 If the database connection fails during the build or deployment process, you can test the connection independently with a Postgres client. In the following example, the `psql` command tests a direct connection to the database, and the `env` command displays PostgreSQL-related environment variables.
 
@@ -77,46 +78,18 @@ psql -h localhost -U postgres -d mydb -c "SELECT 1"
 env | grep PG
 ```
 
-### Docker Can't Reach the Host Database
+### Testing a Failed Database Connection on Docker
 
 If Docker containers cannot reach the host database, the connection string may be the issue.  The Docker connection string is operating system-specific.
 
 * On macOS and Windows, you should use `host.docker.internal` as the hostname.
 * On Linux, you should use `172.17.0.1` or configure a Docker network bridge.
 
-
-## Testing the Server
-
-This section explains how to test the MCP server to verify that the server is working correctly.
-
-### Using the Test Script
-
-You can run the provided test script to verify basic server functionality. In the following example, the command runs the test connection script.
-
-```bash
-./test-connection.sh
-```
-
-### Manual Testing
-
-You can manually test the server by sending JSON-RPC requests. In the following example, the commands set the API key environment variable, send an initialize request to the server, and then send a tools list request.
-
-```bash
-# Set environment
-export ANTHROPIC_API_KEY="sk-ant-..."
-
-# Test initialize
-echo '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test","version":"1.0"}}}' | ./bin/pgedge-postgres-mcp
-
-# Test tools list (in another terminal, or after initialize response)
-echo '{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}' | ./bin/pgedge-postgres-mcp
-```
-
 ## Troubleshooting Configuration Issues
 
 This section provides solutions for common configuration file issues.
 
-### Configuration Not Loading
+### Verifying the Configuration File
 
 If the configuration file is not loading properly, you can verify the file exists and check permissions. In the following example, the `ls` command checks for the configuration file, the server is started with an explicit path, and the `chmod` command verifies that the file has the correct permissions.
 
@@ -131,15 +104,59 @@ ls -la bin/pgedge-postgres-mcp.yaml
 chmod 600 bin/pgedge-postgres-mcp.yaml  # Should be readable
 ```
 
+### Method not found
 
+This error indicates that an unknown MCP method was called. The following issues may cause this error:
 
-## Database Connection Issues
+- The method name is unknown to the server.
+- The protocol version may not be compatible with the server version.
+- You should update the server if you are using an old version.
 
-Database connection problems are a common cause of server exits. You should check the logs for connection errors.
+## Troubleshooting Database Connection Issues
+
+Database connection problems are a common cause of server exits. If you have a connection issue, you should check the log files for connection errors.
+
+### Failed to connect to database: authentication failed
+
+This error indicates that authentication to the database failed. The following issues may cause this error:
+
+- The username or password in the connection string is incorrect.
+- The `pg_hba.conf` file has authentication rules that prevent the connection.
+- You should try a different authentication method such as trust, md5, or scram-sha-256.
+
+### Failed to connect to database: database does not exist
+
+This error indicates that the specified database does not exist. The following issues may cause this error:
+
+- The database name in the connection string is wrong.
+- The database has not been created yet.
+- You can check the available databases using the command `psql -l`.
+
+### Failed to connect to database: connection refused
+
+This error indicates that the database connection was refused. The following issues may cause this error:
+
+- PostgreSQL is not running on the target system.
+- The host or port in the connection string is incorrect.
+- A firewall is blocking the connection to the database.
 
 If you see an error message like `[pgedge-postgres-mcp] ERROR: Failed to connect to database: ...`, you should investigate the following issues:
 
-**Verify the connection string format.** The connection string must follow the correct PostgreSQL format. In the following example, the comments show the correct format and provide sample connection strings for different authentication scenarios.
+**Test the PostgreSQL Connection Directly**
+
+You can verify that the connection string works by testing the connection with psql. In the following example, the `psql` commands test the connection using the full connection string.
+
+```bash
+# Using psql
+psql "postgres://username:password@localhost:5432/database"
+
+# Or test connection string directly
+psql "postgres://user:pass@localhost:5432/db?sslmode=disable"
+```
+
+**Verify the Connection String Format**
+
+The connection string must follow the correct PostgreSQL format. In the following example, the comments show the correct format and provide sample connection strings for different authentication scenarios.
 
 ```bash
 # Correct format:
@@ -150,17 +167,9 @@ postgres://postgres:mypassword@localhost:5432/mydb?sslmode=disable
 postgres://user@localhost/dbname?sslmode=disable  # local trusted auth
 ```
 
-**Test the PostgreSQL connection directly.** You can verify that the connection string works by testing the connection with psql. In the following example, the `psql` commands test the connection using the full connection string.
+**Check for common connection string issues**
 
-```bash
-# Using psql
-psql "postgres://username:password@localhost:5432/database"
-
-# Or test connection string directly
-psql "postgres://user:pass@localhost:5432/db?sslmode=disable"
-```
-
-**Check for common connection string issues.** The following items are common problems with connection strings:
+The following items are common problems with connection strings:
 
 - The `?sslmode=disable` parameter is missing for local development.
 - The port is wrong; the default PostgreSQL port is 5432.
@@ -168,7 +177,9 @@ psql "postgres://user:pass@localhost:5432/db?sslmode=disable"
 - The username or password is invalid.
 - The database is not running.
 
-**Verify that PostgreSQL is running.** You can check if the PostgreSQL service is running on your system. In the following example, the commands check the service status on macOS using Homebrew, on Linux using systemd, and verify that port 5432 is listening.
+**Verify that PostgreSQL is running**
+
+You can check if the PostgreSQL service is running on your system. In the following example, the commands check the service status on macOS using Homebrew, on Linux using systemd, and verify that port 5432 is listening.
 
 ```bash
 # macOS (Homebrew)
@@ -183,7 +194,7 @@ lsof -i :5432
 netstat -an | grep 5432
 ```
 
-### Missing Environment Variables
+### Verify the Existence of Required Environment Variables
 
 If environment variables are missing, the server may fail to start or lack LLM functionality. The following environment variables are required depending on your configuration:
 
@@ -218,7 +229,9 @@ If the server fails to load database metadata, you should check the logs for err
 
 You should verify the following items to resolve metadata loading issues:
 
-**Check database permissions.** Your user account needs permission to read the system catalogs. In the following example, the SQL queries test whether you can read from the `pg_class` and `pg_namespace` system tables.
+**Check Database Permissions**
+
+Your user account needs permission to read the system catalogs. In the following example, the SQL queries test whether you can read from the `pg_class` and `pg_namespace` system tables.
 
 ```sql
 -- Your user needs permission to read system catalogs
@@ -226,7 +239,11 @@ SELECT * FROM pg_class LIMIT 1;
 SELECT * FROM pg_namespace LIMIT 1;
 ```
 
-**Verify that the database has tables.** The database should contain user tables in non-system schemas. In the following example, the SQL query retrieves a list of tables from schemas that are not system schemas.
+**Verify that the Database has Tables**
+
+If your database is empty and contains no user tables, the server will still start but will not have any metadata. This behavior is expected; you will need to add tables to the database before the metadata becomes available. Create the user tables in non-system schemas.
+
+You can use the following SQL query to retrieve a list of tables from non-system schemas:
 
 ```sql
 -- Check for tables in non-system schemas
@@ -235,14 +252,11 @@ FROM pg_tables
 WHERE schemaname NOT IN ('pg_catalog', 'information_schema');
 ```
 
-**Handle empty databases.** If your database is empty and contains no user tables, the server will still start but will not have any metadata. This behavior is expected; you will need to add tables to the database before the metadata becomes available.
-
-
 ## Troubleshooting Authentication Errors
 
 This section describes common authentication error responses and their solutions.
 
-### Invalid Credentials
+### authentication failed: invalid username or password
 
 If you provide incorrect credentials, the server returns an authentication failed error. In the following example, the JSON-RPC response shows a tool execution error with a message indicating invalid username or password.
 
@@ -258,7 +272,7 @@ If you provide incorrect credentials, the server returns an authentication faile
 }
 ```
 
-### Disabled User Account
+### authentication failed: user account is disabled
 
 If you attempt to authenticate with a disabled user account, the server returns an error. In the following example, the JSON-RPC response indicates that the user account is disabled.
 
@@ -274,86 +288,7 @@ If you attempt to authenticate with a disabled user account, the server returns 
 }
 ```
 
-
-You should re-authenticate to obtain a new session token.
-
-### Certificate Issues
-
-If you encounter SSL certificate errors, you can verify that the certificate matches the key. In the following example, the `openssl` commands generate an MD5 hash for both the certificate and the key; those hashes should match. The second command checks the certificate expiration date.
-
-```bash
-# Verify certificate matches key
-openssl x509 -noout -modulus -in server.crt | openssl md5
-openssl rsa -noout -modulus -in server.key | openssl md5
-# Both should match
-
-# Check expiration
-openssl x509 -in server.crt -noout -dates
-```
-
-
-
-
-
-
-## Troubleshooting Token Management
-
-This section addresses issues related to authentication tokens and token file management.
-
-### Token File Not Found
-
-If the server cannot find the token file, you will see an error message indicating the file path and suggesting solutions. In the following example, the error message shows the expected token file path and provides commands to create a token or disable authentication.
-
-```bash
-# Error message:
-ERROR: Token file not found: /path/to/pgedge-postgres-mcp-tokens.yaml
-Create tokens with: ./pgedge-postgres-mcp -add-token
-Or disable authentication with: -no-auth
-```
-
-You can create a new token file using the following command:
-
-```bash
-# Create first token
-./bin/pgedge-postgres-mcp -add-token
-```
-
-### Token Authentication Fails
-
-If token authentication fails, you should verify that the token file exists and has the correct permissions. In the following example, the commands check the token file permissions, list available tokens, and identify expired tokens.
-
-```bash
-# Check token file exists and has correct permissions
-ls -la pgedge-postgres-mcp-tokens.yaml  # Should show -rw------- (600)
-
-# List tokens to verify token exists
-./bin/pgedge-postgres-mcp -list-tokens
-
-# Check for expired tokens
-./bin/pgedge-postgres-mcp -list-tokens | grep "Status: Expired"
-```
-
-### Expired Session Token
-
-If your session token has expired, the server returns an unauthorized error with HTTP status 401. In the following example, the JSON response shows an "Unauthorized" error message.
-
-```json
-{
-  "error": "Unauthorized"
-}
-```
-
-
-### Cannot Remove Token
-
-If you cannot remove a token because the hash is not found, you need to use at least 8 characters of the hash. In the following example, the commands list the available tokens to get the full hash, then remove the token using at least 8 characters from the hash.
-
-```bash
-# Error: Token not found
-# Solution: Use at least 8 characters of the hash
-./bin/pgedge-postgres-mcp -list-tokens  # Get the hash
-./bin/pgedge-postgres-mcp -remove-token b3f805a4  # Use 8+ chars
-```
+If you encounter this error, you should re-authenticate with an active account to obtain a new session token.
 
 ### Server Won't Start with Authentication Enabled
 
@@ -367,23 +302,86 @@ If authentication is enabled but no token file exists, the server will not start
 ./bin/pgedge-postgres-mcp -http -no-auth
 ```
 
-### Server Exits Immediately After Initialize
+### SSL Certificate Issues
 
-If the server exits immediately after responding to the initialize request, you may see specific symptoms and should investigate several common causes.
+If you encounter SSL certificate errors during connection, you should verify that the certificate matches the key. In the following example, the `openssl` commands generate an MD5 hash for both the certificate and the key; those hashes should match. The second command checks the certificate expiration date.
 
-### Symptoms
+```bash
+# Verify certificate matches key
+openssl x509 -noout -modulus -in server.crt | openssl md5
+openssl rsa -noout -modulus -in server.key | openssl md5
+# Both should match
 
-The following symptoms indicate that the server is exiting unexpectedly:
+# Check expiration
+openssl x509 -in server.crt -noout -dates
+```
 
-- The Claude Desktop logs show the message "Server transport closed unexpectedly".
-- The server starts but disconnects immediately after sending the `initialize` response.
+## Troubleshooting Token Management
+
+This section addresses issues related to authentication tokens and token file management.
+
+### Token Authentication Fails
+
+If token authentication fails, you should verify that the token file exists, has the correct permissions, and is valid. In the following example, the commands check the token file permissions, list available tokens, and identify expired tokens.
+
+```bash
+# Check token file exists and has correct permissions
+ls -la pgedge-postgres-mcp-tokens.yaml  # Should show -rw------- (600)
+
+# List tokens to verify token exists
+./bin/pgedge-postgres-mcp -list-tokens
+
+# Check for expired tokens
+./bin/pgedge-postgres-mcp -list-tokens | grep "Status: Expired"
+```
+
+### Token File Not Found
+
+If the server cannot find the token file, you will see an error message indicating the file path and suggesting solutions. In the following example, the error message shows the expected token file path and provides commands to create a token or disable authentication.
+
+```bash
+# Error message:
+ERROR: Token file not found: /path/to/pgedge-postgres-mcp-tokens.yaml
+Create tokens with: ./pgedge-postgres-mcp -add-token
+Or disable authentication with: -no-auth
+```
+
+You can create a new token file with the following command:
+
+```bash
+# Create first token
+./bin/pgedge-postgres-mcp -add-token
+```
+
+### Expired Session Token
+
+If your session token has expired, the server returns an unauthorized error with HTTP status 401. In the following example, the JSON response shows an "Unauthorized" error message.
+
+```json
+{
+  "error": "Unauthorized"
+}
+```
+
+### Cannot Remove Token
+
+If you cannot remove a token because the hash is not found, you need to use at least 8 characters of the hash. In the following example, the commands list the available tokens to get the full hash, then remove the token using at least 8 characters from the hash.
+
+```bash
+# Error: Token not found
+# Solution: Use at least 8 characters of the hash
+./bin/pgedge-postgres-mcp -list-tokens  # Get the hash
+./bin/pgedge-postgres-mcp -remove-token b3f805a4  # Use 8+ chars
+```
+
+
 
 
 ## Troubleshooting Web Client Issues
 
-This section addresses common issues when using the web client interface.
+This section addresses common issues you might encounter when using the web client interface.
 
-### Connection Issues
+**Web Client Connection Issues**
 
 If you see a red connection indicator in the web client, you should check the following items:
 
@@ -391,7 +389,7 @@ If you see a red connection indicator in the web client, you should check the fo
 - The database credentials in the server configuration are correct.
 - The network connectivity to the database host is working properly.
 
-### Slow Responses
+**Improving Slow Response Times**
 
 If the web client experiences slow response times, you can try the following solutions:
 
@@ -399,7 +397,7 @@ If the web client experiences slow response times, you can try the following sol
 - You can enable response streaming in the server configuration.
 - You should check your LLM provider's rate limits to ensure you are not being throttled.
 
-### Authentication Errors
+**Resolving Authentication Errors**
 
 If you encounter authentication errors in the web client, you should verify the following:
 
@@ -412,16 +410,16 @@ If you encounter authentication errors in the web client, you should verify the 
 
 This section provides solutions for common issues encountered when using the CLI client.
 
-### Connection Errors
+### Failed to connect to MCP server
 
 If you see the error "Failed to connect to MCP server", you should verify the following items:
 
-- In stdio mode, the server path is correct; use `-mcp-server-path ./bin/pgedge-postgres-mcp`.
-- In HTTP mode, the URL is correct; use `-mcp-url http://localhost:8080`.
+- In `stdio` mode, the server path is correct; use `-mcp-server-path ./bin/pgedge-postgres-mcp`.
+- In `HTTP` mode, the URL is correct; use `-mcp-url http://localhost:8080`.
 - The MCP server is running when using HTTP mode.
 - The authentication token is set when using HTTP mode with authentication enabled.
 
-### LLM Errors
+### LLM error: authentication failed
 
 If you see the error "LLM error: authentication failed", you should check the following items:
 
@@ -439,7 +437,7 @@ ollama list
 ollama pull llama3
 ```
 
-### Configuration Issues
+### Configuration error: invalid mode
 
 If you see the error "Configuration error: invalid mode", you should verify the following:
 
@@ -461,39 +459,29 @@ If colors look wrong or garbled in the terminal, you can disable color output us
 - You can use the `-no-color` command-line flag.
 - You can add `no_color: true` to your configuration file under the `ui:` section.
 
-If command history is not working properly, you should check the following items:
+The command history file is created automatically on first use. If command history is not working properly, you should check the following items:
 
-- The `~/.pgedge-nla-cli-history` file is writable.
-- The history file is created automatically on first use.
+- The `~/.pgedge-nla-cli-history` file exists and is writable.
 - On some terminals, the readline features may be limited.
 
+## Troubleshooting Natural Language Query Issues
 
-## Natural Language Queries Not Working - Key Management Issues
-
-This section addresses issues where the natural language query functionality is not working correctly.
-
-### Symptoms
-
-The following symptoms indicate problems with natural language queries:
+This section addresses issues that impair natural language query functionality. The following symptoms indicate a problem with natural language queries:
 
 - The `query_database` tool exists but returns errors when called.
-- You see an error message stating "ANTHROPIC_API_KEY not set".
+- You see an error message stating `ANTHROPIC_API_KEY not set`.
 
-### Solutions
+### ANTHROPIC_API_KEY not set
 
 You should try the following solutions to resolve natural language query issues:
 
-**Set the API key in your configuration.** You need to add the API key to the environment section of your MCP configuration. In the following example, the JSON snippet shows how to set the `ANTHROPIC_API_KEY` environment variable.
+**Obtain an API Key from Anthropic**
 
-```json
-"env": {
-  "ANTHROPIC_API_KEY": "sk-ant-your-actual-key-here"
-}
-```
+If you do not have an API key, you can create one by visiting the Anthropic console. You should visit https://console.anthropic.com/ and create an account or sign in. You can then go to the API Keys section and create a new key.
 
-**Obtain an API key.** If you do not have an API key, you can create one by visiting the Anthropic console. You should visit https://console.anthropic.com/ and create an account or sign in. You can then go to the API Keys section and create a new key.
+**Verify that the API Key Works**
 
-**Verify that the API key works.** You can test the API key to ensure that the API key is valid and that your account has access. In the following example, the `curl` command sends a test request to the Anthropic API to verify the key.
+You can test the API key to ensure that the API key is valid and that your account has access. In the following example, the `curl` command sends a test request to the Anthropic API to verify the key.
 
 ```bash
 curl https://api.anthropic.com/v1/messages \
@@ -507,42 +495,17 @@ curl https://api.anthropic.com/v1/messages \
     }'
 ```
 
-**Check your API credits.** You should ensure that your Anthropic account has available credits. You can check your usage and credit balance at https://console.anthropic.com/.
+**Set the API Key in your Configuration** You need to add the API key to the environment section of your MCP configuration. In the following example, the JSON snippet shows how to set the `ANTHROPIC_API_KEY` environment variable.
 
-
-
-## Troubleshooting Queries
-
-### Query Returns Unexpected Results
-
-Try asking Claude to show the generated SQL:
-```
-"Show me users created today and display the SQL query"
+```json
+"env": {
+  "ANTHROPIC_API_KEY": "sk-ant-your-actual-key-here"
+}
 ```
 
-### Connection Errors
+**Check your API Credits** You should ensure that your Anthropic account has available credits. You can check your usage and credit balance at https://console.anthropic.com/.
 
-If a connection fails, verify:
-
-1. Database is accessible from your machine
-2. Credentials are correct
-3. Firewall rules allow connections
-4. SSL settings match server requirements
-
-### Slow Queries
-
-For queries taking too long:
-
-1. Check database indexes
-2. Use read replicas for analytics
-3. Limit result sets: "Show me top 100 users"
-
-
-## SQL Generation Issues
-
-This section provides solutions for problems with automatically generated SQL queries.
-
-### Symptoms
+## Troubleshooting SQL Generation Issues
 
 The following symptoms indicate issues with SQL generation:
 
@@ -550,11 +513,23 @@ The following symptoms indicate issues with SQL generation:
 - The generated SQL does not match your expectations or intent.
 - The generated SQL contains syntax errors.
 
-### Solutions
+Claude can help by displaying the generated SQL to help diagnose unexpected results; include a request for the SQL with your query request:
 
-You should try the following solutions to improve SQL generation quality:
+```
+"Show me users created today and display the SQL query"
+```
 
-**Add database comments to improve SQL generation.** The quality of generated SQL depends heavily on the presence of schema comments. In the following example, the SQL commands add comments to a table and a column to provide context for the LLM.
+If you find your queries are taking too long:
+
+1. Check and refresh database indexes.
+2. Use read replicas when performing analytics.
+3. Limit result sets to a finite set: `Show me top 100 users`
+
+Use the following solutions to improve SQL generation quality:
+
+**Add Database Comments to Improve SQL Generation**
+
+The quality of generated SQL depends heavily on the presence of schema comments. In the following example, the SQL commands add comments to a table and a column to provide context for the LLM.
 
 ```sql
 COMMENT ON TABLE customers IS 'Customer accounts and contact information';
@@ -563,59 +538,25 @@ COMMENT ON COLUMN customers.status IS 'Account status: active, inactive, or susp
 
 You can see more examples of effective comments in the `example_comments.sql` file.
 
-**Check the schema information.** You can ask Claude to show you the database schema by sending the message "Show me the database schema". This command will reveal what information the LLM has about your database structure.
+**Check the Schema Information**
 
-**Be more specific in your queries.** Vague requests may produce incorrect results. Instead of asking "Show me recent data", you should try a more specific request like "Show me all orders from the last 7 days ordered by date".
+You can ask Claude to show you the database schema by sending the message "Show me the database schema". This command will reveal what information the LLM has about your database structure.
 
-**Review the generated SQL and provide feedback.** The response includes the generated SQL query. If the SQL is wrong, you have several options:
+**Be More Specific in your Queries**
+
+Vague requests may produce incorrect results. Instead of asking "Show me recent data", you should try a more specific request like "Show me all orders from the last 7 days ordered by date".
+
+**Review the Generated SQL and Provide Feedback**
+
+The response includes the generated SQL query. If the SQL is wrong, you have several options:
 
 - You can provide feedback in your next message to refine the query.
 - You can add more schema comments to provide additional context.
 - You can rephrase your question to be more specific.
 
-## Common Error Messages
+## Troubleshooting Knowledgebase Issues
 
-This section describes common error messages and their typical causes.
-
-### "Failed to connect to database: connection refused"
-
-This error indicates that the database connection was refused. The following issues may cause this error:
-
-- PostgreSQL is not running on the target system.
-- The host or port in the connection string is incorrect.
-- A firewall is blocking the connection to the database.
-
-### "Failed to connect to database: authentication failed"
-
-This error indicates that authentication to the database failed. The following issues may cause this error:
-
-- The username or password in the connection string is incorrect.
-- The `pg_hba.conf` file has authentication rules that prevent the connection.
-- You should try a different authentication method such as trust, md5, or scram-sha-256.
-
-### "Failed to connect to database: database does not exist"
-
-This error indicates that the specified database does not exist. The following issues may cause this error:
-
-- The database name in the connection string is wrong.
-- The database has not been created yet.
-- You can check the available databases using the command `psql -l`.
-
-### "Parse error"
-
-This error indicates that the JSON in a request is invalid. You should check the Claude Desktop logs to see the actual request that was sent to the server.
-
-### "Method not found"
-
-This error indicates that an unknown MCP method was called. The following issues may cause this error:
-
-- The method name is unknown to the server.
-- The protocol version may not be compatible with the server version.
-- You should update the server if you are using an old version.
-
-## Troubleshooting Knowledgebase
-
-Common issues and their solutions are listed below.
+Common Knowledgebase issues and their solutions are listed below.
 
 ### No Results Found
 
@@ -688,26 +629,28 @@ If you are seeing a literal `{{arg_name}}` in output:
 
 
 
-## Tools Not Appearing in Claude
+## Troubleshooting Tool Issues
 
-This section provides solutions for issues where the server connects but the tools do not appear in the Claude interface.
-
-### Symptoms
-
-The following symptoms indicate that tools are not appearing correctly:
+This section provides solutions for issues where the server connects but the tools do not appear in the Claude interface.Look for the following symptoms:
 
 - The server connects but the tools do not appear in the Claude UI.
 - The `query_database` or `get_schema_info` tools are not available.
 
-### Solutions
-
 You should try the following solutions to resolve this issue:
 
-**Verify that the server is connected.** You should check the Claude Desktop logs for connection status. Look for a message like `[pgedge] [info] Server started and connected successfully` to confirm the connection.
+**Verify that the Server is Connected**
 
-**Restart Claude Desktop.** Changes to the MCP configuration require a full restart of the application. You should quit Claude Desktop completely rather than just closing the window, then reopen the application.
+You should check the Claude Desktop logs for connection status. Look for a message like `[pgedge] [info] Server started and connected successfully` to confirm the connection.
 
-**Check the MCP config syntax.** The configuration file must be valid JSON. In the following example, the JSON configuration shows the required format with the server command and environment variables.
+**Restart Claude Desktop**
+
+Changes to the MCP configuration require a full restart of the application. You should quit Claude Desktop completely rather than just closing the window, then reopen the application.
+
+**Check the MCP Configuration Syntax**
+
+The configuration file must be valid JSON. A parse error indicates that the JSON in a request is invalid. You should check the Claude Desktop logs to see the actual request that was sent to the server.
+
+In the following example, the JSON configuration shows the required format with the server command and environment variables.
 
 ```json
 {
@@ -728,7 +671,9 @@ You should verify the following items in your configuration:
 - There should be no trailing commas in the JSON structure.
 - All strings must be quoted properly.
 
-**Test the server manually.** You can test the server manually to verify that the tools are available. In the following example, the commands set the API key, configure the database connection, and send a JSON-RPC request to list available tools.
+**Test the Server Manually**
+
+You can test the server manually to verify that the tools are available. In the following example, the commands set the API key, configure the database connection, and send a JSON-RPC request to list available tools.
 
 ```bash
 export ANTHROPIC_API_KEY="..."
@@ -738,22 +683,16 @@ echo '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}' | ./bin/pgedge
 
 
 
-## Embedding Generation Issues
+## Troubleshooting Embedding Generation Issues
 
-This section addresses problems with the embedding generation feature.
-
-### Symptoms
-
-The following symptoms indicate issues with embedding generation:
+This section addresses problems with the embedding generation feature. The following symptoms indicate issues with embedding generation:
 
 - The `generate_embedding` tool is not available.
 - Embedding generation returns errors when called.
 - You receive rate limit errors from the Anthropic API.
 - You are experiencing high embedding API costs.
 
-### Solutions
-
-#### Enable Embedding Logging
+### Enable Embedding Logging
 
 To understand embedding API usage and debug rate limits, you can enable structured logging. In the following example, the commands set different log levels and run the server with logging enabled.
 
@@ -782,7 +721,7 @@ The logging helps you identify the following information:
 - The API response times for performance monitoring.
 - The rate limit errors with full details for debugging.
 
-#### Embedding Generation Not Enabled
+### Embedding Generation Not Enabled
 
 If you see the error "Embedding generation is not enabled", you need to enable the feature in the configuration file. In the following example, the YAML configuration enables embedding generation and specifies the provider and model.
 
@@ -793,7 +732,7 @@ embedding:
   model: "nomic-embed-text"
 ```
 
-#### Ollama Connection Issues
+### Ollama Connection Issues
 
 If you see the error "Failed to connect to Ollama", you should verify that Ollama is running and the model is available. In the following example, the commands check if Ollama is running, start the service if needed, and pull the embedding model.
 
@@ -808,7 +747,7 @@ ollama serve
 ollama pull nomic-embed-text
 ```
 
-#### Anthropic Rate Limit Errors
+### Anthropic Rate Limit Errors
 
 If you see the error "API error 429: rate_limit_error", you are exceeding the API rate limits. You can resolve this issue in several ways:
 
@@ -837,7 +776,7 @@ You should review the logs to see the following information:
 - The amount of text being embedded.
 - The frequency of embedding generation requests.
 
-#### Invalid API Key
+### Invalid API Key
 
 If you see the error "API request failed with status 401", the API key is invalid or missing. You should verify that the API key is correct and properly configured.
 
@@ -854,7 +793,7 @@ embedding:
   anthropic_api_key: "sk-ant-your-key-here"
 ```
 
-#### Model Not Found
+### Model Not Found
 
 If you see the Ollama error "Model not found", you need to pull the required model. In the following example, the commands list available models and pull the required embedding model.
 
@@ -873,7 +812,7 @@ If you see the Anthropic error "Unknown model", you should check the model name 
 - The `voyage-2` model provides 1024 dimensions.
 - The `voyage-2-lite` model provides 1024 dimensions.
 
-#### Dimension Mismatch in Semantic Search
+### Dimension Mismatch in Semantic Search
 
 If you see the error "Query vector dimensions (768) don't match column dimensions (1536)", you are using different embedding models for document storage and query generation. You should use the same embedding model and dimensions for both operations.
 
@@ -887,9 +826,9 @@ embedding:
   model: "nomic-embed-text"  # 768 dimensions
 ```
 
-## Troubleshooting Prompts
+## Troubleshooting Prompt Issues
 
-### Prompt Not Found
+### Prompt 'prompt-name' not found
 
 **Error**: "Prompt 'prompt-name' not found"
 
@@ -899,7 +838,7 @@ embedding:
 * Check for typos in the prompt name.
 * Ensure the server is running the latest version.
 
-### Missing Required Argument
+### Missing required argument
 
 **Error**: "Missing required argument: argument_name"
 
@@ -909,7 +848,7 @@ embedding:
 * Provide all required arguments in the command.
 * Use quotes around values with spaces.
 
-### Invalid Argument Format
+### Invalid argument format
 
 **Error**: "Invalid argument format: ... (expected key=value)"
 
@@ -919,7 +858,7 @@ embedding:
 * Quote values containing spaces: `key="value with spaces"`.
 * Don't use spaces around the `=` sign.
 
-### Rate Limit Exceeded
+### Rate limit reached for
 
 **Error**: "Rate limit reached for ..."
 

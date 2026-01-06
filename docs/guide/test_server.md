@@ -1,4 +1,4 @@
-# Testing the MCP Server
+# Testing the MCP Server Deployment
 
 This page explains how to test the MCP server with a script or manually to verify that the server is working correctly. All deployment methods expose a health endpoint at:
 
