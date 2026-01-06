@@ -67,10 +67,10 @@ nav:
       - Choosing the Right Solution: guide/mcp-vs-rag.md
       - Best Practices - Querying the Server: guide/querying.md
   - Installing the MCP Server:
+      - pgEdge Postgres MCP Server - Quickstart: guide/quickstart.md
       - Deploying on Docker: guide/deploy_docker.md
       - Deploying from Source: guide/deploy_source.md
-      - pgEdge Postgres MCP Server - Quickstart: guide/quickstart.md
-      - Accessing Online Help: guide/help.md
+      - Testing the MCP Server Deployment: guide/test_server.md
   - Configuring the MCP Server:
       - Specifying Configuration Preferences: guide/configuration.md
       - Using Environment Variables to Specify Options: guide/env_variable_config.md
@@ -121,6 +121,7 @@ nav:
       - KB Builder: contributing/internal/kb-builder-architecture.md
       - Testing: contributing/testing.md
       - CI/CD: contributing/ci-cd.md
+  - Accessing Online Help: guide/help.md
   - Troubleshooting: guide/troubleshooting.md
   - pgEdge Postgres MCP Server and Natural Language Agent Release Notes: changelog.md
   - Licence: LICENCE.md

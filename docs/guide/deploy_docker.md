@@ -145,18 +145,3 @@ When the deployment completes, use your browser to open [http://localhost:8081](
 
 !!! success "You're ready!"
     Start asking questions about your database in natural language.
-
----
-
-## Performing a Health Check
-
-All deployment methods expose a health endpoint:
-
-```bash
-curl http://localhost:8080/health
-```
-
-Response:
-```json
-{"status": "ok", "server": "pgedge-postgres-mcp", "version": "1.0.0"}
-```

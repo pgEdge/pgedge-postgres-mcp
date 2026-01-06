@@ -362,6 +362,17 @@ In the following example, the `read_resource` tool is configured to read a speci
 
 The `search_knowledgebase` tool searches the pre-built documentation knowledgebase for relevant information about Postgres, pgEdge products, and other documented technologies.
 
+**Comparison with similarity_search**
+
+| feature | search_knowledgebase | similarity_search |
+|---------|---------------------|-------------------|
+| **data source** | pre-built documentation | user's postgresql tables |
+| **use case** | technical documentation | user's own data |
+| **setup** | requires kb database | requires vector columns |
+| **updates** | static (rebuild needed) | dynamic (live data) |
+| **scope** | curated content | any table data |
+
+
 **Use Cases**
 
 * **PostgreSQL Reference**: Find syntax and usage for SQL features.
