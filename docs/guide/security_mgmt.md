@@ -1,14 +1,13 @@
 # Managing Security
 
-You should always keep the principle of least security in mind when managing users; always use dedicated database users with minimal permissions:
+You should always keep the principle of least security in mind when managing
+users; always use dedicated database users with minimal permissions.
 
-**Database users:**
+    - Create separate users for different access levels.
+    - Grant the minimum required permissions to each user.
+    - Regularly audit required permissions.
 
-    - Separate users for different access levels
-    - Grant minimum required permissions
-    - Regular audit of permissions
-
-**Operating system users:**
+Operating system users should run as a dedicated user:
 
     ```bash
     # Run server as dedicated user
@@ -16,7 +15,7 @@ You should always keep the principle of least security in mind when managing use
     sudo chown -R pgedge:pgedge /opt/pgedge
     ```
 
-**File permissions:**
+Also, be sure your file permissions are restrictive:
 
     ```bash
     # Binary: 755 (executable by all, writable by owner)
@@ -66,7 +65,8 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO mcp_readonly
 GRANT pg_read_all_settings TO mcp_readonly;
 ```
 
-Use the following syntax to create a user for configuration management (requires elevated privileges):
+Use the following syntax to create a user for configuration management (with
+elevated privileges):
 
 ```sql
 -- Create user with configuration privileges
@@ -90,7 +90,7 @@ PGEDGE_POSTGRES_CONNECTION_STRING="postgres://user:pass@host/db?sslmode=verify-c
 PGEDGE_POSTGRES_CONNECTION_STRING="postgres://user:pass@host/db?sslmode=verify-full&sslrootcert=/path/to/ca.crt"
 ```
 
-**SSL Mode Options:**
+The MCP Server supports the following SSL Mode Options:
 
 - `disable` - No SSL (only for local development)
 - `require` - SSL required, no certificate verification
@@ -99,6 +99,7 @@ PGEDGE_POSTGRES_CONNECTION_STRING="postgres://user:pass@host/db?sslmode=verify-f
 
 To ensure connection security, you should use a secrets manager to manage your secrets:
 
+```bash
 export PGPASSWORD=$(vault kv get -field=password secret/pgedge-nla)
 ```
 
@@ -107,15 +108,15 @@ export PGPASSWORD=$(vault kv get -field=password secret/pgedge-nla)
 
 ### Anthropic API Key Protection
 
-**Best Practices:**
+To ensure key protection, enforce the following best practices:
 
-- Store in environment variables
-- Rotate keys regularly (quarterly recommended)
-- Monitor API usage for anomalies
-- Set usage limits in Anthropic console
-- Use separate keys for dev/staging/production
+- Store your keys in environment variables.
+- Rotate keys regularly (quarterly recommended).
+- Monitor API usage for anomalies.
+- Set usage limits in the Anthropic console.
+- Use separate keys for development/staging/production environments.
 
-**Example - Secure:**
+**Example - This demonstrates Secure key usage:**
 
 ```bash
 # Environment variable
@@ -142,10 +143,10 @@ export ANTHROPIC_API_KEY=$(aws secretsmanager get-secret-value --secret-id anthr
 
 You should always monitor your API keys:
 
-- Check the Anthropic Console regularly for unusual activity
-- Set up billing alerts
-- Monitor token usage patterns
-- Revoke and rotate keys if a security breach is suspected
+- Check the Anthropic Console regularly for unusual activity.
+- Set up billing alerts.
+- Monitor token usage patterns.
+- Revoke and rotate keys if a security breach is suspected.
 
 
 ## Query Safety
@@ -157,17 +158,17 @@ SET TRANSACTION READ ONLY;
 -- Your generated SQL here
 ```
 
-**Protection:**
+The server prevents:
 
-- Prevents `INSERT`, `UPDATE`, `DELETE` operations
-- Prevents `TRUNCATE`, `DROP` operations
-- Prevents `CREATE`, `ALTER` operations
-- Prevents function calls that modify data
+- `INSERT`, `UPDATE`, `DELETE` operations.
+- `TRUNCATE`, `DROP` operations.
+- `CREATE`, `ALTER` operations.
+- function calls that modify data.
 
-**Example - Blocked Operations:**
+**Examples - Blocked Operations:**
 
 ```sql
--- These will fail with: "cannot execute INSERT in a read-only transaction"
+-- These will fail: "cannot execute INSERT in a read-only transaction"
 INSERT INTO users (name) VALUES ('test');
 UPDATE users SET active = false;
 DELETE FROM logs WHERE created_at < NOW() - INTERVAL '30 days';
@@ -178,11 +179,11 @@ DROP TABLE old_data;
 To  enforce additional safeguards, use a read-only database role:
 
 ```sql
--- Even if transaction protection fails, user lacks permissions
+-- Even if transaction protection fails, the user lacks permissions
 REVOKE INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public FROM mcp_readonly;
 ```
 
-Monitor your query logs:
+Use the following queries to monitor your query logs:
 
 ```sql
 -- Enable query logging in PostgreSQL
@@ -201,7 +202,8 @@ tail -f /tmp/pgedge-postgres-mcp.log | grep "Generated SQL"
 journalctl -u pgedge-postgres-mcp -f | grep "Generated SQL"
 ```
 
-While read-only protection is enforced, additional vigilence should be employed to detect:
+While read-only protection is enforced, additional vigilence should be employed
+to detect:
 
 - unusual patterns in natural language queries.
 - SQL injection attempts in query text.
@@ -214,7 +216,8 @@ You should:
 
 ## Configuration Management
 
-The `set_pg_configuration` tool can modify PostgreSQL settings.  This creates some risks:
+The `set_pg_configuration` tool can modify PostgreSQL settings.  This creates
+some risks:
 
 - Changes persist across server restarts.
 - Some changes require a server restart to take effect.
@@ -260,9 +263,11 @@ ORDER BY name;
 
 ## Network Security
 
-### Firewall Rules
+As part of your network security, you should use firewall rules to restrict
+access to systems that need to be in contact with each other.  Additionally
+you should:
 
-**Restrict database access:**
+**Restrict database access**
 
 ```bash
 # UFW (Ubuntu/Debian)
@@ -274,7 +279,7 @@ sudo iptables -A INPUT -s 10.0.1.0/24 -p tcp --dport 5432 -j ACCEPT
 sudo iptables -A INPUT -p tcp --dport 5432 -j DROP
 ```
 
-**Restrict HTTP/HTTPS server access:**
+**Restrict HTTP/HTTPS server access**
 
 ```bash
 # Allow only from specific IPs
@@ -284,16 +289,16 @@ sudo ufw allow from 203.0.113.0/24 to any port 8080
 sudo ufw allow from 10.0.0.0/8 to any port 8080
 ```
 
-### Network Segmentation
+You should also:
 
-- Run MCP server in DMZ or application tier
-- Database in separate network segment
-- Use VPN for remote access
-- Implement network ACLs
+- Run the MCP server in DMZ or an application tier.
+- Keep your database in a separate network .
+- Use a VPN for remote access.
+- Implement network ACLs.
 
-### PostgreSQL Host-Based Authentication
-
-Edit `pg_hba.conf`:
+Use Postgres host-based authentication to restrict database access. To use
+[Postgres authentication](https://www.postgresql.org/docs/18/auth-pg-hba-conf.html)
+, edit the `pg_hba.conf` file:
 
 ```
 # Allow MCP server from specific IP with SSL
@@ -306,18 +311,19 @@ host     all   all           0.0.0.0/0      reject
 
 ## HTTP/HTTPS Mode Security
 
-You should always use HTTPS for production environments; never use HTTP for:**
-
-- External/public-facing deployments
-- Transmission over untrusted networks
-- Production environments
-
-**HTTP sends in plaintext:**
+HTTP sends the following requests in plaintext:
 
 - API tokens
 - Database query results
 - Natural language queries
 - Connection strings (if exposed)
+
+You should always use HTTPS for production environments; never use HTTP for:
+
+- External/public-facing deployments
+- Transmission over untrusted networks
+- Production environments
+
 
 ### Configuring TLS
 
@@ -344,11 +350,11 @@ openssl s_client -connect localhost:8080 -tls1_2
 
 ## Token Security
 
-See [Authentication Guide](authentication.md) for detailed token management.
+See [this page](auth_token.md) for detailed information about token
+management; the following examples demonstrate best practices for token
+management:
 
-### Token Best Practices
-
-1. **Use expiration dates:**
+**Tokens should have expiration dates**
 
     ```bash
     # Good: 90-day expiration
@@ -358,19 +364,19 @@ See [Authentication Guide](authentication.md) for detailed token management.
     ./bin/pgedge-postgres-mcp -add-token -token-expiry "never"
     ```
 
-2. **Rotate tokens regularly:**
+**Rotate your tokens regularly**
 
     - Set up calendar reminders for rotation
     - Create new token before old one expires
     - Remove old token after migration
 
-3. **One token per service:**
+**Use one token per service**
 
     - Don't share tokens between applications
     - Easier to revoke if compromised
     - Better audit trail
 
-4. **Store tokens securely:**
+**Store tokens securely**
 
     ```bash
     # Use environment variables or secrets managers
@@ -381,7 +387,7 @@ See [Authentication Guide](authentication.md) for detailed token management.
     curl -H "Authorization: Bearer abc123..." ...    # Don't hardcode
     ```
 
-5. **Token file permissions:**
+**Set token file permissions restrictively**
 
     ```bash
     # Verify file permissions
@@ -391,25 +397,23 @@ See [Authentication Guide](authentication.md) for detailed token management.
     chmod 600 pgedge-postgres-mcp-tokens.yaml
     ```
 
-### Connection Isolation
-
-**Per-Token Database Connections:**
+### Using Per-Token Database Connections
 
 When authentication is enabled in HTTP/HTTPS mode, the MCP server implements **per-token connection isolation** to ensure security and prevent cross-user data access.
 
-**How it works:**
+How it works:
 
 - Each API token gets its own dedicated database connection pool
 - Database connections are never shared between different tokens
 - When a token expires, its database connections are automatically closed
 - This prevents one user from accessing database resources opened by another user
 
-**Security benefits:**
+Security benefits:
 
-1. **Isolation**: Users with different tokens cannot interfere with each other's database sessions
-2. **Session Security**: Temporary tables, prepared statements, and session variables are isolated per token
-3. **Automatic Cleanup**: Expired tokens trigger automatic cleanup of their database connections
-4. **Resource Management**: Connection pools are managed independently for each token
+* **Isolation**: Users with different tokens cannot interfere with each other's database sessions
+* **Session Security**: Temporary tables, prepared statements, and session variables are isolated per token
+* **Automatic Cleanup**: Expired tokens trigger automatic cleanup of their database connections
+* **Resource Management**: Connection pools are managed independently for each token
 
 **When connection isolation is active:**
 
@@ -428,28 +432,29 @@ When authentication is enabled in HTTP/HTTPS mode, the MCP server implements **p
 - Stdio mode (single-user, no authentication)
 - HTTP mode with `-no-auth` flag (all requests share one connection)
 
-**Monitoring connection pools:**
+### Monitoring Connection Pools
 
-The server logs connection creation and cleanup:
+It's a good idea to monitor activity in your connection pools. The server logs
+connection creation and cleanup:
 
 ```
 Created new database connection for token hash: 5f4dcc3b5aa7 (total: 3)
 Removed database connection for token hash: 5f4dcc3b5aa7 (remaining: 2)
 ```
 
-**Best practices:**
+**Best practices**
 
-- Always enable authentication for multi-user deployments
-- Monitor server logs for connection pool growth
-- Set appropriate token expiration times to prevent connection pool exhaustion
-- Consider database connection limits when issuing tokens to many users
+- Always enable authentication for multi-user deployments.
+- Monitor server logs for connection pool growth.
+- Set appropriate token expiration times to prevent connection pool exhaustion.
+- Consider database connection limits when issuing tokens to many users.
 
 
 ## TLS/Certificate Security
 
-### Private Key Protection
+Key permissions should be set to limit access to only the owner:
 
-**File permissions:**
+**File permissions**
 
 ```bash
 # Private keys should be 600 (owner read/write only)
@@ -459,14 +464,13 @@ chmod 600 /path/to/server.key
 ls -la /path/to/server.key  # Should show -rw-------
 ```
 
-**Storage:**
+It's a good practice to:
 
+- store keys outside the web root.
+- use hardware security modules (HSM) for keys in high-security environments.
+- never commit keys to a version control management system.
 
-- Store keys outside web root
-- Use hardware security modules (HSM) for high-security environments
-- Never commit keys to version control
-
-**Example - Secure Key Storage:**
+**Example - Secure Key Storage**
 
 ```bash
 # Store in /etc with restricted permissions
@@ -477,9 +481,15 @@ sudo chmod 600 /etc/pgedge/certs/server.key
 sudo chown pgedge:pgedge /etc/pgedge/certs/server.key
 ```
 
-### Certificate Management
+Certificates should also be managed securely. You should always:
 
-**Monitor expiration:**
+- include intermediate certificates in your certificate chain.
+- use the `-chain` flag with full chain file.
+- test the certificate chain with the command:
+
+    `openssl s_client -connect localhost:8080 -showcerts`
+
+You should also monitor certificate expiration:
 
 ```bash
 # Check expiration date
@@ -489,7 +499,7 @@ openssl x509 -in server.crt -noout -dates
 sudo certbot renew --dry-run
 ```
 
-**Automated renewal with Let's Encrypt:**
+You can automate renewal with Let's Encrypt:
 
 ```bash
 # Install certbot
@@ -502,14 +512,6 @@ sudo systemctl start certbot.timer
 # Verify timer is active
 sudo systemctl list-timers | grep certbot
 ```
-
-**Certificate chain:**
-
-- Always include intermediate certificates
-- Use `-chain` flag with full chain file
-- Test certificate chain: `openssl s_client -connect localhost:8080 -showcerts`
-
-
 
 ## Monitoring and Auditing
 
