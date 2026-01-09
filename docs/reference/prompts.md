@@ -1,9 +1,9 @@
 # Using MCP Prompts
 
 Prompts are reusable workflow templates that guide LLMs through complex
-multi-step processes. They provide structured guidance for common tasks like
-setting up semantic search, exploring unfamiliar databases, or diagnosing
-query issues. Prompts are designed to:
+multi-step processes. They provide structured guidance for common tasks
+like setting up semantic search, exploring unfamiliar databases, or
+diagnosing query issues. Prompts are designed to:
 
 * ensure consistent workflows so important steps aren't missed.
 * reduce back-and-forth by providing complete guidance upfront.
@@ -12,8 +12,11 @@ query issues. Prompts are designed to:
 
 !!! note
 
-    MCP Prompts are a feature introduced in the Model Context Protocol (MCP) version 2024-11-05. Unlike tools that execute specific actions, prompts provide pre-written instructions that guide the LLM through a systematic workflow. Think of them as expert playbooks that ensure consistent,
-    thorough analysis.
+    MCP Prompts are a feature introduced in the Model Context Protocol
+    (MCP) version 2024-11-05. Unlike tools that execute specific actions,
+    prompts provide pre-written instructions that guide the LLM through a
+    systematic workflow. Think of them as expert playbooks that ensure
+    consistent, thorough analysis.
 
 The following prompts are implemented in `internal/prompts/`:
 
@@ -25,7 +28,6 @@ The following prompts are implemented in `internal/prompts/`:
 | `registry.go` | Prompt registration and management. |
 | `setup_semantic_search.go` | Semantic search workflow. |
 
-
 Each prompt returns a `mcp.PromptResult` object, containing:
 
 | Field | Description |
@@ -35,18 +37,21 @@ Each prompt returns a `mcp.PromptResult` object, containing:
 
 !!! note
 
-    Each individual prompt can be disabled to restrict what the LLM can access. When disabled:
+    Each individual prompt can be disabled to restrict what the LLM can
+    access. When disabled:
 
         * it is not advertised to the LLM in the `prompts/list` response.
         * the prompt dropdown in the web UI will not show it.
         * attempts to use it via `/prompt` return an error.
 
-    See [Enabling/Disabling Built-in Features](../guide/feature_config.md) for details.
+    See [Enabling/Disabling Built-in Features](../guide/feature_config.md)
+    for details.
 
 
 ## Using Prompts to Manage Token and Rate Limits
 
-Prompts are designed to optimize token usage and avoid rate limits; follow these best practices when working with prompts:
+Prompts are designed to optimize token usage and avoid rate limits;
+follow these best practices when working with prompts:
 
 * Use prompts instead of freeform queries for complex workflows.
 * Start with conservative token limits.
@@ -54,42 +59,56 @@ Prompts are designed to optimize token usage and avoid rate limits; follow these
 * Use `limit` parameter in queries.
 * Avoid multiple large operations in one conversation turn.
 
-Prompts are designed to help manage token usage and avoid rate limit errors by enforcing the following behaviors.
+Prompts are designed to help manage token usage and avoid rate limit
+errors by enforcing the following behaviors.
 
 **Conversation History Compaction**
 
-Both the CLI and Web clients automatically compact conversation history before each LLM call:
+Both the CLI and Web clients automatically compact conversation history
+before each LLM call:
 
 * The clients keep the first user message for context.
 * The clients keep the last 10 messages.
-* The clients prevent exponential token growth in multi-turn conversations.
+* The clients prevent exponential token growth in multi-turn
+  conversations.
 
 **Prompt-Specific Token Guidance**
 
 Each prompt includes token budget recommendations:
 
-* The `diagnose-query-issue` prompt prioritizes quick checks before expensive operations.
-* The `explore-database` prompt uses schema filtering and sample limits.
-* The `setup-semantic-search` prompt limits similarity_search to 1000 tokens by default.
+* The `diagnose-query-issue` prompt prioritizes quick checks before
+  expensive operations.
+* The `explore-database` prompt uses schema filtering and sample
+  limits.
+* The `setup-semantic-search` prompt limits similarity_search to 1000
+  tokens by default.
 
 
 ## Using Built-in Prompts
 
-The MCP server provides the following prompts to guide the LLM through common database workflows.
+The MCP server provides the following prompts to guide the LLM through
+common database workflows.
 
 ### design-schema
 
-`design-schema` guides the LLM through designing a PostgreSQL database schema based on user requirements. This prompt uses best practices, appropriate normalization levels based on your specifications, and recommends PostgreSQL extensions where beneficial. `design_schema`:
+`design-schema` guides the LLM through designing a PostgreSQL database
+schema based on user requirements. This prompt uses best practices,
+appropriate normalization levels based on your specifications, and
+recommends PostgreSQL extensions where beneficial. `design_schema`:
 
-1. searches for relevant schema design best practices if a knowledge base is available.
+1. searches for relevant schema design best practices if a knowledge
+   base is available.
 2. analyzes data entities, relationships, and access patterns.
-3. applies appropriate normalization based on use case (3NF+ for OLTP, denormalized for OLAP).
-4. recommends PostgreSQL-specific types (UUID, TIMESTAMPTZ, NUMERIC, JSONB, TEXT, VECTOR).
+3. applies appropriate normalization based on use case (3NF+ for OLTP,
+   denormalized for OLAP).
+4. recommends PostgreSQL-specific types (UUID, TIMESTAMPTZ, NUMERIC,
+   JSONB, TEXT, VECTOR).
 5. suggests indexes based on query patterns.
 6. proposes relevant PostgreSQL extensions.
 7. produces complete CREATE TABLE statements.
 
-The prompt instructs the LLM to avoid the following common database design anti-patterns:
+The prompt instructs the LLM to avoid the following common database
+design anti-patterns:
 
 * Using SERIAL instead of IDENTITY for auto-increment.
 * Generating UUIDs in the database when IDENTITY would suffice.
@@ -100,19 +119,24 @@ The prompt instructs the LLM to avoid the following common database design anti-
 * Over-indexing or under-indexing.
 * Assuming extension names without verifying via knowledgebase.
 * Over-engineering: adding tables/columns "just in case".
-* Using advanced extensions (pgvector) when simpler ones (pg_trgm) suffice.
+* Using advanced extensions (pgvector) when simpler ones (pg_trgm)
+  suffice.
 
 `design-schema` is useful if you are:
 
 * Designing a new database schema from specific requirements.
-* Getting schema recommendations for specific use cases (OLTP, OLAP, etc.).
+* Getting schema recommendations for specific use cases (OLTP, OLAP,
+  etc.).
 * Learning Postgres best practices for data modeling.
-* Generating `CREATE TABLE` statements with proper types and constraints.
+* Generating `CREATE TABLE` statements with proper types and
+  constraints.
 
-The prompt recommends the following PostgreSQL data types for optimal performance and compatibility:
+The prompt recommends the following PostgreSQL data types for optimal
+performance and compatibility:
 
 * Use `GENERATED ALWAYS AS IDENTITY` for auto-increment primary keys.
-* Use `UUID` only when the application provides IDs or for distributed systems.
+* Use `UUID` only when the application provides IDs or for distributed
+  systems.
 * Use `TIMESTAMPTZ` for timestamps (timezone-aware).
 * Use `NUMERIC` for money/precision values.
 * Use `JSONB` for flexible/semi-structured data.
@@ -127,50 +151,60 @@ The prompt recommends the following PostgreSQL data types for optimal performanc
 | `use_case` | Optional | Primary use case - `oltp`, `olap`, `hybrid`, or `general` (default: `general`). |
 | `full_featured` | Optional | If `true`, design a comprehensive production-ready schema. If `false` (the default), design a minimal schema meeting only the stated requirements. |
 
-The prompt applies normalization strategies based on your specified `use_case` argument:
+The prompt applies normalization strategies based on your specified
+`use_case` argument:
 
 * **OLTP**: Third Normal Form (3NF) or higher for data integrity.
 * **OLAP**: Strategic denormalization for query performance.
 * **Hybrid**: Balanced approach with materialized views.
 * **General**: Context-appropriate normalization.
 
-`design-schema` applies design strategies based on your `full_featured` argument:
+`design-schema` applies design strategies based on your `full_featured`
+argument:
 
-- **Minimal (false, the default)**: Create only the tables and columns explicitly required.
-  Does not add user accounts, audit logs, favorites, or other supporting
-  tables unless requested. Prefers simpler solutions (pg_trgm over pgvector
-  for basic text search).
+- **Minimal (false, the default)**: Create only the tables and columns
+  explicitly required. Does not add user accounts, audit logs,
+  favorites, or other supporting tables unless requested. Prefers
+  simpler solutions (pg_trgm over pgvector for basic text search).
 
-- **Full-Featured (true)**: Creates a comprehensive, production-ready schema with
-  supporting tables, audit logging, user preferences, and future-proofing
-  considerations. Use this option when you want a complete application schema.
+- **Full-Featured (true)**: Creates a comprehensive, production-ready
+  schema with supporting tables, audit logging, user preferences, and
+  future-proofing considerations. Use this option when you want a
+  complete application schema.
 
 `design-schema` considers these extensions where appropriate:
 
-* `vector`: For AI/ML embeddings and semantic search (note: extension name is `vector`, not `pgvector`).
+* `vector`: For AI/ML embeddings and semantic search (note: extension
+  name is `vector`, not `pgvector`).
 * `postgis`: For geographic/spatial data.
 * `pg_trgm`: For fuzzy text search.
 * `pgcrypto`: For cryptographic functions.
 * `ltree`: For hierarchical data.
 
-The prompt instructs the LLM to verify ALL extension names via the knowledgebase before writing `CREATE EXTENSION` statements, as project names often differ from the actual extension names.
+The prompt instructs the LLM to verify ALL extension names via the
+knowledgebase before writing `CREATE EXTENSION` statements, as project
+names often differ from the actual extension names.
 
 **Examples**
 
-The following examples demonstrate how to use the `design-schema` prompt from both the Web UI and CLI.
+The following examples demonstrate how to use the `design-schema` prompt
+from both the Web UI and CLI.
 
 **Using design-schema from the Web UI**
 
 1. Click the brain icon next to the send button.
 2. Select `design-schema` from the dropdown.
 3. Enter your requirements description.
-4. Optionally select a use case (`oltp`, `olap`, `hybrid`, `general`).
-5. Optionally set `full_featured` to `true` for comprehensive schemas.
+4. Optionally select a use case (`oltp`, `olap`, `hybrid`,
+   `general`).
+5. Optionally set `full_featured` to `true` for comprehensive
+   schemas.
 6. Click `Execute Prompt`.
 
 **CLI Example - a schema for e-commerce**
 
-In the following example, the prompt designs a schema for an e-commerce platform:
+In the following example, the prompt designs a schema for an
+e-commerce platform:
 
 ```bash
 /prompt design-schema requirements="E-commerce platform with products, orders, and customers"
@@ -178,7 +212,8 @@ In the following example, the prompt designs a schema for an e-commerce platform
 
 **CLI Example - a schema for OLAP workloads**
 
-In the following example, the prompt designs a schema optimized for OLAP workloads:
+In the following example, the prompt designs a schema optimized for
+OLAP workloads:
 
 ```bash
 /prompt design-schema requirements="Real-time analytics dashboard" use_case="olap"
@@ -186,7 +221,8 @@ In the following example, the prompt designs a schema optimized for OLAP workloa
 
 **CLI Example - a production-ready schema**
 
-In the following example, the prompt designs a comprehensive production-ready schema:
+In the following example, the prompt designs a comprehensive
+production-ready schema:
 
 ```bash
 /prompt design-schema requirements="E-commerce platform" full_featured="true"
@@ -194,7 +230,8 @@ In the following example, the prompt designs a comprehensive production-ready sc
 
 ### diagnose-query-issue
 
-diagnose-query-issue systematically diagnoses why queries are failing or returning unexpected results. `diagnose-query-issue`:
+diagnose-query-issue systematically diagnoses why queries are failing
+or returning unexpected results. `diagnose-query-issue`:
 
 1. verifies which database you're connected to.
 2. checks if a target table/schema exists.
@@ -203,13 +240,15 @@ diagnose-query-issue systematically diagnoses why queries are failing or returni
 5. systematically checks typical problems.
 6. suggests fixes based on diagnosis.
 
-The prompt guides the LLM through a comprehensive diagnostic checklist that checks for:
+The prompt guides the LLM through a comprehensive diagnostic checklist
+that checks for:
 
 * a connection to an incorrect database.
 * misspelled table names or incorrect schema references.
 * missing vector columns required for similarity_search operations.
 * disabled embedding generation configuration.
-* empty result sets where queries execute successfully but return no matching data.
+* empty result sets where queries execute successfully but return no
+  matching data.
 * exceeded API rate limits.
 * insufficient database permissions.
 
@@ -244,7 +283,8 @@ For fastest diagnosis, the prompt prioritizes the following issues:
 
 **CLI Example - diagnosing a table not found error**
 
-In the following example, the prompt diagnoses a `table not found` error:
+In the following example, the prompt diagnoses a `table not found`
+error:
 
 ```bash
 /prompt diagnose-query-issue issue_description="table not found"
@@ -252,7 +292,8 @@ In the following example, the prompt diagnoses a `table not found` error:
 
 **CLI Example - general diagnosis**
 
-In the following example, the prompt performs a general diagnosis without a specific issue description:
+In the following example, the prompt performs a general diagnosis
+without a specific issue description:
 
 ```bash
 /prompt diagnose-query-issue
@@ -260,7 +301,9 @@ In the following example, the prompt performs a general diagnosis without a spec
 
 ### explore-database
 
-`explore-database` systematically explores an unfamiliar database to understand its structure, capabilities, and available data. `explore-database`:
+`explore-database` systematically explores an unfamiliar database to
+understand its structure, capabilities, and available data.
+`explore-database`:
 
 1. identifies which database you're connected to.
 2. retreives comprehensive schema information.
@@ -297,7 +340,8 @@ The workflow stops early if any of the following conditions occur:
 
 **Examples**
 
-The following examples demonstrate how to use the `explore-database` prompt from both the Web UI and CLI.
+The following examples demonstrate how to use the `explore-database`
+prompt from both the Web UI and CLI.
 
 **Using explore-database from the Web UI**
 
@@ -315,11 +359,14 @@ In the following example, the prompt explores the database structure:
 
 ### setup-semantic-search
 
-`setup-semantic-search` sets up semantic search using the [`similarity_search`](tools.md#similarity_search) tool. `setup-semantic-search`:
+`setup-semantic-search` sets up semantic search using the
+[`similarity_search`](tools.md#similarity_search) tool.
+`setup-semantic-search`:
 
 1. identifies tables with vector columns.
 2. chooses the most appropriate table based on schema info.
-3. runs [similarity_search](tools.md#similarity_search) with optimal parameters.
+3. runs [similarity_search](tools.md#similarity_search) with optimal
+   parameters.
 4. manages chunking and token budgets to avoid rate limits.
 
 `setup-semantic-search` is useful if you are:
@@ -335,14 +382,16 @@ In the following example, the prompt explores the database structure:
 |------|----------|-------------|
 | `query_text` | Required | The natural language search query. |
 
-The prompt instructs the LLM to use the following similarity_search parameters:
+The prompt instructs the LLM to use the following similarity_search
+parameters:
 
 * `top_n`: 10 (balance between recall and token usage).
 * `chunk_size_tokens`: 100 (manageable chunk size).
 * `lambda`: 0.6 (balanced relevance vs diversity).
 * `max_output_tokens`: 1000 (prevents rate limit issues).
 
-The prompt includes specific guidance on managing token budgets to avoid rate limit errors and instructs the LLM to:
+The prompt includes specific guidance on managing token budgets to
+avoid rate limit errors and instructs the LLM to:
 
 * Start with conservative token limits (1000 tokens).
 * Use moderate chunking (100 tokens per chunk).
@@ -351,7 +400,8 @@ The prompt includes specific guidance on managing token budgets to avoid rate li
 
 **Examples**
 
-The following examples demonstrate how to use the `setup-semantic-search` prompt from both the Web UI and CLI.
+The following examples demonstrate how to use the
+`setup-semantic-search` prompt from both the Web UI and CLI.
 
 **Using setup-semantic-search from the Web UI**
 
@@ -362,7 +412,8 @@ The following examples demonstrate how to use the `setup-semantic-search` prompt
 
 **CLI Example - setting up semantic search**
 
-In the following example, the prompt sets up semantic search to find information about pgAgent:
+In the following example, the prompt sets up semantic search to find
+information about pgAgent:
 
 ```bash
 /prompt setup-semantic-search query_text="What is pgAgent?"
@@ -371,7 +422,8 @@ In the following example, the prompt sets up semantic search to find information
 
 ## Using Prompts
 
-The following sections explain how to execute prompts in different environments.
+The following sections explain how to execute prompts in different
+environments.
 
 ### CLI Client
 
@@ -379,7 +431,8 @@ Prompts are executed using the `/prompt` slash command:
 
 **Syntax**
 
-In the following example, the syntax shows how to execute prompts with arguments:
+In the following example, the syntax shows how to execute prompts with
+arguments:
 
 ```bash
 /prompt <prompt-name> [arg1=value1] [arg2=value2] ...
@@ -387,7 +440,8 @@ In the following example, the syntax shows how to execute prompts with arguments
 
 **Examples**
 
-In the following examples, the commands demonstrate various prompt invocations:
+In the following examples, the commands demonstrate various prompt
+invocations:
 
 ```bash
 # Design a database schema
@@ -423,7 +477,8 @@ In the following example, the query text is enclosed in single quotes:
 
 **List Available Prompts**
 
-In the following example, the command lists all available prompts with their descriptions and arguments:
+In the following example, the command lists all available prompts with
+their descriptions and arguments:
 
 ```bash
 /prompts
@@ -435,7 +490,8 @@ The web interface provides a graphical way to execute prompts:
 
 **Access Prompts**
 
-1. Look for the brain icon (Psychology icon) in the input area, between the save button and send button.
+1. Look for the brain icon (Psychology icon) in the input area,
+   between the save button and send button.
 2. The icon only appears if prompts are available from the server.
 
 **Execute a Prompt**
@@ -463,13 +519,18 @@ The web interface provides a graphical way to execute prompts:
 
 ## Creating and Managing Custom Prompts
 
-This section provides technical information about how prompts are implemented and exposed through the MCP protocol, including protocol methods, implementation structure, and guidance for creating your own custom prompts.
+This section provides technical information about how prompts are
+implemented and exposed through the MCP protocol, including protocol
+methods, implementation structure, and guidance for creating your own
+custom prompts.
 
-Prompts are exposed via the MCP protocol's `prompts/list` and `prompts/get` methods:
+Prompts are exposed via the MCP protocol's `prompts/list` and
+`prompts/get` methods:
 
-**List Prompts** (`prompts/list`):
+**List Prompts** (`prompts/list`)
 
-In the following example, the JSON-RPC request lists all available prompts:
+In the following example, the JSON-RPC request lists all available
+prompts:
 
 ```json
 {
@@ -479,9 +540,10 @@ In the following example, the JSON-RPC request lists all available prompts:
 }
 ```
 
-**Get Prompt** (`prompts/get`):
+**Get Prompt** (`prompts/get`)
 
-In the following example, the JSON-RPC request retrieves a specific prompt with arguments:
+In the following example, the JSON-RPC request retrieves a specific
+prompt with arguments:
 
 ```json
 {
