@@ -181,6 +181,11 @@ llm:
     # anthropic_api_key: "your-key-here"
     # openai_api_key: "your-key-here"
 
+    # Optional: Custom base URLs for API proxies
+    # Leave empty to use default provider URLs
+    # anthropic_base_url: "https://your-proxy.example.com"
+    # openai_base_url: "https://your-proxy.example.com"
+
     # Ollama configuration
     ollama_url: "http://localhost:11434"
 
@@ -203,7 +208,9 @@ API keys are loaded in the following order (highest to lowest):
 - `PGEDGE_LLM_PROVIDER`: The default provider.
 - `PGEDGE_LLM_MODEL`: The default model.
 - `PGEDGE_ANTHROPIC_API_KEY` or `ANTHROPIC_API_KEY`: The Anthropic API key.
+- `PGEDGE_ANTHROPIC_BASE_URL`: Custom Anthropic API base URL (for proxies).
 - `PGEDGE_OPENAI_API_KEY` or `OPENAI_API_KEY`: The OpenAI API key.
+- `PGEDGE_OPENAI_BASE_URL`: Custom OpenAI API base URL (for proxies).
 - `PGEDGE_OLLAMA_URL`: The Ollama server URL (used for both embeddings and LLM).
 - `PGEDGE_LLM_MAX_TOKENS`: The maximum tokens per response.
 - `PGEDGE_LLM_TEMPERATURE`: The LLM temperature (0.0-1.0).

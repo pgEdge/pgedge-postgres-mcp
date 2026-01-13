@@ -18,6 +18,31 @@ The following environment variables specify authentication preferences:
 - **`PGEDGE_AUTH_TOKEN_FILE`**: Path to API token file
 - **`PGEDGE_AUTH_USER_FILE`**: Path to user authentication file
 
+The following environment variables specify LLM provider configuration:
+
+- **`PGEDGE_LLM_ENABLED`**: Enable LLM proxy for web clients
+- **`PGEDGE_LLM_PROVIDER`**: LLM provider ("anthropic", "openai", or "ollama")
+- **`PGEDGE_LLM_MODEL`**: Default model to use
+- **`PGEDGE_ANTHROPIC_API_KEY`**: Anthropic API key (or `ANTHROPIC_API_KEY`)
+- **`PGEDGE_ANTHROPIC_BASE_URL`**: Custom Anthropic API base URL (for proxies)
+- **`PGEDGE_OPENAI_API_KEY`**: OpenAI API key (or `OPENAI_API_KEY`)
+- **`PGEDGE_OPENAI_BASE_URL`**: Custom OpenAI API base URL (for proxies)
+- **`PGEDGE_OLLAMA_URL`**: Ollama server URL
+
+The following environment variables specify embedding provider configuration:
+
+- **`PGEDGE_VOYAGE_API_KEY`**: Voyage AI API key (or `VOYAGE_API_KEY`)
+- **`PGEDGE_VOYAGE_BASE_URL`**: Custom Voyage API base URL (for proxies)
+- **`PGEDGE_OPENAI_EMBEDDING_BASE_URL`**: Custom OpenAI embeddings base URL
+
+The following environment variables specify knowledgebase embedding configuration:
+
+- **`PGEDGE_KB_VOYAGE_API_KEY`**: Voyage API key for knowledgebase
+- **`PGEDGE_KB_VOYAGE_BASE_URL`**: Custom Voyage base URL for knowledgebase
+- **`PGEDGE_KB_OPENAI_API_KEY`**: OpenAI API key for knowledgebase
+- **`PGEDGE_KB_OPENAI_BASE_URL`**: Custom OpenAI base URL for knowledgebase
+- **`PGEDGE_KB_OLLAMA_URL`**: Ollama URL for knowledgebase
+
 If you run into issues with your environment variable settings, check:
 
 ```bash

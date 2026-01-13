@@ -30,6 +30,10 @@ embedding:
   openai_api_key_file: "~/.openai-api-key"
   # Option 3: Direct value (not recommended - use env var or file)
   # openai_api_key: "sk-proj-your-key-here"
+
+  # Optional: Custom base URL for API proxy
+  # Leave empty to use the default (https://api.openai.com/v1)
+  # openai_base_url: "https://your-proxy.example.com/v1"
 ```
 
 **Supported Models**:
@@ -88,6 +92,10 @@ embedding:
   voyage_api_key_file: "~/.voyage-api-key"
   # Option 3: Direct value (not recommended - use env var or file)
   # voyage_api_key: "pa-your-key-here"
+
+  # Optional: Custom base URL for API proxy
+  # Leave empty to use the default (https://api.voyageai.com/v1/embeddings)
+  # voyage_base_url: "https://your-proxy.example.com/v1/embeddings"
 ```
 
 **Supported Models**:

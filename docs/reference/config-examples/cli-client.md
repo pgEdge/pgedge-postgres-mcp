@@ -19,7 +19,9 @@ The chat client supports the following environment variables (in order of preced
 - `PGEDGE_LLM_PROVIDER`: LLM provider (`anthropic`, `openai`, or `ollama`)
 - `PGEDGE_LLM_MODEL`: Model to use
 - `PGEDGE_ANTHROPIC_API_KEY`: Anthropic API key
+- `PGEDGE_ANTHROPIC_BASE_URL`: Custom Anthropic API base URL (for proxies)
 - `PGEDGE_OPENAI_API_KEY`: OpenAI API key
+- `PGEDGE_OPENAI_BASE_URL`: Custom OpenAI API base URL (for proxies)
 - `PGEDGE_OLLAMA_URL`: Ollama server URL
 
 ### Command Line Flags
@@ -314,6 +316,11 @@ llm:
     #
     # Option 3: Direct value (not recommended - use env var or file)
     # anthropic_api_key: your-anthropic-api-key-here
+    #
+    # Optional: Custom base URL for API proxy
+    # Environment variable: PGEDGE_ANTHROPIC_BASE_URL
+    # Leave empty to use default (https://api.anthropic.com)
+    # anthropic_base_url: "https://your-proxy.example.com"
 
     # -------------------------
     # OpenAI Configuration
@@ -336,6 +343,11 @@ llm:
     #
     # Option 3: Direct value (not recommended - use env var or file)
     # openai_api_key: your-openai-api-key-here
+    #
+    # Optional: Custom base URL for API proxy
+    # Environment variable: PGEDGE_OPENAI_BASE_URL
+    # Leave empty to use default (https://api.openai.com)
+    # openai_base_url: "https://your-proxy.example.com"
 
     # Maximum tokens for LLM response
     # For GPT-5 and o-series models, automatically uses max_completion_tokens

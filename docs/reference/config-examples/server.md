@@ -281,9 +281,17 @@ embedding:
     openai_api_key_file: "~/.openai-api-key"
     # openai_api_key: ""  # Not recommended - use file or env var
 
+    # Optional: Custom OpenAI API base URL (for proxies)
+    # Leave empty to use default (https://api.openai.com/v1)
+    # openai_base_url: "https://your-proxy.example.com/v1"
+
     # For Voyage AI
     voyage_api_key_file: "~/.voyage-api-key"
     # voyage_api_key: ""  # Not recommended - use file or env var
+
+    # Optional: Custom Voyage API base URL (for proxies)
+    # Leave empty to use default (https://api.voyageai.com/v1/embeddings)
+    # voyage_base_url: "https://your-proxy.example.com/v1/embeddings"
 
     # For Ollama
     ollama_url: "http://localhost:11434"
@@ -315,9 +323,17 @@ llm:
     anthropic_api_key_file: "~/.anthropic-api-key"
     # anthropic_api_key: ""  # Not recommended - use file or env var
 
+    # Optional: Custom Anthropic API base URL (for proxies)
+    # Leave empty to use default (https://api.anthropic.com)
+    # anthropic_base_url: "https://your-proxy.example.com"
+
     # For OpenAI
     openai_api_key_file: "~/.openai-api-key"
     # openai_api_key: ""  # Not recommended - use file or env var
+
+    # Optional: Custom OpenAI API base URL (for proxies)
+    # Leave empty to use default (https://api.openai.com)
+    # openai_base_url: "https://your-proxy.example.com"
 
     # For Ollama
     ollama_url: "http://localhost:11434"
@@ -370,6 +386,10 @@ knowledgebase:
     # Option 2: Direct API keys (NOT RECOMMENDED)
     # embedding_voyage_api_key: ""  # Leave empty - use env var or file instead
     # embedding_openai_api_key: ""  # Leave empty - use env var or file instead
+
+    # Optional: Custom base URLs for API proxies
+    # embedding_voyage_base_url: "https://your-proxy.example.com/v1/embeddings"
+    # embedding_openai_base_url: "https://your-proxy.example.com/v1"
 
     # For Ollama (local)
     embedding_ollama_url: "http://localhost:11434"
@@ -473,4 +493,23 @@ custom_definitions_path: ""
 # 3. Direct configuration values (NOT RECOMMENDED):
 #    - Store keys directly in this config file
 #    - Less secure than environment variables or key files
+#
+# ============================================================================
+# CUSTOM BASE URL CONFIGURATION (for API proxies)
+# ============================================================================
+# Custom base URLs allow routing API traffic through proxies. This is useful
+# for enterprise deployments with security/compliance requirements.
+#
+# Environment variables:
+#   LLM providers:
+#     - PGEDGE_ANTHROPIC_BASE_URL (default: https://api.anthropic.com)
+#     - PGEDGE_OPENAI_BASE_URL (default: https://api.openai.com)
+#   Embedding providers:
+#     - PGEDGE_VOYAGE_BASE_URL (default: https://api.voyageai.com/v1/embeddings)
+#     - PGEDGE_OPENAI_EMBEDDING_BASE_URL (default: https://api.openai.com/v1)
+#   Knowledgebase embedding:
+#     - PGEDGE_KB_VOYAGE_BASE_URL
+#     - PGEDGE_KB_OPENAI_BASE_URL
+#
+# Leave empty to use the default provider URLs.
 ```
