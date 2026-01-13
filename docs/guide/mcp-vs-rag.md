@@ -24,11 +24,13 @@ interaction:
 
 ## Architecture Comparison - MCP Server vs. RAG Server
 
-The following flowcharts highlight the difference between the architecture of an MCP server and a RAG server.
+The following flowcharts highlight the difference between the architecture of
+an MCP server and a RAG server.
 
-**MCP Server Architecture**
+### MCP Server Architecture
 
-If you use an [MCP server](#when-to-use-an-mcp-server), the LLM has context about your entire schema and can query any table.
+If you use an [MCP server](#when-to-use-an-mcp-server), the LLM has context
+about your entire schema and can query any table.
 
 ```mermaid
 flowchart LR
@@ -43,9 +45,10 @@ flowchart LR
     B --> I[Answer]
 ```
 
-**RAG Server Architecture**
+### RAG Server Architecture
 
-If you use a [RAG server](#when-to-use-a-rag-server), the LLM only sees document fragments from pre-approved data sources.
+If you use a [RAG server](#when-to-use-a-rag-server), the LLM only sees
+document fragments from pre-approved data sources.
 
 ```mermaid
 flowchart LR
@@ -57,7 +60,7 @@ flowchart LR
     F --> G[Answer]
 ```
 
-**In comparison:**
+### Comparison
 
 | Aspect | MCP Server | RAG Server |
 |--------|------------|------------|
@@ -97,12 +100,16 @@ When the MCP Server is connected to an LLM and exposed to users, the LLM has
 the ability to:
 
 - read any table in the connected database.
-- explore the complete schema, including table names, column names, data types, and relationships.
-- access PostgreSQL system views, revealing server configuration and statistics.
+- explore the complete schema, including table names, column names, data
+  types, and relationships.
+- access PostgreSQL system views, revealing server configuration and
+  statistics.
 - infer application architecture from naming conventions and table structures.
-- find sensitive patterns such as user tables, authentication schemas, or business logic encoded in the data model.
+- find sensitive patterns such as user tables, authentication schemas, or
+  business logic encoded in the data model.
 
-Even with read-only protection, this level of access is inappropriate for public-facing applications where end users could:
+Even with read-only protection, this level of access is inappropriate for
+public-facing applications where end users could:
 
 - learn implementation details of your application.
 - discover internal table structures and column names.
@@ -122,21 +129,28 @@ The [pgEdge RAG Server](https://github.com/pgedge/pgedge-rag-server) is designed
 
 A RAG server offers the following advantages:
 
-- No schema exposure - The LLM only sees document content, not database structure.
-- Pipeline-based access - You can pre-configure exactly what data is searchable.
+- No schema exposure - The LLM only sees document content, not database
+  structure.
+- Pipeline-based access - You can pre-configure exactly what data is
+  searchable.
 - Hybrid search - You can combine vector similarity with BM25 text matching.
-- Token budget control - A RAG server allows you to manage costs with configurable limits.
-- Streaming responses - A RAG server provides real-time output via server-sent events.
-- Multiple providers - The pgEdge RAG server offers support for OpenAI, Anthropic, Voyage, and Ollama.
+- Token budget control - A RAG server allows you to manage costs with
+  configurable limits.
+- Streaming responses - A RAG server provides real-time output via
+  server-sent events.
+- Multiple providers - The pgEdge RAG server offers support for OpenAI,
+  Anthropic, Voyage, and Ollama.
 
 The RAG Server uses a fundamentally different approach:
 
 1. Pre-configured pipelines define which tables/columns are searchable.
 2. Vector embeddings enable semantic search over document content.
-3. Properly configured RAG servers retrieve only relevant documents based on user queries.
+3. Properly configured RAG servers retrieve only relevant documents based on
+   user queries.
 4. A RAG server produces answers using only the retrieved context.
 
-The LLM never sees your schema, table names, or raw SQL - it only receives document fragments relevant to the user's question.
+The LLM never sees your schema, table names, or raw SQL - it only receives
+document fragments relevant to the user's question.
 
 
 ## Decision Guide
