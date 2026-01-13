@@ -2,7 +2,7 @@
  *
  * pgEdge Natural Language Agent
  *
- * Portions copyright (c) 2025, pgEdge, Inc.
+ * Portions copyright (c) 2025 - 2026, pgEdge, Inc.
  * This software is released under The PostgreSQL License
  *
  *-------------------------------------------------------------------------
@@ -57,8 +57,10 @@ type Document struct {
 type Chunk struct {
 	ID                 int // Database ID (populated when retrieved from DB)
 	Text               string
-	Title              string // Document title
-	Section            string // Section heading
+	Title              string   // Document title
+	Section            string   // Section heading (immediate heading)
+	HeadingPath        []string // Full heading hierarchy (e.g., ["API", "Auth", "OAuth"])
+	ElementTypes       []string // Types of structural elements (e.g., ["paragraph", "code_block"])
 	ProjectName        string
 	ProjectVersion     string
 	FilePath           string

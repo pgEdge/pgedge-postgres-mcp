@@ -2,7 +2,7 @@
  *
  * pgEdge Natural Language Agent
  *
- * Portions copyright (c) 2025, pgEdge, Inc.
+ * Portions copyright (c) 2025 - 2026, pgEdge, Inc.
  * This software is released under The PostgreSQL License
  *
  *-------------------------------------------------------------------------
@@ -13,8 +13,11 @@ package tsv
 import (
 	"encoding/json"
 	"fmt"
+	"math/big"
 	"strings"
 	"time"
+
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 // FormatValue converts a value to a TSV-safe string.
@@ -42,6 +45,104 @@ func FormatValue(v interface{}) string {
 		s = fmt.Sprintf("%d", val)
 	case float32, float64:
 		s = fmt.Sprintf("%v", val)
+
+	// PostgreSQL pgtype types from pgx driver
+	case pgtype.Numeric:
+		if !val.Valid {
+			return "" // NULL
+		}
+		if val.NaN {
+			return "NaN"
+		}
+		if val.InfinityModifier == pgtype.Infinity {
+			return "Infinity"
+		}
+		if val.InfinityModifier == pgtype.NegativeInfinity {
+			return "-Infinity"
+		}
+		// Convert to string representation: Int * 10^Exp
+		s = formatNumeric(val.Int, val.Exp)
+
+	case pgtype.Float8:
+		if !val.Valid {
+			return ""
+		}
+		s = fmt.Sprintf("%v", val.Float64)
+
+	case pgtype.Float4:
+		if !val.Valid {
+			return ""
+		}
+		s = fmt.Sprintf("%v", val.Float32)
+
+	case pgtype.Int8:
+		if !val.Valid {
+			return ""
+		}
+		s = fmt.Sprintf("%d", val.Int64)
+
+	case pgtype.Int4:
+		if !val.Valid {
+			return ""
+		}
+		s = fmt.Sprintf("%d", val.Int32)
+
+	case pgtype.Int2:
+		if !val.Valid {
+			return ""
+		}
+		s = fmt.Sprintf("%d", val.Int16)
+
+	case pgtype.Text:
+		if !val.Valid {
+			return ""
+		}
+		s = val.String
+
+	case pgtype.Bool:
+		if !val.Valid {
+			return ""
+		}
+		if val.Bool {
+			s = "true"
+		} else {
+			s = "false"
+		}
+
+	case pgtype.Timestamp:
+		if !val.Valid {
+			return ""
+		}
+		s = val.Time.Format(time.RFC3339)
+
+	case pgtype.Timestamptz:
+		if !val.Valid {
+			return ""
+		}
+		s = val.Time.Format(time.RFC3339)
+
+	case pgtype.Date:
+		if !val.Valid {
+			return ""
+		}
+		s = val.Time.Format("2006-01-02")
+
+	case pgtype.Interval:
+		if !val.Valid {
+			return ""
+		}
+		// Format interval as ISO 8601 duration or human-readable
+		s = formatInterval(val)
+
+	case pgtype.UUID:
+		if !val.Valid {
+			return ""
+		}
+		// Format UUID as standard string
+		s = fmt.Sprintf("%x-%x-%x-%x-%x",
+			val.Bytes[0:4], val.Bytes[4:6], val.Bytes[6:8],
+			val.Bytes[8:10], val.Bytes[10:16])
+
 	case []interface{}, map[string]interface{}:
 		// Complex types (arrays, JSON objects) - serialize to JSON
 		jsonBytes, err := json.Marshal(val)
@@ -97,4 +198,101 @@ func BuildRow(values ...string) string {
 		escaped[i] = FormatValue(v)
 	}
 	return strings.Join(escaped, "\t")
+}
+
+// formatNumeric converts a PostgreSQL numeric value (Int * 10^Exp) to string.
+// Handles arbitrary precision decimals correctly.
+func formatNumeric(intVal *big.Int, exp int32) string {
+	if intVal == nil {
+		return "0"
+	}
+
+	// Get the string representation of the integer part
+	intStr := intVal.String()
+
+	// Handle negative numbers
+	negative := false
+	if intStr != "" && intStr[0] == '-' {
+		negative = true
+		intStr = intStr[1:]
+	}
+
+	if exp >= 0 {
+		// Positive exponent: append zeros
+		result := intStr + strings.Repeat("0", int(exp))
+		if negative {
+			return "-" + result
+		}
+		return result
+	}
+
+	// Negative exponent: insert decimal point
+	decimalPlaces := int(-exp)
+
+	// Pad with leading zeros if necessary
+	for len(intStr) <= decimalPlaces {
+		intStr = "0" + intStr
+	}
+
+	// Insert decimal point
+	insertPos := len(intStr) - decimalPlaces
+	result := intStr[:insertPos] + "." + intStr[insertPos:]
+
+	// Remove trailing zeros after decimal point (optional, for cleaner output)
+	// result = strings.TrimRight(result, "0")
+	// result = strings.TrimRight(result, ".")
+
+	if negative {
+		return "-" + result
+	}
+	return result
+}
+
+// formatInterval converts a PostgreSQL interval to a human-readable string.
+func formatInterval(val pgtype.Interval) string {
+	var parts []string
+
+	if val.Months != 0 {
+		years := val.Months / 12
+		months := val.Months % 12
+		if years != 0 {
+			parts = append(parts, fmt.Sprintf("%d year(s)", years))
+		}
+		if months != 0 {
+			parts = append(parts, fmt.Sprintf("%d month(s)", months))
+		}
+	}
+
+	if val.Days != 0 {
+		parts = append(parts, fmt.Sprintf("%d day(s)", val.Days))
+	}
+
+	if val.Microseconds != 0 {
+		// Convert microseconds to hours, minutes, seconds
+		totalSeconds := val.Microseconds / 1000000
+		hours := totalSeconds / 3600
+		minutes := (totalSeconds % 3600) / 60
+		seconds := totalSeconds % 60
+		microsRemainder := val.Microseconds % 1000000
+
+		if hours != 0 {
+			parts = append(parts, fmt.Sprintf("%d hour(s)", hours))
+		}
+		if minutes != 0 {
+			parts = append(parts, fmt.Sprintf("%d minute(s)", minutes))
+		}
+		if seconds != 0 || microsRemainder != 0 {
+			if microsRemainder != 0 {
+				parts = append(parts, fmt.Sprintf("%d.%06d second(s)", seconds, microsRemainder))
+			} else {
+				parts = append(parts, fmt.Sprintf("%d second(s)", seconds))
+			}
+		}
+	}
+
+	if len(parts) == 0 {
+		return "0"
+	}
+
+	return strings.Join(parts, " ")
 }

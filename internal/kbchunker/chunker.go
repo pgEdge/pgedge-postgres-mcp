@@ -2,7 +2,7 @@
  *
  * pgEdge Natural Language Agent
  *
- * Portions copyright (c) 2025, pgEdge, Inc.
+ * Portions copyright (c) 2025 - 2026, pgEdge, Inc.
  * This software is released under The PostgreSQL License
  *
  *-------------------------------------------------------------------------
@@ -50,18 +50,23 @@ func ChunkDocument(doc *kbtypes.Document) ([]*kbtypes.Chunk, error) {
 	return chunks, nil
 }
 
-// Section represents a section of a document
+// Section represents a section of a document with its heading hierarchy
 type Section struct {
-	Heading string
-	Content string
-	Level   int
+	Heading     string
+	HeadingPath []string // Full heading hierarchy (e.g., ["API", "Auth", "OAuth"])
+	Content     string
+	Level       int
 }
 
-// parseMarkdownSections parses markdown into sections
+// parseMarkdownSections parses markdown into sections with heading hierarchy tracking.
+// It maintains a stack of headings to build the full heading path for each section.
 func parseMarkdownSections(markdown string) []Section {
 	lines := strings.Split(markdown, "\n")
 	var sections []Section
 	var currentSection *Section
+
+	// Heading stack for building hierarchy (levels 1-6, index 0 unused)
+	headingStack := make([]string, 7)
 
 	for _, line := range lines {
 		trimmed := strings.TrimSpace(line)
@@ -73,7 +78,7 @@ func parseMarkdownSections(markdown string) []Section {
 				sections = append(sections, *currentSection)
 			}
 
-			// Start new section
+			// Count heading level
 			level := 0
 			for _, r := range trimmed {
 				if r == '#' {
@@ -82,12 +87,31 @@ func parseMarkdownSections(markdown string) []Section {
 					break
 				}
 			}
+			if level > 6 {
+				level = 6 // Cap at h6
+			}
 
 			heading := strings.TrimSpace(trimmed[level:])
+
+			// Update heading stack: set current level and clear deeper levels
+			headingStack[level] = heading
+			for i := level + 1; i < len(headingStack); i++ {
+				headingStack[i] = ""
+			}
+
+			// Build heading path from stack
+			var headingPath []string
+			for i := 1; i <= level; i++ {
+				if headingStack[i] != "" {
+					headingPath = append(headingPath, headingStack[i])
+				}
+			}
+
 			currentSection = &Section{
-				Heading: heading,
-				Content: "",
-				Level:   level,
+				Heading:     heading,
+				HeadingPath: headingPath,
+				Content:     "",
+				Level:       level,
 			}
 		} else if currentSection != nil {
 			// Add content to current section
@@ -95,9 +119,10 @@ func parseMarkdownSections(markdown string) []Section {
 		} else {
 			// Content before first heading - create a default section
 			currentSection = &Section{
-				Heading: "",
-				Content: "",
-				Level:   0,
+				Heading:     "",
+				HeadingPath: nil,
+				Content:     "",
+				Level:       0,
 			}
 			currentSection.Content += line + "\n"
 		}
@@ -111,105 +136,64 @@ func parseMarkdownSections(markdown string) []Section {
 	return sections
 }
 
-// chunkSection breaks a section into chunks
+// chunkSection breaks a section into chunks using a hybrid two-pass algorithm.
+// Pass 1: Split at semantic boundaries (code blocks, tables, lists stay intact)
+// Pass 2: Merge undersized chunks to improve embedding quality
 func chunkSection(section Section, doc *kbtypes.Document) []*kbtypes.Chunk {
 	content := strings.TrimSpace(section.Content)
-	tokens := tokenize(content)
 
 	// Skip sections with no content
-	if len(tokens) == 0 && section.Heading == "" {
+	if content == "" && section.Heading == "" {
 		return nil
 	}
 
-	// If section is small enough (by word AND character count), return as single chunk
-	if len(tokens) <= TargetChunkSize && len(content) <= MaxChunkChars {
-		text := content
+	cfg := DefaultChunkConfig()
+
+	// Parse structural elements (code blocks, tables, lists, paragraphs)
+	elements := parseStructuralElements(content)
+
+	// If no elements parsed, fall back to treating content as single paragraph
+	if len(elements) == 0 && content != "" {
+		elements = []StructuralElement{{Type: Paragraph, Content: content}}
+	}
+
+	// Pass 1: Split at semantic boundaries
+	rawChunks := splitAtSemanticBoundaries(elements, cfg)
+
+	// Pass 2: Merge undersized chunks
+	mergedChunks := mergeUndersizedChunks(rawChunks, cfg.MinSize, cfg.MaxSize, cfg.MaxChars)
+
+	// Convert to final chunks with metadata
+	var chunks []*kbtypes.Chunk
+	for _, raw := range mergedChunks {
+		text := raw.Text
+
+		// Add heading context
 		if section.Heading != "" {
-			text = section.Heading + "\n\n" + content
+			// Use full heading path for better context if available
+			if len(section.HeadingPath) > 1 {
+				headingContext := strings.Join(section.HeadingPath, " > ")
+				text = headingContext + "\n\n" + text
+			} else {
+				text = section.Heading + "\n\n" + text
+			}
 		}
 
 		// Skip if the final text is empty
 		if strings.TrimSpace(text) == "" {
-			return nil
-		}
-
-		return []*kbtypes.Chunk{
-			{
-				Text:           text,
-				Title:          doc.Title,
-				Section:        section.Heading,
-				ProjectName:    doc.ProjectName,
-				ProjectVersion: doc.ProjectVersion,
-				FilePath:       doc.FilePath,
-			},
-		}
-	}
-
-	// Section is too large, split into multiple chunks with overlap
-	var chunks []*kbtypes.Chunk
-	start := 0
-
-	for start < len(tokens) {
-		end := start + TargetChunkSize
-		if end > len(tokens) {
-			end = len(tokens)
-		}
-
-		// Check character count and reduce end if needed
-		for end > start+1 {
-			chunkText := detokenize(tokens[start:end])
-			if len(chunkText) <= MaxChunkChars {
-				break
-			}
-			// Reduce chunk size to fit character limit
-			end--
-		}
-
-		// Try to break at sentence boundary (only if we have room)
-		if end < len(tokens) && len(detokenize(tokens[start:end])) < MaxChunkChars-200 {
-			maxEnd := start + MaxChunkSize
-			if maxEnd > len(tokens) {
-				maxEnd = len(tokens)
-			}
-			// Don't extend beyond character limit
-			for maxEnd > end && len(detokenize(tokens[start:maxEnd])) > MaxChunkChars {
-				maxEnd--
-			}
-			if maxEnd > end {
-				end = findSentenceBoundary(tokens, end, maxEnd)
-			}
-		}
-
-		// Extract chunk tokens and convert back to text
-		chunkTokens := tokens[start:end]
-		chunkText := detokenize(chunkTokens)
-
-		// Prepend section heading to chunk
-		if section.Heading != "" {
-			chunkText = section.Heading + "\n\n" + chunkText
+			continue
 		}
 
 		chunks = append(chunks, &kbtypes.Chunk{
-			Text:           chunkText,
+			Text:           text,
 			Title:          doc.Title,
 			Section:        section.Heading,
+			HeadingPath:    section.HeadingPath,
+			ElementTypes:   raw.ElementTypes,
 			ProjectName:    doc.ProjectName,
 			ProjectVersion: doc.ProjectVersion,
 			FilePath:       doc.FilePath,
 		})
-
-		// If we've reached the end, we're done
-		if end >= len(tokens) {
-			break
-		}
-
-		// Move start position with overlap, ensuring we always make progress
-		nextStart := end - OverlapSize
-		if nextStart <= start {
-			// Ensure we always advance by at least 1 token to avoid infinite loops
-			nextStart = start + 1
-		}
-		start = nextStart
 	}
 
 	return chunks

@@ -80,3 +80,64 @@ You should instead:
 - Conduct regular token audits.
 - Review database user permissions.
 
+## Database Write Access
+
+By default, all database connections operate in **read-only mode**. This is
+a critical safety feature that prevents the AI from accidentally or
+unintentionally modifying your data.
+
+### The `allow_writes` Setting
+
+Each database connection can be configured with `allow_writes: true` to
+enable write operations. **This setting should be used with extreme caution.**
+
+```yaml
+databases:
+    - name: "development"
+      host: "localhost"
+      # ... other settings ...
+      allow_writes: true  # DANGEROUS - enables data modifications
+```
+
+### Risks of Enabling Write Access
+
+When write access is enabled, the AI can execute:
+
+- `INSERT` - Add new data
+- `UPDATE` - Modify existing data
+- `DELETE` - Remove data
+- `TRUNCATE` - Empty entire tables
+- `DROP` - Delete tables, indexes, or other objects
+- `ALTER` - Modify table structures
+- Any other data-modifying SQL statements
+
+The AI may execute destructive queries without confirmation. There is no
+"are you sure?" prompt before data modifications.
+
+### Recommendations
+
+**Never enable writes on production databases.** Use read-only mode for
+production systems to prevent accidental data loss or corruption.
+
+**Only enable writes for:**
+
+- Development/test databases with disposable data
+- Sandboxed environments isolated from production
+- Specific use cases where write operations are required and understood
+
+**Additional safeguards when using write access:**
+
+- Use a dedicated database user with limited permissions
+- Enable database-level audit logging
+- Maintain regular backups
+- Consider using database snapshots before AI interactions
+- Monitor AI-generated queries for unexpected patterns
+
+### UI Indicators
+
+When connected to a write-enabled database:
+
+- **Web client**: Shows a prominent yellow warning banner
+- **CLI**: Displays `[WRITE-ENABLED]` marker and warning messages
+- **System info**: The `allow_writes` field in `pg://system_info` shows `true`
+

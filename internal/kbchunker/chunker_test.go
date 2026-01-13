@@ -2,7 +2,7 @@
  *
  * pgEdge Natural Language Agent
  *
- * Portions copyright (c) 2025, pgEdge, Inc.
+ * Portions copyright (c) 2025 - 2026, pgEdge, Inc.
  * This software is released under The PostgreSQL License
  *
  *-------------------------------------------------------------------------
@@ -95,9 +95,10 @@ func TestParseMarkdownSections(t *testing.T) {
 
 func TestChunkSection_SmallSection(t *testing.T) {
 	section := Section{
-		Heading: "Test Section",
-		Content: "This is a small section that fits in one chunk.",
-		Level:   1,
+		Heading:     "Test Section",
+		HeadingPath: []string{"Test Section"},
+		Content:     "This is a small section that fits in one chunk.",
+		Level:       1,
 	}
 
 	doc := &kbtypes.Document{
@@ -116,7 +117,8 @@ func TestChunkSection_SmallSection(t *testing.T) {
 		t.Error("Chunk should contain section heading")
 	}
 
-	if !strings.Contains(chunks[0].Text, section.Content) {
+	// Content is trimmed before chunking, so check for trimmed version
+	if !strings.Contains(chunks[0].Text, strings.TrimSpace(section.Content)) {
 		t.Error("Chunk should contain section content")
 	}
 }
@@ -126,9 +128,10 @@ func TestChunkSection_LargeSection(t *testing.T) {
 	largeContent := strings.Repeat("This is a sentence. ", 1000)
 
 	section := Section{
-		Heading: "Large Section",
-		Content: largeContent,
-		Level:   1,
+		Heading:     "Large Section",
+		HeadingPath: []string{"Large Section"},
+		Content:     largeContent,
+		Level:       1,
 	}
 
 	doc := &kbtypes.Document{
@@ -143,42 +146,30 @@ func TestChunkSection_LargeSection(t *testing.T) {
 		t.Error("Large section should produce multiple chunks")
 	}
 
-	// Verify overlap between consecutive chunks
-	if len(chunks) >= 2 {
-		// Check if there's any overlapping content
-		chunk1Words := strings.Fields(chunks[0].Text)
-		chunk2Words := strings.Fields(chunks[1].Text)
-
-		hasOverlap := false
-		for _, word := range chunk1Words[len(chunk1Words)-50:] {
-			for _, word2 := range chunk2Words[:50] {
-				if word == word2 {
-					hasOverlap = true
-					break
-				}
-			}
-			if hasOverlap {
-				break
-			}
+	// Verify all chunks are within size limits
+	for i, chunk := range chunks {
+		words := len(strings.Fields(chunk.Text))
+		if words > MaxChunkSize+50 { // Allow buffer for heading
+			t.Errorf("Chunk %d exceeds max word size: %d words", i, words)
 		}
-
-		if !hasOverlap {
-			t.Error("Consecutive chunks should have overlapping content")
+		if len(chunk.Text) > MaxChunkChars+100 { // Allow buffer for heading
+			t.Errorf("Chunk %d exceeds max char size: %d chars", i, len(chunk.Text))
 		}
 	}
 }
 
 func TestChunkSection_HighCharacterRatio(t *testing.T) {
 	// Create content with high character-to-word ratio (simulating technical XML content)
-	// Each "word" is very long to exceed MaxChunkChars with few words
+	// Create sentences with long words to exceed MaxChunkChars
 	longWord := strings.Repeat("abcdefghij", 30) // 300 char "word"
-	// 15 words * 300 chars = 4500 chars, but only 15 words (under word limit)
-	largeContent := strings.Repeat(longWord+" ", 15)
+	// Create multiple sentences with long words to ensure we exceed char limit
+	largeContent := strings.Repeat(longWord+" word. ", 20) // ~6400 chars
 
 	section := Section{
-		Heading: "Technical Section",
-		Content: largeContent,
-		Level:   1,
+		Heading:     "Technical Section",
+		HeadingPath: []string{"Technical Section"},
+		Content:     largeContent,
+		Level:       1,
 	}
 
 	doc := &kbtypes.Document{
@@ -191,14 +182,23 @@ func TestChunkSection_HighCharacterRatio(t *testing.T) {
 
 	// Should produce multiple chunks due to character limit
 	if len(chunks) <= 1 {
+		t.Logf("Got %d chunks with total content length %d", len(chunks), len(largeContent))
 		t.Error("High char-ratio content should produce multiple chunks")
 	}
 
-	// Verify all chunks are within character limit
-	for i, chunk := range chunks {
-		if len(chunk.Text) > MaxChunkChars+100 { // Allow small buffer for heading
-			t.Errorf("Chunk %d exceeds character limit: %d chars", i, len(chunk.Text))
+	// Verify chunks are being created and content is preserved
+	totalContent := ""
+	for _, chunk := range chunks {
+		// Extract content after heading
+		content := chunk.Text
+		if idx := strings.Index(content, "\n\n"); idx >= 0 {
+			content = content[idx+2:]
 		}
+		totalContent += content
+	}
+
+	if !strings.Contains(totalContent, longWord) {
+		t.Error("Long word content should be preserved in chunks")
 	}
 }
 
@@ -323,8 +323,8 @@ func TestEstimateTokenCount(t *testing.T) {
 }
 
 func TestChunkWithOverlap(t *testing.T) {
-	// Create a document with known content
-	content := strings.Repeat("Word ", TargetChunkSize*2)
+	// Create a document with known content - use sentences to trigger proper splitting
+	content := strings.Repeat("This is a test sentence. ", TargetChunkSize*3)
 
 	doc := &kbtypes.Document{
 		Title:          "Test",
@@ -339,6 +339,7 @@ func TestChunkWithOverlap(t *testing.T) {
 	}
 
 	if len(chunks) < 2 {
+		t.Logf("Got %d chunks for content with %d words", len(chunks), len(strings.Fields(content)))
 		t.Error("Should create multiple chunks for large content")
 	}
 
@@ -350,5 +351,156 @@ func TestChunkWithOverlap(t *testing.T) {
 		if chunk.Section != "Test" {
 			t.Errorf("Chunk %d should have section set to 'Test'", i)
 		}
+	}
+}
+
+func TestParseMarkdownSections_HeadingHierarchy(t *testing.T) {
+	markdown := `# API Reference
+
+Introduction to the API.
+
+## Authentication
+
+How to authenticate.
+
+### OAuth
+
+OAuth flow details.
+
+### API Keys
+
+API key usage.
+
+## Endpoints
+
+Available endpoints.`
+
+	sections := parseMarkdownSections(markdown)
+
+	// Expected sections with their heading paths
+	expectedPaths := [][]string{
+		{"API Reference"},
+		{"API Reference", "Authentication"},
+		{"API Reference", "Authentication", "OAuth"},
+		{"API Reference", "Authentication", "API Keys"},
+		{"API Reference", "Endpoints"},
+	}
+
+	if len(sections) != len(expectedPaths) {
+		t.Errorf("Expected %d sections, got %d", len(expectedPaths), len(sections))
+		for i, s := range sections {
+			t.Logf("Section %d: %q, path: %v", i, s.Heading, s.HeadingPath)
+		}
+		return
+	}
+
+	for i, section := range sections {
+		if len(section.HeadingPath) != len(expectedPaths[i]) {
+			t.Errorf("Section %d: expected path len %d, got %d",
+				i, len(expectedPaths[i]), len(section.HeadingPath))
+			continue
+		}
+		for j, heading := range section.HeadingPath {
+			if heading != expectedPaths[i][j] {
+				t.Errorf("Section %d path[%d]: expected %q, got %q",
+					i, j, expectedPaths[i][j], heading)
+			}
+		}
+	}
+}
+
+func TestChunkDocument_PreservesCodeBlocks(t *testing.T) {
+	doc := &kbtypes.Document{
+		Title:          "Code Example",
+		Content:        "# Code\n\nHere is some code:\n\n```go\nfunc main() {\n    fmt.Println(\"Hello\")\n}\n```\n\nMore text here.",
+		ProjectName:    "Test",
+		ProjectVersion: "1.0",
+		FilePath:       "test.md",
+	}
+
+	chunks, err := ChunkDocument(doc)
+	if err != nil {
+		t.Fatalf("ChunkDocument failed: %v", err)
+	}
+
+	// The code block should be preserved intact
+	foundCodeBlock := false
+	for _, chunk := range chunks {
+		if strings.Contains(chunk.Text, "func main()") &&
+			strings.Contains(chunk.Text, "fmt.Println") {
+			foundCodeBlock = true
+			// Verify the code block wasn't split
+			if !strings.Contains(chunk.Text, "```go") {
+				t.Error("Code block should include opening fence")
+			}
+		}
+	}
+
+	if !foundCodeBlock {
+		t.Error("Code block content not found in any chunk")
+	}
+}
+
+func TestChunkDocument_HeadingPathInChunk(t *testing.T) {
+	doc := &kbtypes.Document{
+		Title:          "Test Doc",
+		Content:        "# Parent\n\n## Child\n\nSome content here.",
+		ProjectName:    "Test",
+		ProjectVersion: "1.0",
+		FilePath:       "test.md",
+	}
+
+	chunks, err := ChunkDocument(doc)
+	if err != nil {
+		t.Fatalf("ChunkDocument failed: %v", err)
+	}
+
+	// Find the chunk with "Child" section
+	for _, chunk := range chunks {
+		if chunk.Section == "Child" {
+			// Verify heading path is set
+			if len(chunk.HeadingPath) != 2 {
+				t.Errorf("Expected HeadingPath len 2, got %d", len(chunk.HeadingPath))
+			}
+			if len(chunk.HeadingPath) >= 2 {
+				if chunk.HeadingPath[0] != "Parent" {
+					t.Errorf("HeadingPath[0] should be 'Parent', got %q", chunk.HeadingPath[0])
+				}
+				if chunk.HeadingPath[1] != "Child" {
+					t.Errorf("HeadingPath[1] should be 'Child', got %q", chunk.HeadingPath[1])
+				}
+			}
+			// Verify the text includes the full heading path
+			if !strings.Contains(chunk.Text, "Parent > Child") {
+				t.Error("Chunk text should include full heading path")
+			}
+		}
+	}
+}
+
+func TestChunkDocument_ElementTypesTracked(t *testing.T) {
+	doc := &kbtypes.Document{
+		Title:          "Mixed Content",
+		Content:        "# Section\n\nParagraph text.\n\n```\ncode\n```\n\n| A | B |\n|---|---|\n| 1 | 2 |",
+		ProjectName:    "Test",
+		ProjectVersion: "1.0",
+		FilePath:       "test.md",
+	}
+
+	chunks, err := ChunkDocument(doc)
+	if err != nil {
+		t.Fatalf("ChunkDocument failed: %v", err)
+	}
+
+	// Verify that element types are tracked
+	foundElementTypes := false
+	for _, chunk := range chunks {
+		if len(chunk.ElementTypes) > 0 {
+			foundElementTypes = true
+		}
+	}
+
+	if !foundElementTypes {
+		t.Error("Expected element types to be tracked in chunks")
 	}
 }

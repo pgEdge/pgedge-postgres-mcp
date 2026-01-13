@@ -2,7 +2,7 @@
  *
  * pgEdge Natural Language Agent
  *
- * Portions copyright (c) 2025, pgEdge, Inc.
+ * Portions copyright (c) 2025 - 2026, pgEdge, Inc.
  * This software is released under The PostgreSQL License
  *
  *-------------------------------------------------------------------------
@@ -22,10 +22,18 @@ import (
 
 // QueryDatabaseTool creates the query_database tool
 func QueryDatabaseTool(dbClient *database.Client) Tool {
+	// Determine the write access description based on configuration
+	writeAccessDesc := "All queries run in READ-ONLY transactions (no data modifications possible)"
+	if dbClient != nil && dbClient.AllowWrites() {
+		writeAccessDesc = `⚠️ WRITE ACCESS ENABLED: This database connection allows data modifications.
+  INSERT, UPDATE, DELETE, DROP, and other write operations ARE PERMITTED.
+  Exercise extreme caution when executing queries that modify data.`
+	}
+
 	return Tool{
 		Definition: mcp.Tool{
 			Name: "query_database",
-			Description: `Execute SQL queries for STRUCTURED, EXACT data retrieval.
+			Description: fmt.Sprintf(`Execute SQL queries for STRUCTURED, EXACT data retrieval.
 
 <usecase>
 Use query_database when you need:
@@ -55,7 +63,7 @@ DO NOT use for:
 </examples>
 
 <important>
-- All queries run in READ-ONLY transactions (no data modifications possible)
+- %s
 - Results are limited to prevent excessive token usage
 - Results are returned in TSV (tab-separated values) format for efficiency
 </important>
@@ -67,13 +75,13 @@ To avoid rate limits (30,000 input tokens/minute):
 - Filter results in WHERE clauses rather than fetching everything
 - Use get_schema_info(schema_name="specific") to reduce metadata size
 - If rate limited, wait 60 seconds before retrying
-</rate_limit_awareness>`,
+</rate_limit_awareness>`, writeAccessDesc),
 			InputSchema: mcp.InputSchema{
 				Type: "object",
 				Properties: map[string]interface{}{
 					"query": map[string]interface{}{
 						"type":        "string",
-						"description": "SQL query to execute against the database. All queries run in read-only transactions.",
+						"description": "SQL query to execute against the database.",
 					},
 					"limit": map[string]interface{}{
 						"type":        "integer",
@@ -173,16 +181,29 @@ To avoid rate limits (30,000 input tokens/minute):
 			}
 
 			// Track if query already had LIMIT/OFFSET clauses
-			upperQuery := strings.ToUpper(sqlQuery)
+			upperQuery := strings.ToUpper(strings.TrimSpace(sqlQuery))
 			hasExistingLimit := strings.Contains(upperQuery, "LIMIT")
 			hasExistingOffset := strings.Contains(upperQuery, "OFFSET")
 
-			// Only inject LIMIT/OFFSET if query doesn't already have them
+			// Check if this is a SELECT query - only SELECT queries support LIMIT/OFFSET
+			// DDL (CREATE, ALTER, DROP) and DML (INSERT, UPDATE, DELETE) don't support LIMIT
+			isSelectQuery := strings.HasPrefix(upperQuery, "SELECT") ||
+				strings.HasPrefix(upperQuery, "WITH") || // CTEs that typically end in SELECT
+				strings.HasPrefix(upperQuery, "TABLE") || // TABLE command (shorthand for SELECT * FROM)
+				strings.HasPrefix(upperQuery, "VALUES") // VALUES expression
+
+			// Check if this is a DDL query that modifies schema (requires metadata refresh)
+			isDDLQuery := strings.HasPrefix(upperQuery, "CREATE") ||
+				strings.HasPrefix(upperQuery, "DROP") ||
+				strings.HasPrefix(upperQuery, "ALTER") ||
+				strings.HasPrefix(upperQuery, "TRUNCATE")
+
+			// Only inject LIMIT/OFFSET for SELECT queries that don't already have them
 			// Fetch limit+1 to detect if more rows exist
-			if limit > 0 && !hasExistingLimit {
+			if isSelectQuery && limit > 0 && !hasExistingLimit {
 				sqlQuery = fmt.Sprintf("%s LIMIT %d", sqlQuery, limit+1)
 			}
-			if offset > 0 && !hasExistingOffset {
+			if isSelectQuery && offset > 0 && !hasExistingOffset {
 				sqlQuery = fmt.Sprintf("%s OFFSET %d", sqlQuery, offset)
 			}
 
@@ -216,14 +237,19 @@ To avoid rate limits (30,000 input tokens/minute):
 			}()
 
 			// Set transaction to read-only to prevent any data modifications
-			_, err = tx.Exec(ctx, "SET TRANSACTION READ ONLY")
-			if err != nil {
-				return mcp.NewToolError(fmt.Sprintf("Failed to set transaction read-only: %v", err))
+			// Unless write access is explicitly enabled for this database connection
+			allowWrites := dbClient != nil && dbClient.AllowWrites()
+			if !allowWrites {
+				_, err = tx.Exec(ctx, "SET TRANSACTION READ ONLY")
+				if err != nil {
+					return mcp.NewToolError(fmt.Sprintf("Failed to set transaction read-only: %v", err))
+				}
 			}
 
 			rows, err := tx.Query(ctx, sqlQuery)
 			if err != nil {
-				return mcp.NewToolError(fmt.Sprintf("%sSQL Query:\n%s\n\nError executing query: %v", connectionMessage, sqlQuery, err))
+				errMsg := fmt.Sprintf("%sSQL Query:\n%s\n\nError executing query: %v", connectionMessage, sqlQuery, err)
+				return mcp.NewToolError(errMsg)
 			}
 			defer rows.Close()
 
@@ -258,11 +284,16 @@ To avoid rate limits (30,000 input tokens/minute):
 			// Format results as TSV (tab-separated values)
 			resultsTSV := FormatResultsAsTSV(columnNames, results)
 
-			// Commit the read-only transaction
+			// Commit the transaction
 			if err := tx.Commit(ctx); err != nil {
 				return mcp.NewToolError(fmt.Sprintf("Failed to commit transaction: %v", err))
 			}
 			committed = true
+
+			// Refresh metadata after DDL operations to keep schema info current
+			if isDDLQuery && allowWrites {
+				_ = dbClient.LoadMetadataFor(connStr) //nolint:errcheck // Best effort refresh
+			}
 
 			var sb strings.Builder
 

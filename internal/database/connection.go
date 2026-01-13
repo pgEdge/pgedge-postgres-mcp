@@ -2,7 +2,7 @@
  *
  * pgEdge Natural Language Agent
  *
- * Portions copyright (c) 2025, pgEdge, Inc.
+ * Portions copyright (c) 2025 - 2026, pgEdge, Inc.
  * This software is released under The PostgreSQL License
  *
  *-------------------------------------------------------------------------
@@ -151,12 +151,18 @@ func (c *Client) ConnectTo(connStr string) error {
 		}
 	}
 
-	// Set read-only transaction mode for all connections
-	// This is enforced at the session level via default_transaction_read_only
+	// Set read-only transaction mode at the session level unless writes are explicitly allowed
+	// This provides defense-in-depth: even if query_database logic fails, writes are blocked
 	if poolConfig.ConnConfig.RuntimeParams == nil {
 		poolConfig.ConnConfig.RuntimeParams = make(map[string]string)
 	}
-	poolConfig.ConnConfig.RuntimeParams["default_transaction_read_only"] = "on"
+	if c.dbConfig != nil && c.dbConfig.AllowWrites {
+		// Write access enabled - don't set read-only mode
+		poolConfig.ConnConfig.RuntimeParams["default_transaction_read_only"] = "off"
+	} else {
+		// Default: read-only for safety
+		poolConfig.ConnConfig.RuntimeParams["default_transaction_read_only"] = "on"
+	}
 
 	// Create pool with configured settings
 	pool, err := pgxpool.NewWithConfig(context.Background(), poolConfig)
@@ -230,6 +236,17 @@ func (c *Client) GetDefaultConnection() string {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return c.defaultConnStr
+}
+
+// AllowWrites returns whether write operations are allowed on this database connection
+// Returns false if no config is set or if writes are explicitly disabled
+func (c *Client) AllowWrites() bool {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	if c.dbConfig == nil {
+		return false
+	}
+	return c.dbConfig.AllowWrites
 }
 
 // Close closes all database connections

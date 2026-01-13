@@ -2,7 +2,7 @@
  *
  * pgEdge Natural Language Agent
  *
- * Portions copyright (c) 2025, pgEdge, Inc.
+ * Portions copyright (c) 2025 - 2026, pgEdge, Inc.
  * This software is released under The PostgreSQL License
  *
  *-------------------------------------------------------------------------
@@ -43,16 +43,30 @@ func (p *StdioDatabaseProvider) ListDatabases(ctx context.Context) ([]mcp.Databa
 	for i := range configs {
 		cfg := &configs[i]
 		databases = append(databases, mcp.DatabaseInfo{
-			Name:     cfg.Name,
-			Host:     cfg.Host,
-			Port:     cfg.Port,
-			Database: cfg.Database,
-			User:     cfg.User,
-			SSLMode:  cfg.SSLMode,
+			Name:        cfg.Name,
+			Host:        cfg.Host,
+			Port:        cfg.Port,
+			Database:    cfg.Database,
+			User:        cfg.User,
+			SSLMode:     cfg.SSLMode,
+			AllowWrites: cfg.AllowWrites,
 		})
 	}
 
 	return databases, current, nil
+}
+
+// GetCurrentDatabaseAllowWrites returns whether the current database allows writes
+func (p *StdioDatabaseProvider) GetCurrentDatabaseAllowWrites() bool {
+	current := p.clientManager.GetCurrentDatabase(p.sessionKey)
+	if current == "" {
+		return false
+	}
+	cfg := p.clientManager.GetDatabaseConfig(current)
+	if cfg == nil {
+		return false
+	}
+	return cfg.AllowWrites
 }
 
 // SelectDatabase sets the current database for the session
@@ -131,16 +145,31 @@ func (p *HTTPDatabaseProvider) ListDatabases(ctx context.Context) ([]mcp.Databas
 	for i := range accessibleConfigs {
 		cfg := &accessibleConfigs[i]
 		databases = append(databases, mcp.DatabaseInfo{
-			Name:     cfg.Name,
-			Host:     cfg.Host,
-			Port:     cfg.Port,
-			Database: cfg.Database,
-			User:     cfg.User,
-			SSLMode:  cfg.SSLMode,
+			Name:        cfg.Name,
+			Host:        cfg.Host,
+			Port:        cfg.Port,
+			Database:    cfg.Database,
+			User:        cfg.User,
+			SSLMode:     cfg.SSLMode,
+			AllowWrites: cfg.AllowWrites,
 		})
 	}
 
 	return databases, current, nil
+}
+
+// GetCurrentDatabaseAllowWrites returns whether the current database allows writes
+func (p *HTTPDatabaseProvider) GetCurrentDatabaseAllowWrites(ctx context.Context) bool {
+	sessionKey := p.getSessionKey(ctx)
+	current := p.clientManager.GetCurrentDatabase(sessionKey)
+	if current == "" {
+		return false
+	}
+	cfg := p.clientManager.GetDatabaseConfig(current)
+	if cfg == nil {
+		return false
+	}
+	return cfg.AllowWrites
 }
 
 // SelectDatabase sets the current database for the session

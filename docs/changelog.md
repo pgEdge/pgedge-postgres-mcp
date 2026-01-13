@@ -11,6 +11,24 @@ and this project adheres to
 
 ### Added
 
+#### Write Access Mode
+
+- New `allow_writes` configuration option for database connections
+    - Disabled by default (read-only mode) for safety
+    - When enabled, allows the LLM to execute DDL (CREATE, DROP, ALTER) and
+      DML (INSERT, UPDATE, DELETE) statements
+    - Automatic schema metadata refresh after DDL operations to keep
+      `get_schema_info` results current
+- Visual warnings for write-enabled databases:
+    - Web client: Prominent amber warning banner when connected to a
+      write-enabled database
+    - Web client: Warning chip indicator in database selector popover
+    - CLI: `[WRITE-ENABLED]` indicator in `/list databases` output
+    - CLI: Warning message when switching to a write-enabled database
+- Added `allow_writes` field to `pg://system_info` resource output
+- Updated `query_database` tool description to dynamically indicate
+  write access status
+
 #### Token Management
 
 - New `count_rows` tool for lightweight row counting before querying large
@@ -30,12 +48,49 @@ and this project adheres to
     - `pgedge-postgres-mcp-users.yaml.example` - User authentication template
     - `pgedge-postgres-mcp-tokens.yaml.example` - Token authentication template
 
+#### CLI Features
+
+- Added `-mcp-server-config` command line flag for specifying the MCP server
+  config file path in stdio mode
+
 #### CI/CD
 
 - Claude PR review GitHub Action workflow for automated code reviews
 - CodeRabbit configuration for additional PR analysis
 
+#### Knowledgebase Builder
+
+- Hybrid chunking algorithm for improved RAG quality:
+
+    - Two-pass algorithm: Pass 1 splits at semantic boundaries, Pass 2 merges
+      undersized chunks
+    - Structural element preservation: Code blocks, tables, lists, and
+      blockquotes are kept intact when possible
+    - Full heading hierarchy tracking: Chunks include breadcrumb context
+      (e.g., "API Reference > Authentication > OAuth")
+    - Smart splitting for oversized elements: Large code blocks split at line
+      boundaries, tables at row boundaries, paragraphs at sentence boundaries
+    - Chunk metadata now includes `HeadingPath` (full hierarchy) and
+      `ElementTypes` (structural element types in chunk)
+
+- Maintains Ollama compatibility with existing size limits (300 words / 3000
+  chars)
+
 ### Changed
+
+#### CLI Command Consistency
+
+- Simplified LLM command names:
+    - `/set llm-provider` → `/set provider`
+    - `/set llm-model` → `/set model`
+    - `/show llm-provider` → `/show provider`
+    - `/show llm-model` → `/show model`
+- Moved standalone listing commands under `/list`:
+    - `/tools` → `/list tools`
+    - `/resources` → `/list resources`
+    - `/prompts` → `/list prompts`
+- Added `/list providers` command to list available LLM providers
+- Reorganized `/help` output into logical sections
 
 #### Token Efficiency
 
@@ -376,8 +431,8 @@ software is now feature-complete and ready for broader testing.
 - CLI now saves current model when switching providers
 - Web UI correctly remembers per-provider model selections
 - Improved error messages and warnings for invalid configurations
-- CLI `/tools`, `/resources`, and `/prompts` commands now sort output
-  alphabetically
+- CLI `/list tools`, `/list resources`, and `/list prompts` commands now
+  sort output alphabetically
 - Web UI favicon added
 - Web UI: Moved Clear button from floating position to bottom toolbar
   (next to Settings)

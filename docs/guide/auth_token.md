@@ -17,7 +17,25 @@ http:
     token_file: "/path/to/pgedge-postgres-mcp-tokens.yaml"
 ```
 
-By default, tokens are stored in a file named `pgedge-postgres-mcp-tokens.yaml` in the same directory as the MCP binary. Tokens are stored in the following format:
+## Default File Locations
+
+The server searches for the token file in the following order:
+
+1. `/etc/pgedge/postgres-mcp/pgedge-postgres-mcp-tokens.yaml` (system-wide)
+2. `<binary-directory>/pgedge-postgres-mcp-tokens.yaml` (next to the binary)
+
+If the system path doesn't exist, the server falls back to the binary directory.
+This means if your binary is installed in `/usr/bin/`, the default token file
+path will be `/usr/bin/pgedge-postgres-mcp-tokens.yaml`.
+
+For production deployments, create the system directory structure:
+
+```bash
+sudo mkdir -p /etc/pgedge/postgres-mcp
+sudo chown $USER:$USER /etc/pgedge/postgres-mcp
+```
+
+Tokens are stored in the following format:
 
 ```yaml
 tokens:
@@ -28,12 +46,42 @@ tokens:
     expires_at: "2025-10-30T10:15:30Z"
 ```
 
-To specify a custom file location, use the `-token-file` keyword and the following syntax:
+To specify a custom file location, use the `-token-file` flag:
 
 ```bash
 # Specify custom token file path
 ./bin/pgedge-postgres-mcp -http -token-file /etc/pgedge/pgedge-postgres-mcp-tokens.yaml
 ```
+
+!!! warning "Consistent Path Usage Required"
+
+    When using custom file paths, you must specify the same path for **both**
+    token management commands and server startup. Each command invocation is
+    independent - the server does not "remember" paths used in previous
+    commands.
+
+    ```bash
+    # Create a token at a custom path
+    ./bin/pgedge-postgres-mcp -token-file /my/custom/tokens.yaml -add-token
+
+    # Start server with the SAME custom path
+    ./bin/pgedge-postgres-mcp -http -token-file /my/custom/tokens.yaml
+    ```
+
+    Alternatively, specify the path in your configuration file to avoid
+    repeating it:
+
+    ```yaml
+    http:
+      auth:
+        token_file: "/my/custom/tokens.yaml"
+    ```
+
+    Or use the environment variable:
+
+    ```bash
+    export PGEDGE_AUTH_TOKEN_FILE="/my/custom/tokens.yaml"
+    ```
 
 **Important**:
 

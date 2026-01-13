@@ -2,7 +2,7 @@
 *
  * pgEdge Natural Language Agent
 *
-* Portions copyright (c) 2025, pgEdge, Inc.
+* Portions copyright (c) 2025 - 2026, pgEdge, Inc.
 * This software is released under The PostgreSQL License
 *
 *-------------------------------------------------------------------------
@@ -121,51 +121,6 @@ func (c *Client) HandleSlashCommand(ctx context.Context, cmd *SlashCommand) bool
 		c.ui.PrintWelcome(ClientVersion, serverVersion)
 		return true
 
-	case "tools":
-		c.ui.PrintSystemMessage(fmt.Sprintf("Available tools (%d):", len(c.tools)))
-		// Sort tools alphabetically by name
-		sortedTools := make([]struct{ Name, Desc string }, len(c.tools))
-		for i, tool := range c.tools {
-			sortedTools[i] = struct{ Name, Desc string }{tool.Name, getBriefDescription(tool.Description)}
-		}
-		sort.Slice(sortedTools, func(i, j int) bool {
-			return sortedTools[i].Name < sortedTools[j].Name
-		})
-		for _, tool := range sortedTools {
-			fmt.Printf("  - %s: %s\n", tool.Name, tool.Desc)
-		}
-		return true
-
-	case "resources":
-		c.ui.PrintSystemMessage(fmt.Sprintf("Available resources (%d):", len(c.resources)))
-		// Sort resources alphabetically by name
-		sortedResources := make([]struct{ Name, Desc string }, len(c.resources))
-		for i, resource := range c.resources {
-			sortedResources[i] = struct{ Name, Desc string }{resource.Name, resource.Description}
-		}
-		sort.Slice(sortedResources, func(i, j int) bool {
-			return sortedResources[i].Name < sortedResources[j].Name
-		})
-		for _, resource := range sortedResources {
-			fmt.Printf("  - %s: %s\n", resource.Name, resource.Desc)
-		}
-		return true
-
-	case "prompts":
-		c.ui.PrintSystemMessage(fmt.Sprintf("Available prompts (%d):", len(c.prompts)))
-		// Sort prompts alphabetically by name
-		sortedPrompts := make([]struct{ Name, Desc string }, len(c.prompts))
-		for i, prompt := range c.prompts {
-			sortedPrompts[i] = struct{ Name, Desc string }{prompt.Name, prompt.Description}
-		}
-		sort.Slice(sortedPrompts, func(i, j int) bool {
-			return sortedPrompts[i].Name < sortedPrompts[j].Name
-		})
-		for _, prompt := range sortedPrompts {
-			fmt.Printf("  - %s: %s\n", prompt.Name, prompt.Desc)
-		}
-		return true
-
 	case "quit", "exit":
 		c.ui.PrintSystemMessage("Goodbye!")
 		os.Exit(0)
@@ -201,60 +156,63 @@ func (c *Client) HandleSlashCommand(ctx context.Context, cmd *SlashCommand) bool
 // printSlashHelp prints help for slash commands
 func (c *Client) printSlashHelp() {
 	help := `
-Commands:
-  /help                                Show this help message
-  /clear                               Clear screen
-  /tools                               List available MCP tools
-  /resources                           List available MCP resources
-  /prompts                             List available MCP prompts
-  /quit, /exit                         Exit the chat client
+Available Commands:
 
-Settings:
-  /set color <on|off>                  Enable or disable colored output
-  /set status-messages <on|off>        Enable or disable status messages
-  /set markdown <on|off>               Enable or disable markdown rendering
-  /set debug <on|off>                  Enable or disable debug messages
-  /set llm-provider <provider>         Set LLM provider (anthropic, openai, ollama)
-  /set llm-model <model>               Set LLM model to use
-  /set database <name>                 Select a database connection
-  /show color                          Show current color setting
-  /show status-messages                Show current status messages setting
-  /show markdown                       Show current markdown rendering setting
-  /show debug                          Show current debug setting
-  /show llm-provider                   Show current LLM provider
-  /show llm-model                      Show current LLM model
-  /show database                       Show current database connection
-  /show settings                       Show all current settings
-  /list models                         List available models from current LLM provider
-  /list databases                      List available database connections
+  Navigation:
+    /help                       Show this help message
+    /clear                      Clear the screen
+    /quit, /exit                Exit the CLI
 
-Prompts:
-  /prompt <name> [arg=value ...]       Execute an MCP prompt with optional arguments
+  LLM Settings:
+    /list providers             List available LLM providers
+    /list models                List available models for current provider
+    /set provider <name>        Set LLM provider (anthropic, openai, ollama)
+    /set model <name>           Set LLM model
+    /show provider              Show current LLM provider
+    /show model                 Show current LLM model
+
+  Database:
+    /list databases             List available database connections
+    /set database <name>        Select a database connection
+    /show database              Show current database connection
+
+  MCP Resources:
+    /list tools                 List available MCP tools
+    /list resources             List available MCP resources
+    /list prompts               List available MCP prompts
+    /prompt <name> [args]       Execute an MCP prompt
+
+  Display Settings:
+    /set color on|off           Enable/disable colored output
+    /set markdown on|off        Enable/disable markdown rendering
+    /set status-messages on|off Enable/disable status messages
+    /set debug on|off           Enable/disable debug messages
+    /show settings              Show all current settings
 `
 
 	// Add history commands only if running with authentication
 	if c.conversations != nil {
 		help += `
-Conversation History (requires authentication):
-  /new                                 Start a new conversation
-  /save                                Save the current conversation
-  /history                             List saved conversations
-  /history load <id>                   Load a saved conversation
-  /history rename <id> "new title"     Rename a saved conversation
-  /history delete <id>                 Delete a saved conversation
-  /history delete-all                  Delete all saved conversations
+  Conversation History:
+    /new                        Start a new conversation
+    /save                       Save the current conversation
+    /history                    List saved conversations
+    /history load <id>          Load a saved conversation
+    /history rename <id> "..."  Rename a saved conversation
+    /history delete <id>        Delete a saved conversation
+    /history delete-all         Delete all saved conversations
 `
 	}
 
 	help += `
 Examples:
-  /set llm-provider openai
-  /set llm-model gpt-4-turbo
-  /set database mydb
-  /list models
-  /list databases
-  /prompt explore-database
-  /prompt setup-semantic-search query_text="product search"
+    /set provider openai
+    /set model gpt-4-turbo
+    /set database mydb
+    /list providers
+    /list models
+    /prompt explore-database
+    /prompt setup-semantic-search query_text="product search"
 
 Anything else you type will be sent to the LLM.
 `
@@ -265,7 +223,7 @@ Anything else you type will be sent to the LLM.
 func (c *Client) handleSetCommand(ctx context.Context, args []string) bool {
 	if len(args) < 2 {
 		c.ui.PrintError("Usage: /set <setting> <value>")
-		c.ui.PrintSystemMessage("Available settings: status-messages, markdown, debug, llm-provider, llm-model, database")
+		c.ui.PrintSystemMessage("Available settings: color, status-messages, markdown, debug, provider, model, database")
 		return true
 	}
 
@@ -285,10 +243,10 @@ func (c *Client) handleSetCommand(ctx context.Context, args []string) bool {
 	case "debug":
 		return c.handleSetDebug(value)
 
-	case "llm-provider":
+	case "provider":
 		return c.handleSetLLMProvider(value)
 
-	case "llm-model":
+	case "model":
 		return c.handleSetLLMModel(value)
 
 	case "database":
@@ -296,7 +254,7 @@ func (c *Client) handleSetCommand(ctx context.Context, args []string) bool {
 
 	default:
 		c.ui.PrintError(fmt.Sprintf("Unknown setting: %s", setting))
-		c.ui.PrintSystemMessage("Available settings: color, status-messages, markdown, debug, llm-provider, llm-model, database")
+		c.ui.PrintSystemMessage("Available settings: color, status-messages, markdown, debug, provider, model, database")
 		return true
 	}
 }
@@ -448,10 +406,11 @@ func (c *Client) handleSetLLMProvider(provider string) bool {
 		return true
 	}
 
-	// Save current model for current provider before switching
-	if c.config.LLM.Provider != "" && c.config.LLM.Model != "" {
-		c.preferences.SetModelForProvider(c.config.LLM.Provider, c.config.LLM.Model)
-	}
+	// NOTE: Do NOT save c.config.LLM.Model to preferences here!
+	// c.config.LLM.Model may be a runtime fallback that differs from the user's
+	// saved preference (e.g., if the API didn't return their preferred model).
+	// The model preference is already stored in c.preferences.ProviderModels
+	// and will be preserved across provider switches.
 
 	// Update config to new provider
 	c.config.LLM.Provider = provider
@@ -520,7 +479,7 @@ func (c *Client) handleSetLLMModel(model string) bool {
 func (c *Client) handleShowCommand(ctx context.Context, args []string) bool {
 	if len(args) < 1 {
 		c.ui.PrintError("Usage: /show <setting>")
-		c.ui.PrintSystemMessage("Available settings: color, status-messages, markdown, debug, llm-provider, llm-model, database, settings")
+		c.ui.PrintSystemMessage("Available settings: color, status-messages, markdown, debug, provider, model, database, settings")
 		return true
 	}
 
@@ -555,10 +514,10 @@ func (c *Client) handleShowCommand(ctx context.Context, args []string) bool {
 		}
 		c.ui.PrintSystemMessage(fmt.Sprintf("Debug messages: %s", status))
 
-	case "llm-provider":
+	case "provider":
 		c.ui.PrintSystemMessage(fmt.Sprintf("LLM provider: %s", c.config.LLM.Provider))
 
-	case "llm-model":
+	case "model":
 		c.ui.PrintSystemMessage(fmt.Sprintf("LLM model: %s", c.config.LLM.Model))
 
 	case "database":
@@ -569,7 +528,7 @@ func (c *Client) handleShowCommand(ctx context.Context, args []string) bool {
 
 	default:
 		c.ui.PrintError(fmt.Sprintf("Unknown setting: %s", setting))
-		c.ui.PrintSystemMessage("Available settings: color, status-messages, markdown, debug, llm-provider, llm-model, database, settings")
+		c.ui.PrintSystemMessage("Available settings: color, status-messages, markdown, debug, provider, model, database, settings")
 	}
 
 	return true
@@ -627,22 +586,34 @@ func (c *Client) printAllSettings() {
 func (c *Client) handleListCommand(ctx context.Context, args []string) bool {
 	if len(args) < 1 {
 		c.ui.PrintError("Usage: /list <what>")
-		c.ui.PrintSystemMessage("Available: models, databases")
+		c.ui.PrintSystemMessage("Available: providers, models, databases, tools, resources, prompts")
 		return true
 	}
 
 	what := args[0]
 
 	switch what {
+	case "providers":
+		return c.listProviders(ctx)
+
 	case "models":
 		return c.listModels(ctx)
 
 	case "databases":
 		return c.handleListDatabases(ctx)
 
+	case "tools":
+		return c.listTools(ctx)
+
+	case "resources":
+		return c.listResources(ctx)
+
+	case "prompts":
+		return c.listPrompts(ctx)
+
 	default:
 		c.ui.PrintError(fmt.Sprintf("Unknown list target: %s", what))
-		c.ui.PrintSystemMessage("Available: models, databases")
+		c.ui.PrintSystemMessage("Available: providers, models, databases, tools, resources, prompts")
 	}
 
 	return true
@@ -673,11 +644,75 @@ func (c *Client) listModels(ctx context.Context) bool {
 	return true
 }
 
+// listProviders lists available LLM providers
+func (c *Client) listProviders(ctx context.Context) bool {
+	providers := c.config.GetConfiguredProviders()
+	currentProvider := c.config.LLM.Provider
+
+	c.ui.PrintSystemMessage(fmt.Sprintf("Available LLM providers (%d):", len(providers)))
+	for _, p := range providers {
+		if p == currentProvider {
+			fmt.Printf("  * %s (current)\n", p)
+		} else {
+			fmt.Printf("    %s\n", p)
+		}
+	}
+	return true
+}
+
+// listTools lists available MCP tools
+func (c *Client) listTools(ctx context.Context) bool {
+	c.ui.PrintSystemMessage(fmt.Sprintf("Available tools (%d):", len(c.tools)))
+	sortedTools := make([]struct{ Name, Desc string }, len(c.tools))
+	for i, tool := range c.tools {
+		sortedTools[i] = struct{ Name, Desc string }{tool.Name, getBriefDescription(tool.Description)}
+	}
+	sort.Slice(sortedTools, func(i, j int) bool {
+		return sortedTools[i].Name < sortedTools[j].Name
+	})
+	for _, tool := range sortedTools {
+		fmt.Printf("  - %s: %s\n", tool.Name, tool.Desc)
+	}
+	return true
+}
+
+// listResources lists available MCP resources
+func (c *Client) listResources(ctx context.Context) bool {
+	c.ui.PrintSystemMessage(fmt.Sprintf("Available resources (%d):", len(c.resources)))
+	sortedResources := make([]struct{ Name, Desc string }, len(c.resources))
+	for i, resource := range c.resources {
+		sortedResources[i] = struct{ Name, Desc string }{resource.Name, resource.Description}
+	}
+	sort.Slice(sortedResources, func(i, j int) bool {
+		return sortedResources[i].Name < sortedResources[j].Name
+	})
+	for _, resource := range sortedResources {
+		fmt.Printf("  - %s: %s\n", resource.Name, resource.Desc)
+	}
+	return true
+}
+
+// listPrompts lists available MCP prompts
+func (c *Client) listPrompts(ctx context.Context) bool {
+	c.ui.PrintSystemMessage(fmt.Sprintf("Available prompts (%d):", len(c.prompts)))
+	sortedPrompts := make([]struct{ Name, Desc string }, len(c.prompts))
+	for i, prompt := range c.prompts {
+		sortedPrompts[i] = struct{ Name, Desc string }{prompt.Name, prompt.Description}
+	}
+	sort.Slice(sortedPrompts, func(i, j int) bool {
+		return sortedPrompts[i].Name < sortedPrompts[j].Name
+	})
+	for _, prompt := range sortedPrompts {
+		fmt.Printf("  - %s: %s\n", prompt.Name, prompt.Desc)
+	}
+	return true
+}
+
 // handlePromptCommand handles /prompt commands
 func (c *Client) handlePromptCommand(ctx context.Context, args []string) bool {
 	if len(args) < 1 {
 		c.ui.PrintError("Usage: /prompt <name> [arg=value ...]")
-		c.ui.PrintSystemMessage("Use 'prompts' command to list available prompts")
+		c.ui.PrintSystemMessage("Use '/list prompts' to list available prompts")
 		return true
 	}
 
@@ -744,12 +779,13 @@ func (c *Client) handlePromptCommand(ctx context.Context, args []string) bool {
 
 // DatabaseInfo represents a database connection in API responses
 type DatabaseInfo struct {
-	Name     string `json:"name"`
-	Host     string `json:"host"`
-	Port     int    `json:"port"`
-	Database string `json:"database"`
-	User     string `json:"user"`
-	SSLMode  string `json:"sslmode"`
+	Name        string `json:"name"`
+	Host        string `json:"host"`
+	Port        int    `json:"port"`
+	Database    string `json:"database"`
+	User        string `json:"user"`
+	SSLMode     string `json:"sslmode"`
+	AllowWrites bool   `json:"allow_writes"`
 }
 
 // ListDatabasesResponse is the response from GET /api/databases
@@ -804,6 +840,26 @@ func (c *Client) restoreDatabasePreference(ctx context.Context) {
 		// Clear the invalid preference
 		c.preferences.SetDatabaseForServer(serverKey, "")
 		_ = SavePreferences(c.preferences) //nolint:errcheck // Best effort cleanup
+		return
+	}
+
+	// Refresh tools to get correct descriptions for the restored database
+	// (e.g., write access status for query_database tool)
+	if err := c.refreshCapabilities(ctx); err != nil {
+		if c.config.UI.Debug {
+			fmt.Fprintf(os.Stderr, "[DEBUG] Failed to refresh capabilities after database restore: %v\n", err)
+		}
+	}
+
+	// Check if the restored database has write access enabled and show warning
+	databases, _, err := c.mcp.ListDatabases(ctx)
+	if err == nil {
+		for _, db := range databases {
+			if db.Name == savedDB && db.AllowWrites {
+				c.ui.PrintSystemMessage("WARNING: Current database has write access enabled. The AI can execute INSERT, UPDATE, DELETE, and other data-modifying queries.")
+				break
+			}
+		}
 	}
 }
 
@@ -827,8 +883,12 @@ func (c *Client) handleListDatabases(ctx context.Context) bool {
 		if db.Name == current {
 			currentMarker = " (current)"
 		}
-		fmt.Printf("  %s%s - %s@%s:%d/%s\n",
-			db.Name, currentMarker, db.User, db.Host, db.Port, db.Database)
+		writeMarker := ""
+		if db.AllowWrites {
+			writeMarker = " [WRITE-ENABLED]"
+		}
+		fmt.Printf("  %s%s%s - %s@%s:%d/%s\n",
+			db.Name, currentMarker, writeMarker, db.User, db.Host, db.Port, db.Database)
 	}
 
 	return true
@@ -868,6 +928,17 @@ func (c *Client) handleSetDatabase(ctx context.Context, dbName string) bool {
 	}
 
 	c.ui.PrintSystemMessage(fmt.Sprintf("Database switched to: %s", dbName))
+
+	// Check if the selected database has write access enabled and show warning
+	databases, _, err := c.mcp.ListDatabases(ctx)
+	if err == nil {
+		for _, db := range databases {
+			if db.Name == dbName && db.AllowWrites {
+				c.ui.PrintSystemMessage("WARNING: This database has write access enabled. The AI can execute INSERT, UPDATE, DELETE, and other data-modifying queries.")
+				break
+			}
+		}
+	}
 
 	// Refresh tools since they may be database-specific
 	if err := c.refreshCapabilities(ctx); err != nil {

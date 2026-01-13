@@ -58,7 +58,7 @@ theme:
 extra:
   generator: false
 
-copyright: Copyright &copy; 2025 pgEdge, Inc
+copyright: Copyright &copy; 2025 - 2026 pgEdge, Inc
 repo_url: https://github.com/pgEdge/pgedge-postgres-mcp
 
 nav:
@@ -71,6 +71,7 @@ nav:
       - Deploying on Docker: guide/deploy_docker.md
       - Deploying from Source: guide/deploy_source.md
       - Testing the MCP Server Deployment: guide/test_server.md
+      - Quickstart Demo: guide/quickstart_demo.md
   - Configuring the MCP Server:
       - Specifying Configuration Preferences: guide/configuration.md
       - Using Environment Variables to Specify Options: guide/env_variable_config.md

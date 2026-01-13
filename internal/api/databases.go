@@ -2,7 +2,7 @@
  *
  * pgEdge Natural Language Agent
  *
- * Portions copyright (c) 2025, pgEdge, Inc.
+ * Portions copyright (c) 2025 - 2026, pgEdge, Inc.
  * This software is released under The PostgreSQL License
  *
  *-------------------------------------------------------------------------
@@ -21,12 +21,13 @@ import (
 
 // DatabaseInfo represents a database in the API response
 type DatabaseInfo struct {
-	Name     string `json:"name"`
-	Host     string `json:"host"`
-	Port     int    `json:"port"`
-	Database string `json:"database"`
-	User     string `json:"user"`
-	SSLMode  string `json:"sslmode"`
+	Name        string `json:"name"`
+	Host        string `json:"host"`
+	Port        int    `json:"port"`
+	Database    string `json:"database"`
+	User        string `json:"user"`
+	SSLMode     string `json:"sslmode"`
+	AllowWrites bool   `json:"allow_writes"`
 }
 
 // ListDatabasesResponse is the response for GET /api/databases
@@ -97,12 +98,13 @@ func (h *DatabaseHandler) HandleListDatabases(w http.ResponseWriter, r *http.Req
 	for i := range accessibleConfigs {
 		cfg := &accessibleConfigs[i]
 		databases = append(databases, DatabaseInfo{
-			Name:     cfg.Name,
-			Host:     cfg.Host,
-			Port:     cfg.Port,
-			Database: cfg.Database,
-			User:     cfg.User,
-			SSLMode:  cfg.SSLMode,
+			Name:        cfg.Name,
+			Host:        cfg.Host,
+			Port:        cfg.Port,
+			Database:    cfg.Database,
+			User:        cfg.User,
+			SSLMode:     cfg.SSLMode,
+			AllowWrites: cfg.AllowWrites,
 		})
 	}
 

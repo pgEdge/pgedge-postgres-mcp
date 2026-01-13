@@ -65,7 +65,12 @@ When you read the resource to view PostgreSQL system information, the result is 
   "operating_system": "linux",
   "architecture": "x86_64-pc-linux-gnu",
   "compiler": "gcc (GCC) 11.2.0",
-  "bit_version": "64-bit"
+  "bit_version": "64-bit",
+  "database": "postgres",
+  "user": "postgres",
+  "host": "localhost",
+  "port": 5432,
+  "allow_writes": false
 }
 ```
 
@@ -80,6 +85,11 @@ When you read the resource to view PostgreSQL system information, the result is 
 | `architecture` | Full architecture string (e.g., `x86_64-pc-linux-gnu`, `aarch64-apple-darwin`). |
 | `compiler` | Compiler used to build PostgreSQL (e.g., `gcc (GCC) 11.2.0`). |
 | `bit_version` | Architecture bit version (e.g., `64-bit`, `32-bit`). |
+| `database` | Currently connected database name. |
+| `user` | Current database user. |
+| `host` | Connection host (or `unix socket`). |
+| `port` | Connection port number. |
+| `allow_writes` | Whether write operations are permitted (default: `false`). |
 
 
 ## Finding Schema Information

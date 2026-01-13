@@ -222,6 +222,7 @@ mcp:
     # If not specified, the server will use its default config file lookup
     # Default: (none - server uses default config lookup)
     # Environment variable: PGEDGE_MCP_SERVER_CONFIG_PATH
+    # Command line flag: -mcp-server-config
     server_config_path: ./bin/pgedge-postgres-mcp-stdio.yaml
 
     # -------------------------

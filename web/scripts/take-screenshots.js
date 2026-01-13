@@ -14,7 +14,7 @@
  *   --query=<text>     Query to execute (default: "List all tables...")
  *   --help             Show this help message
  *
- * Portions copyright (c) 2025, pgEdge, Inc.
+ * Portions copyright (c) 2025 - 2026, pgEdge, Inc.
  * This software is released under The PostgreSQL License
  *
  *-------------------------------------------------------------------------

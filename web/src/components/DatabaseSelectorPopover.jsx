@@ -2,7 +2,7 @@
  *
  * pgEdge MCP Client - Database Selector Popover Component
  *
- * Portions copyright (c) 2025, pgEdge, Inc.
+ * Portions copyright (c) 2025 - 2026, pgEdge, Inc.
  * This software is released under The PostgreSQL License
  *
  *-------------------------------------------------------------------------
@@ -21,10 +21,13 @@ import {
     CircularProgress,
     Alert,
     Divider,
+    Tooltip,
+    Chip,
 } from '@mui/material';
 import {
     Storage as StorageIcon,
     CheckCircle as CheckCircleIcon,
+    Warning as WarningIcon,
 } from '@mui/icons-material';
 
 const DatabaseSelectorPopover = ({
@@ -113,14 +116,37 @@ const DatabaseSelectorPopover = ({
                                     </ListItemIcon>
                                     <ListItemText
                                         primary={
-                                            <Typography
-                                                variant="body1"
-                                                sx={{
-                                                    fontWeight: isCurrent ? 600 : 400,
-                                                }}
-                                            >
-                                                {db.name}
-                                            </Typography>
+                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                                <Typography
+                                                    variant="body1"
+                                                    sx={{
+                                                        fontWeight: isCurrent ? 600 : 400,
+                                                    }}
+                                                >
+                                                    {db.name}
+                                                </Typography>
+                                                {db.allow_writes && (
+                                                    <Tooltip title="Write access enabled - data modifications permitted">
+                                                        <Chip
+                                                            icon={<WarningIcon />}
+                                                            label="WRITE"
+                                                            size="small"
+                                                            color="warning"
+                                                            sx={{
+                                                                height: 20,
+                                                                '& .MuiChip-label': {
+                                                                    fontSize: '0.65rem',
+                                                                    px: 0.5,
+                                                                },
+                                                                '& .MuiChip-icon': {
+                                                                    fontSize: '0.875rem',
+                                                                    ml: 0.5,
+                                                                },
+                                                            }}
+                                                        />
+                                                    </Tooltip>
+                                                )}
+                                            </Box>
                                         }
                                         secondary={
                                             <Typography
@@ -164,6 +190,7 @@ DatabaseSelectorPopover.propTypes = {
         database: PropTypes.string,
         user: PropTypes.string,
         sslmode: PropTypes.string,
+        allow_writes: PropTypes.bool,
     })),
     currentDatabase: PropTypes.string,
     onSelect: PropTypes.func.isRequired,

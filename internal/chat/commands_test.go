@@ -2,7 +2,7 @@
 *
  * pgEdge Natural Language Agent
 *
-* Portions copyright (c) 2025, pgEdge, Inc.
+* Portions copyright (c) 2025 - 2026, pgEdge, Inc.
 * This software is released under The PostgreSQL License
 *
 *-------------------------------------------------------------------------
@@ -36,9 +36,9 @@ func TestParseSlashCommand(t *testing.T) {
 		},
 		{
 			name:         "show command with arg",
-			input:        "/show llm-provider",
+			input:        "/show provider",
 			expectedCmd:  "show",
-			expectedArgs: []string{"llm-provider"},
+			expectedArgs: []string{"provider"},
 		},
 		{
 			name:         "list command with arg",

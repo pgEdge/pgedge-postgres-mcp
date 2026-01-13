@@ -2,7 +2,7 @@
  *
  * pgEdge Natural Language Agent
  *
- * Portions copyright (c) 2025, pgEdge, Inc.
+ * Portions copyright (c) 2025 - 2026, pgEdge, Inc.
  * This software is released under The PostgreSQL License
  *
  *-------------------------------------------------------------------------
@@ -27,6 +27,7 @@ const (
 // ToolProvider is an interface for listing and executing tools
 type ToolProvider interface {
 	List() []Tool
+	ListContext(ctx context.Context) []Tool
 	Execute(ctx context.Context, name string, args map[string]interface{}) (ToolResponse, error)
 }
 
@@ -44,12 +45,13 @@ type PromptProvider interface {
 
 // DatabaseInfo represents a database connection for listing
 type DatabaseInfo struct {
-	Name     string `json:"name"`
-	Host     string `json:"host"`
-	Port     int    `json:"port"`
-	Database string `json:"database"`
-	User     string `json:"user"`
-	SSLMode  string `json:"sslmode"`
+	Name        string `json:"name"`
+	Host        string `json:"host"`
+	Port        int    `json:"port"`
+	Database    string `json:"database"`
+	User        string `json:"user"`
+	SSLMode     string `json:"sslmode"`
+	AllowWrites bool   `json:"allow_writes"`
 }
 
 // DatabaseProvider is an interface for managing database connections
@@ -192,7 +194,9 @@ func (s *Server) handleInitialize(req JSONRPCRequest) {
 }
 
 func (s *Server) handleToolsList(req JSONRPCRequest) {
-	tools := s.tools.List()
+	// Use ListContext for context-aware tool descriptions
+	// In STDIO mode, use background context (no authentication)
+	tools := s.tools.ListContext(context.Background())
 
 	result := map[string]interface{}{
 		"tools": tools,

@@ -2,7 +2,7 @@
  *
  * pgEdge MCP Client - Status Banner
  *
- * Portions copyright (c) 2025, pgEdge, Inc.
+ * Portions copyright (c) 2025 - 2026, pgEdge, Inc.
  * This software is released under The PostgreSQL License
  *
  * Styled to match pgEdge Cloud product aesthetics
@@ -28,6 +28,7 @@ import {
     ExpandMore as ExpandMoreIcon,
     ExpandLess as ExpandLessIcon,
     Storage as StorageIcon,
+    Warning as WarningIcon,
 } from '@mui/icons-material';
 import { useAuth } from '../contexts/AuthContext';
 import { useLLMProcessing } from '../contexts/LLMProcessingContext';
@@ -147,6 +148,46 @@ const StatusBanner = () => {
                 borderColor: isDark ? '#334155' : '#E5E7EB',
             }}
         >
+            {/* Write Access Warning Banner */}
+            {systemInfo?.allow_writes && (
+                <Box
+                    sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 1,
+                        px: 2,
+                        py: 1,
+                        bgcolor: isDark ? alpha('#F59E0B', 0.2) : alpha('#F59E0B', 0.15),
+                        borderBottom: '1px solid',
+                        borderColor: isDark ? alpha('#F59E0B', 0.4) : alpha('#F59E0B', 0.3),
+                    }}
+                >
+                    <WarningIcon
+                        sx={{
+                            fontSize: 18,
+                            color: '#F59E0B',
+                        }}
+                    />
+                    <Typography
+                        variant="body2"
+                        sx={{
+                            fontWeight: 600,
+                            color: isDark ? '#FCD34D' : '#B45309',
+                        }}
+                    >
+                        Write Access Enabled
+                    </Typography>
+                    <Typography
+                        variant="body2"
+                        sx={{
+                            color: isDark ? '#FDE68A' : '#92400E',
+                        }}
+                    >
+                        — The AI can modify data in this database
+                    </Typography>
+                </Box>
+            )}
+
             <Box
                 sx={{
                     display: 'flex',

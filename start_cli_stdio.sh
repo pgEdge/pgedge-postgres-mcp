@@ -4,7 +4,7 @@
 #
 # pgEdge MCP CLI Client Startup Script (Stdio Mode)
 #
-# Portions copyright (c) 2025, pgEdge, Inc.
+# Portions copyright (c) 2025 - 2026, pgEdge, Inc.
 # This software is released under The PostgreSQL License
 #
 # This script starts the CLI chat client in stdio mode. The CLI client

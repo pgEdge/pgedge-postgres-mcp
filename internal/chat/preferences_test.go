@@ -2,7 +2,7 @@
  *
  * pgEdge Natural Language Agent
  *
- * Portions copyright (c) 2025, pgEdge, Inc.
+ * Portions copyright (c) 2025 - 2026, pgEdge, Inc.
  * This software is released under The PostgreSQL License
  *
  *-------------------------------------------------------------------------
@@ -255,8 +255,9 @@ func TestSaveAndLoadPreferences(t *testing.T) {
 	tmpDir := t.TempDir()
 	os.Setenv("HOME", tmpDir)
 
-	// Create preferences to save
+	// Create preferences to save (with current version to avoid migration)
 	prefs := &Preferences{
+		Version: CurrentPreferencesVersion,
 		UI: UIPreferences{
 			DisplayStatusMessages: false,
 			RenderMarkdown:        false,
@@ -311,6 +312,57 @@ func TestSaveAndLoadPreferences(t *testing.T) {
 	}
 	if loadedPrefs.ServerDatabases["server1"] != "testdb" {
 		t.Errorf("Expected server1 database 'testdb', got %q", loadedPrefs.ServerDatabases["server1"])
+	}
+}
+
+func TestLoadPreferences_V1Migration(t *testing.T) {
+	// Save original HOME and restore after test
+	originalHome := os.Getenv("HOME")
+	defer os.Setenv("HOME", originalHome)
+
+	// Set HOME to temp directory
+	tmpDir := t.TempDir()
+	os.Setenv("HOME", tmpDir)
+
+	// Create a v1 preferences file (no version field, missing Color which
+	// defaults to false in Go but should be true by default)
+	v1Prefs := `ui:
+    display_status_messages: true
+    render_markdown: true
+    debug: false
+provider_models:
+    anthropic: claude-3-opus
+last_provider: anthropic
+`
+	prefsPath := filepath.Join(tmpDir, ".pgedge-nla-cli-prefs")
+	if err := os.WriteFile(prefsPath, []byte(v1Prefs), 0600); err != nil {
+		t.Fatalf("Failed to write v1 prefs: %v", err)
+	}
+
+	// Load preferences - should migrate and set Color to true
+	loadedPrefs, err := LoadPreferences()
+	if err != nil {
+		t.Fatalf("LoadPreferences failed: %v", err)
+	}
+
+	// Color should be migrated to true (the default)
+	if !loadedPrefs.UI.Color {
+		t.Error("Expected Color to be migrated to true for v1 file")
+	}
+
+	// Version should be updated to current
+	if loadedPrefs.Version != CurrentPreferencesVersion {
+		t.Errorf("Expected Version to be %d, got %d",
+			CurrentPreferencesVersion, loadedPrefs.Version)
+	}
+
+	// Other fields should be preserved
+	if loadedPrefs.UI.DisplayStatusMessages != true {
+		t.Error("Expected DisplayStatusMessages to be preserved as true")
+	}
+	if loadedPrefs.ProviderModels["anthropic"] != "claude-3-opus" {
+		t.Errorf("Expected model to be preserved, got %q",
+			loadedPrefs.ProviderModels["anthropic"])
 	}
 }
 

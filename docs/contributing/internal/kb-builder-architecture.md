@@ -42,10 +42,10 @@ The kb-builder is a standalone Go binary that:
 │                            │                               │
 │  ┌─────────────────────────▼──────────────────────────┐    │
 │  │           Document Chunker (kbchunker)             │    │
-│  │  • Section-aware splitting                         │    │
-│  │  • 800-token target, 1000 max                      │    │
-│  │  • 200-token overlap                               │    │
-│  │  • Sentence boundary detection                     │    │
+│  │  • Hybrid two-pass chunking algorithm              │    │
+│  │  • 250-word target, 300 max, 3000 chars max        │    │
+│  │  • Structural element preservation                 │    │
+│  │  • Full heading hierarchy tracking                 │    │
 │  └─────────────────────────┬──────────────────────────┘    │
 │                            │                               │
 │  ┌─────────────────────────▼──────────────────────────┐    │
@@ -154,27 +154,82 @@ embeddings:
 
 **Location**: `internal/kbchunker/`
 
-**Responsibility**: Intelligent document chunking
+**Responsibility**: Intelligent document chunking with structural preservation
 
-**Chunking algorithm**:
+**Files**:
 
-1. **Section parsing**: Split markdown by headings
-2. **Size evaluation**: Check if section fits in one chunk
-3. **Smart splitting**: For large sections:
-   - Use sliding window (800 tokens target, 1000 max)
-   - 200-token overlap between chunks
-   - Break at sentence boundaries when possible
-4. **Context preservation**: Include section heading in all chunks
+- `chunker.go`: Main chunking logic with heading hierarchy tracking
+- `elements.go`: Structural element detection and parsing
+- `merge.go`: Two-pass algorithm implementation
 
-**Token estimation**:
-- Simple word + punctuation counting
-- ~4 characters per token approximation
-- Conservative estimates to avoid truncation
+**Hybrid chunking algorithm**:
+
+The chunker uses a two-pass approach inspired by modern document processing
+techniques:
+
+**Pass 1 - Semantic boundary splitting** (`splitAtSemanticBoundaries`):
+
+1. Parse content into structural elements (code blocks, tables, lists,
+   blockquotes, paragraphs)
+2. Never split within a structural element
+3. Split at element boundaries when target size (250 words) is reached
+4. For oversized elements, use type-specific splitting:
+
+    - Paragraphs: Split at sentence boundaries
+    - Code blocks: Split at line boundaries (re-add fences to each chunk)
+    - Tables: Split at row boundaries (preserve header in each chunk)
+    - Lists: Split at top-level item boundaries
+    - Blockquotes: Split at line boundaries
+
+**Pass 2 - Merge undersized chunks** (`mergeUndersizedChunks`):
+
+1. Identify chunks below minimum size (100 words)
+2. Merge with adjacent chunk if combined size stays within limits
+3. Prefer forward merging for reading flow continuity
+4. Handle trailing undersized chunks with backward merging
+
+**Structural element detection**:
+
+The `parseStructuralElements` function identifies:
+
+- **Code blocks**: Fenced with ``` (with language specifier support)
+- **Tables**: Rows starting and ending with |
+- **Lists**: Lines starting with -, *, +, or numbered items (handles nesting)
+- **Blockquotes**: Lines starting with >
+- **Paragraphs**: Default for regular text content
+
+**Heading hierarchy tracking**:
+
+The chunker maintains a stack of headings to build full heading paths:
+
+- H1 → `["API Reference"]`
+- H2 under H1 → `["API Reference", "Authentication"]`
+- H3 under H2 → `["API Reference", "Authentication", "OAuth"]`
+
+Each chunk includes:
+
+- `HeadingPath`: Full hierarchy as string array
+- `ElementTypes`: Types of structural elements in the chunk
+
+**Size constraints** (Ollama compatibility):
+
+```go
+TargetChunkSize = 250  // Target words per chunk
+MaxChunkSize    = 300  // Maximum words (hard limit)
+MaxChunkChars   = 3000 // Maximum characters (hard limit)
+MinSize         = 100  // Minimum before merging
+OverlapSize     = 50   // Overlap between chunks
+```
+
+These limits ensure compatibility with Ollama embedding models like
+nomic-embed-text which have an 8192 token limit.
 
 **Design notes**:
-- Respects document structure (sections)
-- Overlap ensures context preservation
-- Sentence boundary detection prevents mid-sentence cuts
+
+- Structural elements are preserved intact when within size limits
+- Heading hierarchy provides better context for embeddings
+- Two-pass approach improves RAG quality by avoiding tiny orphan chunks
+- Type-specific splitting maintains semantic coherence
 
 ### kbembed
 
@@ -252,6 +307,7 @@ CREATE INDEX idx_section ON chunks(section);
 **Responsibility**: Shared type definitions
 
 **Key types**:
+
 ```go
 type Document struct {
     Title, Content string
@@ -262,6 +318,8 @@ type Document struct {
 
 type Chunk struct {
     Text, Title, Section string
+    HeadingPath []string   // Full heading hierarchy
+    ElementTypes []string  // Structural element types in chunk
     ProjectName, ProjectVersion string
     FilePath string
     OpenAIEmbedding, VoyageEmbedding, OllamaEmbedding []float32
@@ -349,13 +407,32 @@ Located in `test/fixtures/`:
 ### customizing chunking
 
 Adjust constants in `internal/kbchunker/chunker.go`:
+
 ```go
 const (
-    TargetChunkSize = 800   // Target tokens per chunk
-    MaxChunkSize = 1000     // Maximum tokens per chunk
-    OverlapSize = 200       // Overlap between chunks
+    TargetChunkSize = 250   // Target words per chunk
+    MaxChunkSize    = 300   // Maximum words per chunk (hard limit)
+    MaxChunkChars   = 3000  // Maximum characters per chunk (hard limit)
+    OverlapSize     = 50    // Overlap between chunks
 )
 ```
+
+Additional configuration in `internal/kbchunker/merge.go`:
+
+```go
+type ChunkConfig struct {
+    TargetSize     int  // Target words per chunk (default: 250)
+    MaxSize        int  // Maximum words per chunk (default: 300)
+    MinSize        int  // Minimum words before merging (default: 100)
+    MaxChars       int  // Character limit (default: 3000)
+    OverlapWords   int  // Overlap between chunks (default: 50)
+    PreserveCode   bool // Keep code blocks intact (default: true)
+    PreserveTables bool // Keep tables intact (default: true)
+}
+```
+
+**Important**: `MaxSize` and `MaxChars` are hard limits for Ollama embedding
+model compatibility and should not be increased.
 
 ## maintenance
 

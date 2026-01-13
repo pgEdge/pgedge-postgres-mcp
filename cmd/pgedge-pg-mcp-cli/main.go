@@ -2,7 +2,7 @@
  *
  * pgEdge Natural Lanaguge Agent
  *
- * Portions copyright (c) 2025, pgEdge, Inc.
+ * Portions copyright (c) 2025 - 2026, pgEdge, Inc.
  * This software is released under The PostgreSQL License
  *
  *-------------------------------------------------------------------------
@@ -28,6 +28,7 @@ func main() {
 	mcpMode := flag.String("mcp-mode", "", "MCP connection mode: stdio or http (default: stdio)")
 	mcpURL := flag.String("mcp-url", "", "MCP server URL (for HTTP mode)")
 	mcpServerPath := flag.String("mcp-server-path", "", "Path to MCP server binary (for stdio mode)")
+	mcpServerConfig := flag.String("mcp-server-config", "", "Path to MCP server config file (for stdio mode)")
 	mcpAuthMode := flag.String("mcp-auth-mode", "", "MCP authentication mode: none, token, or user (default: user)")
 	mcpToken := flag.String("mcp-token", "", "MCP server authentication token (for token mode)")
 	mcpUsername := flag.String("mcp-username", "", "MCP server username (for user mode)")
@@ -69,6 +70,9 @@ func main() {
 	}
 	if *mcpServerPath != "" {
 		cfg.MCP.ServerPath = *mcpServerPath
+	}
+	if *mcpServerConfig != "" {
+		cfg.MCP.ServerConfigPath = *mcpServerConfig
 	}
 	if *mcpAuthMode != "" {
 		cfg.MCP.AuthMode = *mcpAuthMode

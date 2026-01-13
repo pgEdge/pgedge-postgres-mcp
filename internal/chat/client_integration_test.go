@@ -2,7 +2,7 @@
  *
  * Integration Tests for Chat Client
  *
- * Portions copyright (c) 2025, pgEdge, Inc.
+ * Portions copyright (c) 2025 - 2026, pgEdge, Inc.
  * This software is released under The PostgreSQL License
  *
  *-------------------------------------------------------------------------
@@ -326,7 +326,7 @@ func TestClient_HandleSlashCommand_Clear(t *testing.T) {
 	}
 }
 
-func TestClient_HandleSlashCommand_Tools(t *testing.T) {
+func TestClient_HandleSlashCommand_ListTools(t *testing.T) {
 	cfg := &Config{
 		LLM: LLMConfig{
 			Provider:  "ollama",
@@ -351,13 +351,13 @@ func TestClient_HandleSlashCommand_Tools(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	handled := client.HandleSlashCommand(ctx, &SlashCommand{Command: "tools"})
+	handled := client.HandleSlashCommand(ctx, &SlashCommand{Command: "list", Args: []string{"tools"}})
 	if !handled {
-		t.Error("Expected tools command to be handled")
+		t.Error("Expected list tools command to be handled")
 	}
 }
 
-func TestClient_HandleSlashCommand_Resources(t *testing.T) {
+func TestClient_HandleSlashCommand_ListResources(t *testing.T) {
 	// Start mock MCP server
 	server := mockMCPServer(t)
 	defer server.Close()
@@ -394,10 +394,10 @@ func TestClient_HandleSlashCommand_Resources(t *testing.T) {
 		t.Fatalf("Initialize failed: %v", err)
 	}
 
-	// Handle resources command
-	handled := client.HandleSlashCommand(ctx, &SlashCommand{Command: "resources"})
+	// Handle list resources command
+	handled := client.HandleSlashCommand(ctx, &SlashCommand{Command: "list", Args: []string{"resources"}})
 	if !handled {
-		t.Error("Expected resources command to be handled")
+		t.Error("Expected list resources command to be handled")
 	}
 }
 

@@ -2,7 +2,7 @@
 *
  * pgEdge Natural Language Agent
 *
-* Portions copyright (c) 2025, pgEdge, Inc.
+* Portions copyright (c) 2025 - 2026, pgEdge, Inc.
 * This software is released under The PostgreSQL License
 *
 *-------------------------------------------------------------------------
@@ -14,12 +14,21 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 
 	"gopkg.in/yaml.v3"
 )
 
+// CurrentPreferencesVersion is the current preferences file format version.
+// Increment this when adding new fields or changing the format.
+// Version history:
+//   - 1: Initial version (no version field in file)
+//   - 2: Added version field, fixed Color default (was missing in v1 files)
+const CurrentPreferencesVersion = 2
+
 // Preferences holds user preferences that persist across sessions
 type Preferences struct {
+	Version         int               `yaml:"version,omitempty"` // File format version for migrations
 	UI              UIPreferences     `yaml:"ui"`
 	ProviderModels  map[string]string `yaml:"provider_models"`
 	LastProvider    string            `yaml:"last_provider"`
@@ -61,8 +70,21 @@ func LoadPreferences() (*Preferences, error) {
 		return nil, fmt.Errorf("failed to parse preferences file: %w", err)
 	}
 
+	// Track if we need to save after migration
+	needsSave := prefs.Version < CurrentPreferencesVersion
+
 	// Sanitize and validate loaded preferences
 	prefs = sanitizePreferences(prefs)
+
+	// If we migrated from an older version, save immediately to persist
+	// the version upgrade. This prevents re-migration on every startup
+	// and ensures the file is in a consistent state.
+	if needsSave {
+		if err := SavePreferences(prefs); err != nil {
+			// Log but don't fail - the in-memory prefs are still correct
+			fmt.Fprintf(os.Stderr, "Warning: Failed to save migrated preferences: %v\n", err)
+		}
+	}
 
 	return prefs, nil
 }
@@ -77,8 +99,9 @@ func SavePreferences(prefs *Preferences) error {
 		return fmt.Errorf("failed to marshal preferences: %w", err)
 	}
 
-	// Write to temporary file first for atomic write
-	tempPath := path + ".tmp"
+	// Use unique temp file name to avoid race conditions between multiple
+	// CLI instances. Include PID and timestamp for uniqueness.
+	tempPath := fmt.Sprintf("%s.tmp.%d.%d", path, os.Getpid(), time.Now().UnixNano())
 	if err := os.WriteFile(tempPath, data, 0600); err != nil {
 		return fmt.Errorf("failed to write preferences file: %w", err)
 	}
@@ -95,6 +118,7 @@ func SavePreferences(prefs *Preferences) error {
 // getDefaultPreferences returns default preferences
 func getDefaultPreferences() *Preferences {
 	return &Preferences{
+		Version: CurrentPreferencesVersion,
 		UI: UIPreferences{
 			DisplayStatusMessages: true,
 			RenderMarkdown:        true,
@@ -113,6 +137,13 @@ func getDefaultPreferences() *Preferences {
 // sanitizePreferences validates and fixes corrupted preference data
 // Only validates structure, not model validity (done at runtime in initializeLLM)
 func sanitizePreferences(prefs *Preferences) *Preferences {
+	defaults := getDefaultPreferences()
+
+	// Handle version migrations
+	if prefs.Version < CurrentPreferencesVersion {
+		prefs = migratePreferences(prefs, defaults)
+	}
+
 	// Ensure provider_models map exists
 	if prefs.ProviderModels == nil {
 		prefs.ProviderModels = make(map[string]string)
@@ -126,12 +157,39 @@ func sanitizePreferences(prefs *Preferences) *Preferences {
 	}
 	if !validProviders[prefs.LastProvider] {
 		// Invalid provider - use default
-		defaults := getDefaultPreferences()
 		prefs.LastProvider = defaults.LastProvider
 	}
 
 	// Don't validate models here - that requires API access
 	// Model validation happens at runtime in initializeLLM()
+
+	return prefs
+}
+
+// migratePreferences applies migrations for old preferences file versions
+func migratePreferences(prefs *Preferences, defaults *Preferences) *Preferences {
+	// Migration from version 0/1 (no version field) to version 2:
+	// The Color field was added after initial release. Old files without it
+	// would have Color=false (Go zero value), but the default should be true.
+	// We can't distinguish "user set false" from "field missing", so for v1
+	// files we apply the default for Color.
+	if prefs.Version < 2 {
+		// Apply default UI settings that may have been missing in v1
+		// Note: Only Color had a problematic default (true vs false zero value)
+		// The other bool fields have false as their intended default or true as default
+		// DisplayStatusMessages defaults to true - check if it's false in a v1 file
+		// This is tricky because we can't tell if user set it or it was missing.
+		// Conservative approach: only fix Color since it's the reported issue.
+		prefs.UI.Color = defaults.UI.Color
+
+		// Also ensure DisplayStatusMessages and RenderMarkdown get proper defaults
+		// if they appear to be at zero values (which may indicate missing fields)
+		// Since these default to true, a value of false in a v1 file is suspicious
+		// but we'll be conservative and only fix Color for now.
+	}
+
+	// Update to current version
+	prefs.Version = CurrentPreferencesVersion
 
 	return prefs
 }

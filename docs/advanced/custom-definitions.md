@@ -327,7 +327,7 @@ Resource URIs should follow these conventions:
 - Use the `custom://` prefix for user-defined resources.
 - Use lowercase with hyphens: `custom://my-resource`.
 - Be descriptive: `custom://active-users` not `custom://users1`.
-- Avoid conflicts with built-in URIs (`pg://system-info`, etc.).
+- Avoid conflicts with built-in URIs (`pg://system_info`, etc.).
 
 ## Validation Rules
 

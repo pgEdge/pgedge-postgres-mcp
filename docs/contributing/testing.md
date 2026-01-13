@@ -182,10 +182,7 @@ The integration test suite covers:
 
 1. **Resources**:
 
-    - pg://settings
     - pg://system_info
-    - pg://stat/activity
-    - pg://stat/replication
 
 2. **Edge Cases**:
 
@@ -197,10 +194,8 @@ The integration test suite covers:
 ```
 === RUN   TestAllResources_Integration
 Testing against PostgreSQL version 17
-=== RUN   TestAllResources_Integration/pg://settings
-    integration_test.go:XX: ✓ pg://settings: Successfully executed and returned valid JSON
-=== RUN   TestAllResources_Integration/pg://stat/activity
-    integration_test.go:XX: ✓ pg://stat/activity: Successfully executed and returned valid JSON
+=== RUN   TestAllResources_Integration/pg://system_info
+    integration_test.go:XX: ✓ pg://system_info: Successfully executed and returned valid JSON
 ...
 PASS
 ```

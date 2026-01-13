@@ -118,6 +118,7 @@ Flags:
   -mcp-mode string          MCP connection mode: stdio or http
   -mcp-url string           MCP server URL (for HTTP mode)
   -mcp-server-path string   Path to MCP server binary (for stdio mode)
+  -mcp-server-config string Path to MCP server config file (for stdio mode)
   -llm-provider string      LLM provider: anthropic, openai, or ollama
   -llm-model string         LLM model to use
   -anthropic-api-key string API key for Anthropic
@@ -131,6 +132,7 @@ Flags:
 - `PGEDGE_MCP_MODE`: Connection mode (stdio or http)
 - `PGEDGE_MCP_URL`: MCP server URL (for HTTP mode)
 - `PGEDGE_MCP_SERVER_PATH`: Path to MCP server binary (for stdio mode)
+- `PGEDGE_MCP_SERVER_CONFIG_PATH`: Path to MCP server config file (for stdio mode)
 - `PGEDGE_MCP_TOKEN`: Authentication token (for HTTP mode)
 - `PGEDGE_LLM_PROVIDER`: LLM provider (anthropic, openai, or ollama)
 - `PGEDGE_LLM_MODEL`: LLM model name
@@ -449,39 +451,60 @@ colors but still with formatting structure.
 ### Switch LLM Provider
 
 ```
-/set llm-provider <provider>
-/show llm-provider
+/set provider <provider>
+/show provider
 ```
 
-Change the LLM provider at runtime without restarting the client. Valid providers: `anthropic`, `openai`, `ollama`.
+Change the LLM provider at runtime without restarting the client. Valid
+providers: `anthropic`, `openai`, `ollama`.
 
 **Examples:**
 
 ```
-You: /set llm-provider openai
+You: /set provider openai
 System: LLM provider set to: openai (model: gpt-4o)
 
-You: /set llm-provider anthropic
+You: /set provider anthropic
 System: LLM provider set to: anthropic (model: claude-sonnet-4-20250514)
 ```
 
 ### Change LLM Model
 
 ```
-/set llm-model <model>
-/show llm-model
+/set model <model>
+/show model
 ```
 
-Switch to a different model from the current provider. Use `/list models` to see available options.
+Switch to a different model from the current provider. Use `/list models` to
+see available options.
 
 **Examples:**
 
 ```
-You: /set llm-model claude-3-opus-20240229
+You: /set model claude-3-opus-20240229
 System: LLM model set to: claude-3-opus-20240229 (provider: anthropic)
 
-You: /set llm-model gpt-4-turbo
+You: /set model gpt-4-turbo
 System: LLM model set to: gpt-4-turbo (provider: openai)
+```
+
+### List Available Providers
+
+```
+/list providers
+```
+
+List all configured LLM providers. Shows which providers have API keys or
+URLs configured and indicates the currently active provider.
+
+**Example:**
+
+```
+You: /list providers
+System: Available LLM providers (3):
+  * anthropic (current)
+    openai
+    ollama
 ```
 
 ### List Available Models
@@ -564,7 +587,7 @@ System: Switched to database: staging
 ```
 
 Display current configuration values. Available settings: `status-messages`,
-`markdown`, `debug`, `llm-provider`, `llm-model`, `database`, `settings` (all).
+`markdown`, `debug`, `provider`, `model`, `database`, `settings` (all).
 
 **Example:**
 

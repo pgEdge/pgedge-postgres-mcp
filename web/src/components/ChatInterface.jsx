@@ -2,7 +2,7 @@
  *
  * pgEdge MCP Client - Chat Interface (Refactored)
  *
- * Portions copyright (c) 2025, pgEdge, Inc.
+ * Portions copyright (c) 2025 - 2026, pgEdge, Inc.
  * This software is released under The PostgreSQL License
  *
  *-------------------------------------------------------------------------
@@ -399,6 +399,15 @@ const ChatInterface = ({ conversations }) => {
     const { mcpClient, tools, prompts, refreshTools, refreshPrompts } = useMCPClient(sessionToken);
     const llmProviders = useLLMProviders(sessionToken);
     const { currentDatabase, selectDatabase } = useDatabaseContext();
+
+    // Refresh tools when database changes to get updated tool descriptions
+    // (e.g., write access status for query_database tool)
+    useEffect(() => {
+        if (currentDatabase && refreshTools) {
+            refreshTools();
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [currentDatabase]);
 
     // Log prompts when they're available (for debugging)
     useEffect(() => {

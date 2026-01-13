@@ -2,7 +2,7 @@
  *
  * pgEdge Natural Language Agent
  *
- * Portions copyright (c) 2025, pgEdge, Inc.
+ * Portions copyright (c) 2025 - 2026, pgEdge, Inc.
  * This software is released under The PostgreSQL License
  *
  *-------------------------------------------------------------------------
@@ -185,7 +185,7 @@ func (s *Server) handleRequestHTTP(ctx context.Context, req JSONRPCRequest) JSON
 			Result:  json.RawMessage(`{}`),
 		}
 	case "tools/list":
-		return s.handleToolsListHTTP(req)
+		return s.handleToolsListHTTP(ctx, req)
 	case "tools/call":
 		return s.handleToolCallHTTP(ctx, req)
 	case "resources/list":
@@ -238,8 +238,10 @@ func (s *Server) handleInitializeHTTP(req JSONRPCRequest) JSONRPCResponse {
 	}
 }
 
-func (s *Server) handleToolsListHTTP(req JSONRPCRequest) JSONRPCResponse {
-	tools := s.tools.List()
+func (s *Server) handleToolsListHTTP(ctx context.Context, req JSONRPCRequest) JSONRPCResponse {
+	// Use ListContext to get tools with context-aware descriptions
+	// This ensures tools like query_database show correct write access status
+	tools := s.tools.ListContext(ctx)
 	result := ToolsListResult{Tools: tools}
 
 	return JSONRPCResponse{

@@ -7,4 +7,4 @@ The purpose of this demo is to provide end-users a working interactive example o
 fewest configuration steps.  Therefore, rather than building containers from the repo, it pulls the latest public 
 container images from our repository.
 
-For more detail, please refer to: [Quick Start Guide](../../docs/guide/quickstart.md)
+For more detail, please refer to: [Quick Start Demo Guide](../../docs/guide/quickstart_demo.md)

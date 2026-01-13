@@ -2,7 +2,7 @@
  *
  * pgEdge Natural Language Agent
  *
- * Portions copyright (c) 2025, pgEdge, Inc.
+ * Portions copyright (c) 2025 - 2026, pgEdge, Inc.
  * This software is released under The PostgreSQL License
  *
  *-------------------------------------------------------------------------
@@ -157,8 +157,26 @@ func (p *ContextAwareProvider) RegisterTools(ctx context.Context) error {
 
 // List returns all registered tool definitions
 // Hidden tools (like authenticate_user) are not included as they're in a separate registry
+// Note: This returns the base registry tools (with no database client context)
+// Use ListContext for context-aware tool descriptions
 func (p *ContextAwareProvider) List() []mcp.Tool {
 	return p.baseRegistry.List()
+}
+
+// ListContext returns tool definitions for the current context
+// This ensures tools like query_database have accurate descriptions
+// based on the current database's write access status
+func (p *ContextAwareProvider) ListContext(ctx context.Context) []mcp.Tool {
+	// Try to get the database client for this context
+	dbClient, err := p.getClient(ctx)
+	if err != nil {
+		// No client available - return base registry
+		return p.baseRegistry.List()
+	}
+
+	// Get the registry for this client (which has correct tool descriptions)
+	registry := p.getOrCreateRegistryForClient(dbClient)
+	return registry.List()
 }
 
 // getOrCreateRegistryForClient returns a cached registry for the given client
