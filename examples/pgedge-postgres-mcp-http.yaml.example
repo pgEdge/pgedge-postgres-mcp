@@ -68,6 +68,10 @@ embedding:
 
     # Or use environment variables: VOYAGE_API_KEY, OPENAI_API_KEY
 
+    # Optional: Custom base URLs for API proxies
+    # voyage_base_url: ""  # Default: https://api.voyageai.com/v1/embeddings
+    # openai_base_url: ""  # Default: https://api.openai.com/v1
+
 # LLM configuration for web client chat
 # REQUIRED for the web client to function
 llm:
@@ -84,6 +88,10 @@ llm:
     # Ollama configuration (for local LLM)
     ollama_url: "http://127.0.0.1:11434"
 
+    # Optional: Custom base URLs for API proxies
+    # anthropic_base_url: ""  # Default: https://api.anthropic.com
+    # openai_base_url: ""  # Default: https://api.openai.com
+
     max_tokens: 4096
     temperature: 0.7
 
@@ -98,6 +106,10 @@ knowledgebase:
     # API key files for knowledgebase embeddings
     # embedding_voyage_api_key_file: "~/.voyage-api-key"
     # embedding_openai_api_key_file: "~/.openai-api-key"
+
+    # Optional: Custom base URLs for knowledgebase embedding API proxies
+    # embedding_voyage_base_url: ""  # Default: https://api.voyageai.com/v1/embeddings
+    # embedding_openai_base_url: ""  # Default: https://api.openai.com/v1
 
 # Secret file path (for encryption key - auto-generated if not exists)
 secret_file: "./pgedge-postgres-mcp.secret"

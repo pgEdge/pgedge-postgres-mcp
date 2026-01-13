@@ -40,6 +40,10 @@ llm:
     # Ollama configuration (for local LLM)
     ollama_url: "http://127.0.0.1:11434"
 
+    # Optional: Custom base URLs for API proxies
+    # anthropic_base_url: ""  # Default: https://api.anthropic.com
+    # openai_base_url: ""  # Default: https://api.openai.com
+
     max_tokens: 4096
     temperature: 0.7
 
