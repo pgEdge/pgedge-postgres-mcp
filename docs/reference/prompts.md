@@ -306,7 +306,7 @@ understand its structure, capabilities, and available data.
 `explore-database`:
 
 1. identifies which database you're connected to.
-2. retreives comprehensive schema information.
+2. retrieves comprehensive schema information.
 3. identifies table purposes and relationships.
 4. detects pgvector columns, JSONB, and foreign keys.
 5. optionally queries small samples from key tables.
@@ -317,7 +317,7 @@ understand its structure, capabilities, and available data.
 * Understanding a new database you're working with.
 * Discovering what data is available.
 * Identifying semantic search capabilities.
-* Planning queries or analyses.
+* Planning queries or analysis.
 
 `explore-database` takes the following arguments:
 

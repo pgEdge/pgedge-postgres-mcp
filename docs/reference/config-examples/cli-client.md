@@ -2,7 +2,7 @@
 
 The chat client supports the following environment variables (in order of precedence):
 
-**MCP Connection**
+### MCP Connection
 
 - `PGEDGE_MCP_MODE`: Connection mode (`stdio` or `http`)
 - `PGEDGE_MCP_SERVER_PATH`: Path to MCP server binary (stdio mode)
@@ -14,7 +14,7 @@ The chat client supports the following environment variables (in order of preced
 - `PGEDGE_MCP_USERNAME`: Username (for user auth mode)
 - `PGEDGE_MCP_PASSWORD`: Password (for user auth mode)
 
-**LLM Configuration**
+### LLM Configuration
 
 - `PGEDGE_LLM_PROVIDER`: LLM provider (`anthropic`, `openai`, or `ollama`)
 - `PGEDGE_LLM_MODEL`: Model to use
@@ -22,7 +22,7 @@ The chat client supports the following environment variables (in order of preced
 - `PGEDGE_OPENAI_API_KEY`: OpenAI API key
 - `PGEDGE_OLLAMA_URL`: Ollama server URL
 
-**Command Line Flags**
+### Command Line Flags
 
 All configuration options can be overridden with command line flags:
 

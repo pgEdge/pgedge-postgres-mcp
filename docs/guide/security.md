@@ -11,18 +11,19 @@ configured when the MCP server starts via:
 
 You should never:
 
-- Use environment variables for sensitive credentials.
-- Commit secret files or credentials to version control.
-- Use `.gitignore` for configuration files that contain
-  credentials.
-- Never hardcode security details in scripts.
+- Commit `.env` files or credentials to version control.
+- Use `.gitignore` for configuration files that contain credentials
+  (instead, exclude them entirely and use templates).
+- Hardcode security details in scripts.
 
 You should instead:
 
+- Use environment variables in controlled environments (containers,
+  orchestrators) for passing credentials at runtime.
 - Consider using secret management systems (Vault, AWS Secrets Manager,
-  etc.).
-- In production, use a `~/.pgpass` file or similar secure credential
-  storage.
+  etc.) for production deployments.
+- Use a `~/.pgpass` file or similar secure credential storage for local
+  development.
 
 ## Security Checklist
 

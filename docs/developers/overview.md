@@ -82,8 +82,6 @@ MCP resources provide read-only access to system information:
 | Resource | Description |
 |---|---|
 | `pg://system_info` | The `pg://system_info` resource provides PostgreSQL server information. |
-| `pg://stat/activity` | The `pg://stat/activity` resource shows current database activity. |
-| `pg://stat/database` | The `pg://stat/database` resource contains database statistics. |
 
 For more information, see: [Resources Documentation](../reference/resources.md)
 
@@ -94,7 +92,7 @@ The server supports two authentication modes:
 * **Token-based** - API tokens for automation
 * **User-based** - Username/password for interactive clients
 
-For more informatin, see: [Authentication](../guide/authentication.md)
+For more information, see: [Authentication](../guide/authentication.md)
 
 
 ## Example: Building a Simple Client

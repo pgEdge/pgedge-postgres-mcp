@@ -202,7 +202,7 @@ tail -f /tmp/pgedge-postgres-mcp.log | grep "Generated SQL"
 journalctl -u pgedge-postgres-mcp -f | grep "Generated SQL"
 ```
 
-While read-only protection is enforced, additional vigilence should be employed
+While read-only protection is enforced, additional vigilance should be employed
 to detect:
 
 - unusual patterns in natural language queries.

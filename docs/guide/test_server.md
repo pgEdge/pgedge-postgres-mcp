@@ -9,18 +9,10 @@ curl http://localhost:8080/health
 When you navigate to that address, you should see the following response:
 
 ```json
-{"status": "ok", "server": "pgedge-postgres-mcp", "version": "1.0.0"}
+{"status": "ok", "server": "pgedge-postgres-mcp", "version": "1.0.0-beta1"}
 ```
 
-**Using the Test Script to Verify Server Functionality**
-
-You can run the provided test script to verify basic server functionality. In the following example, the command runs the test connection script.
-
-```bash
-./test-connection.sh
-```
-
-**Manually Verifying Server Functionality**
+**Verifying Server Functionality**
 
 You can manually test the server with JSON-RPC requests. In the following example, the commands set the API key environment variable, send an initialize request to the server, and then send a tools list request.
 
