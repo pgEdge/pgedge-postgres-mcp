@@ -60,7 +60,8 @@ var voyageModelDimensions = map[string]int{
 }
 
 // NewVoyageProvider creates a new Voyage AI embedding provider
-func NewVoyageProvider(apiKey, model string) (*VoyageProvider, error) {
+// baseURL can be empty to use the default (https://api.voyageai.com/v1/embeddings)
+func NewVoyageProvider(apiKey, model, baseURL string) (*VoyageProvider, error) {
 	if apiKey == "" {
 		return nil, fmt.Errorf("Voyage AI API key cannot be empty")
 	}
@@ -75,6 +76,11 @@ func NewVoyageProvider(apiKey, model string) (*VoyageProvider, error) {
 		return nil, fmt.Errorf("unsupported Voyage AI model: %s (supported: voyage-3, voyage-3-lite, voyage-2, voyage-2-lite)", model)
 	}
 
+	// Default base URL if not specified
+	if baseURL == "" {
+		baseURL = "https://api.voyageai.com/v1/embeddings"
+	}
+
 	// Mask the API key for logging (show only first/last few characters)
 	maskedKey := "(redacted)"
 	if len(apiKey) > 8 {
@@ -83,13 +89,13 @@ func NewVoyageProvider(apiKey, model string) (*VoyageProvider, error) {
 
 	LogProviderInit("voyage", model, map[string]string{
 		"api_key":  maskedKey,
-		"base_url": "https://api.voyageai.com/v1/embeddings",
+		"base_url": baseURL,
 	})
 
 	return &VoyageProvider{
 		apiKey:  apiKey,
 		model:   model,
-		baseURL: "https://api.voyageai.com/v1/embeddings",
+		baseURL: baseURL,
 		client: &http.Client{
 			Timeout: VoyageHTTPTimeout,
 		},

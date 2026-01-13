@@ -261,11 +261,13 @@ func generateKBQueryEmbedding(serverCfg *config.Config, queryText string) ([]flo
 	}
 
 	embCfg := embedding.Config{
-		Provider:     kbCfg.EmbeddingProvider,
-		Model:        kbCfg.EmbeddingModel,
-		VoyageAPIKey: kbCfg.EmbeddingVoyageAPIKey,
-		OpenAIAPIKey: kbCfg.EmbeddingOpenAIAPIKey,
-		OllamaURL:    kbCfg.EmbeddingOllamaURL,
+		Provider:      kbCfg.EmbeddingProvider,
+		Model:         kbCfg.EmbeddingModel,
+		VoyageAPIKey:  kbCfg.EmbeddingVoyageAPIKey,
+		VoyageBaseURL: kbCfg.EmbeddingVoyageBaseURL,
+		OpenAIAPIKey:  kbCfg.EmbeddingOpenAIAPIKey,
+		OpenAIBaseURL: kbCfg.EmbeddingOpenAIBaseURL,
+		OllamaURL:     kbCfg.EmbeddingOllamaURL,
 	}
 
 	provider, err := embedding.NewProvider(embCfg)

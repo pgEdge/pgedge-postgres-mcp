@@ -52,8 +52,10 @@ type LLMConfig struct {
 	Model               string  `yaml:"model"`                  // Model to use
 	AnthropicAPIKey     string  `yaml:"anthropic_api_key"`      // API key for Anthropic (direct - discouraged, use api_key_file or env var)
 	AnthropicAPIKeyFile string  `yaml:"anthropic_api_key_file"` // Path to file containing Anthropic API key
+	AnthropicBaseURL    string  `yaml:"anthropic_base_url"`     // Base URL for Anthropic API (default: https://api.anthropic.com)
 	OpenAIAPIKey        string  `yaml:"openai_api_key"`         // API key for OpenAI (direct - discouraged, use api_key_file or env var)
 	OpenAIAPIKeyFile    string  `yaml:"openai_api_key_file"`    // Path to file containing OpenAI API key
+	OpenAIBaseURL       string  `yaml:"openai_base_url"`        // Base URL for OpenAI API (default: https://api.openai.com)
 	OllamaURL           string  `yaml:"ollama_url"`             // Ollama server URL
 	MaxTokens           int     `yaml:"max_tokens"`             // Max tokens for response
 	Temperature         float64 `yaml:"temperature"`            // Temperature for sampling
@@ -82,13 +84,15 @@ func LoadConfig(configPath string) (*Config, error) {
 			TLS:              false,
 		},
 		LLM: LLMConfig{
-			Provider:        getEnvOrDefault("PGEDGE_LLM_PROVIDER", "anthropic"),
-			Model:           getEnvOrDefault("PGEDGE_LLM_MODEL", "claude-sonnet-4-5-20250929"),
-			AnthropicAPIKey: getEnvWithFallback("PGEDGE_ANTHROPIC_API_KEY", "ANTHROPIC_API_KEY"),
-			OpenAIAPIKey:    getEnvWithFallback("PGEDGE_OPENAI_API_KEY", "OPENAI_API_KEY"),
-			OllamaURL:       getEnvOrDefault("PGEDGE_OLLAMA_URL", "http://localhost:11434"),
-			MaxTokens:       4096,
-			Temperature:     0.7,
+			Provider:         getEnvOrDefault("PGEDGE_LLM_PROVIDER", "anthropic"),
+			Model:            getEnvOrDefault("PGEDGE_LLM_MODEL", "claude-sonnet-4-5-20250929"),
+			AnthropicAPIKey:  getEnvWithFallback("PGEDGE_ANTHROPIC_API_KEY", "ANTHROPIC_API_KEY"),
+			AnthropicBaseURL: os.Getenv("PGEDGE_ANTHROPIC_BASE_URL"), // Empty string uses default
+			OpenAIAPIKey:     getEnvWithFallback("PGEDGE_OPENAI_API_KEY", "OPENAI_API_KEY"),
+			OpenAIBaseURL:    os.Getenv("PGEDGE_OPENAI_BASE_URL"), // Empty string uses default
+			OllamaURL:        getEnvOrDefault("PGEDGE_OLLAMA_URL", "http://localhost:11434"),
+			MaxTokens:        4096,
+			Temperature:      0.7,
 		},
 		UI: UIConfig{
 			NoColor:               os.Getenv("NO_COLOR") != "",

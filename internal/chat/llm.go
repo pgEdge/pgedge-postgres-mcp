@@ -84,6 +84,7 @@ type LLMClient interface {
 // anthropicClient implements LLMClient for Anthropic Claude
 type anthropicClient struct {
 	apiKey      string
+	baseURL     string
 	model       string
 	maxTokens   int
 	temperature float64
@@ -92,9 +93,14 @@ type anthropicClient struct {
 }
 
 // NewAnthropicClient creates a new Anthropic client
-func NewAnthropicClient(apiKey, model string, maxTokens int, temperature float64, debug bool) LLMClient {
+// baseURL can be empty to use the default (https://api.anthropic.com)
+func NewAnthropicClient(apiKey, baseURL, model string, maxTokens int, temperature float64, debug bool) LLMClient {
+	if baseURL == "" {
+		baseURL = "https://api.anthropic.com"
+	}
 	return &anthropicClient{
 		apiKey:      apiKey,
+		baseURL:     baseURL,
 		model:       model,
 		maxTokens:   maxTokens,
 		temperature: temperature,
@@ -150,7 +156,7 @@ func extractAnthropicErrorMessage(statusCode int, body []byte) string {
 func (c *anthropicClient) Chat(ctx context.Context, messages []Message, tools interface{}) (LLMResponse, error) {
 	startTime := time.Now()
 	operation := "chat"
-	url := "https://api.anthropic.com/v1/messages"
+	url := c.baseURL + "/v1/messages"
 
 	embedding.LogLLMCallDetails("anthropic", c.model, operation, url, len(messages))
 
@@ -360,7 +366,7 @@ When executing tools:
 
 // ListModels returns available Anthropic Claude models from the API
 func (c *anthropicClient) ListModels(ctx context.Context) ([]string, error) {
-	url := "https://api.anthropic.com/v1/models"
+	url := c.baseURL + "/v1/models"
 
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
@@ -812,6 +818,7 @@ func (c *ollamaClient) ListModels(ctx context.Context) ([]string, error) {
 // openaiClient implements LLMClient for OpenAI GPT models
 type openaiClient struct {
 	apiKey      string
+	baseURL     string
 	model       string
 	maxTokens   int
 	temperature float64
@@ -820,9 +827,14 @@ type openaiClient struct {
 }
 
 // NewOpenAIClient creates a new OpenAI client
-func NewOpenAIClient(apiKey, model string, maxTokens int, temperature float64, debug bool) LLMClient {
+// baseURL can be empty to use the default (https://api.openai.com)
+func NewOpenAIClient(apiKey, baseURL, model string, maxTokens int, temperature float64, debug bool) LLMClient {
+	if baseURL == "" {
+		baseURL = "https://api.openai.com"
+	}
 	return &openaiClient{
 		apiKey:      apiKey,
+		baseURL:     baseURL,
 		model:       model,
 		maxTokens:   maxTokens,
 		temperature: temperature,
@@ -921,7 +933,7 @@ func extractTextFromContent(content interface{}) string {
 func (c *openaiClient) Chat(ctx context.Context, messages []Message, tools interface{}) (LLMResponse, error) {
 	startTime := time.Now()
 	operation := "chat"
-	url := "https://api.openai.com/v1/chat/completions"
+	url := c.baseURL + "/v1/chat/completions"
 
 	embedding.LogLLMCallDetails("openai", c.model, operation, url, len(messages))
 
@@ -1312,7 +1324,7 @@ When executing tools:
 // ListModels returns available models from OpenAI
 // Filters out embedding, audio, and image models
 func (c *openaiClient) ListModels(ctx context.Context) ([]string, error) {
-	url := "https://api.openai.com/v1/models"
+	url := c.baseURL + "/v1/models"
 
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {

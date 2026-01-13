@@ -205,8 +205,10 @@ type EmbeddingConfig struct {
 	Model            string `yaml:"model"`               // Provider-specific model name
 	VoyageAPIKey     string `yaml:"voyage_api_key"`      // API key for Voyage AI (direct - discouraged, use api_key_file or env var)
 	VoyageAPIKeyFile string `yaml:"voyage_api_key_file"` // Path to file containing Voyage API key
+	VoyageBaseURL    string `yaml:"voyage_base_url"`     // Base URL for Voyage API (default: https://api.voyageai.com/v1/embeddings)
 	OpenAIAPIKey     string `yaml:"openai_api_key"`      // API key for OpenAI (direct - discouraged, use api_key_file or env var)
 	OpenAIAPIKeyFile string `yaml:"openai_api_key_file"` // Path to file containing OpenAI API key
+	OpenAIBaseURL    string `yaml:"openai_base_url"`     // Base URL for OpenAI API (default: https://api.openai.com/v1)
 	OllamaURL        string `yaml:"ollama_url"`          // URL for Ollama service (default: http://localhost:11434)
 }
 
@@ -217,8 +219,10 @@ type LLMConfig struct {
 	Model               string  `yaml:"model"`                  // Provider-specific model name
 	AnthropicAPIKey     string  `yaml:"anthropic_api_key"`      // API key for Anthropic (direct - discouraged, use api_key_file or env var instead)
 	AnthropicAPIKeyFile string  `yaml:"anthropic_api_key_file"` // Path to file containing Anthropic API key
+	AnthropicBaseURL    string  `yaml:"anthropic_base_url"`     // Base URL for Anthropic API (default: https://api.anthropic.com)
 	OpenAIAPIKey        string  `yaml:"openai_api_key"`         // API key for OpenAI (direct - discouraged, use api_key_file or env var instead)
 	OpenAIAPIKeyFile    string  `yaml:"openai_api_key_file"`    // Path to file containing OpenAI API key
+	OpenAIBaseURL       string  `yaml:"openai_base_url"`        // Base URL for OpenAI API (default: https://api.openai.com)
 	OllamaURL           string  `yaml:"ollama_url"`             // URL for Ollama service (default: http://localhost:11434)
 	MaxTokens           int     `yaml:"max_tokens"`             // Maximum tokens for LLM response (default: 4096)
 	Temperature         float64 `yaml:"temperature"`            // Temperature for LLM sampling (default: 0.7)
@@ -234,8 +238,10 @@ type KnowledgebaseConfig struct {
 	EmbeddingModel            string `yaml:"embedding_model"`               // Provider-specific model name
 	EmbeddingVoyageAPIKey     string `yaml:"embedding_voyage_api_key"`      // API key for Voyage AI
 	EmbeddingVoyageAPIKeyFile string `yaml:"embedding_voyage_api_key_file"` // Path to file containing Voyage API key
+	EmbeddingVoyageBaseURL    string `yaml:"embedding_voyage_base_url"`     // Base URL for Voyage API (default: https://api.voyageai.com/v1/embeddings)
 	EmbeddingOpenAIAPIKey     string `yaml:"embedding_openai_api_key"`      // API key for OpenAI
 	EmbeddingOpenAIAPIKeyFile string `yaml:"embedding_openai_api_key_file"` // Path to file containing OpenAI API key
+	EmbeddingOpenAIBaseURL    string `yaml:"embedding_openai_base_url"`     // Base URL for OpenAI API (default: https://api.openai.com/v1)
 	EmbeddingOllamaURL        string `yaml:"embedding_ollama_url"`          // URL for Ollama service (default: http://localhost:11434)
 }
 
@@ -454,11 +460,17 @@ func mergeConfig(dest, src *Config) {
 		if src.Embedding.VoyageAPIKeyFile != "" {
 			dest.Embedding.VoyageAPIKeyFile = src.Embedding.VoyageAPIKeyFile
 		}
+		if src.Embedding.VoyageBaseURL != "" {
+			dest.Embedding.VoyageBaseURL = src.Embedding.VoyageBaseURL
+		}
 		if src.Embedding.OpenAIAPIKey != "" {
 			dest.Embedding.OpenAIAPIKey = src.Embedding.OpenAIAPIKey
 		}
 		if src.Embedding.OpenAIAPIKeyFile != "" {
 			dest.Embedding.OpenAIAPIKeyFile = src.Embedding.OpenAIAPIKeyFile
+		}
+		if src.Embedding.OpenAIBaseURL != "" {
+			dest.Embedding.OpenAIBaseURL = src.Embedding.OpenAIBaseURL
 		}
 		if src.Embedding.OllamaURL != "" {
 			dest.Embedding.OllamaURL = src.Embedding.OllamaURL
@@ -480,11 +492,17 @@ func mergeConfig(dest, src *Config) {
 		if src.LLM.AnthropicAPIKeyFile != "" {
 			dest.LLM.AnthropicAPIKeyFile = src.LLM.AnthropicAPIKeyFile
 		}
+		if src.LLM.AnthropicBaseURL != "" {
+			dest.LLM.AnthropicBaseURL = src.LLM.AnthropicBaseURL
+		}
 		if src.LLM.OpenAIAPIKey != "" {
 			dest.LLM.OpenAIAPIKey = src.LLM.OpenAIAPIKey
 		}
 		if src.LLM.OpenAIAPIKeyFile != "" {
 			dest.LLM.OpenAIAPIKeyFile = src.LLM.OpenAIAPIKeyFile
+		}
+		if src.LLM.OpenAIBaseURL != "" {
+			dest.LLM.OpenAIBaseURL = src.LLM.OpenAIBaseURL
 		}
 		if src.LLM.OllamaURL != "" {
 			dest.LLM.OllamaURL = src.LLM.OllamaURL
@@ -515,11 +533,17 @@ func mergeConfig(dest, src *Config) {
 		if src.Knowledgebase.EmbeddingVoyageAPIKeyFile != "" {
 			dest.Knowledgebase.EmbeddingVoyageAPIKeyFile = src.Knowledgebase.EmbeddingVoyageAPIKeyFile
 		}
+		if src.Knowledgebase.EmbeddingVoyageBaseURL != "" {
+			dest.Knowledgebase.EmbeddingVoyageBaseURL = src.Knowledgebase.EmbeddingVoyageBaseURL
+		}
 		if src.Knowledgebase.EmbeddingOpenAIAPIKey != "" {
 			dest.Knowledgebase.EmbeddingOpenAIAPIKey = src.Knowledgebase.EmbeddingOpenAIAPIKey
 		}
 		if src.Knowledgebase.EmbeddingOpenAIAPIKeyFile != "" {
 			dest.Knowledgebase.EmbeddingOpenAIAPIKeyFile = src.Knowledgebase.EmbeddingOpenAIAPIKeyFile
+		}
+		if src.Knowledgebase.EmbeddingOpenAIBaseURL != "" {
+			dest.Knowledgebase.EmbeddingOpenAIBaseURL = src.Knowledgebase.EmbeddingOpenAIBaseURL
 		}
 		if src.Knowledgebase.EmbeddingOllamaURL != "" {
 			dest.Knowledgebase.EmbeddingOllamaURL = src.Knowledgebase.EmbeddingOllamaURL
@@ -709,6 +733,9 @@ func applyEnvironmentVariables(cfg *Config) {
 	}
 	// 3. Direct config value (if set) is already in cfg.Embedding.VoyageAPIKey/OpenAIAPIKey from mergeConfig
 	setStringFromEnv(&cfg.Embedding.OllamaURL, "PGEDGE_OLLAMA_URL")
+	// Base URL overrides for embedding providers (useful for proxies)
+	setStringFromEnv(&cfg.Embedding.VoyageBaseURL, "PGEDGE_VOYAGE_BASE_URL")
+	setStringFromEnv(&cfg.Embedding.OpenAIBaseURL, "PGEDGE_OPENAI_EMBEDDING_BASE_URL")
 
 	// LLM
 	setBoolFromEnv(&cfg.LLM.Enabled, "PGEDGE_LLM_ENABLED")
@@ -733,6 +760,9 @@ func applyEnvironmentVariables(cfg *Config) {
 	}
 	// 3. Direct config value (if set) is already in cfg.LLM.AnthropicAPIKey/OpenAIAPIKey from mergeConfig
 	setStringFromEnv(&cfg.LLM.OllamaURL, "PGEDGE_OLLAMA_URL")
+	// Base URL overrides for LLM providers (useful for proxies)
+	setStringFromEnv(&cfg.LLM.AnthropicBaseURL, "PGEDGE_ANTHROPIC_BASE_URL")
+	setStringFromEnv(&cfg.LLM.OpenAIBaseURL, "PGEDGE_OPENAI_BASE_URL")
 	setIntFromEnv(&cfg.LLM.MaxTokens, "PGEDGE_LLM_MAX_TOKENS")
 	// Temperature is a float, but we'll handle it specially
 	if val := os.Getenv("PGEDGE_LLM_TEMPERATURE"); val != "" {
@@ -767,6 +797,9 @@ func applyEnvironmentVariables(cfg *Config) {
 	}
 	// 3. Direct config value (if set) is already in cfg.Knowledgebase.EmbeddingVoyageAPIKey/EmbeddingOpenAIAPIKey from mergeConfig
 	setStringFromEnv(&cfg.Knowledgebase.EmbeddingOllamaURL, "PGEDGE_KB_OLLAMA_URL")
+	// Base URL overrides for KB embedding providers (useful for proxies)
+	setStringFromEnv(&cfg.Knowledgebase.EmbeddingVoyageBaseURL, "PGEDGE_KB_VOYAGE_BASE_URL")
+	setStringFromEnv(&cfg.Knowledgebase.EmbeddingOpenAIBaseURL, "PGEDGE_KB_OPENAI_BASE_URL")
 
 	// Secret file
 	setStringFromEnv(&cfg.SecretFile, "PGEDGE_SECRET_FILE")

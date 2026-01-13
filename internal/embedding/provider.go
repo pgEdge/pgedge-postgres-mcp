@@ -36,10 +36,12 @@ type Config struct {
 	Model    string // Model name (provider-specific)
 
 	// Voyage AI-specific
-	VoyageAPIKey string
+	VoyageAPIKey  string
+	VoyageBaseURL string // Base URL for Voyage API (optional, uses default if empty)
 
 	// OpenAI-specific
-	OpenAIAPIKey string
+	OpenAIAPIKey  string
+	OpenAIBaseURL string // Base URL for OpenAI API (optional, uses default if empty)
 
 	// Ollama-specific
 	OllamaURL string
@@ -52,13 +54,13 @@ func NewProvider(cfg Config) (Provider, error) {
 		if cfg.VoyageAPIKey == "" {
 			return nil, fmt.Errorf("Voyage AI API key is required when provider is 'voyage'")
 		}
-		return NewVoyageProvider(cfg.VoyageAPIKey, cfg.Model)
+		return NewVoyageProvider(cfg.VoyageAPIKey, cfg.Model, cfg.VoyageBaseURL)
 
 	case "openai":
 		if cfg.OpenAIAPIKey == "" {
 			return nil, fmt.Errorf("OpenAI API key is required when provider is 'openai'")
 		}
-		return NewOpenAIProvider(cfg.OpenAIAPIKey, cfg.Model)
+		return NewOpenAIProvider(cfg.OpenAIAPIKey, cfg.Model, cfg.OpenAIBaseURL)
 
 	case "ollama":
 		if cfg.OllamaURL == "" {

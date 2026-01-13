@@ -745,13 +745,15 @@ func main() {
 			if cfg.LLM.Enabled {
 				// Create LLM proxy configuration
 				llmConfig := &llmproxy.Config{
-					Provider:        cfg.LLM.Provider,
-					Model:           cfg.LLM.Model,
-					AnthropicAPIKey: cfg.LLM.AnthropicAPIKey,
-					OpenAIAPIKey:    cfg.LLM.OpenAIAPIKey,
-					OllamaURL:       cfg.LLM.OllamaURL,
-					MaxTokens:       cfg.LLM.MaxTokens,
-					Temperature:     cfg.LLM.Temperature,
+					Provider:         cfg.LLM.Provider,
+					Model:            cfg.LLM.Model,
+					AnthropicAPIKey:  cfg.LLM.AnthropicAPIKey,
+					AnthropicBaseURL: cfg.LLM.AnthropicBaseURL,
+					OpenAIAPIKey:     cfg.LLM.OpenAIAPIKey,
+					OpenAIBaseURL:    cfg.LLM.OpenAIBaseURL,
+					OllamaURL:        cfg.LLM.OllamaURL,
+					MaxTokens:        cfg.LLM.MaxTokens,
+					Temperature:      cfg.LLM.Temperature,
 				}
 
 				// Provider/model listing don't require auth (needed for login page)
