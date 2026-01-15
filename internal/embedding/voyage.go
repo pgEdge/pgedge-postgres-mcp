@@ -61,8 +61,11 @@ var voyageModelDimensions = map[string]int{
 	"voyage-2-lite": 1024,
 }
 
-// NewVoyageProvider creates a new Voyage AI embedding provider
-// baseURL can be empty to use the default (https://api.voyageai.com/v1/embeddings)
+// NewVoyageProvider creates a new Voyage AI embedding provider.
+// baseURL can be empty to use the default (https://api.voyageai.com/v1/embeddings).
+// NOTE: Unlike some other providers, custom baseURL values must include the full
+// API path (e.g., "https://proxy.example.com/v1/embeddings"), not just the base
+// host. The URL is used directly without appending any path.
 func NewVoyageProvider(apiKey, model, baseURL string) (*VoyageProvider, error) {
 	if apiKey == "" {
 		return nil, fmt.Errorf("Voyage AI API key cannot be empty")
