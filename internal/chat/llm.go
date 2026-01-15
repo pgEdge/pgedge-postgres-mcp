@@ -17,6 +17,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
 	"time"
@@ -92,11 +93,36 @@ type anthropicClient struct {
 	client      *http.Client
 }
 
+// ValidateBaseURL validates and normalizes a base URL for API clients.
+// Returns the normalized URL or an error if the URL is invalid.
+func ValidateBaseURL(baseURL, providerName string) (string, error) {
+	baseURL = strings.TrimSpace(baseURL)
+	baseURL = strings.TrimSuffix(baseURL, "/")
+
+	parsedURL, err := url.Parse(baseURL)
+	if err != nil {
+		return "", fmt.Errorf("invalid %s base URL: %w", providerName, err)
+	}
+	if parsedURL.Scheme != "https" && parsedURL.Scheme != "http" {
+		return "", fmt.Errorf("%s base URL must use http or https scheme, got: %s", providerName, parsedURL.Scheme)
+	}
+	if parsedURL.Host == "" {
+		return "", fmt.Errorf("%s base URL must include a host", providerName)
+	}
+	return baseURL, nil
+}
+
 // NewAnthropicClient creates a new Anthropic client
 // baseURL can be empty to use the default (https://api.anthropic.com)
-func NewAnthropicClient(apiKey, baseURL, model string, maxTokens int, temperature float64, debug bool) LLMClient {
+func NewAnthropicClient(apiKey, baseURL, model string, maxTokens int, temperature float64, debug bool) (LLMClient, error) {
 	if baseURL == "" {
 		baseURL = "https://api.anthropic.com"
+	} else {
+		var err error
+		baseURL, err = ValidateBaseURL(baseURL, "Anthropic")
+		if err != nil {
+			return nil, err
+		}
 	}
 	return &anthropicClient{
 		apiKey:      apiKey,
@@ -106,7 +132,7 @@ func NewAnthropicClient(apiKey, baseURL, model string, maxTokens int, temperatur
 		temperature: temperature,
 		debug:       debug,
 		client:      &http.Client{},
-	}
+	}, nil
 }
 
 type anthropicRequest struct {
@@ -828,9 +854,15 @@ type openaiClient struct {
 
 // NewOpenAIClient creates a new OpenAI client
 // baseURL can be empty to use the default (https://api.openai.com)
-func NewOpenAIClient(apiKey, baseURL, model string, maxTokens int, temperature float64, debug bool) LLMClient {
+func NewOpenAIClient(apiKey, baseURL, model string, maxTokens int, temperature float64, debug bool) (LLMClient, error) {
 	if baseURL == "" {
 		baseURL = "https://api.openai.com"
+	} else {
+		var err error
+		baseURL, err = ValidateBaseURL(baseURL, "OpenAI")
+		if err != nil {
+			return nil, err
+		}
 	}
 	return &openaiClient{
 		apiKey:      apiKey,
@@ -840,7 +872,7 @@ func NewOpenAIClient(apiKey, baseURL, model string, maxTokens int, temperature f
 		temperature: temperature,
 		debug:       debug,
 		client:      &http.Client{},
-	}
+	}, nil
 }
 
 type openaiMessage struct {

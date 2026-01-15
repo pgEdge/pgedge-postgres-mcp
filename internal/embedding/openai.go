@@ -17,6 +17,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
+	"strings"
 	"time"
 )
 
@@ -81,6 +83,21 @@ func NewOpenAIProvider(apiKey, model, baseURL string) (*OpenAIProvider, error) {
 	// Default base URL if not specified
 	if baseURL == "" {
 		baseURL = "https://api.openai.com/v1"
+	} else {
+		// Validate and normalize the base URL
+		baseURL = strings.TrimSpace(baseURL)
+		baseURL = strings.TrimSuffix(baseURL, "/")
+
+		parsedURL, err := url.Parse(baseURL)
+		if err != nil {
+			return nil, fmt.Errorf("invalid OpenAI base URL: %w", err)
+		}
+		if parsedURL.Scheme != "https" && parsedURL.Scheme != "http" {
+			return nil, fmt.Errorf("OpenAI base URL must use http or https scheme, got: %s", parsedURL.Scheme)
+		}
+		if parsedURL.Host == "" {
+			return nil, fmt.Errorf("OpenAI base URL must include a host")
+		}
 	}
 
 	// Mask the API key for logging (show only first/last few characters)

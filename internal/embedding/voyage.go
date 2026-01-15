@@ -17,6 +17,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
+	"strings"
 	"time"
 )
 
@@ -79,6 +81,21 @@ func NewVoyageProvider(apiKey, model, baseURL string) (*VoyageProvider, error) {
 	// Default base URL if not specified
 	if baseURL == "" {
 		baseURL = "https://api.voyageai.com/v1/embeddings"
+	} else {
+		// Validate and normalize the base URL
+		baseURL = strings.TrimSpace(baseURL)
+		baseURL = strings.TrimSuffix(baseURL, "/")
+
+		parsedURL, err := url.Parse(baseURL)
+		if err != nil {
+			return nil, fmt.Errorf("invalid Voyage AI base URL: %w", err)
+		}
+		if parsedURL.Scheme != "https" && parsedURL.Scheme != "http" {
+			return nil, fmt.Errorf("Voyage AI base URL must use http or https scheme, got: %s", parsedURL.Scheme)
+		}
+		if parsedURL.Host == "" {
+			return nil, fmt.Errorf("Voyage AI base URL must include a host")
+		}
 	}
 
 	// Mask the API key for logging (show only first/last few characters)

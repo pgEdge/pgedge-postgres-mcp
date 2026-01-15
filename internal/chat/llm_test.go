@@ -634,3 +634,215 @@ func TestOpenAIClient_GPT5UsesMaxCompletionTokens(t *testing.T) {
 		})
 	}
 }
+
+func TestNewAnthropicClient_BaseURL(t *testing.T) {
+	t.Run("default base URL when empty", func(t *testing.T) {
+		client, err := NewAnthropicClient("test-key", "", "claude-3-sonnet", 4096, 0.7, false)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		anthropic, ok := client.(*anthropicClient)
+		if !ok {
+			t.Fatal("expected *anthropicClient")
+		}
+		if anthropic.baseURL != "https://api.anthropic.com" {
+			t.Errorf("expected default base URL 'https://api.anthropic.com', got %q", anthropic.baseURL)
+		}
+	})
+
+	t.Run("custom base URL", func(t *testing.T) {
+		client, err := NewAnthropicClient("test-key", "https://proxy.example.com", "claude-3-sonnet", 4096, 0.7, false)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		anthropic, ok := client.(*anthropicClient)
+		if !ok {
+			t.Fatal("expected *anthropicClient")
+		}
+		if anthropic.baseURL != "https://proxy.example.com" {
+			t.Errorf("expected custom base URL, got %q", anthropic.baseURL)
+		}
+	})
+
+	t.Run("base URL with trailing slash normalized", func(t *testing.T) {
+		client, err := NewAnthropicClient("test-key", "https://proxy.example.com/", "claude-3-sonnet", 4096, 0.7, false)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		anthropic, ok := client.(*anthropicClient)
+		if !ok {
+			t.Fatal("expected *anthropicClient")
+		}
+		if anthropic.baseURL != "https://proxy.example.com" {
+			t.Errorf("expected trailing slash to be removed, got %q", anthropic.baseURL)
+		}
+	})
+
+	t.Run("invalid base URL scheme", func(t *testing.T) {
+		_, err := NewAnthropicClient("test-key", "ftp://proxy.example.com", "claude-3-sonnet", 4096, 0.7, false)
+		if err == nil {
+			t.Fatal("expected error for invalid URL scheme")
+		}
+	})
+
+	t.Run("invalid base URL format", func(t *testing.T) {
+		_, err := NewAnthropicClient("test-key", "://invalid", "claude-3-sonnet", 4096, 0.7, false)
+		if err == nil {
+			t.Fatal("expected error for invalid URL format")
+		}
+	})
+
+	t.Run("base URL without host", func(t *testing.T) {
+		_, err := NewAnthropicClient("test-key", "https://", "claude-3-sonnet", 4096, 0.7, false)
+		if err == nil {
+			t.Fatal("expected error for URL without host")
+		}
+	})
+}
+
+func TestNewOpenAIClient_BaseURL(t *testing.T) {
+	t.Run("default base URL when empty", func(t *testing.T) {
+		client, err := NewOpenAIClient("test-key", "", "gpt-4o", 4096, 0.7, false)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		openai, ok := client.(*openaiClient)
+		if !ok {
+			t.Fatal("expected *openaiClient")
+		}
+		if openai.baseURL != "https://api.openai.com" {
+			t.Errorf("expected default base URL 'https://api.openai.com', got %q", openai.baseURL)
+		}
+	})
+
+	t.Run("custom base URL", func(t *testing.T) {
+		client, err := NewOpenAIClient("test-key", "https://proxy.example.com", "gpt-4o", 4096, 0.7, false)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		openai, ok := client.(*openaiClient)
+		if !ok {
+			t.Fatal("expected *openaiClient")
+		}
+		if openai.baseURL != "https://proxy.example.com" {
+			t.Errorf("expected custom base URL, got %q", openai.baseURL)
+		}
+	})
+
+	t.Run("base URL with trailing slash normalized", func(t *testing.T) {
+		client, err := NewOpenAIClient("test-key", "https://proxy.example.com/", "gpt-4o", 4096, 0.7, false)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		openai, ok := client.(*openaiClient)
+		if !ok {
+			t.Fatal("expected *openaiClient")
+		}
+		if openai.baseURL != "https://proxy.example.com" {
+			t.Errorf("expected trailing slash to be removed, got %q", openai.baseURL)
+		}
+	})
+
+	t.Run("invalid base URL scheme", func(t *testing.T) {
+		_, err := NewOpenAIClient("test-key", "ftp://proxy.example.com", "gpt-4o", 4096, 0.7, false)
+		if err == nil {
+			t.Fatal("expected error for invalid URL scheme")
+		}
+	})
+
+	t.Run("invalid base URL format", func(t *testing.T) {
+		_, err := NewOpenAIClient("test-key", "://invalid", "gpt-4o", 4096, 0.7, false)
+		if err == nil {
+			t.Fatal("expected error for invalid URL format")
+		}
+	})
+
+	t.Run("base URL without host", func(t *testing.T) {
+		_, err := NewOpenAIClient("test-key", "https://", "gpt-4o", 4096, 0.7, false)
+		if err == nil {
+			t.Fatal("expected error for URL without host")
+		}
+	})
+}
+
+func TestValidateBaseURL(t *testing.T) {
+	tests := []struct {
+		name        string
+		baseURL     string
+		provider    string
+		wantURL     string
+		wantError   bool
+		errContains string
+	}{
+		{
+			name:      "valid HTTPS URL",
+			baseURL:   "https://api.example.com",
+			provider:  "Test",
+			wantURL:   "https://api.example.com",
+			wantError: false,
+		},
+		{
+			name:      "valid HTTP URL",
+			baseURL:   "http://localhost:8080",
+			provider:  "Test",
+			wantURL:   "http://localhost:8080",
+			wantError: false,
+		},
+		{
+			name:      "trailing slash removed",
+			baseURL:   "https://api.example.com/",
+			provider:  "Test",
+			wantURL:   "https://api.example.com",
+			wantError: false,
+		},
+		{
+			name:      "whitespace trimmed",
+			baseURL:   "  https://api.example.com  ",
+			provider:  "Test",
+			wantURL:   "https://api.example.com",
+			wantError: false,
+		},
+		{
+			name:        "invalid scheme",
+			baseURL:     "ftp://api.example.com",
+			provider:    "Test",
+			wantError:   true,
+			errContains: "must use http or https",
+		},
+		{
+			name:        "missing host",
+			baseURL:     "https://",
+			provider:    "Test",
+			wantError:   true,
+			errContains: "must include a host",
+		},
+		{
+			name:        "invalid URL",
+			baseURL:     "://invalid",
+			provider:    "Test",
+			wantError:   true,
+			errContains: "invalid",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotURL, err := ValidateBaseURL(tt.baseURL, tt.provider)
+			if tt.wantError {
+				if err == nil {
+					t.Fatal("expected error but got none")
+				}
+				if !strings.Contains(err.Error(), tt.errContains) {
+					t.Errorf("error %q should contain %q", err.Error(), tt.errContains)
+				}
+			} else {
+				if err != nil {
+					t.Fatalf("unexpected error: %v", err)
+				}
+				if gotURL != tt.wantURL {
+					t.Errorf("expected URL %q, got %q", tt.wantURL, gotURL)
+				}
+			}
+		})
+	}
+}
