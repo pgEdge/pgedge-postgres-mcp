@@ -28,7 +28,7 @@ services:
             start_period: 30s
 
     # MCP Server
-    mcp-server:
+    postgres-mcp:
         image: ghcr.io/pgedge/postgres-mcp:latest
         container_name: pgedge-quickstart-mcp
         depends_on:
@@ -77,7 +77,7 @@ services:
         image: ghcr.io/pgedge/nla-web:latest
         container_name: pgedge-quickstart-web
         depends_on:
-            mcp-server:
+            postgres-mcp:
                 condition: service_healthy
         ports:
             - "${WEB_CLIENT_PORT:-8081}:8081"
