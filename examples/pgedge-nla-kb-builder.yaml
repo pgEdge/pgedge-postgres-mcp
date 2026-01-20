@@ -127,10 +127,10 @@ sources:
       project_version: "0.1.0"
 
     - git_url: "https://github.com/pgEdge/ace.git"
-      tag: "v1.4.2"
+      tag: "v1.5.1"
       doc_path: "docs"
       project_name: "pgEdge ACE"
-      project_version: "1.4.2"
+      project_version: "1.5.1"
 
     - git_url: "https://github.com/pgEdge/pgedge-vectorizer.git"
       tag: "v1.0-beta1"
@@ -148,7 +148,7 @@ sources:
       tag: "release/2.57.0"
       doc_path: "doc"
       project_name: "pgBackRest"
-      project_version: "2.57.0"
+      project_version: "2.58.0"
 
     - git_url: "https://github.com/postgis/postgis.git"
       tag: "3.5.4"
@@ -173,6 +173,11 @@ sources:
       doc_path: "doc/src"
       project_name: "psycopg2"
       project_version: "2.9.10"
+    - git_url: "https://github.com/pgEdge/pgedge_system_stats.git"
+      tag: "3.2.1"
+      doc_path: ""
+      project_name: "pgEdge System Stats"
+      project_version: "3.2.1"
 
     # Example: Local documentation
     # - local_path: "~/projects/my-docs"
