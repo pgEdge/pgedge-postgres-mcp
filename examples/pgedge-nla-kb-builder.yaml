@@ -103,10 +103,10 @@ sources:
       project_version: "5.0.4"
 
     - git_url: "https://github.com/pgEdge/control-plane.git"
-      tag: "v0.6.1"
+      tag: "v0.6.2"
       doc_path: "docs"
       project_name: "pgEdge Control Plane"
-      project_version: "0.6.1"
+      project_version: "0.6.2"
 
     - git_url: "https://github.com/pgEdge/snowflake.git"
       tag: "v2.4"
