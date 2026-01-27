@@ -1,0 +1,13 @@
+# Force LF line endings for shell scripts to prevent Windows CRLF issues
+# This ensures scripts work correctly in Linux containers regardless of
+# the platform used to clone the repository.
+*.sh text eol=lf
+
+# Dockerfile and docker-compose files should also use LF
+Dockerfile* text eol=lf
+docker-compose*.yml text eol=lf
+docker-compose*.yaml text eol=lf
+
+# Keep batch files with CRLF for Windows compatibility
+*.bat text eol=crlf
+*.cmd text eol=crlf

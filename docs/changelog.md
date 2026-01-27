@@ -11,6 +11,15 @@ and this project adheres to
 
 ### Fixed
 
+- Fixed Docker container failing to start on Windows with the error "exec
+  /app/init-server.sh: no such file or directory". This was caused by Git
+  on Windows converting LF line endings to CRLF, which breaks shell script
+  execution in Linux containers. The fix adds a `.gitattributes` file that
+  forces LF line endings for shell scripts and Dockerfiles, and the
+  Dockerfile now normalizes line endings during the build as a defensive
+  measure. Users who cloned the repository before this fix should run
+  `git add --renormalize . && git checkout -- .` to fix existing files.
+
 - Fixed Web GUI losing connection when switching between databases. The
   server now returns proper JSON error responses when the database is
   temporarily unavailable during switching, and the client handles these

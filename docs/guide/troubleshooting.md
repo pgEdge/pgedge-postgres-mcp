@@ -113,6 +113,45 @@ system-specific.
 * On Linux, you should use `172.17.0.1` or configure a Docker network
   bridge.
 
+### Windows Docker: "exec init-server.sh: no such file or directory"
+
+If the container fails to start on Windows with the error `exec
+/app/init-server.sh: no such file or directory`, this is caused by
+Windows-style CRLF line endings in the shell script. Git on Windows
+converts LF to CRLF by default, which causes the Linux container to fail
+when executing the script.
+
+The repository includes a `.gitattributes` file that prevents this issue
+by forcing LF line endings for shell scripts. If you cloned the
+repository before this fix was added, you can resolve the issue with the
+following steps:
+
+```bash
+# Re-normalize line endings after pulling the latest changes
+git add --renormalize .
+git checkout -- .
+
+# Rebuild the Docker images
+docker-compose build --no-cache
+```
+
+If you prefer a manual fix without pulling updates, you can convert the
+line endings directly:
+
+```powershell
+# PowerShell: Convert CRLF to LF
+(Get-Content docker/init-server.sh -Raw) -replace "`r`n", "`n" |
+    Set-Content docker/init-server.sh -NoNewline
+```
+
+```bash
+# Git Bash or WSL: Convert CRLF to LF
+sed -i 's/\r$//' docker/init-server.sh
+```
+
+After converting the line endings, rebuild the Docker images with
+`docker-compose build --no-cache`.
+
 ## Troubleshooting Configuration Issues
 
 This section provides solutions for common configuration file issues.

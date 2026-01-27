@@ -50,8 +50,14 @@ WORKDIR /app
 # Copy the binary from builder
 COPY --from=builder --chown=1001:1001 /workspace/pgedge-postgres-mcp /app/pgedge-postgres-mcp
 
-# Copy initialization script (must be executable and owned by root to create directories)
-COPY --chmod=755 docker/init-server.sh /app/init-server.sh
+# Copy initialization script and normalize line endings
+# The sed command removes Windows CRLF line endings that may be introduced
+# when cloning on Windows with core.autocrlf=true, which would otherwise cause
+# "exec format error" or "no such file or directory" errors in the container.
+COPY docker/init-server.sh /tmp/init-server.sh
+RUN sed 's/\r$//' /tmp/init-server.sh > /app/init-server.sh && \
+    chmod 755 /app/init-server.sh && \
+    rm /tmp/init-server.sh
 
 # Create knowledgebase directory
 RUN mkdir -p /usr/share/pgedge/nla-kb && chown 1001:1001 /usr/share/pgedge/nla-kb
