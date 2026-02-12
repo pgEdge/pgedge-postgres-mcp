@@ -13,7 +13,7 @@ before:
         # Create bin directory for kb.db output
         - mkdir -p bin
         # Generate kb.db using Ollama Cloud (requires OLLAMA_API_KEY env var)
-        - ./pgedge-nla-kb-builder --config examples/pgedge-nla-kb-builder-build.yaml
+        - ./pgedge-nla-kb-builder --config examples/pgedge-nla-kb-builder-build.yaml --max-retries 50
 
 builds:
     # MCP Server - arm64 (all platforms)
