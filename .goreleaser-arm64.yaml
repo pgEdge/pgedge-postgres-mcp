@@ -9,7 +9,7 @@ before:
         # Format code
         - go fmt ./...
         # Build kb-builder for generating kb.db
-        - sh -c 'CGO_ENABLED=1 go build -o pgedge-nla-kb-builder ./cmd/kb-builder'
+        - sh -c 'CGO_ENABLED=0 go build -o pgedge-nla-kb-builder ./cmd/kb-builder'
         # Create bin directory for kb.db output
         - mkdir -p bin
         # Generate kb.db using Ollama Cloud (requires OLLAMA_API_KEY env var)
@@ -52,18 +52,17 @@ builds:
           - -X main.date={{.Date}}
           - -X main.builtBy=goreleaser
 
-    # KB Builder - LINUX ONLY ARM64 - native build with CGO
-    - id: pgedge-nla-kb-builder-linux-arm64
+    # KB Builder - arm64 (all platforms, pure Go)
+    - id: pgedge-nla-kb-builder-arm64
       binary: pgedge-nla-kb-builder
       main: ./cmd/kb-builder
       env:
-          - CGO_ENABLED=1
+          - CGO_ENABLED=0
       goos:
-          - linux  # Linux only - KB builder is server-side tool
+          - linux
+          - darwin
       goarch:
           - arm64
-      # Skip if not on Linux (for local testing on macOS)
-      skip: '{{ ne .Runtime.Goos "linux" }}'
       ldflags:
           - -s -w
           - -X main.version={{.Version}}
@@ -94,11 +93,11 @@ archives:
           - LICENSE.md
           - docs/**/*
 
-    # KB Builder archive for Linux ARM64
-    - id: kb-builder-linux-arm64
+    # KB Builder archive for ARM64
+    - id: kb-builder-arm64
       builds:
-          - pgedge-nla-kb-builder-linux-arm64
-      name_template: "{{ .ProjectName }}-kb-builder_{{ .Version }}_linux_arm64"
+          - pgedge-nla-kb-builder-arm64
+      name_template: "{{ .ProjectName }}-kb-builder_{{ .Version }}_{{ .Os }}_arm64"
       allow_different_binary_count: true
       files:
           - README.md

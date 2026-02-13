@@ -17,7 +17,7 @@ import (
 	"math"
 	"strings"
 
-	_ "github.com/mattn/go-sqlite3"
+	_ "modernc.org/sqlite"
 	"pgedge-postgres-mcp/internal/kbtypes"
 )
 
@@ -28,7 +28,7 @@ type Database struct {
 
 // Open opens or creates the knowledgebase database
 func Open(path string) (*Database, error) {
-	db, err := sql.Open("sqlite3", path)
+	db, err := sql.Open("sqlite", path)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open database: %w", err)
 	}
