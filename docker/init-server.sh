@@ -264,8 +264,7 @@ if [ -n "$INIT_TOKENS" ]; then
     chown 1001:1001 "$TOKEN_FILE"
 
     echo "Created token file with $(echo "$INIT_TOKENS" | tr ',' '\n' | wc -l | tr -d ' ') tokens"
-    echo "Token file contents:"
-    cat "$TOKEN_FILE"
+    echo "Token file initialized"
 else
     # Create empty tokens.json (no tokens initialized)
     # Structure must match TokenStore struct: {"tokens": {}}
@@ -308,7 +307,7 @@ if [ -f "$USERS_FILE" ]; then
 fi
 
 # Start the MCP server with all arguments
-echo "Starting MCP server with arguments: $ARGS"
+echo "Starting MCP server"
 
 # Switch to mcp user and exec the server (use runuser which is available in ubi9-minimal)
 exec runuser mcp /bin/sh -c "exec /app/pgedge-postgres-mcp $ARGS"
