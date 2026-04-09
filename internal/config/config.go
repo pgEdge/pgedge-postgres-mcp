@@ -431,15 +431,15 @@ func (cfg *NamedDatabaseConfig) IsAllowedForLLMSwitching() bool {
 
 // EmbeddingConfig holds embedding generation settings
 type EmbeddingConfig struct {
-	Enabled          bool   `yaml:"enabled"`             // Whether embedding generation is enabled (default: false)
-	Provider         string `yaml:"provider"`            // "voyage", "openai", or "ollama"
-	Model            string `yaml:"model"`               // Provider-specific model name
-	VoyageAPIKey     string `yaml:"voyage_api_key"`      // API key for Voyage AI (direct - discouraged, use api_key_file or env var)
-	VoyageAPIKeyFile string `yaml:"voyage_api_key_file"` // Path to file containing Voyage API key
-	VoyageBaseURL    string `yaml:"voyage_base_url"`     // Base URL for Voyage API (default: https://api.voyageai.com/v1/embeddings)
-	OpenAIAPIKey     string `yaml:"openai_api_key"`      // API key for OpenAI (direct - discouraged, use api_key_file or env var)
-	OpenAIAPIKeyFile string `yaml:"openai_api_key_file"` // Path to file containing OpenAI API key
-	OpenAIBaseURL    string `yaml:"openai_base_url"`     // Base URL for OpenAI API (default: https://api.openai.com/v1)
+	Enabled          bool              `yaml:"enabled"`             // Whether embedding generation is enabled (default: false)
+	Provider         string            `yaml:"provider"`            // "voyage", "openai", or "ollama"
+	Model            string            `yaml:"model"`               // Provider-specific model name
+	VoyageAPIKey     string            `yaml:"voyage_api_key"`      // API key for Voyage AI (direct - discouraged, use api_key_file or env var)
+	VoyageAPIKeyFile string            `yaml:"voyage_api_key_file"` // Path to file containing Voyage API key
+	VoyageBaseURL    string            `yaml:"voyage_base_url"`     // Base URL for Voyage API (default: https://api.voyageai.com/v1/embeddings)
+	OpenAIAPIKey     string            `yaml:"openai_api_key"`      // API key for OpenAI (direct - discouraged, use api_key_file or env var)
+	OpenAIAPIKeyFile string            `yaml:"openai_api_key_file"` // Path to file containing OpenAI API key
+	OpenAIBaseURL    string            `yaml:"openai_base_url"`     // Base URL for OpenAI API (default: https://api.openai.com/v1)
 	OllamaURL        string            `yaml:"ollama_url"`          // URL for Ollama service (default: http://localhost:11434)
 	GeminiAPIKey     string            `yaml:"gemini_api_key"`      // API key for Google Gemini (direct - discouraged, use api_key_file or env var)
 	GeminiAPIKeyFile string            `yaml:"gemini_api_key_file"` // Path to file containing Gemini API key
@@ -449,15 +449,15 @@ type EmbeddingConfig struct {
 
 // LLMConfig holds LLM configuration for web client chat proxy
 type LLMConfig struct {
-	Enabled             bool    `yaml:"enabled"`                // Whether LLM proxy is enabled (default: false)
-	Provider            string  `yaml:"provider"`               // "anthropic", "openai", or "ollama"
-	Model               string  `yaml:"model"`                  // Provider-specific model name
-	AnthropicAPIKey     string  `yaml:"anthropic_api_key"`      // API key for Anthropic (direct - discouraged, use api_key_file or env var instead)
-	AnthropicAPIKeyFile string  `yaml:"anthropic_api_key_file"` // Path to file containing Anthropic API key
-	AnthropicBaseURL    string  `yaml:"anthropic_base_url"`     // Base URL for Anthropic API (default: https://api.anthropic.com)
-	OpenAIAPIKey        string  `yaml:"openai_api_key"`         // API key for OpenAI (direct - discouraged, use api_key_file or env var instead)
-	OpenAIAPIKeyFile    string  `yaml:"openai_api_key_file"`    // Path to file containing OpenAI API key
-	OpenAIBaseURL       string  `yaml:"openai_base_url"`        // Base URL for OpenAI API (default: https://api.openai.com)
+	Enabled             bool              `yaml:"enabled"`                // Whether LLM proxy is enabled (default: false)
+	Provider            string            `yaml:"provider"`               // "anthropic", "openai", or "ollama"
+	Model               string            `yaml:"model"`                  // Provider-specific model name
+	AnthropicAPIKey     string            `yaml:"anthropic_api_key"`      // API key for Anthropic (direct - discouraged, use api_key_file or env var instead)
+	AnthropicAPIKeyFile string            `yaml:"anthropic_api_key_file"` // Path to file containing Anthropic API key
+	AnthropicBaseURL    string            `yaml:"anthropic_base_url"`     // Base URL for Anthropic API (default: https://api.anthropic.com)
+	OpenAIAPIKey        string            `yaml:"openai_api_key"`         // API key for OpenAI (direct - discouraged, use api_key_file or env var instead)
+	OpenAIAPIKeyFile    string            `yaml:"openai_api_key_file"`    // Path to file containing OpenAI API key
+	OpenAIBaseURL       string            `yaml:"openai_base_url"`        // Base URL for OpenAI API (default: https://api.openai.com)
 	OllamaURL           string            `yaml:"ollama_url"`             // URL for Ollama service (default: http://localhost:11434)
 	GeminiAPIKey        string            `yaml:"gemini_api_key"`         // API key for Google Gemini (direct - discouraged, use api_key_file or env var)
 	GeminiAPIKeyFile    string            `yaml:"gemini_api_key_file"`    // Path to file containing Gemini API key
@@ -473,14 +473,14 @@ type KnowledgebaseConfig struct {
 	DatabasePath string `yaml:"database_path"` // Path to SQLite knowledgebase database
 
 	// Embedding provider configuration for KB similarity search (independent of generate_embeddings tool)
-	EmbeddingProvider         string `yaml:"embedding_provider"`            // "voyage", "openai", or "ollama"
-	EmbeddingModel            string `yaml:"embedding_model"`               // Provider-specific model name
-	EmbeddingVoyageAPIKey     string `yaml:"embedding_voyage_api_key"`      // API key for Voyage AI
-	EmbeddingVoyageAPIKeyFile string `yaml:"embedding_voyage_api_key_file"` // Path to file containing Voyage API key
-	EmbeddingVoyageBaseURL    string `yaml:"embedding_voyage_base_url"`     // Base URL for Voyage API (default: https://api.voyageai.com/v1/embeddings)
-	EmbeddingOpenAIAPIKey     string `yaml:"embedding_openai_api_key"`      // API key for OpenAI
-	EmbeddingOpenAIAPIKeyFile string `yaml:"embedding_openai_api_key_file"` // Path to file containing OpenAI API key
-	EmbeddingOpenAIBaseURL    string `yaml:"embedding_openai_base_url"`     // Base URL for OpenAI API (default: https://api.openai.com/v1)
+	EmbeddingProvider         string            `yaml:"embedding_provider"`            // "voyage", "openai", or "ollama"
+	EmbeddingModel            string            `yaml:"embedding_model"`               // Provider-specific model name
+	EmbeddingVoyageAPIKey     string            `yaml:"embedding_voyage_api_key"`      // API key for Voyage AI
+	EmbeddingVoyageAPIKeyFile string            `yaml:"embedding_voyage_api_key_file"` // Path to file containing Voyage API key
+	EmbeddingVoyageBaseURL    string            `yaml:"embedding_voyage_base_url"`     // Base URL for Voyage API (default: https://api.voyageai.com/v1/embeddings)
+	EmbeddingOpenAIAPIKey     string            `yaml:"embedding_openai_api_key"`      // API key for OpenAI
+	EmbeddingOpenAIAPIKeyFile string            `yaml:"embedding_openai_api_key_file"` // Path to file containing OpenAI API key
+	EmbeddingOpenAIBaseURL    string            `yaml:"embedding_openai_base_url"`     // Base URL for OpenAI API (default: https://api.openai.com/v1)
 	EmbeddingOllamaURL        string            `yaml:"embedding_ollama_url"`          // URL for Ollama service (default: http://localhost:11434)
 	EmbeddingGeminiAPIKey     string            `yaml:"embedding_gemini_api_key"`      // API key for Google Gemini
 	EmbeddingGeminiAPIKeyFile string            `yaml:"embedding_gemini_api_key_file"` // Path to file containing Gemini API key
