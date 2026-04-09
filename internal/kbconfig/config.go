@@ -55,6 +55,7 @@ type EmbeddingConfig struct {
 	OpenAI OpenAIConfig `yaml:"openai"`
 	Voyage VoyageConfig `yaml:"voyage"`
 	Ollama OllamaConfig `yaml:"ollama"`
+	Gemini GeminiConfig `yaml:"gemini"`
 }
 
 // OpenAIConfig contains OpenAI embedding configuration
@@ -80,6 +81,15 @@ type OllamaConfig struct {
 	Endpoint      string `yaml:"endpoint"`       // e.g., "http://localhost:11434"
 	Model         string `yaml:"model"`          // e.g., "nomic-embed-text"
 	ContextLength int    `yaml:"context_length"` // Context window size (num_ctx)
+}
+
+// GeminiConfig contains Gemini embedding configuration
+type GeminiConfig struct {
+	Enabled    bool   `yaml:"enabled"`
+	APIKeyFile string `yaml:"api_key_file"`
+	APIKey     string // Loaded at runtime, not from YAML
+	Model      string `yaml:"model"`
+	Dimensions int    `yaml:"dimensions"`
 }
 
 // Load reads and parses the configuration file
@@ -174,6 +184,23 @@ func applyDefaults(config *Config, configPath string) error {
 		}
 	}
 
+	// Default Gemini settings
+	if config.Embeddings.Gemini.Enabled {
+		if config.Embeddings.Gemini.APIKeyFile == "" {
+			home, err := os.UserHomeDir()
+			if err != nil {
+				return fmt.Errorf("failed to get home directory: %w", err)
+			}
+			config.Embeddings.Gemini.APIKeyFile = filepath.Join(home, ".gemini-api-key")
+		}
+		if config.Embeddings.Gemini.Model == "" {
+			config.Embeddings.Gemini.Model = "text-embedding-004"
+		}
+		if config.Embeddings.Gemini.Dimensions == 0 {
+			config.Embeddings.Gemini.Dimensions = 768
+		}
+	}
+
 	// Expand paths with ~
 	config.DatabasePath = expandPath(config.DatabasePath)
 	config.DocSourcePath = expandPath(config.DocSourcePath)
@@ -182,6 +209,9 @@ func applyDefaults(config *Config, configPath string) error {
 	}
 	if config.Embeddings.Voyage.APIKeyFile != "" {
 		config.Embeddings.Voyage.APIKeyFile = expandPath(config.Embeddings.Voyage.APIKeyFile)
+	}
+	if config.Embeddings.Gemini.APIKeyFile != "" {
+		config.Embeddings.Gemini.APIKeyFile = expandPath(config.Embeddings.Gemini.APIKeyFile)
 	}
 
 	return nil
@@ -215,7 +245,8 @@ func validate(config *Config) error {
 	// Check that at least one embedding provider is enabled
 	if !config.Embeddings.OpenAI.Enabled &&
 		!config.Embeddings.Voyage.Enabled &&
-		!config.Embeddings.Ollama.Enabled {
+		!config.Embeddings.Ollama.Enabled &&
+		!config.Embeddings.Gemini.Enabled {
 		return fmt.Errorf("at least one embedding provider must be enabled")
 	}
 
@@ -238,6 +269,14 @@ func loadAPIKeys(config *Config) error {
 			return fmt.Errorf("Voyage API key: %w", err)
 		}
 		config.Embeddings.Voyage.APIKey = key
+	}
+
+	if config.Embeddings.Gemini.Enabled {
+		key, err := readAPIKey(config.Embeddings.Gemini.APIKeyFile)
+		if err != nil {
+			return fmt.Errorf("Gemini API key: %w", err)
+		}
+		config.Embeddings.Gemini.APIKey = key
 	}
 
 	return nil

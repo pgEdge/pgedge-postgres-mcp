@@ -66,6 +66,7 @@ func (d *Database) createSchema() error {
         openai_embedding BLOB,
         voyage_embedding BLOB,
         ollama_embedding BLOB,
+        gemini_embedding BLOB,
 
         -- Metadata
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -110,8 +111,8 @@ func (d *Database) InsertChunks(chunks []*kbtypes.Chunk) error {
 	stmt, err := tx.Prepare(`
         INSERT INTO chunks (
             text, title, section, project_name, project_version, file_path, source_file_checksum,
-            openai_embedding, voyage_embedding, ollama_embedding
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            openai_embedding, voyage_embedding, ollama_embedding, gemini_embedding
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `)
 	if err != nil {
 		return fmt.Errorf("failed to prepare statement: %w", err)
@@ -123,7 +124,7 @@ func (d *Database) InsertChunks(chunks []*kbtypes.Chunk) error {
 
 	for i, chunk := range chunks {
 		// Serialize embeddings to BLOB
-		var openaiBlob, voyageBlob, ollamaBlob []byte
+		var openaiBlob, voyageBlob, ollamaBlob, geminiBlob []byte
 
 		if len(chunk.OpenAIEmbedding) > 0 {
 			openaiBlob = serializeEmbedding(chunk.OpenAIEmbedding)
@@ -133,6 +134,9 @@ func (d *Database) InsertChunks(chunks []*kbtypes.Chunk) error {
 		}
 		if len(chunk.OllamaEmbedding) > 0 {
 			ollamaBlob = serializeEmbedding(chunk.OllamaEmbedding)
+		}
+		if len(chunk.GeminiEmbedding) > 0 {
+			geminiBlob = serializeEmbedding(chunk.GeminiEmbedding)
 		}
 
 		_, err := stmt.Exec(
@@ -146,6 +150,7 @@ func (d *Database) InsertChunks(chunks []*kbtypes.Chunk) error {
 			openaiBlob,
 			voyageBlob,
 			ollamaBlob,
+			geminiBlob,
 		)
 		if err != nil {
 			return fmt.Errorf("failed to insert chunk %d: %w", i, err)
@@ -271,7 +276,7 @@ func (d *Database) GetStats() (map[string]interface{}, error) {
 func (d *Database) SearchChunks(query string, limit int) ([]*kbtypes.Chunk, error) {
 	rows, err := d.db.Query(`
         SELECT id, text, title, section, project_name, project_version, file_path,
-               openai_embedding, voyage_embedding, ollama_embedding
+               openai_embedding, voyage_embedding, ollama_embedding, gemini_embedding
         FROM chunks
         WHERE text LIKE ?
         LIMIT ?
@@ -285,10 +290,10 @@ func (d *Database) SearchChunks(query string, limit int) ([]*kbtypes.Chunk, erro
 	for rows.Next() {
 		var id int
 		var text, title, section, projectName, projectVersion, filePath string
-		var openaiBlob, voyageBlob, ollamaBlob []byte
+		var openaiBlob, voyageBlob, ollamaBlob, geminiBlob []byte
 
 		err := rows.Scan(&id, &text, &title, &section, &projectName, &projectVersion,
-			&filePath, &openaiBlob, &voyageBlob, &ollamaBlob)
+			&filePath, &openaiBlob, &voyageBlob, &ollamaBlob, &geminiBlob)
 		if err != nil {
 			return nil, err
 		}
@@ -303,6 +308,7 @@ func (d *Database) SearchChunks(query string, limit int) ([]*kbtypes.Chunk, erro
 			OpenAIEmbedding: deserializeEmbedding(openaiBlob),
 			VoyageEmbedding: deserializeEmbedding(voyageBlob),
 			OllamaEmbedding: deserializeEmbedding(ollamaBlob),
+			GeminiEmbedding: deserializeEmbedding(geminiBlob),
 		}
 
 		chunks = append(chunks, chunk)
@@ -315,7 +321,7 @@ func (d *Database) SearchChunks(query string, limit int) ([]*kbtypes.Chunk, erro
 func (d *Database) GetAllChunks() ([]*kbtypes.Chunk, error) {
 	rows, err := d.db.Query(`
         SELECT id, text, title, section, project_name, project_version, file_path,
-               openai_embedding, voyage_embedding, ollama_embedding
+               openai_embedding, voyage_embedding, ollama_embedding, gemini_embedding
         FROM chunks
     `)
 	if err != nil {
@@ -327,10 +333,10 @@ func (d *Database) GetAllChunks() ([]*kbtypes.Chunk, error) {
 	for rows.Next() {
 		var id int
 		var text, title, section, projectName, projectVersion, filePath string
-		var openaiBlob, voyageBlob, ollamaBlob []byte
+		var openaiBlob, voyageBlob, ollamaBlob, geminiBlob []byte
 
 		err := rows.Scan(&id, &text, &title, &section, &projectName, &projectVersion,
-			&filePath, &openaiBlob, &voyageBlob, &ollamaBlob)
+			&filePath, &openaiBlob, &voyageBlob, &ollamaBlob, &geminiBlob)
 		if err != nil {
 			return nil, err
 		}
@@ -346,6 +352,7 @@ func (d *Database) GetAllChunks() ([]*kbtypes.Chunk, error) {
 			OpenAIEmbedding: deserializeEmbedding(openaiBlob),
 			VoyageEmbedding: deserializeEmbedding(voyageBlob),
 			OllamaEmbedding: deserializeEmbedding(ollamaBlob),
+			GeminiEmbedding: deserializeEmbedding(geminiBlob),
 		}
 
 		chunks = append(chunks, chunk)
@@ -369,7 +376,8 @@ func (d *Database) UpdateChunkEmbeddings(chunks []*kbtypes.Chunk) error {
         UPDATE chunks
         SET openai_embedding = ?,
             voyage_embedding = ?,
-            ollama_embedding = ?
+            ollama_embedding = ?,
+            gemini_embedding = ?
         WHERE id = ?
     `)
 	if err != nil {
@@ -381,8 +389,9 @@ func (d *Database) UpdateChunkEmbeddings(chunks []*kbtypes.Chunk) error {
 		openaiBlob := serializeEmbedding(chunk.OpenAIEmbedding)
 		voyageBlob := serializeEmbedding(chunk.VoyageEmbedding)
 		ollamaBlob := serializeEmbedding(chunk.OllamaEmbedding)
+		geminiBlob := serializeEmbedding(chunk.GeminiEmbedding)
 
-		_, err := stmt.Exec(openaiBlob, voyageBlob, ollamaBlob, chunk.ID)
+		_, err := stmt.Exec(openaiBlob, voyageBlob, ollamaBlob, geminiBlob, chunk.ID)
 		if err != nil {
 			return err
 		}
@@ -472,6 +481,32 @@ func (d *Database) UpdateOllamaEmbeddings(chunks []*kbtypes.Chunk) error {
 	return tx.Commit()
 }
 
+// UpdateGeminiEmbeddings updates only Gemini embeddings for existing chunks
+func (d *Database) UpdateGeminiEmbeddings(chunks []*kbtypes.Chunk) error {
+	tx, err := d.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer func() {
+		_ = tx.Rollback()
+	}()
+
+	stmt, err := tx.Prepare(`UPDATE chunks SET gemini_embedding = ? WHERE id = ?`)
+	if err != nil {
+		return err
+	}
+	defer stmt.Close()
+
+	for _, chunk := range chunks {
+		blob := serializeEmbedding(chunk.GeminiEmbedding)
+		if _, err := stmt.Exec(blob, chunk.ID); err != nil {
+			return err
+		}
+	}
+
+	return tx.Commit()
+}
+
 // ClearEmbeddings clears all embeddings for a specific provider
 func (d *Database) ClearEmbeddings(provider string) (int64, error) {
 	var column string
@@ -482,8 +517,10 @@ func (d *Database) ClearEmbeddings(provider string) (int64, error) {
 		column = "voyage_embedding"
 	case "ollama":
 		column = "ollama_embedding"
+	case "gemini":
+		column = "gemini_embedding"
 	default:
-		return 0, fmt.Errorf("invalid provider: %s (must be openai, voyage, or ollama)", provider)
+		return 0, fmt.Errorf("invalid provider: %s (must be openai, voyage, ollama, or gemini)", provider)
 	}
 
 	query := fmt.Sprintf("UPDATE chunks SET %s = NULL", column)
@@ -516,7 +553,7 @@ func (d *Database) FileNeedsProcessing(checksum, projectName, projectVersion str
 func (d *Database) GetChunksForChecksum(checksum string) ([]*kbtypes.Chunk, error) {
 	rows, err := d.db.Query(`
         SELECT text, title, section, file_path,
-               openai_embedding, voyage_embedding, ollama_embedding
+               openai_embedding, voyage_embedding, ollama_embedding, gemini_embedding
         FROM chunks
         WHERE source_file_checksum = ?
         LIMIT 1000
@@ -529,10 +566,10 @@ func (d *Database) GetChunksForChecksum(checksum string) ([]*kbtypes.Chunk, erro
 	var chunks []*kbtypes.Chunk
 	for rows.Next() {
 		var text, title, section, filePath string
-		var openaiBlob, voyageBlob, ollamaBlob []byte
+		var openaiBlob, voyageBlob, ollamaBlob, geminiBlob []byte
 
 		err := rows.Scan(&text, &title, &section, &filePath,
-			&openaiBlob, &voyageBlob, &ollamaBlob)
+			&openaiBlob, &voyageBlob, &ollamaBlob, &geminiBlob)
 		if err != nil {
 			return nil, err
 		}
@@ -546,6 +583,7 @@ func (d *Database) GetChunksForChecksum(checksum string) ([]*kbtypes.Chunk, erro
 			OpenAIEmbedding:    deserializeEmbedding(openaiBlob),
 			VoyageEmbedding:    deserializeEmbedding(voyageBlob),
 			OllamaEmbedding:    deserializeEmbedding(ollamaBlob),
+			GeminiEmbedding:    deserializeEmbedding(geminiBlob),
 		}
 
 		chunks = append(chunks, chunk)

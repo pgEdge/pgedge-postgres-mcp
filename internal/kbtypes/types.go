@@ -70,4 +70,5 @@ type Chunk struct {
 	OpenAIEmbedding []float32
 	VoyageEmbedding []float32
 	OllamaEmbedding []float32
+	GeminiEmbedding []float32
 }
