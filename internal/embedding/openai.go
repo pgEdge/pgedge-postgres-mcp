@@ -91,10 +91,10 @@ func NewOpenAIProvider(apiKey, model, baseURL string, customHeaders map[string]s
 			return nil, fmt.Errorf("invalid OpenAI base URL: %w", err)
 		}
 		if parsedURL.Scheme != "https" && parsedURL.Scheme != "http" {
-			return nil, fmt.Errorf("OpenAI base URL must use http or https scheme, got: %s", parsedURL.Scheme)
+			return nil, fmt.Errorf("openAI base URL must use http or https scheme, got: %s", parsedURL.Scheme)
 		}
 		if parsedURL.Host == "" {
-			return nil, fmt.Errorf("OpenAI base URL must include a host")
+			return nil, fmt.Errorf("openAI base URL must include a host")
 		}
 	}
 
@@ -176,7 +176,7 @@ func (p *OpenAIProvider) Embed(ctx context.Context, text string) ([]float64, err
 		body, readErr := io.ReadAll(resp.Body)
 		if readErr != nil {
 			duration := time.Since(startTime)
-			err := fmt.Errorf("API request failed with status %d (error reading response body: %w)", resp.StatusCode, readErr)
+			err := fmt.Errorf("api request failed with status %d (error reading response body: %w)", resp.StatusCode, readErr)
 			LogAPICall("openai", p.model, textLen, duration, 0, err)
 			return nil, err
 		}
@@ -187,7 +187,7 @@ func (p *OpenAIProvider) Embed(ctx context.Context, text string) ([]float64, err
 		}
 
 		duration := time.Since(startTime)
-		err := fmt.Errorf("API request failed with status %d: %s", resp.StatusCode, string(body))
+		err := fmt.Errorf("api request failed with status %d: %s", resp.StatusCode, string(body))
 		LogAPICall("openai", p.model, textLen, duration, 0, err)
 		return nil, err
 	}

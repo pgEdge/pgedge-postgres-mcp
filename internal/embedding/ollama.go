@@ -132,7 +132,7 @@ func (p *OllamaProvider) Embed(ctx context.Context, text string) ([]float64, err
 		body, readErr := io.ReadAll(resp.Body)
 		if readErr != nil {
 			duration := time.Since(startTime)
-			err := fmt.Errorf("Ollama API request failed with status %d (error reading response body: %w)", resp.StatusCode, readErr)
+			err := fmt.Errorf("ollama API request failed with status %d (error reading response body: %w)", resp.StatusCode, readErr)
 			LogAPICall("ollama", p.model, textLen, duration, 0, err)
 			return nil, err
 		}
@@ -143,7 +143,7 @@ func (p *OllamaProvider) Embed(ctx context.Context, text string) ([]float64, err
 		}
 
 		duration := time.Since(startTime)
-		err := fmt.Errorf("Ollama API request failed with status %d: %s", resp.StatusCode, string(body))
+		err := fmt.Errorf("ollama API request failed with status %d: %s", resp.StatusCode, string(body))
 		LogAPICall("ollama", p.model, textLen, duration, 0, err)
 		return nil, err
 	}

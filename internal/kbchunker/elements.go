@@ -327,12 +327,13 @@ func parseParagraph(lines []string, i int) (StructuralElement, int) {
 func getIndentation(line string) int {
 	count := 0
 	for _, r := range line {
-		if r == ' ' {
+		switch r {
+		case ' ':
 			count++
-		} else if r == '\t' {
+		case '\t':
 			count += 4 // Treat tab as 4 spaces
-		} else {
-			break
+		default:
+			return count
 		}
 	}
 	return count

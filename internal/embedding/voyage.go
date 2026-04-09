@@ -69,7 +69,7 @@ var voyageModelDimensions = map[string]int{
 // host. The URL is used directly without appending any path.
 func NewVoyageProvider(apiKey, model, baseURL string, customHeaders map[string]string) (*VoyageProvider, error) {
 	if apiKey == "" {
-		return nil, fmt.Errorf("Voyage AI API key cannot be empty")
+		return nil, fmt.Errorf("voyage AI API key cannot be empty")
 	}
 
 	// Default to voyage-3-lite if no model specified
@@ -95,10 +95,10 @@ func NewVoyageProvider(apiKey, model, baseURL string, customHeaders map[string]s
 			return nil, fmt.Errorf("invalid Voyage AI base URL: %w", err)
 		}
 		if parsedURL.Scheme != "https" && parsedURL.Scheme != "http" {
-			return nil, fmt.Errorf("Voyage AI base URL must use http or https scheme, got: %s", parsedURL.Scheme)
+			return nil, fmt.Errorf("voyage AI base URL must use http or https scheme, got: %s", parsedURL.Scheme)
 		}
 		if parsedURL.Host == "" {
-			return nil, fmt.Errorf("Voyage AI base URL must include a host")
+			return nil, fmt.Errorf("voyage AI base URL must include a host")
 		}
 	}
 
@@ -171,7 +171,7 @@ func (p *VoyageProvider) Embed(ctx context.Context, text string) ([]float64, err
 		body, readErr := io.ReadAll(resp.Body)
 		if readErr != nil {
 			duration := time.Since(startTime)
-			err := fmt.Errorf("API request failed with status %d (error reading response body: %w)", resp.StatusCode, readErr)
+			err := fmt.Errorf("api request failed with status %d (error reading response body: %w)", resp.StatusCode, readErr)
 			LogAPICall("voyage", p.model, textLen, duration, 0, err)
 			return nil, err
 		}
@@ -182,7 +182,7 @@ func (p *VoyageProvider) Embed(ctx context.Context, text string) ([]float64, err
 		}
 
 		duration := time.Since(startTime)
-		err := fmt.Errorf("API request failed with status %d: %s", resp.StatusCode, string(body))
+		err := fmt.Errorf("api request failed with status %d: %s", resp.StatusCode, string(body))
 		LogAPICall("voyage", p.model, textLen, duration, 0, err)
 		return nil, err
 	}

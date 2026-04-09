@@ -59,13 +59,13 @@ func NewProvider(cfg Config) (Provider, error) {
 	switch cfg.Provider {
 	case "voyage":
 		if cfg.VoyageAPIKey == "" {
-			return nil, fmt.Errorf("Voyage AI API key is required when provider is 'voyage'")
+			return nil, fmt.Errorf("voyage AI API key is required when provider is 'voyage'")
 		}
 		return NewVoyageProvider(cfg.VoyageAPIKey, cfg.Model, cfg.VoyageBaseURL, cfg.CustomHeaders)
 
 	case "openai":
 		if cfg.OpenAIAPIKey == "" && cfg.OpenAIBaseURL == "" {
-			return nil, fmt.Errorf("OpenAI API key is required when provider is 'openai' (unless using a custom base URL for local models)")
+			return nil, fmt.Errorf("openAI API key is required when provider is 'openai' (unless using a custom base URL for local models)")
 		}
 		return NewOpenAIProvider(cfg.OpenAIAPIKey, cfg.Model, cfg.OpenAIBaseURL, cfg.CustomHeaders)
 
@@ -80,7 +80,7 @@ func NewProvider(cfg Config) (Provider, error) {
 
 	case "gemini":
 		if cfg.GeminiAPIKey == "" {
-			return nil, fmt.Errorf("Gemini API key is required when provider is 'gemini'")
+			return nil, fmt.Errorf("gemini API key is required when provider is 'gemini'")
 		}
 		return NewGeminiProvider(cfg.GeminiAPIKey, cfg.Model, cfg.GeminiBaseURL, cfg.CustomHeaders)
 

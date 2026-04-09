@@ -258,7 +258,7 @@ func loadAPIKeys(config *Config) error {
 	if config.Embeddings.OpenAI.Enabled {
 		key, err := readAPIKey(config.Embeddings.OpenAI.APIKeyFile)
 		if err != nil {
-			return fmt.Errorf("OpenAI API key: %w", err)
+			return fmt.Errorf("openAI API key: %w", err)
 		}
 		config.Embeddings.OpenAI.APIKey = key
 	}
@@ -266,7 +266,7 @@ func loadAPIKeys(config *Config) error {
 	if config.Embeddings.Voyage.Enabled {
 		key, err := readAPIKey(config.Embeddings.Voyage.APIKeyFile)
 		if err != nil {
-			return fmt.Errorf("Voyage API key: %w", err)
+			return fmt.Errorf("voyage API key: %w", err)
 		}
 		config.Embeddings.Voyage.APIKey = key
 	}
@@ -274,7 +274,7 @@ func loadAPIKeys(config *Config) error {
 	if config.Embeddings.Gemini.Enabled {
 		key, err := readAPIKey(config.Embeddings.Gemini.APIKeyFile)
 		if err != nil {
-			return fmt.Errorf("Gemini API key: %w", err)
+			return fmt.Errorf("gemini API key: %w", err)
 		}
 		config.Embeddings.Gemini.APIKey = key
 	}
@@ -291,7 +291,7 @@ func readAPIKey(path string) (string, error) {
 
 	key := strings.TrimSpace(string(data))
 	if key == "" {
-		return "", fmt.Errorf("API key file %s is empty", path)
+		return "", fmt.Errorf("api key file %s is empty", path)
 	}
 
 	return key, nil

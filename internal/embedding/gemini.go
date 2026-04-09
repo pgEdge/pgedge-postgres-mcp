@@ -66,7 +66,7 @@ var geminiModelDimensions = map[string]int{
 // baseURL can be empty to use the default (https://generativelanguage.googleapis.com)
 func NewGeminiProvider(apiKey, model, baseURL string, customHeaders map[string]string) (*GeminiProvider, error) {
 	if apiKey == "" {
-		return nil, fmt.Errorf("Gemini API key cannot be empty")
+		return nil, fmt.Errorf("gemini API key cannot be empty")
 	}
 	if model == "" {
 		model = "text-embedding-004"
@@ -143,7 +143,7 @@ func (p *GeminiProvider) Embed(ctx context.Context, text string) ([]float64, err
 		body, readErr := io.ReadAll(resp.Body)
 		if readErr != nil {
 			duration := time.Since(startTime)
-			err := fmt.Errorf("API request failed with status %d (error reading response body: %w)", resp.StatusCode, readErr)
+			err := fmt.Errorf("api request failed with status %d (error reading response body: %w)", resp.StatusCode, readErr)
 			LogAPICall("gemini", p.model, textLen, duration, 0, err)
 			return nil, err
 		}
@@ -154,7 +154,7 @@ func (p *GeminiProvider) Embed(ctx context.Context, text string) ([]float64, err
 		}
 
 		duration := time.Since(startTime)
-		err := fmt.Errorf("API request failed with status %d: %s", resp.StatusCode, string(body))
+		err := fmt.Errorf("api request failed with status %d: %s", resp.StatusCode, string(body))
 		LogAPICall("gemini", p.model, textLen, duration, 0, err)
 		return nil, err
 	}

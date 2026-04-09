@@ -34,7 +34,7 @@ func TestNewVoyageProvider(t *testing.T) {
 		if err == nil {
 			t.Fatal("expected error for empty API key")
 		}
-		if err.Error() != "Voyage AI API key cannot be empty" {
+		if err.Error() != "voyage AI API key cannot be empty" {
 			t.Errorf("unexpected error: %v", err)
 		}
 	})

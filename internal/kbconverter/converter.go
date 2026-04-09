@@ -320,7 +320,7 @@ func extractRSTTitle(content string) string {
 
 			// Make sure the text line is not a directive either
 			if text != "" && current == underline && isUnderline(underline) &&
-				!(strings.HasPrefix(text, "..") && strings.HasSuffix(text, ":")) {
+				(!strings.HasPrefix(text, "..") || !strings.HasSuffix(text, ":")) {
 				// This is a heading with overline and underline - likely the title
 				return cleanHeadingText(text)
 			}
