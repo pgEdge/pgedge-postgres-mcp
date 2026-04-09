@@ -11,6 +11,20 @@ and this project adheres to
 
 ### Added
 
+- Add Google Gemini as a chat LLM and embedding provider using
+  the Google AI Studio API.
+
+- Allow the OpenAI provider to work without an API key when a
+  custom base URL is configured; this enables use with LM Studio,
+  Docker Model Runner, EXO, and other OpenAI API-compatible local
+  LLM providers.
+
+- Add support for custom HTTP headers on all LLM and embedding
+  API requests; this enables proxy services such as Portkey.
+
+- Add Gemini embedding support to the knowledge base builder and
+  similarity search.
+
 - Schema metadata cache now refreshes automatically based on a
   configurable TTL. The `metadata_ttl` database option controls
   how long cached metadata remains valid (default: 5 minutes).
