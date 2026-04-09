@@ -20,7 +20,7 @@ import (
 
 func TestNewOllamaProvider(t *testing.T) {
 	t.Run("valid config", func(t *testing.T) {
-		provider, err := NewOllamaProvider("http://localhost:11434", "nomic-embed-text")
+		provider, err := NewOllamaProvider("http://localhost:11434", "nomic-embed-text", nil)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -30,7 +30,7 @@ func TestNewOllamaProvider(t *testing.T) {
 	})
 
 	t.Run("default URL", func(t *testing.T) {
-		provider, err := NewOllamaProvider("", "nomic-embed-text")
+		provider, err := NewOllamaProvider("", "nomic-embed-text", nil)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -40,7 +40,7 @@ func TestNewOllamaProvider(t *testing.T) {
 	})
 
 	t.Run("default model", func(t *testing.T) {
-		provider, err := NewOllamaProvider("http://localhost:11434", "")
+		provider, err := NewOllamaProvider("http://localhost:11434", "", nil)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -51,7 +51,7 @@ func TestNewOllamaProvider(t *testing.T) {
 }
 
 func TestOllamaProvider_Methods(t *testing.T) {
-	provider, err := NewOllamaProvider("http://localhost:11434", "nomic-embed-text")
+	provider, err := NewOllamaProvider("http://localhost:11434", "nomic-embed-text", nil)
 	if err != nil {
 		t.Fatalf("failed to create provider: %v", err)
 	}
@@ -90,7 +90,7 @@ func TestOllamaProvider_Dimensions_KnownModels(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.model, func(t *testing.T) {
-			provider, err := NewOllamaProvider("http://localhost:11434", tt.model)
+			provider, err := NewOllamaProvider("http://localhost:11434", tt.model, nil)
 			if err != nil {
 				t.Fatalf("failed to create provider: %v", err)
 			}
@@ -102,7 +102,7 @@ func TestOllamaProvider_Dimensions_KnownModels(t *testing.T) {
 }
 
 func TestOllamaProvider_Dimensions_UnknownModel(t *testing.T) {
-	provider, err := NewOllamaProvider("http://localhost:11434", "custom-model")
+	provider, err := NewOllamaProvider("http://localhost:11434", "custom-model", nil)
 	if err != nil {
 		t.Fatalf("failed to create provider: %v", err)
 	}
@@ -115,7 +115,7 @@ func TestOllamaProvider_Dimensions_UnknownModel(t *testing.T) {
 }
 
 func TestOllamaProvider_Embed_EmptyText(t *testing.T) {
-	provider, err := NewOllamaProvider("http://localhost:11434", "nomic-embed-text")
+	provider, err := NewOllamaProvider("http://localhost:11434", "nomic-embed-text", nil)
 	if err != nil {
 		t.Fatalf("failed to create provider: %v", err)
 	}

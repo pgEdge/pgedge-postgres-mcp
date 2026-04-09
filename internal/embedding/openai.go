@@ -29,10 +29,11 @@ const (
 
 // OpenAIProvider implements embedding generation using OpenAI's API
 type OpenAIProvider struct {
-	apiKey  string
-	model   string
-	baseURL string
-	client  *http.Client
+	apiKey        string
+	model         string
+	baseURL       string
+	customHeaders map[string]string
+	client        *http.Client
 }
 
 // openaiEmbeddingRequest represents a request to OpenAI's embeddings API
@@ -65,11 +66,8 @@ var openaiModelDimensions = map[string]int{
 
 // NewOpenAIProvider creates a new OpenAI embedding provider
 // baseURL can be empty to use the default (https://api.openai.com/v1)
-func NewOpenAIProvider(apiKey, model, baseURL string) (*OpenAIProvider, error) {
-	if apiKey == "" {
-		return nil, fmt.Errorf("OpenAI API key cannot be empty")
-	}
-
+// apiKey is optional when using a custom baseURL for local models
+func NewOpenAIProvider(apiKey, model, baseURL string, customHeaders map[string]string) (*OpenAIProvider, error) {
 	// Default to text-embedding-3-small if no model specified
 	if model == "" {
 		model = "text-embedding-3-small"
@@ -101,20 +99,28 @@ func NewOpenAIProvider(apiKey, model, baseURL string) (*OpenAIProvider, error) {
 	}
 
 	// Mask the API key for logging (show only first/last few characters)
-	maskedKey := "(redacted)"
-	if len(apiKey) > 8 {
-		maskedKey = apiKey[:4] + "..." + apiKey[len(apiKey)-4:]
+	if apiKey != "" {
+		maskedKey := "(redacted)"
+		if len(apiKey) > 8 {
+			maskedKey = apiKey[:4] + "..." + apiKey[len(apiKey)-4:]
+		}
+
+		LogProviderInit("openai", model, map[string]string{
+			"api_key":  maskedKey,
+			"base_url": baseURL,
+		})
+	} else {
+		LogProviderInit("openai", model, map[string]string{
+			"api_key":  "(none)",
+			"base_url": baseURL,
+		})
 	}
 
-	LogProviderInit("openai", model, map[string]string{
-		"api_key":  maskedKey,
-		"base_url": baseURL,
-	})
-
 	return &OpenAIProvider{
-		apiKey:  apiKey,
-		model:   model,
-		baseURL: baseURL,
+		apiKey:        apiKey,
+		model:         model,
+		baseURL:       baseURL,
+		customHeaders: customHeaders,
 		client: &http.Client{
 			Timeout: OpenAIHTTPTimeout,
 		},
@@ -150,7 +156,12 @@ func (p *OpenAIProvider) Embed(ctx context.Context, text string) ([]float64, err
 	}
 
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+p.apiKey)
+	if p.apiKey != "" {
+		req.Header.Set("Authorization", "Bearer "+p.apiKey)
+	}
+	for k, v := range p.customHeaders {
+		req.Header.Set(k, v)
+	}
 
 	resp, err := p.client.Do(req)
 	if err != nil {

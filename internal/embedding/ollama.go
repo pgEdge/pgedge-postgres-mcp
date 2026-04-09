@@ -29,9 +29,10 @@ const (
 
 // OllamaProvider implements embedding generation using Ollama
 type OllamaProvider struct {
-	baseURL string
-	model   string
-	client  *http.Client
+	baseURL       string
+	model         string
+	customHeaders map[string]string
+	client        *http.Client
 }
 
 // ollamaEmbeddingRequest represents a request to Ollama's embeddings API
@@ -59,7 +60,7 @@ var ollamaModelDimensions = map[string]int{
 var ollamaModelDimensionsMu sync.RWMutex
 
 // NewOllamaProvider creates a new Ollama embedding provider
-func NewOllamaProvider(baseURL, model string) (*OllamaProvider, error) {
+func NewOllamaProvider(baseURL, model string, customHeaders map[string]string) (*OllamaProvider, error) {
 	if baseURL == "" {
 		baseURL = "http://localhost:11434"
 	}
@@ -76,8 +77,9 @@ func NewOllamaProvider(baseURL, model string) (*OllamaProvider, error) {
 	})
 
 	return &OllamaProvider{
-		baseURL: baseURL,
-		model:   model,
+		baseURL:       baseURL,
+		model:         model,
+		customHeaders: customHeaders,
 		client: &http.Client{
 			Timeout: OllamaHTTPTimeout,
 		},
@@ -113,6 +115,9 @@ func (p *OllamaProvider) Embed(ctx context.Context, text string) ([]float64, err
 	}
 
 	req.Header.Set("Content-Type", "application/json")
+	for k, v := range p.customHeaders {
+		req.Header.Set(k, v)
+	}
 
 	resp, err := p.client.Do(req)
 	if err != nil {

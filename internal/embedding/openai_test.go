@@ -20,7 +20,7 @@ import (
 
 func TestNewOpenAIProvider(t *testing.T) {
 	t.Run("valid config", func(t *testing.T) {
-		provider, err := NewOpenAIProvider("sk-test-key-12345678", "text-embedding-3-small", "")
+		provider, err := NewOpenAIProvider("sk-test-key-12345678", "text-embedding-3-small", "", nil)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -29,18 +29,19 @@ func TestNewOpenAIProvider(t *testing.T) {
 		}
 	})
 
-	t.Run("empty API key", func(t *testing.T) {
-		_, err := NewOpenAIProvider("", "text-embedding-3-small", "")
-		if err == nil {
-			t.Fatal("expected error for empty API key")
+	t.Run("empty API key with default base URL", func(t *testing.T) {
+		// API key is optional in NewOpenAIProvider; validation happens in NewProvider
+		provider, err := NewOpenAIProvider("", "text-embedding-3-small", "", nil)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
 		}
-		if err.Error() != "OpenAI API key cannot be empty" {
-			t.Errorf("unexpected error: %v", err)
+		if provider == nil {
+			t.Fatal("expected non-nil provider")
 		}
 	})
 
 	t.Run("default model", func(t *testing.T) {
-		provider, err := NewOpenAIProvider("sk-test-key-12345678", "", "")
+		provider, err := NewOpenAIProvider("sk-test-key-12345678", "", "", nil)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -50,14 +51,14 @@ func TestNewOpenAIProvider(t *testing.T) {
 	})
 
 	t.Run("unsupported model", func(t *testing.T) {
-		_, err := NewOpenAIProvider("sk-test-key-12345678", "unsupported-model", "")
+		_, err := NewOpenAIProvider("sk-test-key-12345678", "unsupported-model", "", nil)
 		if err == nil {
 			t.Fatal("expected error for unsupported model")
 		}
 	})
 
 	t.Run("custom base URL", func(t *testing.T) {
-		provider, err := NewOpenAIProvider("sk-test-key-12345678", "text-embedding-3-small", "https://proxy.example.com/v1")
+		provider, err := NewOpenAIProvider("sk-test-key-12345678", "text-embedding-3-small", "https://proxy.example.com/v1", nil)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -67,7 +68,7 @@ func TestNewOpenAIProvider(t *testing.T) {
 	})
 
 	t.Run("default base URL when empty", func(t *testing.T) {
-		provider, err := NewOpenAIProvider("sk-test-key-12345678", "text-embedding-3-small", "")
+		provider, err := NewOpenAIProvider("sk-test-key-12345678", "text-embedding-3-small", "", nil)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -77,7 +78,7 @@ func TestNewOpenAIProvider(t *testing.T) {
 	})
 
 	t.Run("base URL with trailing slash normalized", func(t *testing.T) {
-		provider, err := NewOpenAIProvider("sk-test-key-12345678", "text-embedding-3-small", "https://proxy.example.com/v1/")
+		provider, err := NewOpenAIProvider("sk-test-key-12345678", "text-embedding-3-small", "https://proxy.example.com/v1/", nil)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -87,21 +88,21 @@ func TestNewOpenAIProvider(t *testing.T) {
 	})
 
 	t.Run("invalid base URL scheme", func(t *testing.T) {
-		_, err := NewOpenAIProvider("sk-test-key-12345678", "text-embedding-3-small", "ftp://proxy.example.com")
+		_, err := NewOpenAIProvider("sk-test-key-12345678", "text-embedding-3-small", "ftp://proxy.example.com", nil)
 		if err == nil {
 			t.Fatal("expected error for invalid URL scheme")
 		}
 	})
 
 	t.Run("invalid base URL format", func(t *testing.T) {
-		_, err := NewOpenAIProvider("sk-test-key-12345678", "text-embedding-3-small", "://invalid")
+		_, err := NewOpenAIProvider("sk-test-key-12345678", "text-embedding-3-small", "://invalid", nil)
 		if err == nil {
 			t.Fatal("expected error for invalid URL format")
 		}
 	})
 
 	t.Run("base URL without host", func(t *testing.T) {
-		_, err := NewOpenAIProvider("sk-test-key-12345678", "text-embedding-3-small", "https://")
+		_, err := NewOpenAIProvider("sk-test-key-12345678", "text-embedding-3-small", "https://", nil)
 		if err == nil {
 			t.Fatal("expected error for URL without host")
 		}
@@ -109,7 +110,7 @@ func TestNewOpenAIProvider(t *testing.T) {
 }
 
 func TestOpenAIProvider_Methods(t *testing.T) {
-	provider, err := NewOpenAIProvider("sk-test-key-12345678", "text-embedding-3-large", "")
+	provider, err := NewOpenAIProvider("sk-test-key-12345678", "text-embedding-3-large", "", nil)
 	if err != nil {
 		t.Fatalf("failed to create provider: %v", err)
 	}
@@ -148,7 +149,7 @@ func TestOpenAIProvider_Dimensions(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.model, func(t *testing.T) {
-			provider, err := NewOpenAIProvider("sk-test-key", tt.model, "")
+			provider, err := NewOpenAIProvider("sk-test-key", tt.model, "", nil)
 			if err != nil {
 				t.Fatalf("failed to create provider: %v", err)
 			}
@@ -160,7 +161,7 @@ func TestOpenAIProvider_Dimensions(t *testing.T) {
 }
 
 func TestOpenAIProvider_Embed_EmptyText(t *testing.T) {
-	provider, err := NewOpenAIProvider("sk-test-key-12345678", "text-embedding-3-small", "")
+	provider, err := NewOpenAIProvider("sk-test-key-12345678", "text-embedding-3-small", "", nil)
 	if err != nil {
 		t.Fatalf("failed to create provider: %v", err)
 	}

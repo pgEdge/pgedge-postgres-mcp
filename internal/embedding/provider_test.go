@@ -128,7 +128,7 @@ func TestNewProvider_Unsupported(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error for unsupported provider")
 	}
-	if err.Error() != "unsupported embedding provider: unsupported (supported: voyage, openai, ollama)" {
+	if err.Error() != "unsupported embedding provider: unsupported (supported: voyage, openai, ollama, gemini)" {
 		t.Errorf("unexpected error message: %v", err)
 	}
 }

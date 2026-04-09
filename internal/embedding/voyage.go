@@ -29,10 +29,11 @@ const (
 
 // VoyageProvider implements embedding generation using Voyage AI's API
 type VoyageProvider struct {
-	apiKey  string
-	model   string
-	baseURL string
-	client  *http.Client
+	apiKey        string
+	model         string
+	baseURL       string
+	customHeaders map[string]string
+	client        *http.Client
 }
 
 // voyageEmbeddingRequest represents a request to Voyage AI's embeddings API
@@ -66,7 +67,7 @@ var voyageModelDimensions = map[string]int{
 // NOTE: Unlike some other providers, custom baseURL values must include the full
 // API path (e.g., "https://proxy.example.com/v1/embeddings"), not just the base
 // host. The URL is used directly without appending any path.
-func NewVoyageProvider(apiKey, model, baseURL string) (*VoyageProvider, error) {
+func NewVoyageProvider(apiKey, model, baseURL string, customHeaders map[string]string) (*VoyageProvider, error) {
 	if apiKey == "" {
 		return nil, fmt.Errorf("Voyage AI API key cannot be empty")
 	}
@@ -113,9 +114,10 @@ func NewVoyageProvider(apiKey, model, baseURL string) (*VoyageProvider, error) {
 	})
 
 	return &VoyageProvider{
-		apiKey:  apiKey,
-		model:   model,
-		baseURL: baseURL,
+		apiKey:        apiKey,
+		model:         model,
+		baseURL:       baseURL,
+		customHeaders: customHeaders,
 		client: &http.Client{
 			Timeout: VoyageHTTPTimeout,
 		},
@@ -152,6 +154,9 @@ func (p *VoyageProvider) Embed(ctx context.Context, text string) ([]float64, err
 
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", "Bearer "+p.apiKey)
+	for k, v := range p.customHeaders {
+		req.Header.Set(k, v)
+	}
 
 	resp, err := p.client.Do(req)
 	if err != nil {

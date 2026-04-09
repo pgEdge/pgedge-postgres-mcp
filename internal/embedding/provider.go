@@ -32,7 +32,7 @@ type Provider interface {
 
 // Config holds configuration for embedding providers
 type Config struct {
-	Provider string // "voyage", "ollama", or "openai"
+	Provider string // "voyage", "ollama", "openai", or "gemini"
 	Model    string // Model name (provider-specific)
 
 	// Voyage AI-specific
@@ -45,6 +45,13 @@ type Config struct {
 
 	// Ollama-specific
 	OllamaURL string
+
+	// Gemini-specific
+	GeminiAPIKey  string
+	GeminiBaseURL string // Base URL for Gemini API (optional, uses default if empty)
+
+	// Custom HTTP headers applied to all provider API requests
+	CustomHeaders map[string]string
 }
 
 // NewProvider creates a new embedding provider based on configuration
@@ -54,13 +61,13 @@ func NewProvider(cfg Config) (Provider, error) {
 		if cfg.VoyageAPIKey == "" {
 			return nil, fmt.Errorf("Voyage AI API key is required when provider is 'voyage'")
 		}
-		return NewVoyageProvider(cfg.VoyageAPIKey, cfg.Model, cfg.VoyageBaseURL)
+		return NewVoyageProvider(cfg.VoyageAPIKey, cfg.Model, cfg.VoyageBaseURL, cfg.CustomHeaders)
 
 	case "openai":
-		if cfg.OpenAIAPIKey == "" {
-			return nil, fmt.Errorf("OpenAI API key is required when provider is 'openai'")
+		if cfg.OpenAIAPIKey == "" && cfg.OpenAIBaseURL == "" {
+			return nil, fmt.Errorf("OpenAI API key is required when provider is 'openai' (unless using a custom base URL for local models)")
 		}
-		return NewOpenAIProvider(cfg.OpenAIAPIKey, cfg.Model, cfg.OpenAIBaseURL)
+		return NewOpenAIProvider(cfg.OpenAIAPIKey, cfg.Model, cfg.OpenAIBaseURL, cfg.CustomHeaders)
 
 	case "ollama":
 		if cfg.OllamaURL == "" {
@@ -69,9 +76,15 @@ func NewProvider(cfg Config) (Provider, error) {
 		if cfg.Model == "" {
 			cfg.Model = "nomic-embed-text" // Default model
 		}
-		return NewOllamaProvider(cfg.OllamaURL, cfg.Model)
+		return NewOllamaProvider(cfg.OllamaURL, cfg.Model, cfg.CustomHeaders)
+
+	case "gemini":
+		if cfg.GeminiAPIKey == "" {
+			return nil, fmt.Errorf("Gemini API key is required when provider is 'gemini'")
+		}
+		return NewGeminiProvider(cfg.GeminiAPIKey, cfg.Model, cfg.GeminiBaseURL, cfg.CustomHeaders)
 
 	default:
-		return nil, fmt.Errorf("unsupported embedding provider: %s (supported: voyage, openai, ollama)", cfg.Provider)
+		return nil, fmt.Errorf("unsupported embedding provider: %s (supported: voyage, openai, ollama, gemini)", cfg.Provider)
 	}
 }

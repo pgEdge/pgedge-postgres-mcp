@@ -264,6 +264,9 @@ func generateKBQueryEmbedding(serverCfg *config.Config, queryText string) ([]flo
 		OpenAIAPIKey:  kbCfg.EmbeddingOpenAIAPIKey,
 		OpenAIBaseURL: kbCfg.EmbeddingOpenAIBaseURL,
 		OllamaURL:     kbCfg.EmbeddingOllamaURL,
+		GeminiAPIKey:  kbCfg.EmbeddingGeminiAPIKey,
+		GeminiBaseURL: kbCfg.EmbeddingGeminiBaseURL,
+		CustomHeaders: kbCfg.EmbeddingCustomHeaders,
 	}
 
 	provider, err := embedding.NewProvider(embCfg)

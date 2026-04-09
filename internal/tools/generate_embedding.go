@@ -64,6 +64,9 @@ func GenerateEmbeddingTool(cfg *config.Config) Tool {
 				OpenAIAPIKey:  cfg.Embedding.OpenAIAPIKey,
 				OpenAIBaseURL: cfg.Embedding.OpenAIBaseURL,
 				OllamaURL:     cfg.Embedding.OllamaURL,
+				GeminiAPIKey:  cfg.Embedding.GeminiAPIKey,
+				GeminiBaseURL: cfg.Embedding.GeminiBaseURL,
+				CustomHeaders: cfg.Embedding.CustomHeaders,
 			}
 
 			provider, err := embedding.NewProvider(embCfg)

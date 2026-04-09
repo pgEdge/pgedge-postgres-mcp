@@ -20,7 +20,7 @@ import (
 
 func TestNewVoyageProvider(t *testing.T) {
 	t.Run("valid config", func(t *testing.T) {
-		provider, err := NewVoyageProvider("pa-test-key-12345678", "voyage-3-lite", "")
+		provider, err := NewVoyageProvider("pa-test-key-12345678", "voyage-3-lite", "", nil)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -30,7 +30,7 @@ func TestNewVoyageProvider(t *testing.T) {
 	})
 
 	t.Run("empty API key", func(t *testing.T) {
-		_, err := NewVoyageProvider("", "voyage-3-lite", "")
+		_, err := NewVoyageProvider("", "voyage-3-lite", "", nil)
 		if err == nil {
 			t.Fatal("expected error for empty API key")
 		}
@@ -40,7 +40,7 @@ func TestNewVoyageProvider(t *testing.T) {
 	})
 
 	t.Run("default model", func(t *testing.T) {
-		provider, err := NewVoyageProvider("pa-test-key-12345678", "", "")
+		provider, err := NewVoyageProvider("pa-test-key-12345678", "", "", nil)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -50,14 +50,14 @@ func TestNewVoyageProvider(t *testing.T) {
 	})
 
 	t.Run("unsupported model", func(t *testing.T) {
-		_, err := NewVoyageProvider("pa-test-key-12345678", "unsupported-model", "")
+		_, err := NewVoyageProvider("pa-test-key-12345678", "unsupported-model", "", nil)
 		if err == nil {
 			t.Fatal("expected error for unsupported model")
 		}
 	})
 
 	t.Run("custom base URL", func(t *testing.T) {
-		provider, err := NewVoyageProvider("pa-test-key-12345678", "voyage-3-lite", "https://proxy.example.com/v1/embeddings")
+		provider, err := NewVoyageProvider("pa-test-key-12345678", "voyage-3-lite", "https://proxy.example.com/v1/embeddings", nil)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -67,7 +67,7 @@ func TestNewVoyageProvider(t *testing.T) {
 	})
 
 	t.Run("default base URL when empty", func(t *testing.T) {
-		provider, err := NewVoyageProvider("pa-test-key-12345678", "voyage-3-lite", "")
+		provider, err := NewVoyageProvider("pa-test-key-12345678", "voyage-3-lite", "", nil)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -77,7 +77,7 @@ func TestNewVoyageProvider(t *testing.T) {
 	})
 
 	t.Run("base URL with trailing slash normalized", func(t *testing.T) {
-		provider, err := NewVoyageProvider("pa-test-key-12345678", "voyage-3-lite", "https://proxy.example.com/v1/embeddings/")
+		provider, err := NewVoyageProvider("pa-test-key-12345678", "voyage-3-lite", "https://proxy.example.com/v1/embeddings/", nil)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -87,21 +87,21 @@ func TestNewVoyageProvider(t *testing.T) {
 	})
 
 	t.Run("invalid base URL scheme", func(t *testing.T) {
-		_, err := NewVoyageProvider("pa-test-key-12345678", "voyage-3-lite", "ftp://proxy.example.com")
+		_, err := NewVoyageProvider("pa-test-key-12345678", "voyage-3-lite", "ftp://proxy.example.com", nil)
 		if err == nil {
 			t.Fatal("expected error for invalid URL scheme")
 		}
 	})
 
 	t.Run("invalid base URL format", func(t *testing.T) {
-		_, err := NewVoyageProvider("pa-test-key-12345678", "voyage-3-lite", "://invalid")
+		_, err := NewVoyageProvider("pa-test-key-12345678", "voyage-3-lite", "://invalid", nil)
 		if err == nil {
 			t.Fatal("expected error for invalid URL format")
 		}
 	})
 
 	t.Run("base URL without host", func(t *testing.T) {
-		_, err := NewVoyageProvider("pa-test-key-12345678", "voyage-3-lite", "https://")
+		_, err := NewVoyageProvider("pa-test-key-12345678", "voyage-3-lite", "https://", nil)
 		if err == nil {
 			t.Fatal("expected error for URL without host")
 		}
@@ -109,7 +109,7 @@ func TestNewVoyageProvider(t *testing.T) {
 }
 
 func TestVoyageProvider_Methods(t *testing.T) {
-	provider, err := NewVoyageProvider("pa-test-key-12345678", "voyage-3", "")
+	provider, err := NewVoyageProvider("pa-test-key-12345678", "voyage-3", "", nil)
 	if err != nil {
 		t.Fatalf("failed to create provider: %v", err)
 	}
@@ -149,7 +149,7 @@ func TestVoyageProvider_Dimensions(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.model, func(t *testing.T) {
-			provider, err := NewVoyageProvider("pa-test-key", tt.model, "")
+			provider, err := NewVoyageProvider("pa-test-key", tt.model, "", nil)
 			if err != nil {
 				t.Fatalf("failed to create provider: %v", err)
 			}
@@ -161,7 +161,7 @@ func TestVoyageProvider_Dimensions(t *testing.T) {
 }
 
 func TestVoyageProvider_Embed_EmptyText(t *testing.T) {
-	provider, err := NewVoyageProvider("pa-test-key-12345678", "voyage-3-lite", "")
+	provider, err := NewVoyageProvider("pa-test-key-12345678", "voyage-3-lite", "", nil)
 	if err != nil {
 		t.Fatalf("failed to create provider: %v", err)
 	}

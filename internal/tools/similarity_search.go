@@ -625,6 +625,9 @@ func generateQueryEmbeddingWithConfig(serverCfg *config.Config, queryText string
 		OpenAIAPIKey:  serverCfg.Embedding.OpenAIAPIKey,
 		OpenAIBaseURL: serverCfg.Embedding.OpenAIBaseURL,
 		OllamaURL:     serverCfg.Embedding.OllamaURL,
+		GeminiAPIKey:  serverCfg.Embedding.GeminiAPIKey,
+		GeminiBaseURL: serverCfg.Embedding.GeminiBaseURL,
+		CustomHeaders: serverCfg.Embedding.CustomHeaders,
 	}
 
 	provider, err := embedding.NewProvider(embCfg)
