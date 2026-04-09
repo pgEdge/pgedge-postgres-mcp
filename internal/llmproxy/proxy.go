@@ -31,6 +31,9 @@ type Config struct {
 	OpenAIAPIKey     string
 	OpenAIBaseURL    string // Base URL for OpenAI API (optional, uses default if empty)
 	OllamaURL        string
+	GeminiAPIKey     string
+	GeminiBaseURL    string // Base URL for Gemini API (optional, uses default if empty)
+	CustomHeaders    map[string]string
 	MaxTokens        int
 	Temperature      float64
 }
@@ -130,6 +133,14 @@ func HandleProviders(w http.ResponseWriter, r *http.Request, config *Config) {
 		})
 	}
 
+	if config.GeminiAPIKey != "" {
+		providers = append(providers, ProviderInfo{
+			Name:      "gemini",
+			Display:   "Google Gemini",
+			IsDefault: config.Provider == "gemini",
+		})
+	}
+
 	response := ProvidersResponse{
 		Providers:    providers,
 		DefaultModel: config.Model,
@@ -163,7 +174,7 @@ func HandleModels(w http.ResponseWriter, r *http.Request, config *Config) {
 			http.Error(w, "Anthropic API key not configured", http.StatusBadRequest)
 			return
 		}
-		client, clientErr = chat.NewAnthropicClient(config.AnthropicAPIKey, config.AnthropicBaseURL, config.Model, config.MaxTokens, config.Temperature, false)
+		client, clientErr = chat.NewAnthropicClient(config.AnthropicAPIKey, config.AnthropicBaseURL, config.Model, config.MaxTokens, config.Temperature, config.CustomHeaders, false)
 		if clientErr != nil {
 			http.Error(w, fmt.Sprintf("Failed to create Anthropic client: %v", clientErr), http.StatusBadRequest)
 			return
@@ -173,7 +184,7 @@ func HandleModels(w http.ResponseWriter, r *http.Request, config *Config) {
 			http.Error(w, "OpenAI API key not configured", http.StatusBadRequest)
 			return
 		}
-		client, clientErr = chat.NewOpenAIClient(config.OpenAIAPIKey, config.OpenAIBaseURL, config.Model, config.MaxTokens, config.Temperature, false)
+		client, clientErr = chat.NewOpenAIClient(config.OpenAIAPIKey, config.OpenAIBaseURL, config.Model, config.MaxTokens, config.Temperature, config.CustomHeaders, false)
 		if clientErr != nil {
 			http.Error(w, fmt.Sprintf("Failed to create OpenAI client: %v", clientErr), http.StatusBadRequest)
 			return
@@ -183,7 +194,17 @@ func HandleModels(w http.ResponseWriter, r *http.Request, config *Config) {
 			http.Error(w, "Ollama URL not configured", http.StatusBadRequest)
 			return
 		}
-		client = chat.NewOllamaClient(config.OllamaURL, config.Model, false)
+		client = chat.NewOllamaClient(config.OllamaURL, config.Model, config.CustomHeaders, false)
+	case "gemini":
+		if config.GeminiAPIKey == "" {
+			http.Error(w, "Gemini API key not configured", http.StatusBadRequest)
+			return
+		}
+		client, clientErr = chat.NewGeminiClient(config.GeminiAPIKey, config.GeminiBaseURL, config.Model, config.MaxTokens, config.Temperature, config.CustomHeaders, false)
+		if clientErr != nil {
+			http.Error(w, fmt.Sprintf("Failed to create Gemini client: %v", clientErr), http.StatusBadRequest)
+			return
+		}
 	default:
 		http.Error(w, fmt.Sprintf("Unsupported provider: %s", provider), http.StatusBadRequest)
 		return
@@ -255,7 +276,7 @@ func HandleChat(w http.ResponseWriter, r *http.Request, config *Config) {
 			http.Error(w, "Anthropic API key not configured", http.StatusBadRequest)
 			return
 		}
-		client, clientErr = chat.NewAnthropicClient(config.AnthropicAPIKey, config.AnthropicBaseURL, model, config.MaxTokens, config.Temperature, req.Debug)
+		client, clientErr = chat.NewAnthropicClient(config.AnthropicAPIKey, config.AnthropicBaseURL, model, config.MaxTokens, config.Temperature, config.CustomHeaders, req.Debug)
 		if clientErr != nil {
 			http.Error(w, fmt.Sprintf("Failed to create Anthropic client: %v", clientErr), http.StatusBadRequest)
 			return
@@ -265,7 +286,7 @@ func HandleChat(w http.ResponseWriter, r *http.Request, config *Config) {
 			http.Error(w, "OpenAI API key not configured", http.StatusBadRequest)
 			return
 		}
-		client, clientErr = chat.NewOpenAIClient(config.OpenAIAPIKey, config.OpenAIBaseURL, model, config.MaxTokens, config.Temperature, req.Debug)
+		client, clientErr = chat.NewOpenAIClient(config.OpenAIAPIKey, config.OpenAIBaseURL, model, config.MaxTokens, config.Temperature, config.CustomHeaders, req.Debug)
 		if clientErr != nil {
 			http.Error(w, fmt.Sprintf("Failed to create OpenAI client: %v", clientErr), http.StatusBadRequest)
 			return
@@ -275,7 +296,17 @@ func HandleChat(w http.ResponseWriter, r *http.Request, config *Config) {
 			http.Error(w, "Ollama URL not configured", http.StatusBadRequest)
 			return
 		}
-		client = chat.NewOllamaClient(config.OllamaURL, model, req.Debug)
+		client = chat.NewOllamaClient(config.OllamaURL, model, config.CustomHeaders, req.Debug)
+	case "gemini":
+		if config.GeminiAPIKey == "" {
+			http.Error(w, "Gemini API key not configured", http.StatusBadRequest)
+			return
+		}
+		client, clientErr = chat.NewGeminiClient(config.GeminiAPIKey, config.GeminiBaseURL, model, config.MaxTokens, config.Temperature, config.CustomHeaders, req.Debug)
+		if clientErr != nil {
+			http.Error(w, fmt.Sprintf("Failed to create Gemini client: %v", clientErr), http.StatusBadRequest)
+			return
+		}
 	default:
 		http.Error(w, fmt.Sprintf("Unsupported provider: %s", provider), http.StatusBadRequest)
 		return

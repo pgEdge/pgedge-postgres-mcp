@@ -104,7 +104,7 @@ func TestOllamaClient_ToolCall(t *testing.T) {
 	defer server.Close()
 
 	// Create client
-	client := NewOllamaClient(server.URL, "test-model", false)
+	client := NewOllamaClient(server.URL, "test-model", nil, false)
 
 	// Test tool call
 	ctx := context.Background()
@@ -172,7 +172,7 @@ func TestOllamaClient_TextResponse(t *testing.T) {
 	defer server.Close()
 
 	// Create client
-	client := NewOllamaClient(server.URL, "test-model", false)
+	client := NewOllamaClient(server.URL, "test-model", nil, false)
 
 	// Test text response
 	ctx := context.Background()
@@ -254,7 +254,7 @@ func TestOllamaClient_NativeToolCall(t *testing.T) {
 	defer server.Close()
 
 	// Create client
-	client := NewOllamaClient(server.URL, "test-model", false)
+	client := NewOllamaClient(server.URL, "test-model", nil, false)
 
 	// Test native tool call
 	ctx := context.Background()
@@ -376,7 +376,7 @@ func TestOllamaClient_ToolResultMessages(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewOllamaClient(server.URL, "test-model", false)
+	client := NewOllamaClient(server.URL, "test-model", nil, false)
 	ctx := context.Background()
 
 	tools := []mcp.Tool{
@@ -813,7 +813,7 @@ func TestOpenAIClient_GPT5UsesMaxCompletionTokens(t *testing.T) {
 
 func TestNewAnthropicClient_BaseURL(t *testing.T) {
 	t.Run("default base URL when empty", func(t *testing.T) {
-		client, err := NewAnthropicClient("test-key", "", "claude-3-sonnet", 4096, 0.7, false)
+		client, err := NewAnthropicClient("test-key", "", "claude-3-sonnet", 4096, 0.7, nil, false)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -827,7 +827,7 @@ func TestNewAnthropicClient_BaseURL(t *testing.T) {
 	})
 
 	t.Run("custom base URL", func(t *testing.T) {
-		client, err := NewAnthropicClient("test-key", "https://proxy.example.com", "claude-3-sonnet", 4096, 0.7, false)
+		client, err := NewAnthropicClient("test-key", "https://proxy.example.com", "claude-3-sonnet", 4096, 0.7, nil, false)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -841,7 +841,7 @@ func TestNewAnthropicClient_BaseURL(t *testing.T) {
 	})
 
 	t.Run("base URL with trailing slash normalized", func(t *testing.T) {
-		client, err := NewAnthropicClient("test-key", "https://proxy.example.com/", "claude-3-sonnet", 4096, 0.7, false)
+		client, err := NewAnthropicClient("test-key", "https://proxy.example.com/", "claude-3-sonnet", 4096, 0.7, nil, false)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -855,21 +855,21 @@ func TestNewAnthropicClient_BaseURL(t *testing.T) {
 	})
 
 	t.Run("invalid base URL scheme", func(t *testing.T) {
-		_, err := NewAnthropicClient("test-key", "ftp://proxy.example.com", "claude-3-sonnet", 4096, 0.7, false)
+		_, err := NewAnthropicClient("test-key", "ftp://proxy.example.com", "claude-3-sonnet", 4096, 0.7, nil, false)
 		if err == nil {
 			t.Fatal("expected error for invalid URL scheme")
 		}
 	})
 
 	t.Run("invalid base URL format", func(t *testing.T) {
-		_, err := NewAnthropicClient("test-key", "://invalid", "claude-3-sonnet", 4096, 0.7, false)
+		_, err := NewAnthropicClient("test-key", "://invalid", "claude-3-sonnet", 4096, 0.7, nil, false)
 		if err == nil {
 			t.Fatal("expected error for invalid URL format")
 		}
 	})
 
 	t.Run("base URL without host", func(t *testing.T) {
-		_, err := NewAnthropicClient("test-key", "https://", "claude-3-sonnet", 4096, 0.7, false)
+		_, err := NewAnthropicClient("test-key", "https://", "claude-3-sonnet", 4096, 0.7, nil, false)
 		if err == nil {
 			t.Fatal("expected error for URL without host")
 		}
@@ -878,7 +878,7 @@ func TestNewAnthropicClient_BaseURL(t *testing.T) {
 
 func TestNewOpenAIClient_BaseURL(t *testing.T) {
 	t.Run("default base URL when empty", func(t *testing.T) {
-		client, err := NewOpenAIClient("test-key", "", "gpt-4o", 4096, 0.7, false)
+		client, err := NewOpenAIClient("test-key", "", "gpt-4o", 4096, 0.7, nil, false)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -892,7 +892,7 @@ func TestNewOpenAIClient_BaseURL(t *testing.T) {
 	})
 
 	t.Run("custom base URL", func(t *testing.T) {
-		client, err := NewOpenAIClient("test-key", "https://proxy.example.com", "gpt-4o", 4096, 0.7, false)
+		client, err := NewOpenAIClient("test-key", "https://proxy.example.com", "gpt-4o", 4096, 0.7, nil, false)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -906,7 +906,7 @@ func TestNewOpenAIClient_BaseURL(t *testing.T) {
 	})
 
 	t.Run("base URL with trailing slash normalized", func(t *testing.T) {
-		client, err := NewOpenAIClient("test-key", "https://proxy.example.com/", "gpt-4o", 4096, 0.7, false)
+		client, err := NewOpenAIClient("test-key", "https://proxy.example.com/", "gpt-4o", 4096, 0.7, nil, false)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -920,21 +920,21 @@ func TestNewOpenAIClient_BaseURL(t *testing.T) {
 	})
 
 	t.Run("invalid base URL scheme", func(t *testing.T) {
-		_, err := NewOpenAIClient("test-key", "ftp://proxy.example.com", "gpt-4o", 4096, 0.7, false)
+		_, err := NewOpenAIClient("test-key", "ftp://proxy.example.com", "gpt-4o", 4096, 0.7, nil, false)
 		if err == nil {
 			t.Fatal("expected error for invalid URL scheme")
 		}
 	})
 
 	t.Run("invalid base URL format", func(t *testing.T) {
-		_, err := NewOpenAIClient("test-key", "://invalid", "gpt-4o", 4096, 0.7, false)
+		_, err := NewOpenAIClient("test-key", "://invalid", "gpt-4o", 4096, 0.7, nil, false)
 		if err == nil {
 			t.Fatal("expected error for invalid URL format")
 		}
 	})
 
 	t.Run("base URL without host", func(t *testing.T) {
-		_, err := NewOpenAIClient("test-key", "https://", "gpt-4o", 4096, 0.7, false)
+		_, err := NewOpenAIClient("test-key", "https://", "gpt-4o", 4096, 0.7, nil, false)
 		if err == nil {
 			t.Fatal("expected error for URL without host")
 		}

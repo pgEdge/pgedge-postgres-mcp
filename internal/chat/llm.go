@@ -13,6 +13,8 @@ package chat
 import (
 	"bytes"
 	"context"
+	crand "crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -102,14 +104,15 @@ type LLMClient interface {
 
 // anthropicClient implements LLMClient for Anthropic Claude
 type anthropicClient struct {
-	apiKey      string
-	baseURL     string
-	model       string
-	maxTokens   int
-	temperature float64
-	debug       bool
-	readOnly    bool
-	client      *http.Client
+	apiKey        string
+	baseURL       string
+	model         string
+	maxTokens     int
+	temperature   float64
+	debug         bool
+	readOnly      bool
+	customHeaders map[string]string
+	client        *http.Client
 }
 
 // SetReadOnlyMode sets whether the database is in read-only mode.
@@ -138,7 +141,7 @@ func ValidateBaseURL(baseURL, providerName string) (string, error) {
 
 // NewAnthropicClient creates a new Anthropic client
 // baseURL can be empty to use the default (https://api.anthropic.com)
-func NewAnthropicClient(apiKey, baseURL, model string, maxTokens int, temperature float64, debug bool) (LLMClient, error) {
+func NewAnthropicClient(apiKey, baseURL, model string, maxTokens int, temperature float64, customHeaders map[string]string, debug bool) (LLMClient, error) {
 	if baseURL == "" {
 		baseURL = "https://api.anthropic.com"
 	} else {
@@ -149,13 +152,14 @@ func NewAnthropicClient(apiKey, baseURL, model string, maxTokens int, temperatur
 		}
 	}
 	return &anthropicClient{
-		apiKey:      apiKey,
-		baseURL:     baseURL,
-		model:       model,
-		maxTokens:   maxTokens,
-		temperature: temperature,
-		debug:       debug,
-		client:      &http.Client{},
+		apiKey:        apiKey,
+		baseURL:       baseURL,
+		model:         model,
+		maxTokens:     maxTokens,
+		temperature:   temperature,
+		customHeaders: customHeaders,
+		debug:         debug,
+		client:        &http.Client{},
 	}, nil
 }
 
@@ -288,6 +292,9 @@ When executing tools:
 	httpReq.Header.Set("x-api-key", c.apiKey)
 	httpReq.Header.Set("anthropic-version", "2023-06-01")
 	httpReq.Header.Set("anthropic-beta", "prompt-caching-2024-07-31")
+	for k, v := range c.customHeaders {
+		httpReq.Header.Set(k, v)
+	}
 
 	resp, err := c.client.Do(httpReq)
 	if err != nil {
@@ -429,6 +436,9 @@ func (c *anthropicClient) ListModels(ctx context.Context) ([]string, error) {
 
 	req.Header.Set("x-api-key", c.apiKey)
 	req.Header.Set("anthropic-version", "2023-06-01")
+	for k, v := range c.customHeaders {
+		req.Header.Set(k, v)
+	}
 
 	resp, err := c.client.Do(req)
 	if err != nil {
@@ -466,11 +476,12 @@ func (c *anthropicClient) ListModels(ctx context.Context) ([]string, error) {
 
 // ollamaClient implements LLMClient for Ollama
 type ollamaClient struct {
-	baseURL  string
-	model    string
-	debug    bool
-	readOnly bool
-	client   *http.Client
+	baseURL       string
+	model         string
+	debug         bool
+	readOnly      bool
+	customHeaders map[string]string
+	client        *http.Client
 }
 
 // SetReadOnlyMode sets whether the database is in read-only mode.
@@ -479,12 +490,13 @@ func (c *ollamaClient) SetReadOnlyMode(readOnly bool) {
 }
 
 // NewOllamaClient creates a new Ollama client
-func NewOllamaClient(baseURL, model string, debug bool) LLMClient {
+func NewOllamaClient(baseURL, model string, customHeaders map[string]string, debug bool) LLMClient {
 	return &ollamaClient{
-		baseURL: baseURL,
-		model:   model,
-		debug:   debug,
-		client:  &http.Client{},
+		baseURL:       baseURL,
+		model:         model,
+		customHeaders: customHeaders,
+		debug:         debug,
+		client:        &http.Client{},
 	}
 }
 
@@ -823,6 +835,9 @@ When executing tools:
 	}
 
 	httpReq.Header.Set("Content-Type", "application/json")
+	for k, v := range c.customHeaders {
+		httpReq.Header.Set(k, v)
+	}
 
 	resp, err := c.client.Do(httpReq)
 	if err != nil {
@@ -980,6 +995,10 @@ func (c *ollamaClient) ListModels(ctx context.Context) ([]string, error) {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
 
+	for k, v := range c.customHeaders {
+		req.Header.Set(k, v)
+	}
+
 	resp, err := c.client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to send request: %w", err)
@@ -1010,16 +1029,584 @@ func (c *ollamaClient) ListModels(ctx context.Context) ([]string, error) {
 	return models, nil
 }
 
+// geminiClient implements LLMClient for Google Gemini models
+type geminiClient struct {
+	apiKey        string
+	baseURL       string
+	model         string
+	maxTokens     int
+	temperature   float64
+	debug         bool
+	readOnly      bool
+	customHeaders map[string]string
+	client        *http.Client
+}
+
+// SetReadOnlyMode sets whether the database is in read-only mode.
+func (c *geminiClient) SetReadOnlyMode(readOnly bool) {
+	c.readOnly = readOnly
+}
+
+// NewGeminiClient creates a new Gemini client
+// baseURL can be empty to use the default (https://generativelanguage.googleapis.com)
+func NewGeminiClient(apiKey, baseURL, model string, maxTokens int, temperature float64, customHeaders map[string]string, debug bool) (LLMClient, error) {
+	if baseURL == "" {
+		baseURL = "https://generativelanguage.googleapis.com"
+	} else {
+		var err error
+		baseURL, err = ValidateBaseURL(baseURL, "Gemini")
+		if err != nil {
+			return nil, err
+		}
+	}
+	return &geminiClient{
+		apiKey:        apiKey,
+		baseURL:       baseURL,
+		model:         model,
+		maxTokens:     maxTokens,
+		temperature:   temperature,
+		customHeaders: customHeaders,
+		debug:         debug,
+		client:        &http.Client{},
+	}, nil
+}
+
+type geminiRequest struct {
+	Contents          []geminiContent         `json:"contents"`
+	Tools             []geminiToolDeclaration `json:"tools,omitempty"`
+	SystemInstruction *geminiContent          `json:"systemInstruction,omitempty"`
+	GenerationConfig  *geminiGenerationConfig `json:"generationConfig,omitempty"`
+}
+
+type geminiContent struct {
+	Role  string       `json:"role,omitempty"`
+	Parts []geminiPart `json:"parts"`
+}
+
+type geminiPart struct {
+	Text             string                  `json:"text,omitempty"`
+	FunctionCall     *geminiFunctionCall     `json:"functionCall,omitempty"`
+	FunctionResponse *geminiFunctionResponse `json:"functionResponse,omitempty"`
+}
+
+type geminiFunctionCall struct {
+	Name string                 `json:"name"`
+	Args map[string]interface{} `json:"args"`
+}
+
+type geminiFunctionResponse struct {
+	Name     string                 `json:"name"`
+	Response map[string]interface{} `json:"response"`
+}
+
+type geminiToolDeclaration struct {
+	FunctionDeclarations []geminiFunction `json:"functionDeclarations"`
+}
+
+type geminiFunction struct {
+	Name        string      `json:"name"`
+	Description string      `json:"description"`
+	Parameters  interface{} `json:"parameters,omitempty"`
+}
+
+type geminiGenerationConfig struct {
+	MaxOutputTokens int     `json:"maxOutputTokens,omitempty"`
+	Temperature     float64 `json:"temperature,omitempty"`
+}
+
+type geminiResponse struct {
+	Candidates    []geminiCandidate    `json:"candidates"`
+	UsageMetadata *geminiUsageMetadata `json:"usageMetadata,omitempty"`
+}
+
+type geminiCandidate struct {
+	Content      geminiContent `json:"content"`
+	FinishReason string        `json:"finishReason"`
+}
+
+type geminiUsageMetadata struct {
+	PromptTokenCount     int `json:"promptTokenCount"`
+	CandidatesTokenCount int `json:"candidatesTokenCount"`
+	TotalTokenCount      int `json:"totalTokenCount"`
+}
+
+type geminiErrorResponse struct {
+	Error struct {
+		Code    int    `json:"code"`
+		Message string `json:"message"`
+		Status  string `json:"status"`
+	} `json:"error"`
+}
+
+// extractGeminiErrorMessage parses Gemini's error response to get a user-friendly message
+func extractGeminiErrorMessage(statusCode int, body []byte) string {
+	var errResp geminiErrorResponse
+	if err := json.Unmarshal(body, &errResp); err == nil && errResp.Error.Message != "" {
+		return fmt.Sprintf("API error (%d): %s", statusCode, errResp.Error.Message)
+	}
+	return fmt.Sprintf("API error (%d): %s", statusCode, string(body))
+}
+
+// generateToolID creates a unique identifier for tool calls
+func generateToolID() string {
+	b := make([]byte, 12)
+	_, err := crand.Read(b)
+	if err != nil {
+		return fmt.Sprintf("%d", time.Now().UnixNano())
+	}
+	return hex.EncodeToString(b)
+}
+
+func (c *geminiClient) Chat(ctx context.Context, messages []Message, tools interface{}) (LLMResponse, error) {
+	startTime := time.Now()
+	operation := "chat"
+	requestURL := c.baseURL + "/v1beta/models/" + c.model + ":generateContent?key=" + c.apiKey
+
+	// Log the URL without the API key for security
+	safeURL := c.baseURL + "/v1beta/models/" + c.model + ":generateContent?key=***"
+	embedding.LogLLMCallDetails("gemini", c.model, operation, safeURL, len(messages))
+
+	// Convert interface{} tools to []mcp.Tool via JSON
+	var mcpTools []mcp.Tool
+	if tools != nil {
+		toolsJSON, err := json.Marshal(tools)
+		if err != nil {
+			return LLMResponse{}, fmt.Errorf("failed to marshal tools: %w", err)
+		}
+		if err := json.Unmarshal(toolsJSON, &mcpTools); err != nil {
+			return LLMResponse{}, fmt.Errorf("failed to unmarshal tools: %w", err)
+		}
+	}
+
+	// Convert MCP tools to Gemini's functionDeclarations format
+	var geminiTools []geminiToolDeclaration
+	if len(mcpTools) > 0 {
+		var functions []geminiFunction
+		for _, tool := range mcpTools {
+			functions = append(functions, geminiFunction{
+				Name:        tool.Name,
+				Description: tool.Description,
+				Parameters:  tool.InputSchema,
+			})
+		}
+		geminiTools = []geminiToolDeclaration{
+			{FunctionDeclarations: functions},
+		}
+	}
+
+	// Build system instruction
+	systemContent := `You are a helpful PostgreSQL database assistant with expert knowledge on PostgreSQL and products from pgEdge with access to MCP tools.
+
+When executing tools:
+- Be concise and direct
+- Show results without explaining your methodology unless specifically asked
+- Base responses ONLY on actual tool results - never make up or guess data
+- Format results clearly for the user
+- Only use tools when necessary to answer the question`
+
+	if c.readOnly {
+		systemContent += readOnlySafetyPrompt
+	}
+
+	systemInstruction := &geminiContent{
+		Parts: []geminiPart{
+			{Text: systemContent},
+		},
+	}
+
+	// Build a map of tool use IDs to tool names for correlating
+	// tool results with their original tool calls.
+	toolNameByID := make(map[string]string)
+	for _, msg := range messages {
+		if items, ok := msg.Content.([]interface{}); ok && msg.Role == "assistant" {
+			for _, item := range items {
+				switch v := item.(type) {
+				case ToolUse:
+					toolNameByID[v.ID] = v.Name
+				default:
+					if itemMap, ok := item.(map[string]interface{}); ok {
+						if itemType, ok2 := itemMap["type"].(string); ok2 && itemType == "tool_use" {
+							if id, ok1 := itemMap["id"].(string); ok1 {
+								if name, ok2 := itemMap["name"].(string); ok2 {
+									toolNameByID[id] = name
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
+	// Convert messages to Gemini format
+	var contents []geminiContent
+	for _, msg := range messages {
+		switch content := msg.Content.(type) {
+		case string:
+			role := msg.Role
+			if role == "assistant" {
+				role = "model"
+			}
+			contents = append(contents, geminiContent{
+				Role:  role,
+				Parts: []geminiPart{{Text: content}},
+			})
+		case []ToolResult:
+			// Handle []ToolResult directly (from client.go tool execution)
+			var parts []geminiPart
+			for _, v := range content {
+				contentStr := toolResultContentString(v.Content)
+				if contentStr == "" {
+					contentStr = "{}"
+				}
+				toolName := toolNameByID[v.ToolUseID]
+				parts = append(parts, geminiPart{
+					FunctionResponse: &geminiFunctionResponse{
+						Name: toolName,
+						Response: map[string]interface{}{
+							"result": contentStr,
+						},
+					},
+				})
+			}
+			if len(parts) > 0 {
+				contents = append(contents, geminiContent{
+					Role:  "user",
+					Parts: parts,
+				})
+			}
+		case []interface{}:
+			if msg.Role == "assistant" {
+				// Handle assistant messages with text and tool_use
+				var parts []geminiPart
+				for _, item := range content {
+					switch v := item.(type) {
+					case TextContent:
+						parts = append(parts, geminiPart{Text: v.Text})
+					case ToolUse:
+						parts = append(parts, geminiPart{
+							FunctionCall: &geminiFunctionCall{
+								Name: v.Name,
+								Args: v.Input,
+							},
+						})
+					default:
+						itemMap, ok := item.(map[string]interface{})
+						if !ok {
+							continue
+						}
+						itemType, ok2 := itemMap["type"].(string)
+						if !ok2 {
+							continue
+						}
+						switch itemType {
+						case "text":
+							if text, ok := itemMap["text"].(string); ok {
+								parts = append(parts, geminiPart{Text: text})
+							}
+						case "tool_use":
+							name, ok1 := itemMap["name"].(string)
+							if !ok1 {
+								continue
+							}
+							input, ok2 := itemMap["input"].(map[string]interface{})
+							if !ok2 || input == nil {
+								input = map[string]interface{}{}
+							}
+							parts = append(parts, geminiPart{
+								FunctionCall: &geminiFunctionCall{
+									Name: name,
+									Args: input,
+								},
+							})
+						}
+					}
+				}
+				if len(parts) > 0 {
+					contents = append(contents, geminiContent{
+						Role:  "model",
+						Parts: parts,
+					})
+				}
+			} else {
+				// Handle user messages with tool_result content
+				var parts []geminiPart
+				for _, item := range content {
+					switch v := item.(type) {
+					case ToolResult:
+						contentStr := toolResultContentString(v.Content)
+						if contentStr == "" {
+							contentStr = "{}"
+						}
+						toolName := toolNameByID[v.ToolUseID]
+						parts = append(parts, geminiPart{
+							FunctionResponse: &geminiFunctionResponse{
+								Name: toolName,
+								Response: map[string]interface{}{
+									"result": contentStr,
+								},
+							},
+						})
+					default:
+						itemMap, ok := item.(map[string]interface{})
+						if !ok {
+							continue
+						}
+						itemType, ok2 := itemMap["type"].(string)
+						if !ok2 {
+							continue
+						}
+						if itemType == "tool_result" {
+							toolUseID, ok := itemMap["tool_use_id"].(string)
+							if !ok {
+								continue
+							}
+							resultContent := itemMap["content"]
+							contentStr := extractTextFromContent(resultContent)
+							if contentStr == "" {
+								contentStr = "{}"
+							}
+							toolName := toolNameByID[toolUseID]
+							parts = append(parts, geminiPart{
+								FunctionResponse: &geminiFunctionResponse{
+									Name: toolName,
+									Response: map[string]interface{}{
+										"result": contentStr,
+									},
+								},
+							})
+						}
+					}
+				}
+				if len(parts) > 0 {
+					contents = append(contents, geminiContent{
+						Role:  "user",
+						Parts: parts,
+					})
+				}
+			}
+		}
+	}
+
+	// Build request
+	geminiReq := geminiRequest{
+		Contents:          contents,
+		Tools:             geminiTools,
+		SystemInstruction: systemInstruction,
+		GenerationConfig: &geminiGenerationConfig{
+			MaxOutputTokens: c.maxTokens,
+			Temperature:     c.temperature,
+		},
+	}
+
+	reqData, err := json.Marshal(geminiReq)
+	if err != nil {
+		return LLMResponse{}, fmt.Errorf("failed to marshal request: %w", err)
+	}
+
+	embedding.LogLLMRequestTrace("gemini", c.model, operation, string(reqData))
+
+	httpReq, err := http.NewRequestWithContext(ctx, "POST", requestURL, bytes.NewBuffer(reqData))
+	if err != nil {
+		return LLMResponse{}, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	httpReq.Header.Set("Content-Type", "application/json")
+	for k, v := range c.customHeaders {
+		httpReq.Header.Set(k, v)
+	}
+
+	resp, err := c.client.Do(httpReq)
+	if err != nil {
+		embedding.LogConnectionError("gemini", safeURL, err)
+		duration := time.Since(startTime)
+		embedding.LogLLMCall("gemini", c.model, operation, 0, 0, duration, err)
+		return LLMResponse{}, fmt.Errorf("failed to send request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, err := io.ReadAll(resp.Body)
+		if err != nil {
+			duration := time.Since(startTime)
+			readErr := fmt.Errorf("API error %d (failed to read body: %w)", resp.StatusCode, err)
+			embedding.LogLLMCall("gemini", c.model, operation, 0, 0, duration, readErr)
+			return LLMResponse{}, readErr
+		}
+
+		// Check if this is a rate limit error
+		if resp.StatusCode == 429 {
+			embedding.LogRateLimitError("gemini", c.model, resp.StatusCode, string(body))
+		}
+
+		// Extract user-friendly error message from Gemini's error response
+		userFriendlyMsg := extractGeminiErrorMessage(resp.StatusCode, body)
+
+		duration := time.Since(startTime)
+		apiErr := fmt.Errorf("%s", userFriendlyMsg)
+		embedding.LogLLMCall("gemini", c.model, operation, 0, 0, duration, apiErr)
+		return LLMResponse{}, apiErr
+	}
+
+	var geminiResp geminiResponse
+	if err := json.NewDecoder(resp.Body).Decode(&geminiResp); err != nil {
+		duration := time.Since(startTime)
+		embedding.LogLLMCall("gemini", c.model, operation, 0, 0, duration, err)
+		return LLMResponse{}, fmt.Errorf("failed to decode response: %w", err)
+	}
+
+	if len(geminiResp.Candidates) == 0 {
+		duration := time.Since(startTime)
+		err := fmt.Errorf("no candidates in response")
+		embedding.LogLLMCall("gemini", c.model, operation, 0, 0, duration, err)
+		return LLMResponse{}, err
+	}
+
+	candidate := geminiResp.Candidates[0]
+
+	// Convert response content to typed structs
+	var responseContent []interface{}
+	hasToolUse := false
+	for _, part := range candidate.Content.Parts {
+		if part.FunctionCall != nil {
+			hasToolUse = true
+			responseContent = append(responseContent, ToolUse{
+				Type:  "tool_use",
+				ID:    generateToolID(),
+				Name:  part.FunctionCall.Name,
+				Input: part.FunctionCall.Args,
+			})
+		} else if part.Text != "" {
+			responseContent = append(responseContent, TextContent{
+				Type: "text",
+				Text: part.Text,
+			})
+		}
+	}
+
+	// Determine stop reason
+	stopReason := "end_turn"
+	if hasToolUse {
+		stopReason = "tool_use"
+	} else {
+		switch candidate.FinishReason {
+		case "STOP":
+			stopReason = "end_turn"
+		case "MAX_TOKENS":
+			stopReason = "max_tokens"
+		}
+	}
+
+	// Extract token usage
+	promptTokens := 0
+	completionTokens := 0
+	totalTokens := 0
+	if geminiResp.UsageMetadata != nil {
+		promptTokens = geminiResp.UsageMetadata.PromptTokenCount
+		completionTokens = geminiResp.UsageMetadata.CandidatesTokenCount
+		totalTokens = geminiResp.UsageMetadata.TotalTokenCount
+	}
+
+	duration := time.Since(startTime)
+	embedding.LogLLMResponseTrace("gemini", c.model, operation, resp.StatusCode, stopReason)
+	embedding.LogLLMCall("gemini", c.model, operation, promptTokens, completionTokens, duration, nil)
+
+	// Build token usage for debug
+	var tokenUsage *TokenUsage
+	if c.debug {
+		tokenUsage = &TokenUsage{
+			Provider:         "gemini",
+			PromptTokens:     promptTokens,
+			CompletionTokens: completionTokens,
+			TotalTokens:      totalTokens,
+		}
+
+		// Log to stderr for CLI
+		fmt.Fprintf(os.Stderr, "\r\n[LLM] [DEBUG] Gemini - Tokens: Prompt %d, Completion %d, Total %d\n",
+			promptTokens,
+			completionTokens,
+			totalTokens,
+		)
+	}
+
+	return LLMResponse{
+		Content:    responseContent,
+		StopReason: stopReason,
+		TokenUsage: tokenUsage,
+	}, nil
+}
+
+// ListModels returns available models from Gemini
+// Filters to models that support generateContent
+func (c *geminiClient) ListModels(ctx context.Context) ([]string, error) {
+	requestURL := c.baseURL + "/v1beta/models?key=" + c.apiKey
+
+	req, err := http.NewRequestWithContext(ctx, "GET", requestURL, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	for k, v := range c.customHeaders {
+		req.Header.Set(k, v)
+	}
+
+	resp, err := c.client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to send request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body) //nolint:errcheck // Error response body read is best effort
+		return nil, fmt.Errorf("API error (%d): %s", resp.StatusCode, string(body))
+	}
+
+	// Parse response: {"models": [{"name": "models/gemini-pro", "supportedGenerationMethods": [...], ...}, ...]}
+	var response struct {
+		Models []struct {
+			Name                       string   `json:"name"`
+			SupportedGenerationMethods []string `json:"supportedGenerationMethods"`
+		} `json:"models"`
+	}
+
+	if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
+		return nil, fmt.Errorf("failed to decode response: %w", err)
+	}
+
+	models := make([]string, 0, len(response.Models))
+	for _, model := range response.Models {
+		// Only include models that support generateContent
+		supportsGenerate := false
+		for _, method := range model.SupportedGenerationMethods {
+			if method == "generateContent" {
+				supportsGenerate = true
+				break
+			}
+		}
+		if !supportsGenerate {
+			continue
+		}
+
+		// Strip "models/" prefix from model names
+		name := model.Name
+		name = strings.TrimPrefix(name, "models/")
+		models = append(models, name)
+	}
+
+	return models, nil
+}
+
 // openaiClient implements LLMClient for OpenAI GPT models
 type openaiClient struct {
-	apiKey      string
-	baseURL     string
-	model       string
-	maxTokens   int
-	temperature float64
-	debug       bool
-	readOnly    bool
-	client      *http.Client
+	apiKey        string
+	baseURL       string
+	model         string
+	maxTokens     int
+	temperature   float64
+	debug         bool
+	readOnly      bool
+	customHeaders map[string]string
+	client        *http.Client
 }
 
 // SetReadOnlyMode sets whether the database is in read-only mode.
@@ -1029,7 +1616,7 @@ func (c *openaiClient) SetReadOnlyMode(readOnly bool) {
 
 // NewOpenAIClient creates a new OpenAI client
 // baseURL can be empty to use the default (https://api.openai.com)
-func NewOpenAIClient(apiKey, baseURL, model string, maxTokens int, temperature float64, debug bool) (LLMClient, error) {
+func NewOpenAIClient(apiKey, baseURL, model string, maxTokens int, temperature float64, customHeaders map[string]string, debug bool) (LLMClient, error) {
 	if baseURL == "" {
 		baseURL = "https://api.openai.com"
 	} else {
@@ -1040,13 +1627,14 @@ func NewOpenAIClient(apiKey, baseURL, model string, maxTokens int, temperature f
 		}
 	}
 	return &openaiClient{
-		apiKey:      apiKey,
-		baseURL:     baseURL,
-		model:       model,
-		maxTokens:   maxTokens,
-		temperature: temperature,
-		debug:       debug,
-		client:      &http.Client{},
+		apiKey:        apiKey,
+		baseURL:       baseURL,
+		model:         model,
+		maxTokens:     maxTokens,
+		temperature:   temperature,
+		customHeaders: customHeaders,
+		debug:         debug,
+		client:        &http.Client{},
 	}, nil
 }
 
@@ -1386,7 +1974,12 @@ When executing tools:
 	}
 
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+c.apiKey)
+	if c.apiKey != "" {
+		req.Header.Set("Authorization", "Bearer "+c.apiKey)
+	}
+	for k, v := range c.customHeaders {
+		req.Header.Set(k, v)
+	}
 
 	resp, err := c.client.Do(req)
 	if err != nil {
@@ -1563,7 +2156,12 @@ func (c *openaiClient) ListModels(ctx context.Context) ([]string, error) {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
 
-	req.Header.Set("Authorization", "Bearer "+c.apiKey)
+	if c.apiKey != "" {
+		req.Header.Set("Authorization", "Bearer "+c.apiKey)
+	}
+	for k, v := range c.customHeaders {
+		req.Header.Set(k, v)
+	}
 
 	resp, err := c.client.Do(req)
 	if err != nil {

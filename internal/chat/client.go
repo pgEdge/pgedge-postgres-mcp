@@ -370,19 +370,25 @@ func (c *Client) initializeLLM() error {
 	switch provider {
 	case "anthropic":
 		tempClient, clientErr = NewAnthropicClient(
-			c.config.LLM.AnthropicAPIKey, c.config.LLM.AnthropicBaseURL, "", 0, 0, false)
+			c.config.LLM.AnthropicAPIKey, c.config.LLM.AnthropicBaseURL, "", 0, 0, c.config.LLM.CustomHeaders, false)
 		if clientErr != nil {
 			return fmt.Errorf("failed to create Anthropic client: %w", clientErr)
 		}
 	case "openai":
 		tempClient, clientErr = NewOpenAIClient(
-			c.config.LLM.OpenAIAPIKey, c.config.LLM.OpenAIBaseURL, "", 0, 0, false)
+			c.config.LLM.OpenAIAPIKey, c.config.LLM.OpenAIBaseURL, "", 0, 0, c.config.LLM.CustomHeaders, false)
 		if clientErr != nil {
 			return fmt.Errorf("failed to create OpenAI client: %w", clientErr)
 		}
 	case "ollama":
 		tempClient = NewOllamaClient(
-			c.config.LLM.OllamaURL, "", false)
+			c.config.LLM.OllamaURL, "", c.config.LLM.CustomHeaders, false)
+	case "gemini":
+		tempClient, clientErr = NewGeminiClient(
+			c.config.LLM.GeminiAPIKey, c.config.LLM.GeminiBaseURL, "", 0, 0, c.config.LLM.CustomHeaders, false)
+		if clientErr != nil {
+			return fmt.Errorf("failed to create Gemini client: %w", clientErr)
+		}
 	default:
 		return fmt.Errorf("unsupported LLM provider: %s", provider)
 	}
@@ -434,6 +440,7 @@ func (c *Client) initializeLLM() error {
 			c.config.LLM.Model,
 			c.config.LLM.MaxTokens,
 			c.config.LLM.Temperature,
+			c.config.LLM.CustomHeaders,
 			c.config.UI.Debug,
 		)
 		if clientErr != nil {
@@ -446,6 +453,7 @@ func (c *Client) initializeLLM() error {
 			c.config.LLM.Model,
 			c.config.LLM.MaxTokens,
 			c.config.LLM.Temperature,
+			c.config.LLM.CustomHeaders,
 			c.config.UI.Debug,
 		)
 		if clientErr != nil {
@@ -455,8 +463,22 @@ func (c *Client) initializeLLM() error {
 		c.llm = NewOllamaClient(
 			c.config.LLM.OllamaURL,
 			c.config.LLM.Model,
+			c.config.LLM.CustomHeaders,
 			c.config.UI.Debug,
 		)
+	case "gemini":
+		c.llm, clientErr = NewGeminiClient(
+			c.config.LLM.GeminiAPIKey,
+			c.config.LLM.GeminiBaseURL,
+			c.config.LLM.Model,
+			c.config.LLM.MaxTokens,
+			c.config.LLM.Temperature,
+			c.config.LLM.CustomHeaders,
+			c.config.UI.Debug,
+		)
+		if clientErr != nil {
+			return fmt.Errorf("failed to create Gemini client: %w", clientErr)
+		}
 	}
 
 	return nil
@@ -1298,6 +1320,8 @@ func getDefaultModelForProvider(provider string) string {
 		return "gpt-4o"
 	case "ollama":
 		return "qwen3-coder:latest"
+	case "gemini":
+		return "gemini-2.5-flash"
 	default:
 		return ""
 	}
