@@ -440,7 +440,11 @@ type EmbeddingConfig struct {
 	OpenAIAPIKey     string `yaml:"openai_api_key"`      // API key for OpenAI (direct - discouraged, use api_key_file or env var)
 	OpenAIAPIKeyFile string `yaml:"openai_api_key_file"` // Path to file containing OpenAI API key
 	OpenAIBaseURL    string `yaml:"openai_base_url"`     // Base URL for OpenAI API (default: https://api.openai.com/v1)
-	OllamaURL        string `yaml:"ollama_url"`          // URL for Ollama service (default: http://localhost:11434)
+	OllamaURL        string            `yaml:"ollama_url"`          // URL for Ollama service (default: http://localhost:11434)
+	GeminiAPIKey     string            `yaml:"gemini_api_key"`      // API key for Google Gemini (direct - discouraged, use api_key_file or env var)
+	GeminiAPIKeyFile string            `yaml:"gemini_api_key_file"` // Path to file containing Gemini API key
+	GeminiBaseURL    string            `yaml:"gemini_base_url"`     // Base URL for Gemini API (default: https://generativelanguage.googleapis.com)
+	CustomHeaders    map[string]string `yaml:"custom_headers"`      // Custom HTTP headers for embedding API requests
 }
 
 // LLMConfig holds LLM configuration for web client chat proxy
@@ -454,9 +458,13 @@ type LLMConfig struct {
 	OpenAIAPIKey        string  `yaml:"openai_api_key"`         // API key for OpenAI (direct - discouraged, use api_key_file or env var instead)
 	OpenAIAPIKeyFile    string  `yaml:"openai_api_key_file"`    // Path to file containing OpenAI API key
 	OpenAIBaseURL       string  `yaml:"openai_base_url"`        // Base URL for OpenAI API (default: https://api.openai.com)
-	OllamaURL           string  `yaml:"ollama_url"`             // URL for Ollama service (default: http://localhost:11434)
-	MaxTokens           int     `yaml:"max_tokens"`             // Maximum tokens for LLM response (default: 4096)
-	Temperature         float64 `yaml:"temperature"`            // Temperature for LLM sampling (default: 0.7)
+	OllamaURL           string            `yaml:"ollama_url"`             // URL for Ollama service (default: http://localhost:11434)
+	GeminiAPIKey        string            `yaml:"gemini_api_key"`         // API key for Google Gemini (direct - discouraged, use api_key_file or env var)
+	GeminiAPIKeyFile    string            `yaml:"gemini_api_key_file"`    // Path to file containing Gemini API key
+	GeminiBaseURL       string            `yaml:"gemini_base_url"`        // Base URL for Gemini API (default: https://generativelanguage.googleapis.com)
+	CustomHeaders       map[string]string `yaml:"custom_headers"`         // Custom HTTP headers for LLM API requests
+	MaxTokens           int               `yaml:"max_tokens"`             // Maximum tokens for LLM response (default: 4096)
+	Temperature         float64           `yaml:"temperature"`            // Temperature for LLM sampling (default: 0.7)
 }
 
 // KnowledgebaseConfig holds knowledgebase configuration
@@ -473,7 +481,11 @@ type KnowledgebaseConfig struct {
 	EmbeddingOpenAIAPIKey     string `yaml:"embedding_openai_api_key"`      // API key for OpenAI
 	EmbeddingOpenAIAPIKeyFile string `yaml:"embedding_openai_api_key_file"` // Path to file containing OpenAI API key
 	EmbeddingOpenAIBaseURL    string `yaml:"embedding_openai_base_url"`     // Base URL for OpenAI API (default: https://api.openai.com/v1)
-	EmbeddingOllamaURL        string `yaml:"embedding_ollama_url"`          // URL for Ollama service (default: http://localhost:11434)
+	EmbeddingOllamaURL        string            `yaml:"embedding_ollama_url"`          // URL for Ollama service (default: http://localhost:11434)
+	EmbeddingGeminiAPIKey     string            `yaml:"embedding_gemini_api_key"`      // API key for Google Gemini
+	EmbeddingGeminiAPIKeyFile string            `yaml:"embedding_gemini_api_key_file"` // Path to file containing Gemini API key
+	EmbeddingGeminiBaseURL    string            `yaml:"embedding_gemini_base_url"`     // Base URL for Gemini API
+	EmbeddingCustomHeaders    map[string]string `yaml:"embedding_custom_headers"`      // Custom HTTP headers for embedding API requests
 }
 
 // LoadConfig loads configuration with proper priority:
@@ -1002,6 +1014,14 @@ func applyEnvironmentVariables(cfg *Config) {
 	// Base URL overrides for embedding providers (useful for proxies)
 	setStringFromEnv(&cfg.Embedding.VoyageBaseURL, "PGEDGE_VOYAGE_BASE_URL")
 	setStringFromEnv(&cfg.Embedding.OpenAIBaseURL, "PGEDGE_OPENAI_EMBEDDING_BASE_URL")
+	// Gemini embedding
+	setStringFromEnvWithFallback(&cfg.Embedding.GeminiAPIKey, "PGEDGE_GEMINI_API_KEY", "GEMINI_API_KEY")
+	if cfg.Embedding.GeminiAPIKey == "" && cfg.Embedding.GeminiAPIKeyFile != "" {
+		if key, err := readAPIKeyFromFile(cfg.Embedding.GeminiAPIKeyFile); err == nil && key != "" {
+			cfg.Embedding.GeminiAPIKey = key
+		}
+	}
+	setStringFromEnv(&cfg.Embedding.GeminiBaseURL, "PGEDGE_GEMINI_BASE_URL")
 
 	// LLM
 	setBoolFromEnv(&cfg.LLM.Enabled, "PGEDGE_LLM_ENABLED")
@@ -1029,6 +1049,14 @@ func applyEnvironmentVariables(cfg *Config) {
 	// Base URL overrides for LLM providers (useful for proxies)
 	setStringFromEnv(&cfg.LLM.AnthropicBaseURL, "PGEDGE_ANTHROPIC_BASE_URL")
 	setStringFromEnv(&cfg.LLM.OpenAIBaseURL, "PGEDGE_OPENAI_BASE_URL")
+	// Gemini LLM
+	setStringFromEnvWithFallback(&cfg.LLM.GeminiAPIKey, "PGEDGE_GEMINI_API_KEY", "GEMINI_API_KEY")
+	if cfg.LLM.GeminiAPIKey == "" && cfg.LLM.GeminiAPIKeyFile != "" {
+		if key, err := readAPIKeyFromFile(cfg.LLM.GeminiAPIKeyFile); err == nil && key != "" {
+			cfg.LLM.GeminiAPIKey = key
+		}
+	}
+	setStringFromEnv(&cfg.LLM.GeminiBaseURL, "PGEDGE_GEMINI_BASE_URL")
 	setIntFromEnv(&cfg.LLM.MaxTokens, "PGEDGE_LLM_MAX_TOKENS")
 	// Temperature is a float, but we'll handle it specially
 	if val := os.Getenv("PGEDGE_LLM_TEMPERATURE"); val != "" {
@@ -1066,6 +1094,14 @@ func applyEnvironmentVariables(cfg *Config) {
 	// Base URL overrides for KB embedding providers (useful for proxies)
 	setStringFromEnv(&cfg.Knowledgebase.EmbeddingVoyageBaseURL, "PGEDGE_KB_VOYAGE_BASE_URL")
 	setStringFromEnv(&cfg.Knowledgebase.EmbeddingOpenAIBaseURL, "PGEDGE_KB_OPENAI_BASE_URL")
+	// Gemini KB embedding
+	setStringFromEnvWithFallback(&cfg.Knowledgebase.EmbeddingGeminiAPIKey, "PGEDGE_KB_GEMINI_API_KEY", "GEMINI_API_KEY")
+	if cfg.Knowledgebase.EmbeddingGeminiAPIKey == "" && cfg.Knowledgebase.EmbeddingGeminiAPIKeyFile != "" {
+		if key, err := readAPIKeyFromFile(cfg.Knowledgebase.EmbeddingGeminiAPIKeyFile); err == nil && key != "" {
+			cfg.Knowledgebase.EmbeddingGeminiAPIKey = key
+		}
+	}
+	setStringFromEnv(&cfg.Knowledgebase.EmbeddingGeminiBaseURL, "PGEDGE_KB_GEMINI_BASE_URL")
 
 	// Secret file
 	setStringFromEnv(&cfg.SecretFile, "PGEDGE_SECRET_FILE")
