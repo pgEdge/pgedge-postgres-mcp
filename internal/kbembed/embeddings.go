@@ -72,7 +72,7 @@ func (eg *EmbeddingGenerator) GenerateEmbeddings(chunks []*kbtypes.Chunk) map[st
 		name string
 		err  error
 	}
-	resultChan := make(chan providerResult, 3)
+	resultChan := make(chan providerResult, 4)
 
 	startTime := time.Now()
 
@@ -122,6 +122,22 @@ func (eg *EmbeddingGenerator) GenerateEmbeddings(chunks []*kbtypes.Chunk) map[st
 			}
 			fmt.Printf("✓ Ollama embeddings completed in %.2fs\n", time.Since(providerStart).Seconds())
 			resultChan <- providerResult{"Ollama", nil}
+		}()
+	}
+
+	if eg.config.Embeddings.Gemini.Enabled {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			fmt.Printf("Starting Gemini embeddings...\n")
+			providerStart := time.Now()
+			if err := eg.generateGeminiEmbeddings(chunks); err != nil {
+				fmt.Printf("⚠️  Gemini embeddings failed: %v\n", err)
+				resultChan <- providerResult{"Gemini", err}
+				return
+			}
+			fmt.Printf("✓ Gemini embeddings completed in %.2fs\n", time.Since(providerStart).Seconds())
+			resultChan <- providerResult{"Gemini", nil}
 		}()
 	}
 
@@ -662,4 +678,104 @@ func (eg *EmbeddingGenerator) ollamaEmbedSingle(
 	resp.Body.Close()
 
 	return embResp.Embedding, nil
+}
+
+// Gemini API structures
+type geminiEmbedBatchRequest struct {
+	Model   string `json:"model"`
+	Content struct {
+		Parts []struct {
+			Text string `json:"text"`
+		} `json:"parts"`
+	} `json:"content"`
+}
+
+type geminiEmbedBatchResponse struct {
+	Embedding struct {
+		Values []float32 `json:"values"`
+	} `json:"embedding"`
+}
+
+// generateGeminiEmbeddings generates embeddings using Google Gemini
+func (eg *EmbeddingGenerator) generateGeminiEmbeddings(chunks []*kbtypes.Chunk) error {
+	config := eg.config.Embeddings.Gemini
+	endpoint := fmt.Sprintf("https://generativelanguage.googleapis.com/v1beta/models/%s:embedContent?key=%s",
+		config.Model, config.APIKey)
+
+	var chunksToProcess []*kbtypes.Chunk
+	for _, chunk := range chunks {
+		if len(chunk.GeminiEmbedding) == 0 && strings.TrimSpace(chunk.Text) != "" {
+			chunksToProcess = append(chunksToProcess, chunk)
+		}
+	}
+
+	if len(chunksToProcess) == 0 {
+		fmt.Printf("  Gemini: All chunks already have embeddings, skipping\n")
+		return nil
+	}
+
+	if len(chunksToProcess) < len(chunks) {
+		fmt.Printf("  Gemini: Processing %d chunks (%d already have Gemini embeddings)\n",
+			len(chunksToProcess), len(chunks)-len(chunksToProcess))
+	} else {
+		fmt.Printf("  Gemini: Processing %d chunks\n", len(chunksToProcess))
+	}
+
+	const saveInterval = 50
+	var pendingSave []*kbtypes.Chunk
+
+	for i, chunk := range chunksToProcess {
+		reqBody := geminiEmbedBatchRequest{
+			Model: "models/" + config.Model,
+		}
+		reqBody.Content.Parts = []struct {
+			Text string `json:"text"`
+		}{{Text: chunk.Text}}
+
+		jsonData, err := json.Marshal(reqBody)
+		if err != nil {
+			return fmt.Errorf("failed to marshal request: %w", err)
+		}
+
+		operation := fmt.Sprintf("Gemini chunk %d/%d", i+1, len(chunksToProcess))
+		resp, err := eg.retryWithBackoff(operation, func() (*http.Response, error) {
+			req, err := http.NewRequest("POST", endpoint, bytes.NewBuffer(jsonData))
+			if err != nil {
+				return nil, err
+			}
+			req.Header.Set("Content-Type", "application/json")
+			return eg.client.Do(req)
+		})
+		if err != nil {
+			return fmt.Errorf("failed to make request: %w", err)
+		}
+
+		var embResp geminiEmbedBatchResponse
+		if err := json.NewDecoder(resp.Body).Decode(&embResp); err != nil {
+			resp.Body.Close()
+			return fmt.Errorf("failed to decode response: %w", err)
+		}
+		resp.Body.Close()
+
+		chunk.GeminiEmbedding = embResp.Embedding.Values
+		pendingSave = append(pendingSave, chunk)
+
+		if len(pendingSave) >= saveInterval || i == len(chunksToProcess)-1 {
+			if eg.db != nil && len(pendingSave) > 0 && pendingSave[0].ID != 0 {
+				eg.dbMux.Lock()
+				if err := eg.db.UpdateGeminiEmbeddings(pendingSave); err != nil {
+					eg.dbMux.Unlock()
+					return fmt.Errorf("failed to save chunks to database: %w", err)
+				}
+				eg.dbMux.Unlock()
+				pendingSave = nil
+			}
+		}
+
+		if (i+1)%10 == 0 || i == len(chunksToProcess)-1 {
+			fmt.Printf("  Gemini: Processed %d/%d chunks\n", i+1, len(chunksToProcess))
+		}
+	}
+
+	return nil
 }

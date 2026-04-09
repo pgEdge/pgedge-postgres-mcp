@@ -46,7 +46,7 @@ pgEdge PostgreSQL MCP server.
 
 The tool converts documents from multiple formats (Markdown, HTML, RST, SGML),
 chunks them intelligently, generates embeddings using multiple providers (OpenAI,
-Voyage, Ollama), and stores everything in an optimized SQLite database.`,
+Voyage, Ollama, Gemini), and stores everything in an optimized SQLite database.`,
 	RunE: run,
 }
 
@@ -60,7 +60,7 @@ func init() {
 	rootCmd.Flags().BoolVar(&addMissingEmbeddings, "add-missing-embeddings", false,
 		"Add missing embeddings to existing database instead of rebuilding")
 	rootCmd.Flags().StringVar(&clearEmbeddings, "clear-embeddings", "",
-		"Clear embeddings for specified provider (openai, voyage, or ollama)")
+		"Clear embeddings for specified provider (openai, voyage, ollama, or gemini)")
 	rootCmd.Flags().IntVar(&maxRetries, "max-retries", 5,
 		"Maximum number of retries for transient embedding API errors (0 = unlimited)")
 }
@@ -122,6 +122,9 @@ func run(cmd *cobra.Command, args []string) error {
 	}
 	if config.Embeddings.Ollama.Enabled {
 		enabledProviders = append(enabledProviders, "Ollama")
+	}
+	if config.Embeddings.Gemini.Enabled {
+		enabledProviders = append(enabledProviders, "Gemini")
 	}
 	fmt.Printf("Enabled embedding providers: %v\n", enabledProviders)
 
@@ -224,6 +227,9 @@ func runAddMissingEmbeddings(config *kbconfig.Config) error {
 			needsEmbedding = true
 		}
 		if config.Embeddings.Ollama.Enabled && len(chunk.OllamaEmbedding) == 0 {
+			needsEmbedding = true
+		}
+		if config.Embeddings.Gemini.Enabled && len(chunk.GeminiEmbedding) == 0 {
 			needsEmbedding = true
 		}
 
@@ -429,6 +435,7 @@ func processFile(filePath string, source kbsource.SourceInfo, db *kbdatabase.Dat
 				OpenAIEmbedding:    existingChunk.OpenAIEmbedding,
 				VoyageEmbedding:    existingChunk.VoyageEmbedding,
 				OllamaEmbedding:    existingChunk.OllamaEmbedding,
+				GeminiEmbedding:    existingChunk.GeminiEmbedding,
 			}
 			chunks = append(chunks, chunk)
 		}

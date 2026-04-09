@@ -304,7 +304,7 @@ func searchKB(kbPath string, queryEmbedding []float32, projectNames, projectVers
 	// Build query
 	query := `
         SELECT text, title, section, project_name, project_version, file_path,
-               openai_embedding, voyage_embedding, ollama_embedding
+               openai_embedding, voyage_embedding, ollama_embedding, gemini_embedding
         FROM chunks
         WHERE 1=1
     `
@@ -340,10 +340,10 @@ func searchKB(kbPath string, queryEmbedding []float32, projectNames, projectVers
 
 	for rows.Next() {
 		var text, title, section, pName, pVersion, filePath string
-		var openaiBlob, voyageBlob, ollamaBlob []byte
+		var openaiBlob, voyageBlob, ollamaBlob, geminiBlob []byte
 
 		err := rows.Scan(&text, &title, &section, &pName, &pVersion, &filePath,
-			&openaiBlob, &voyageBlob, &ollamaBlob)
+			&openaiBlob, &voyageBlob, &ollamaBlob, &geminiBlob)
 		if err != nil {
 			continue
 		}
@@ -355,6 +355,8 @@ func searchKB(kbPath string, queryEmbedding []float32, projectNames, projectVers
 			embBlob = voyageBlob
 		case "ollama":
 			embBlob = ollamaBlob
+		case "gemini":
+			embBlob = geminiBlob
 		default: // openai
 			embBlob = openaiBlob
 		}
@@ -367,6 +369,8 @@ func searchKB(kbPath string, queryEmbedding []float32, projectNames, projectVers
 				embBlob = voyageBlob
 			} else if len(ollamaBlob) > 0 {
 				embBlob = ollamaBlob
+			} else if len(geminiBlob) > 0 {
+				embBlob = geminiBlob
 			} else {
 				continue // No embeddings available
 			}
