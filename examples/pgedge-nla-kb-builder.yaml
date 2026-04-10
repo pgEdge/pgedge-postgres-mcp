@@ -56,6 +56,12 @@ sources:
       project_name: "pgAdmin 4"
       project_version: "9.11"
 
+    - git_url: "https://github.com/patroni/patroni.git"
+      tag: "v4.1.0"
+      doc_path: "docs"
+      project_name: "patroni"
+      project_version: "4.1.0"
+
     - git_url: "git@github.com:pgEdge/pgedge-docs.git"
       branch: "main"
       doc_path: "docs/cloud"
