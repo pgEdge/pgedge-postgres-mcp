@@ -102,7 +102,7 @@ The Natural Language Agent consists of three main components:
 └──────┬──────┘
        │ HTTP
        ▼
-┌────────────────┐  nginx proxies  ┌────────────────┐
+┌────────────────┐  nginx proxies   ┌────────────────┐
 │  web-client    │─────────────────▶│  mcp-server    │
 │  (nginx+React) │  /mcp/v1, /api   │  (Go binary)   │
 │  Port 8081     │                  │  Port 8080     │

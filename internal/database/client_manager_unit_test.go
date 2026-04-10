@@ -449,6 +449,11 @@ func TestDatabaseConfigChanged(t *testing.T) {
 			changed: true,
 		},
 		{
+			name:    "changed MetadataTTL",
+			modify:  func(c *config.NamedDatabaseConfig) { c.MetadataTTL = "10m" },
+			changed: true,
+		},
+		{
 			name: "changed non-connection field only",
 			modify: func(c *config.NamedDatabaseConfig) {
 				c.AvailableToUsers = []string{"alice"}

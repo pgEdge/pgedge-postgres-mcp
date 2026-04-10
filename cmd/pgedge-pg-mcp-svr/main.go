@@ -653,13 +653,14 @@ func main() {
 
 		// Register custom resources
 		for _, resDef := range defs.Resources {
-			if resDef.Type == "sql" {
+			switch resDef.Type {
+			case "sql":
 				if err := contextAwareResourceProvider.RegisterSQL(resDef); err != nil {
 					fmt.Fprintf(os.Stderr, "ERROR: Failed to register resource %s: %v\n", resDef.URI, err)
 					os.Exit(1)
 				}
 				fmt.Fprintf(os.Stderr, "Registered custom SQL resource: %s\n", resDef.URI)
-			} else if resDef.Type == "static" {
+			case "static":
 				if err := contextAwareResourceProvider.RegisterStatic(resDef); err != nil {
 					fmt.Fprintf(os.Stderr, "ERROR: Failed to register resource %s: %v\n", resDef.URI, err)
 					os.Exit(1)
@@ -832,7 +833,7 @@ func main() {
 				authHeader := r.Header.Get("Authorization")
 				if authHeader == "" {
 					//nolint:errcheck // Encoding a simple map should never fail
-					json.NewEncoder(w).Encode(map[string]interface{}{
+					json.NewEncoder(w).Encode(map[string]any{
 						"authenticated": false,
 					})
 					return
@@ -842,7 +843,7 @@ func main() {
 				token := strings.TrimPrefix(authHeader, "Bearer ")
 				if token == authHeader {
 					//nolint:errcheck // Encoding a simple map should never fail
-					json.NewEncoder(w).Encode(map[string]interface{}{
+					json.NewEncoder(w).Encode(map[string]any{
 						"authenticated": false,
 						"error":         "Invalid Authorization header format",
 					})
@@ -853,7 +854,7 @@ func main() {
 				username, err := userStore.ValidateSessionToken(token)
 				if err != nil {
 					//nolint:errcheck // Encoding a simple map should never fail
-					json.NewEncoder(w).Encode(map[string]interface{}{
+					json.NewEncoder(w).Encode(map[string]any{
 						"authenticated": false,
 						"error":         "Invalid or expired session",
 					})
@@ -862,7 +863,7 @@ func main() {
 
 				// Return user info as JSON
 				//nolint:errcheck // Encoding a simple map should never fail
-				json.NewEncoder(w).Encode(map[string]interface{}{
+				json.NewEncoder(w).Encode(map[string]any{
 					"authenticated": true,
 					"username":      username,
 				})
@@ -1010,7 +1011,7 @@ func main() {
 					fmt.Fprintf(os.Stderr, "ERROR: Failed to reload config: %v\n", err)
 				}
 				if tracing.IsEnabled() {
-					tracing.LogConfigReload("", map[string]interface{}{
+					tracing.LogConfigReload("", map[string]any{
 						"event": "sighup",
 					})
 				}

@@ -1,6 +1,6 @@
 # Multi-stage build for pgEdge Natural Language Agent
 # Stage 1: Build the Go binary
-FROM golang:1.24-alpine AS builder
+FROM golang:1.25-alpine AS builder
 
 # Set working directory
 WORKDIR /workspace
@@ -35,7 +35,10 @@ LABEL name="pgedge-postgres-mcp" \
 
 # Install util-linux for runuser command (needed for user switching in init script)
 # Install curl if KB_SOURCE is a URL (for downloading KB database)
-RUN microdnf install -y util-linux && \
+# Cache-bust: CACHE_DATE forces re-execution of microdnf update on each CI build
+ARG CACHE_DATE
+RUN microdnf update -y && \
+    microdnf install -y util-linux && \
     if echo "${KB_SOURCE}" | grep -qE '^https?://'; then \
         microdnf install -y curl; \
     fi && \

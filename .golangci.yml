@@ -1,75 +1,33 @@
-# golangci-lint configuration for v1.x
-# To install: go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
-# Note: This config is NOT compatible with golangci-lint v2
-
-linters-settings:
-  errcheck:
-    check-type-assertions: true
-    check-blank: true
-  govet:
-    enable-all: true
-    disable:
-      - fieldalignment
-      - shadow
-  gocyclo:
-    min-complexity: 50
-  dupl:
-    threshold: 150
-  goconst:
-    min-len: 3
-    min-occurrences: 5
-  misspell:
-    locale: US
-  lll:
-    line-length: 120
-  gocritic:
-    enabled-tags:
-      - diagnostic
-      - performance
-      - style
-    disabled-checks:
-      - commentedOutCode
-      - hugeParam
-      - octalLiteral
-      - httpNoBody
-      - paramTypeCombine
-      - appendCombine
-      - ifElseChain
-      - unnamedResult
-      - exitAfterDefer
+version: "2"
 
 linters:
-  enable:
-    - errcheck
-    - govet
-    - ineffassign
-    - staticcheck
-    - unused
-    - misspell
-    - gocritic
-
-issues:
-  exclude-rules:
-    - path: _test\.go
-      linters:
-        - gocyclo
-        - dupl
-        - goconst
-        - errcheck
-        - gocritic
-    - path: test/
-      linters:
-        - gocyclo
-        - dupl
-        - goconst
-        - errcheck
-        - gocritic
-  exclude-dirs:
-    - vendor
-    - bin
-  exclude-files:
-    - ".*\\.pb\\.go$"
+    default: standard
+    exclusions:
+        presets:
+            - comments
+            - std-error-handling
+            - common-false-positives
+        rules:
+            - path: _test\.go
+              linters:
+                  - errcheck
+                  - gocritic
+                  - dupl
+                  - goconst
+                  - gocyclo
+            - path: test/
+              linters:
+                  - errcheck
+                  - gocritic
+                  - dupl
+                  - goconst
+                  - gocyclo
+        paths:
+            - vendor
+            - bin
+            - third_party
+            - ".*\\.pb\\.go$"
 
 run:
-  timeout: 5m
-  tests: true
+    timeout: 5m
+    tests: true

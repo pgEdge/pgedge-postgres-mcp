@@ -82,9 +82,6 @@ SQL queries.
 
 > **Supported Versions:** PostgreSQL 14 and higher.
 
-> **WARNING**: This code is in pre-release status and MUST NOT be
-> put into production without thorough testing!
-
 > **NOT FOR PUBLIC-FACING APPLICATIONS**: This MCP server provides
 > LLMs with read access to your entire database schema and data.
 > It should only be used for internal tools, developer workflows,

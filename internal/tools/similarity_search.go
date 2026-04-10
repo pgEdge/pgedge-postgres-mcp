@@ -210,9 +210,9 @@ To avoid rate limits (30,000 input tokens/minute):
 				sanitizedConn := database.SanitizeConnStr(connStr)
 
 				var errMsg strings.Builder
-				errMsg.WriteString(fmt.Sprintf("Table '%s' not found.\n\n", tableName))
+				fmt.Fprintf(&errMsg, "Table '%s' not found.\n\n", tableName)
 				errMsg.WriteString("<current_connection>\n")
-				errMsg.WriteString(fmt.Sprintf("Connected to: %s\n", sanitizedConn))
+				fmt.Fprintf(&errMsg, "Connected to: %s\n", sanitizedConn)
 				errMsg.WriteString("</current_connection>\n\n")
 				errMsg.WriteString("<diagnosis>\n")
 				errMsg.WriteString("Possible reasons:\n")
@@ -229,7 +229,7 @@ To avoid rate limits (30,000 input tokens/minute):
 				errMsg.WriteString("3. Check current database connection:\n")
 				errMsg.WriteString("   → read_resource(uri=\"pg://system-info\")\n\n")
 				errMsg.WriteString("4. If table is in a different schema, use qualified name:\n")
-				errMsg.WriteString(fmt.Sprintf("   → similarity_search(table_name=\"schema_name.%s\", query_text=\"...\")\n", tableName))
+				fmt.Fprintf(&errMsg, "   → similarity_search(table_name=\"schema_name.%s\", query_text=\"...\")\n", tableName)
 				errMsg.WriteString("</next_steps>\n")
 
 				return mcp.NewToolError(errMsg.String())
@@ -239,7 +239,7 @@ To avoid rate limits (30,000 input tokens/minute):
 			vectorCols := discoverVectorColumns(tableInfo)
 			if len(vectorCols) == 0 {
 				var errMsg strings.Builder
-				errMsg.WriteString(fmt.Sprintf("No vector columns found in table '%s'.\n\n", tableName))
+				fmt.Fprintf(&errMsg, "No vector columns found in table '%s'.\n\n", tableName)
 				errMsg.WriteString("<diagnosis>\n")
 				errMsg.WriteString("This tool requires tables with pgvector extension columns (vector data type).\n")
 				errMsg.WriteString("Possible reasons:\n")
@@ -255,7 +255,7 @@ To avoid rate limits (30,000 input tokens/minute):
 				errMsg.WriteString("3. If no vector tables exist, install pgvector:\n")
 				errMsg.WriteString("   → Contact administrator to install: CREATE EXTENSION vector;\n\n")
 				errMsg.WriteString("4. For non-semantic queries, use query_database instead:\n")
-				errMsg.WriteString(fmt.Sprintf("   → query_database(query=\"SELECT * FROM %s WHERE ...\")\n", tableName))
+				fmt.Fprintf(&errMsg, "   → query_database(query=\"SELECT * FROM %s WHERE ...\")\n", tableName)
 				errMsg.WriteString("</next_steps>\n")
 
 				return mcp.NewToolError(errMsg.String())
@@ -265,7 +265,7 @@ To avoid rate limits (30,000 input tokens/minute):
 			textCols := discoverTextColumns(tableInfo, vectorCols)
 			if len(textCols) == 0 {
 				var errMsg strings.Builder
-				errMsg.WriteString(fmt.Sprintf("No text columns found corresponding to vector columns in table '%s'.\n\n", tableName))
+				fmt.Fprintf(&errMsg, "No text columns found corresponding to vector columns in table '%s'.\n\n", tableName)
 				errMsg.WriteString("<diagnosis>\n")
 				errMsg.WriteString("This tool needs text columns to search. Vector columns store embeddings, but the original text must be in companion text columns.\n")
 				errMsg.WriteString("Expected naming patterns:\n")
@@ -274,9 +274,9 @@ To avoid rate limits (30,000 input tokens/minute):
 				errMsg.WriteString("</diagnosis>\n\n")
 				errMsg.WriteString("<next_steps>\n")
 				errMsg.WriteString("1. Check table structure:\n")
-				errMsg.WriteString(fmt.Sprintf("   → get_schema_info(schema_name=%q)\n\n", strings.Split(tableName, ".")[0]))
+				fmt.Fprintf(&errMsg, "   → get_schema_info(schema_name=%q)\n\n", strings.Split(tableName, ".")[0])
 				errMsg.WriteString("2. List columns in this table:\n")
-				errMsg.WriteString(fmt.Sprintf("   → query_database(query=\"SELECT column_name, data_type FROM information_schema.columns WHERE table_name = '%s'\")\n\n", tableName))
+				fmt.Fprintf(&errMsg, "   → query_database(query=\"SELECT column_name, data_type FROM information_schema.columns WHERE table_name = '%s'\")\n\n", tableName)
 				errMsg.WriteString("3. This table might not be suitable for semantic search\n")
 				errMsg.WriteString("   → Try a different table with get_schema_info(vector_tables_only=true)\n")
 				errMsg.WriteString("</next_steps>\n")
@@ -298,7 +298,7 @@ To avoid rate limits (30,000 input tokens/minute):
 			queryEmbedding, err := generateQueryEmbeddingWithConfig(cfg, queryText)
 			if err != nil {
 				var errMsg strings.Builder
-				errMsg.WriteString(fmt.Sprintf("Failed to generate query embedding: %v\n\n", err))
+				fmt.Fprintf(&errMsg, "Failed to generate query embedding: %v\n\n", err)
 				errMsg.WriteString("<diagnosis>\n")
 				errMsg.WriteString("The server's embedding service encountered an error. Possible causes:\n")
 				errMsg.WriteString("1. Embedding generation is disabled in server configuration\n")
@@ -311,7 +311,7 @@ To avoid rate limits (30,000 input tokens/minute):
 				errMsg.WriteString("1. Contact server administrator to check embedding configuration\n\n")
 				errMsg.WriteString("2. Verify API keys and service availability\n\n")
 				errMsg.WriteString("3. For non-semantic queries, use query_database instead:\n")
-				errMsg.WriteString(fmt.Sprintf("   → query_database(query=\"SELECT * FROM %s WHERE text_column ILIKE '%%%s%%'\")\n", tableName, queryText))
+				fmt.Fprintf(&errMsg, "   → query_database(query=\"SELECT * FROM %s WHERE text_column ILIKE '%%%s%%'\")\n", tableName, queryText)
 				errMsg.WriteString("</next_steps>\n")
 
 				return mcp.NewToolError(errMsg.String())
@@ -330,7 +330,7 @@ To avoid rate limits (30,000 input tokens/minute):
 			)
 			if err != nil {
 				var errMsg strings.Builder
-				errMsg.WriteString(fmt.Sprintf("Vector search failed: %v\n\n", err))
+				fmt.Fprintf(&errMsg, "Vector search failed: %v\n\n", err)
 				errMsg.WriteString("<diagnosis>\n")
 				errMsg.WriteString("The database query for vector similarity failed. Possible causes:\n")
 				errMsg.WriteString("1. Vector dimension mismatch (embedding size != column size)\n")
@@ -341,7 +341,7 @@ To avoid rate limits (30,000 input tokens/minute):
 				errMsg.WriteString("</diagnosis>\n\n")
 				errMsg.WriteString("<next_steps>\n")
 				errMsg.WriteString("1. Check vector column dimensions:\n")
-				errMsg.WriteString(fmt.Sprintf("   → query_database(query=\"SELECT column_name, atttypmod FROM pg_attribute WHERE attrelid = '%s'::regclass AND atttypid = 'vector'::regtype\")\n\n", tableName))
+				fmt.Fprintf(&errMsg, "   → query_database(query=\"SELECT column_name, atttypmod FROM pg_attribute WHERE attrelid = '%s'::regclass AND atttypid = 'vector'::regtype\")\n\n", tableName)
 				errMsg.WriteString("2. Verify pgvector extension:\n")
 				errMsg.WriteString("   → query_database(query=\"SELECT * FROM pg_extension WHERE extname = 'vector'\")\n\n")
 				errMsg.WriteString("3. Try a different table:\n")
@@ -354,7 +354,7 @@ To avoid rate limits (30,000 input tokens/minute):
 
 			if len(results) == 0 {
 				var msg strings.Builder
-				msg.WriteString(fmt.Sprintf("No results found for query: %q\n\n", queryText))
+				fmt.Fprintf(&msg, "No results found for query: %q\n\n", queryText)
 				msg.WriteString("<diagnosis>\n")
 				msg.WriteString("The vector search completed but found no semantically similar content.\n")
 				msg.WriteString("Possible reasons:\n")
@@ -365,12 +365,12 @@ To avoid rate limits (30,000 input tokens/minute):
 				msg.WriteString("</diagnosis>\n\n")
 				msg.WriteString("<next_steps>\n")
 				msg.WriteString("1. Check if table has data:\n")
-				msg.WriteString(fmt.Sprintf("   → query_database(query=\"SELECT COUNT(*) FROM %s\")\n\n", tableName))
+				fmt.Fprintf(&msg, "   → query_database(query=\"SELECT COUNT(*) FROM %s\")\n\n", tableName)
 				msg.WriteString("2. Try a broader or simpler query\n\n")
 				msg.WriteString("3. Sample the table to see what content exists:\n")
-				msg.WriteString(fmt.Sprintf("   → query_database(query=\"SELECT * FROM %s\", limit=5)\n\n", tableName))
+				fmt.Fprintf(&msg, "   → query_database(query=\"SELECT * FROM %s\", limit=5)\n\n", tableName)
 				msg.WriteString("4. Increase top_n parameter to cast a wider net:\n")
-				msg.WriteString(fmt.Sprintf("   → similarity_search(table_name=%q, query_text=%q, top_n=50)\n", tableName, queryText))
+				fmt.Fprintf(&msg, "   → similarity_search(table_name=%q, query_text=%q, top_n=50)\n", tableName, queryText)
 				msg.WriteString("</next_steps>\n")
 
 				return mcp.NewToolSuccess(msg.String())
@@ -397,18 +397,18 @@ To avoid rate limits (30,000 input tokens/minute):
 				var msg strings.Builder
 				msg.WriteString("Search completed successfully, but no chunks fit within the token budget.\n\n")
 				msg.WriteString("<diagnosis>\n")
-				msg.WriteString(fmt.Sprintf("All matching chunks exceed the max_output_tokens limit of %d tokens.\n", searchCfg.MaxOutputTokens))
-				msg.WriteString(fmt.Sprintf("Found %d diverse chunks after MMR filtering, but all too large.\n", len(diverseChunks)))
+				fmt.Fprintf(&msg, "All matching chunks exceed the max_output_tokens limit of %d tokens.\n", searchCfg.MaxOutputTokens)
+				fmt.Fprintf(&msg, "Found %d diverse chunks after MMR filtering, but all too large.\n", len(diverseChunks))
 				msg.WriteString("</diagnosis>\n\n")
 				msg.WriteString("<next_steps>\n")
 				msg.WriteString("1. Increase token budget:\n")
-				msg.WriteString(fmt.Sprintf("   → similarity_search(table_name=%q, query_text=%q, max_output_tokens=2500)\n\n", tableName, queryText))
+				fmt.Fprintf(&msg, "   → similarity_search(table_name=%q, query_text=%q, max_output_tokens=2500)\n\n", tableName, queryText)
 				msg.WriteString("2. Reduce chunk size for more granular results:\n")
-				msg.WriteString(fmt.Sprintf("   → similarity_search(table_name=%q, query_text=%q, chunk_size_tokens=50)\n\n", tableName, queryText))
+				fmt.Fprintf(&msg, "   → similarity_search(table_name=%q, query_text=%q, chunk_size_tokens=50)\n\n", tableName, queryText)
 				msg.WriteString("3. Use summary format instead:\n")
-				msg.WriteString(fmt.Sprintf("   → similarity_search(table_name=%q, query_text=%q, output_format=\"summary\")\n\n", tableName, queryText))
+				fmt.Fprintf(&msg, "   → similarity_search(table_name=%q, query_text=%q, output_format=\"summary\")\n\n", tableName, queryText)
 				msg.WriteString("4. Use ids_only to see what matched:\n")
-				msg.WriteString(fmt.Sprintf("   → similarity_search(table_name=%q, query_text=%q, output_format=\"ids_only\")\n", tableName, queryText))
+				fmt.Fprintf(&msg, "   → similarity_search(table_name=%q, query_text=%q, output_format=\"ids_only\")\n", tableName, queryText)
 				msg.WriteString("</next_steps>\n")
 
 				return mcp.NewToolSuccess(msg.String())
@@ -810,16 +810,16 @@ func formatSearchResults(
 ) string {
 	var sb strings.Builder
 
-	sb.WriteString(fmt.Sprintf("Similarity Search Results: %q\n", queryText))
+	fmt.Fprintf(&sb, "Similarity Search Results: %q\n", queryText)
 	sb.WriteString(strings.Repeat("=", 80))
 	sb.WriteString("\n\n")
 
 	// Show configuration
 	sb.WriteString("Configuration:\n")
-	sb.WriteString(fmt.Sprintf("  - Vector Search: Top %d rows\n", cfg.TopN))
-	sb.WriteString(fmt.Sprintf("  - Chunking: %d tokens per chunk, %d token overlap\n", cfg.ChunkSizeTokens, cfg.OverlapTokens))
-	sb.WriteString(fmt.Sprintf("  - Diversity: λ=%.2f (%.0f%% relevance, %.0f%% diversity)\n", cfg.Lambda, cfg.Lambda*100, (1-cfg.Lambda)*100))
-	sb.WriteString(fmt.Sprintf("  - Distance Metric: %s\n", cfg.DistanceMetric))
+	fmt.Fprintf(&sb, "  - Vector Search: Top %d rows\n", cfg.TopN)
+	fmt.Fprintf(&sb, "  - Chunking: %d tokens per chunk, %d token overlap\n", cfg.ChunkSizeTokens, cfg.OverlapTokens)
+	fmt.Fprintf(&sb, "  - Diversity: λ=%.2f (%.0f%% relevance, %.0f%% diversity)\n", cfg.Lambda, cfg.Lambda*100, (1-cfg.Lambda)*100)
+	fmt.Fprintf(&sb, "  - Distance Metric: %s\n", cfg.DistanceMetric)
 
 	// Show column weights
 	if len(columnWeights) > 0 {
@@ -829,7 +829,7 @@ func formatSearchResults(
 			if w.IsTitle {
 				colType = "title"
 			}
-			sb.WriteString(fmt.Sprintf("      %s (%.1f%%) [%s]\n", w.ColumnName, w.Weight*100, colType))
+			fmt.Fprintf(&sb, "      %s (%.1f%%) [%s]\n", w.ColumnName, w.Weight*100, colType)
 		}
 	}
 	sb.WriteString("\n")
@@ -840,11 +840,11 @@ func formatSearchResults(
 		chunkTokens := search.EstimateTokens(chunk.Text)
 		totalTokens += chunkTokens
 
-		sb.WriteString(fmt.Sprintf("Result %d/%d\n", i+1, len(chunks)))
-		sb.WriteString(fmt.Sprintf("Source: %s.%s (vector search rank: #%d, chunk: %d)\n",
-			chunk.SourceTable, chunk.SourceColumn, chunk.OriginalRank+1, chunk.ChunkIndex+1))
-		sb.WriteString(fmt.Sprintf("Relevance Score: %.3f\n", chunk.Score))
-		sb.WriteString(fmt.Sprintf("Tokens: ~%d\n\n", chunkTokens))
+		fmt.Fprintf(&sb, "Result %d/%d\n", i+1, len(chunks))
+		fmt.Fprintf(&sb, "Source: %s.%s (vector search rank: #%d, chunk: %d)\n",
+			chunk.SourceTable, chunk.SourceColumn, chunk.OriginalRank+1, chunk.ChunkIndex+1)
+		fmt.Fprintf(&sb, "Relevance Score: %.3f\n", chunk.Score)
+		fmt.Fprintf(&sb, "Tokens: ~%d\n\n", chunkTokens)
 		sb.WriteString(chunk.Text)
 		sb.WriteString("\n\n")
 		sb.WriteString(strings.Repeat("-", 80))
@@ -852,7 +852,7 @@ func formatSearchResults(
 	}
 
 	sb.WriteString(strings.Repeat("=", 80))
-	sb.WriteString(fmt.Sprintf("\nTotal: %d chunks, ~%d tokens\n", len(chunks), totalTokens))
+	fmt.Fprintf(&sb, "\nTotal: %d chunks, ~%d tokens\n", len(chunks), totalTokens)
 
 	return sb.String()
 }
@@ -866,11 +866,11 @@ func formatSearchResultsSummary(
 ) string {
 	var sb strings.Builder
 
-	sb.WriteString(fmt.Sprintf("Similarity Search Results (Summary): %q\n", queryText))
+	fmt.Fprintf(&sb, "Similarity Search Results (Summary): %q\n", queryText)
 	sb.WriteString(strings.Repeat("=", 80))
 	sb.WriteString("\n\n")
 
-	sb.WriteString(fmt.Sprintf("Found %d relevant chunks. Showing summaries:\n\n", len(chunks)))
+	fmt.Fprintf(&sb, "Found %d relevant chunks. Showing summaries:\n\n", len(chunks))
 
 	// Show compact results
 	for i, chunk := range chunks {
@@ -880,13 +880,13 @@ func formatSearchResultsSummary(
 			snippet = snippet[:100] + "..."
 		}
 
-		sb.WriteString(fmt.Sprintf("%d. Score: %.3f | Source: %s.%s (rank #%d)\n",
-			i+1, chunk.Score, chunk.SourceTable, chunk.SourceColumn, chunk.OriginalRank+1))
-		sb.WriteString(fmt.Sprintf("   %s\n\n", snippet))
+		fmt.Fprintf(&sb, "%d. Score: %.3f | Source: %s.%s (rank #%d)\n",
+			i+1, chunk.Score, chunk.SourceTable, chunk.SourceColumn, chunk.OriginalRank+1)
+		fmt.Fprintf(&sb, "   %s\n\n", snippet)
 	}
 
 	sb.WriteString(strings.Repeat("=", 80))
-	sb.WriteString(fmt.Sprintf("\nTotal: %d results shown in summary mode\n", len(chunks)))
+	fmt.Fprintf(&sb, "\nTotal: %d results shown in summary mode\n", len(chunks))
 	sb.WriteString("Use output_format='full' to see complete content\n")
 
 	return sb.String()
@@ -900,11 +900,11 @@ func formatSearchResultsIDsOnly(
 ) string {
 	var sb strings.Builder
 
-	sb.WriteString(fmt.Sprintf("Similarity Search Results (IDs Only): %q\n", queryText))
+	fmt.Fprintf(&sb, "Similarity Search Results (IDs Only): %q\n", queryText)
 	sb.WriteString(strings.Repeat("=", 80))
 	sb.WriteString("\n\n")
 
-	sb.WriteString(fmt.Sprintf("Found %d matching rows. Row IDs and distances:\n\n", len(results)))
+	fmt.Fprintf(&sb, "Found %d matching rows. Row IDs and distances:\n\n", len(results))
 
 	// Show just IDs and distances
 	for i, result := range results {
@@ -913,12 +913,12 @@ func formatSearchResultsIDsOnly(
 			rowID = id
 		}
 
-		sb.WriteString(fmt.Sprintf("%d. ID: %v | Distance: %.4f\n", i+1, rowID, result.Distance))
+		fmt.Fprintf(&sb, "%d. ID: %v | Distance: %.4f\n", i+1, rowID, result.Distance)
 	}
 
 	sb.WriteString("\n")
 	sb.WriteString(strings.Repeat("=", 80))
-	sb.WriteString(fmt.Sprintf("\nTotal: %d results\n", len(results)))
+	fmt.Fprintf(&sb, "\nTotal: %d results\n", len(results))
 	sb.WriteString("Use output_format='summary' for snippets or 'full' for complete content\n")
 
 	return sb.String()

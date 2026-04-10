@@ -1,0 +1,122 @@
+vulnerabilities:
+  # glib2 - Not used by the Go binary; present in UBI9 base image.
+  # No fix available from Red Hat.
+  - id: CVE-2025-14087
+    statement: >-
+      glib2 buffer underflow in GVariant parser. Will not fix per Red Hat.
+      Not exploitable in this context; the MCP server does not parse
+      GVariant data.
+  - id: CVE-2025-14512
+    statement: >-
+      glib2 integer overflow in GIO attribute escaping. No fix available.
+      The server does not use GIO attribute APIs.
+  - id: CVE-2026-1484
+    statement: >-
+      glib2 integer overflow leading to buffer underflow. No fix
+      available. Not exploitable; the server does not call affected APIs.
+  - id: CVE-2026-1489
+    statement: >-
+      glib2 memory corruption in Unicode case conversion. No fix
+      available. Risk accepted; server does not perform locale-dependent
+      Unicode case conversion via glib2.
+
+  # glibc - Core C library in UBI9 base image.
+  - id: CVE-2026-4046
+    statement: >-
+      glibc DoS via iconv() with specific character sets. Under
+      investigation by Red Hat. Risk accepted; the server does not call
+      iconv() directly.
+  - id: CVE-2026-4437
+    statement: >-
+      glibc incorrect DNS response parsing. No fix available. Risk
+      accepted; DNS resolution is handled by the Go runtime, not glibc.
+
+  # gnupg2 - Present in UBI9 base image but not used by the server.
+  - id: CVE-2025-68972
+    statement: >-
+      GnuPG signature bypass via form feed character. No fix available.
+      The server does not verify GPG signatures.
+
+  # libarchive - Present in UBI9 base image but not used by the server.
+  - id: CVE-2026-4424
+    statement: >-
+      libarchive heap out-of-bounds read in RAR processing. No fix
+      available. The server does not process archive files.
+  - id: CVE-2023-30571
+    statement: >-
+      libarchive race condition. Will not fix per Red Hat. The server
+      does not use libarchive.
+  - id: CVE-2025-60753
+    statement: >-
+      bsdtar OOM with zero-length pattern matches. No fix available.
+      The server does not invoke bsdtar or libarchive APIs.
+  - id: CVE-2026-4426
+    statement: >-
+      libarchive DoS via malformed ISO file. No fix available. The
+      server does not process ISO files.
+  - id: CVE-2026-5121
+    statement: >-
+      libarchive integer overflow on 32-bit systems. No fix available.
+      Server runs on 64-bit only and does not use libarchive.
+
+  # curl / libcurl-minimal - Only installed when KB_SOURCE is a URL.
+  # Used only during image build, not at runtime.
+  - id: CVE-2025-14017
+    statement: >-
+      curl TLS option changes in multi-threaded use. No fix available.
+      curl is only used at build time to download the knowledgebase; it
+      is not invoked at runtime.
+  - id: CVE-2026-1965
+    statement: >-
+      curl authentication bypass with Negotiate auth. No fix available.
+      curl is only used at build time; Negotiate auth is not used.
+  - id: CVE-2026-3783
+    statement: >-
+      curl OAuth2 bearer token leakage during redirect. No fix
+      available. curl is only used at build time for simple downloads.
+  - id: CVE-2026-3784
+    statement: >-
+      curl improper HTTP proxy connection reuse. No fix available.
+      curl is only used at build time without proxies.
+  - id: CVE-2026-3805
+    statement: >-
+      curl use-after-free vulnerability. No fix available. curl is
+      only used at build time for a single download operation.
+
+  # libnghttp2 - HTTP/2 library in UBI9 base image.
+  - id: CVE-2026-27135
+    statement: >-
+      nghttp2 DoS via malformed HTTP/2 frames. No fix available. The
+      MCP server uses the Go HTTP stack, not libnghttp2.
+
+  # libxml2 - Present in UBI9 base image but not used by the server.
+  - id: CVE-2026-0990
+    statement: >-
+      libxml2 DoS via uncontrolled recursion in XML catalog processing.
+      No fix available. The server does not parse XML.
+  - id: CVE-2026-1757
+    statement: >-
+      libxml2 memory leak in xmllint interactive mode. No fix available.
+      The server does not invoke xmllint.
+
+  # openldap - Present in UBI9 base image but not used by the server.
+  - id: CVE-2026-22185
+    statement: >-
+      OpenLDAP LMDB heap buffer overflow. No fix available. The server
+      does not use LDAP or LMDB.
+
+  # p11-kit - PKCS#11 library in UBI9 base image.
+  - id: CVE-2026-2100
+    statement: >-
+      p11-kit NULL dereference via C_DeriveKey. No fix available. The
+      server does not use PKCS#11 key derivation.
+
+  # systemd-libs - Present in UBI9 base image.
+  - id: CVE-2026-29111
+    statement: >-
+      systemd arbitrary code execution via spurious IPC. No fix
+      available. Risk accepted; the container does not run systemd.
+  - id: CVE-2026-4105
+    statement: >-
+      systemd privilege escalation via RegisterMachine D-Bus method.
+      No fix available. The container does not run systemd or use D-Bus.

@@ -105,26 +105,26 @@ To avoid rate limits when calling this tool:
 </rate_limit_awareness>`,
 			InputSchema: mcp.InputSchema{
 				Type: "object",
-				Properties: map[string]interface{}{
-					"schema_name": map[string]interface{}{
+				Properties: map[string]any{
+					"schema_name": map[string]any{
 						"type":        "string",
 						"description": "Optional: specific schema name to get info for. If not provided, returns all schemas.",
 					},
-					"table_name": map[string]interface{}{
+					"table_name": map[string]any{
 						"type":        "string",
 						"description": "Optional: specific table name to get columns for. Requires schema_name to also be provided.",
 					},
-					"vector_tables_only": map[string]interface{}{
+					"vector_tables_only": map[string]any{
 						"type":        "boolean",
 						"description": "Optional: if true, only return tables with vector columns (for semantic search). Reduces output significantly.",
 						"default":     false,
 					},
-					"compact": map[string]interface{}{
+					"compact": map[string]any{
 						"type":        "boolean",
 						"description": "Optional: if true, return table names only (no column details). Use for quick overview.",
 						"default":     false,
 					},
-					"include_partitions": map[string]interface{}{
+					"include_partitions": map[string]any{
 						"type":        "boolean",
 						"description": "Optional: if true, include child partition tables in the output. By default, child partitions are hidden to reduce output size; partitioned parent tables are always shown.",
 						"default":     false,
@@ -132,7 +132,7 @@ To avoid rate limits when calling this tool:
 				},
 			},
 		},
-		Handler: func(args map[string]interface{}) (mcp.ToolResponse, error) {
+		Handler: func(args map[string]any) (mcp.ToolResponse, error) {
 			schemaName, ok := args["schema_name"].(string)
 			if !ok {
 				schemaName = "" // Default to empty string (all schemas)
@@ -243,31 +243,29 @@ To avoid rate limits when calling this tool:
 				// Smart summary mode for large databases
 				sb.WriteString("Database Schema Summary:\n")
 				sb.WriteString("========================\n\n")
-				sb.WriteString(fmt.Sprintf("Found %d tables across %d schemas.\n\n",
-					totalMatched, len(schemaMap)))
+				fmt.Fprintf(&sb, "Found %d tables across %d schemas.\n\n",
+					totalMatched, len(schemaMap))
 
 				// List schemas with their tables
 				for schema, stats := range schemaMap {
-					sb.WriteString(fmt.Sprintf("Schema '%s': %d tables\n",
-						schema, len(stats.tableNames)))
+					fmt.Fprintf(&sb, "Schema '%s': %d tables\n",
+						schema, len(stats.tableNames))
 
 					// Show first few table names as preview
 					previewCount := 5
-					if len(stats.tableNames) < previewCount {
-						previewCount = len(stats.tableNames)
-					}
+					previewCount = min(previewCount, len(stats.tableNames))
 					preview := stats.tableNames[:previewCount]
-					sb.WriteString(fmt.Sprintf("  Tables: %s", strings.Join(preview, ", ")))
+					fmt.Fprintf(&sb, "  Tables: %s", strings.Join(preview, ", "))
 					if len(stats.tableNames) > previewCount {
-						sb.WriteString(fmt.Sprintf(", ... (+%d more)",
-							len(stats.tableNames)-previewCount))
+						fmt.Fprintf(&sb, ", ... (+%d more)",
+							len(stats.tableNames)-previewCount)
 					}
 					sb.WriteString("\n")
 
 					// Note vector-enabled tables if any
 					if len(stats.vectorTables) > 0 {
-						sb.WriteString(fmt.Sprintf("  Vector-enabled: %s\n",
-							strings.Join(stats.vectorTables, ", ")))
+						fmt.Fprintf(&sb, "  Vector-enabled: %s\n",
+							strings.Join(stats.vectorTables, ", "))
 					}
 					sb.WriteString("\n")
 				}
@@ -276,7 +274,7 @@ To avoid rate limits when calling this tool:
 				sb.WriteString("To reduce token usage and get detailed info:\n\n")
 				sb.WriteString("1. Get details for a specific schema:\n")
 				for schema := range schemaMap {
-					sb.WriteString(fmt.Sprintf("   → get_schema_info(schema_name=%q)\n", schema))
+					fmt.Fprintf(&sb, "   → get_schema_info(schema_name=%q)\n", schema)
 				}
 				sb.WriteString("\n2. Get only vector-enabled tables:\n")
 				sb.WriteString("   → get_schema_info(vector_tables_only=true)\n\n")
@@ -399,24 +397,24 @@ To avoid rate limits when calling this tool:
 				emptyMsg.WriteString("\nNo tables found matching your criteria.\n\n")
 
 				emptyMsg.WriteString("<current_connection>\n")
-				emptyMsg.WriteString(fmt.Sprintf("Connected to: %s\n", sanitizedConn))
+				fmt.Fprintf(&emptyMsg, "Connected to: %s\n", sanitizedConn)
 				emptyMsg.WriteString("</current_connection>\n\n")
 
 				emptyMsg.WriteString("<diagnosis>\n")
 				if tableName != "" {
-					emptyMsg.WriteString(fmt.Sprintf("Table '%s.%s' not found.\n", schemaName, tableName))
+					fmt.Fprintf(&emptyMsg, "Table '%s.%s' not found.\n", schemaName, tableName)
 					emptyMsg.WriteString("Possible reasons:\n")
 					emptyMsg.WriteString("1. Table name is misspelled (PostgreSQL is case-sensitive)\n")
 					emptyMsg.WriteString("2. Table exists in a different schema\n")
 					emptyMsg.WriteString("3. You don't have permission to view this table\n")
 				} else if schemaName != "" && vectorTablesOnly {
-					emptyMsg.WriteString(fmt.Sprintf("No tables with vector columns found in schema '%s'.\n", schemaName))
+					fmt.Fprintf(&emptyMsg, "No tables with vector columns found in schema '%s'.\n", schemaName)
 					emptyMsg.WriteString("Possible reasons:\n")
 					emptyMsg.WriteString("1. Schema name is misspelled or doesn't exist\n")
 					emptyMsg.WriteString("2. Schema exists but has no tables with vector columns\n")
 					emptyMsg.WriteString("3. pgvector extension not installed or not used in this schema\n")
 				} else if schemaName != "" {
-					emptyMsg.WriteString(fmt.Sprintf("Schema '%s' not found or has no tables.\n", schemaName))
+					fmt.Fprintf(&emptyMsg, "Schema '%s' not found or has no tables.\n", schemaName)
 					emptyMsg.WriteString("Possible reasons:\n")
 					emptyMsg.WriteString("1. Schema name is misspelled (PostgreSQL is case-sensitive)\n")
 					emptyMsg.WriteString("2. Schema exists but is empty (no tables created yet)\n")
@@ -446,7 +444,7 @@ To avoid rate limits when calling this tool:
 
 				if tableName != "" {
 					emptyMsg.WriteString("3. List all tables in the schema to find the correct name:\n")
-					emptyMsg.WriteString(fmt.Sprintf("   → get_schema_info(schema_name=%q, compact=true)\n\n", schemaName))
+					fmt.Fprintf(&emptyMsg, "   → get_schema_info(schema_name=%q, compact=true)\n\n", schemaName)
 				} else if schemaName != "" {
 					emptyMsg.WriteString("3. List all available schemas:\n")
 					emptyMsg.WriteString("   → query_database(query=\"SELECT schema_name FROM information_schema.schemata ORDER BY schema_name\", limit=50)\n\n")
@@ -459,7 +457,7 @@ To avoid rate limits when calling this tool:
 					emptyMsg.WriteString("   → query_database(query=\"SELECT * FROM pg_extension WHERE extname = 'vector'\")\n\n")
 					emptyMsg.WriteString("4. Try without vector filter to see all tables:\n")
 					if schemaName != "" {
-						emptyMsg.WriteString(fmt.Sprintf("   → get_schema_info(schema_name=%q)\n\n", schemaName))
+						fmt.Fprintf(&emptyMsg, "   → get_schema_info(schema_name=%q)\n\n", schemaName)
 					} else {
 						emptyMsg.WriteString("   → get_schema_info()\n\n")
 					}

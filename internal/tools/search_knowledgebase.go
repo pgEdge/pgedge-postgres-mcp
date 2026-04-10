@@ -74,27 +74,27 @@ If you get zero results:
 </examples>`,
 			InputSchema: mcp.InputSchema{
 				Type: "object",
-				Properties: map[string]interface{}{
-					"query": map[string]interface{}{
+				Properties: map[string]any{
+					"query": map[string]any{
 						"type":        "string",
 						"description": "Natural language search query (required unless list_products is true)",
 					},
-					"project_names": map[string]interface{}{
+					"project_names": map[string]any{
 						"type":        "array",
-						"items":       map[string]interface{}{"type": "string"},
+						"items":       map[string]any{"type": "string"},
 						"description": "Filter by project/product name(s) (e.g., ['PostgreSQL'], ['pgEdge', 'pgAdmin'])",
 					},
-					"project_versions": map[string]interface{}{
+					"project_versions": map[string]any{
 						"type":        "array",
-						"items":       map[string]interface{}{"type": "string"},
+						"items":       map[string]any{"type": "string"},
 						"description": "Filter by project/product version(s) (e.g., ['17'], ['16', '17'])",
 					},
-					"top_n": map[string]interface{}{
+					"top_n": map[string]any{
 						"type":        "integer",
 						"description": "Number of results to return (default: 5, max: 20)",
 						"default":     5,
 					},
-					"list_products": map[string]interface{}{
+					"list_products": map[string]any{
 						"type":        "boolean",
 						"description": "If true, returns only the list of available products and versions in the knowledgebase (ignores other parameters). Use this to discover what documentation is available before searching.",
 					},
@@ -102,7 +102,7 @@ If you get zero results:
 				Required: []string{},
 			},
 		},
-		Handler: func(args map[string]interface{}) (mcp.ToolResponse, error) {
+		Handler: func(args map[string]any) (mcp.ToolResponse, error) {
 			// Check for list_products mode first
 			if listProducts, ok := args["list_products"].(bool); ok && listProducts {
 				products, err := listKBProducts(kbPath)
@@ -128,7 +128,7 @@ If you get zero results:
 			topN := 5
 
 			// Extract project_names array
-			if pn, ok := args["project_names"].([]interface{}); ok {
+			if pn, ok := args["project_names"].([]any); ok {
 				for _, v := range pn {
 					if s, ok := v.(string); ok && s != "" {
 						projectNames = append(projectNames, s)
@@ -136,7 +136,7 @@ If you get zero results:
 				}
 			}
 			// Extract project_versions array
-			if pv, ok := args["project_versions"].([]interface{}); ok {
+			if pv, ok := args["project_versions"].([]any); ok {
 				for _, v := range pv {
 					if s, ok := v.(string); ok && s != "" {
 						projectVersions = append(projectVersions, s)
@@ -145,12 +145,8 @@ If you get zero results:
 			}
 			if tn, ok := args["top_n"].(float64); ok {
 				topN = int(tn)
-				if topN < 1 {
-					topN = 1
-				}
-				if topN > 20 {
-					topN = 20
-				}
+				topN = max(topN, 1)
+				topN = min(topN, 20)
 			}
 
 			// Generate query embedding
@@ -234,21 +230,21 @@ func listKBProducts(kbPath string) (string, error) {
 			if currentProduct != "" {
 				sb.WriteString("\n")
 			}
-			sb.WriteString(fmt.Sprintf("Product: %s\n", name))
+			fmt.Fprintf(&sb, "Product: %s\n", name)
 			currentProduct = name
 		}
 
 		if version != "" {
-			sb.WriteString(fmt.Sprintf("  - Version %s (%d chunks)\n", version, count))
+			fmt.Fprintf(&sb, "  - Version %s (%d chunks)\n", version, count)
 		} else {
-			sb.WriteString(fmt.Sprintf("  - (no version) (%d chunks)\n", count))
+			fmt.Fprintf(&sb, "  - (no version) (%d chunks)\n", count)
 		}
 		totalChunks += count
 	}
 
 	sb.WriteString("\n")
 	sb.WriteString(strings.Repeat("=", 50))
-	sb.WriteString(fmt.Sprintf("\nTotal: %d chunks across all products\n", totalChunks))
+	fmt.Fprintf(&sb, "\nTotal: %d chunks across all products\n", totalChunks)
 
 	return sb.String(), nil
 }
@@ -309,7 +305,7 @@ func searchKB(kbPath string, queryEmbedding []float32, projectNames, projectVers
         FROM chunks
         WHERE 1=1
     `
-	args := []interface{}{}
+	args := []any{}
 
 	// Add project_names filter with IN clause
 	if len(projectNames) > 0 {
@@ -441,35 +437,35 @@ func cosineSimilarity(a, b []float32) float64 {
 func formatKBResults(results []KBSearchResult, query string, projectNames, projectVersions []string) string {
 	var sb strings.Builder
 
-	sb.WriteString(fmt.Sprintf("Knowledgebase Search Results: %q\n", query))
+	fmt.Fprintf(&sb, "Knowledgebase Search Results: %q\n", query)
 	if len(projectNames) > 0 {
-		sb.WriteString(fmt.Sprintf("Filter - Projects: %s", strings.Join(projectNames, ", ")))
+		fmt.Fprintf(&sb, "Filter - Projects: %s", strings.Join(projectNames, ", "))
 		if len(projectVersions) > 0 {
-			sb.WriteString(fmt.Sprintf("; Versions: %s", strings.Join(projectVersions, ", ")))
+			fmt.Fprintf(&sb, "; Versions: %s", strings.Join(projectVersions, ", "))
 		}
 		sb.WriteString("\n")
 	} else if len(projectVersions) > 0 {
-		sb.WriteString(fmt.Sprintf("Filter - Versions: %s\n", strings.Join(projectVersions, ", ")))
+		fmt.Fprintf(&sb, "Filter - Versions: %s\n", strings.Join(projectVersions, ", "))
 	}
 	sb.WriteString(strings.Repeat("=", 80))
 	sb.WriteString("\n\n")
 
-	sb.WriteString(fmt.Sprintf("Found %d relevant chunks:\n\n", len(results)))
+	fmt.Fprintf(&sb, "Found %d relevant chunks:\n\n", len(results))
 
 	for i, result := range results {
-		sb.WriteString(fmt.Sprintf("Result %d/%d\n", i+1, len(results)))
+		fmt.Fprintf(&sb, "Result %d/%d\n", i+1, len(results))
 		if result.ProjectVersion != "" {
-			sb.WriteString(fmt.Sprintf("Project: %s %s\n", result.ProjectName, result.ProjectVersion))
+			fmt.Fprintf(&sb, "Project: %s %s\n", result.ProjectName, result.ProjectVersion)
 		} else {
-			sb.WriteString(fmt.Sprintf("Project: %s\n", result.ProjectName))
+			fmt.Fprintf(&sb, "Project: %s\n", result.ProjectName)
 		}
 		if result.Title != "" {
-			sb.WriteString(fmt.Sprintf("Title: %s\n", result.Title))
+			fmt.Fprintf(&sb, "Title: %s\n", result.Title)
 		}
 		if result.Section != "" {
-			sb.WriteString(fmt.Sprintf("Section: %s\n", result.Section))
+			fmt.Fprintf(&sb, "Section: %s\n", result.Section)
 		}
-		sb.WriteString(fmt.Sprintf("Similarity: %.3f\n\n", result.Similarity))
+		fmt.Fprintf(&sb, "Similarity: %.3f\n\n", result.Similarity)
 		sb.WriteString(result.Text)
 		sb.WriteString("\n\n")
 		sb.WriteString(strings.Repeat("-", 80))
@@ -477,7 +473,7 @@ func formatKBResults(results []KBSearchResult, query string, projectNames, proje
 	}
 
 	sb.WriteString(strings.Repeat("=", 80))
-	sb.WriteString(fmt.Sprintf("\nTotal: %d results\n", len(results)))
+	fmt.Fprintf(&sb, "\nTotal: %d results\n", len(results))
 
 	return sb.String()
 }

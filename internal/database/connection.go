@@ -28,10 +28,11 @@ import (
 
 // ConnectionInfo holds a connection pool and its metadata
 type ConnectionInfo struct {
-	ConnString     string
-	Pool           *pgxpool.Pool
-	Metadata       map[string]TableInfo
-	MetadataLoaded bool
+	ConnString       string
+	Pool             *pgxpool.Pool
+	Metadata         map[string]TableInfo
+	MetadataLoaded   bool
+	MetadataLoadedAt time.Time
 }
 
 // Client manages multiple PostgreSQL connections and metadata
@@ -556,6 +557,7 @@ func (c *Client) LoadMetadataFor(connStr string) error {
 	c.mu.Lock()
 	conn.Metadata = newMetadata
 	conn.MetadataLoaded = true
+	conn.MetadataLoadedAt = time.Now()
 	c.mu.Unlock()
 
 	duration := time.Since(startTime)
@@ -604,7 +606,10 @@ func (c *Client) IsMetadataLoaded() bool {
 	return c.IsMetadataLoadedFor(connStr)
 }
 
-// IsMetadataLoadedFor returns whether metadata has been loaded for a specific connection
+// IsMetadataLoadedFor returns whether valid (non-stale) metadata
+// exists for a specific connection. Metadata is considered stale
+// when it is older than the configured metadata_ttl (default: 5m).
+// A TTL of 0 means metadata is always considered stale.
 func (c *Client) IsMetadataLoadedFor(connStr string) bool {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
@@ -613,7 +618,24 @@ func (c *Client) IsMetadataLoadedFor(connStr string) bool {
 	if !exists {
 		return false
 	}
-	return conn.MetadataLoaded
+	if !conn.MetadataLoaded {
+		return false
+	}
+
+	// Resolve TTL: default 5 minutes
+	ttl := 5 * time.Minute
+	if c.dbConfig != nil && c.dbConfig.MetadataTTL != "" {
+		if parsed, err := time.ParseDuration(c.dbConfig.MetadataTTL); err == nil {
+			ttl = parsed
+		}
+	}
+
+	// TTL of 0 means always refresh
+	if ttl == 0 {
+		return false
+	}
+
+	return time.Since(conn.MetadataLoadedAt) <= ttl
 }
 
 // GetPool returns the connection pool for the default connection

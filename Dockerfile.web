@@ -28,6 +28,13 @@ LABEL name="pgedge-nla-web" \
       description="Web-based chat interface for pgEdge Natural Language Agent" \
       io.naturallanguageagent.web.name="io.github.pgEdge/nla-web"
 
+# Apply available security patches
+# Cache-bust: CACHE_DATE forces re-execution of dnf update on each CI build
+ARG CACHE_DATE
+USER root
+RUN dnf update -y && dnf clean all
+USER 1001
+
 # Copy built application from builder
 COPY --from=builder /workspace/dist /opt/app-root/src
 

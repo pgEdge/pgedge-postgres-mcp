@@ -205,11 +205,12 @@ func (c *Client) connectToMCP(ctx context.Context) error {
 		// HTTP mode
 		var token string
 
-		if c.config.MCP.AuthMode == "none" {
+		switch c.config.MCP.AuthMode {
+		case "none":
 			// No authentication - connect without a token
 			// Used when server has auth disabled
 			token = ""
-		} else if c.config.MCP.AuthMode == "user" {
+		case "user":
 			// User authentication mode
 			username := c.config.MCP.Username
 			password := c.config.MCP.Password
@@ -246,7 +247,7 @@ func (c *Client) connectToMCP(ctx context.Context) error {
 				return fmt.Errorf("authentication failed: %w", err)
 			}
 			token = sessionToken
-		} else {
+		default:
 			// Token authentication mode (default for non-"none", non-"user")
 			token = c.config.MCP.Token
 			if token == "" {

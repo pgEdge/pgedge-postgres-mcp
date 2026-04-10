@@ -40,6 +40,7 @@ databases:
       pool_min_conns: 2
       pool_max_conn_idle_time: "5m"
       connect_timeout: "10s"
+      # metadata_ttl: "5m"
       available_to_users: []  # Empty = available to all users
       # WARNING: allow_writes enables the AI to execute INSERT, UPDATE, DELETE, etc.
       # Only enable on non-production databases where data loss is acceptable.

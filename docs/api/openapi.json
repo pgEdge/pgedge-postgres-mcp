@@ -390,7 +390,7 @@
           },
           "version": {
             "description": "The server version.",
-            "example": "1.0.0-beta3",
+            "example": "1.0.0",
             "type": "string"
           }
         },
@@ -792,7 +792,7 @@
       "name": "PostgreSQL License"
     },
     "title": "pgEdge Postgres MCP Server API",
-    "version": "1.0.0-beta3"
+    "version": "1.0.0"
   },
   "openapi": "3.0.3",
   "paths": {

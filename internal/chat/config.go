@@ -203,21 +203,22 @@ func (c *Config) Validate() error {
 	}
 
 	// Validate LLM configuration based on provider
-	if c.LLM.Provider == "anthropic" {
+	switch c.LLM.Provider {
+	case "anthropic":
 		if c.LLM.AnthropicAPIKey == "" {
 			return fmt.Errorf("PGEDGE_ANTHROPIC_API_KEY environment variable or anthropic_api_key config is required for Anthropic")
 		}
 		if c.LLM.Model == "" {
 			c.LLM.Model = "claude-sonnet-4-5-20250929"
 		}
-	} else if c.LLM.Provider == "openai" {
+	case "openai":
 		if c.LLM.OpenAIAPIKey == "" {
 			return fmt.Errorf("PGEDGE_OPENAI_API_KEY environment variable or openai_api_key config is required for OpenAI")
 		}
 		if c.LLM.Model == "" {
 			c.LLM.Model = "gpt-4o"
 		}
-	} else {
+	default:
 		if c.LLM.OllamaURL == "" {
 			c.LLM.OllamaURL = "http://localhost:11434"
 		}

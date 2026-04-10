@@ -121,19 +121,19 @@ To avoid rate limits (30,000 input tokens/minute):
 </rate_limit_awareness>`, writeAccessDesc),
 			InputSchema: mcp.InputSchema{
 				Type: "object",
-				Properties: map[string]interface{}{
-					"query": map[string]interface{}{
+				Properties: map[string]any{
+					"query": map[string]any{
 						"type":        "string",
 						"description": "SQL query to execute against the database.",
 					},
-					"limit": map[string]interface{}{
+					"limit": map[string]any{
 						"type":        "integer",
 						"description": "Maximum number of rows to return (default: 100, max: 1000). Automatically appended to query if not already present. Use higher limits only when necessary to avoid excessive token usage.",
 						"default":     100,
 						"minimum":     1,
 						"maximum":     1000,
 					},
-					"offset": map[string]interface{}{
+					"offset": map[string]any{
 						"type":        "integer",
 						"description": "Number of rows to skip before returning results (for pagination). Use with limit to page through large result sets. Example: offset=100 with limit=100 returns rows 101-200.",
 						"default":     0,
@@ -143,7 +143,7 @@ To avoid rate limits (30,000 input tokens/minute):
 				Required: []string{"query"},
 			},
 		},
-		Handler: func(args map[string]interface{}) (mcp.ToolResponse, error) {
+		Handler: func(args map[string]any) (mcp.ToolResponse, error) {
 			query, ok := args["query"].(string)
 			if !ok {
 				return mcp.NewToolError("Missing or invalid 'query' parameter")
@@ -322,7 +322,7 @@ To avoid rate limits (30,000 input tokens/minute):
 
 			// Execute the statement using the appropriate method based on whether it returns rows
 			var columnNames []string
-			var results [][]interface{}
+			var results [][]any
 			var commandTag string
 			var rowsAffected int64
 
@@ -398,12 +398,12 @@ To avoid rate limits (30,000 input tokens/minute):
 			// Always show current database context (unless already shown via connection message)
 			if connectionMessage == "" {
 				sanitizedConn := database.SanitizeConnStr(connStr)
-				sb.WriteString(fmt.Sprintf("Database: %s\n\n", sanitizedConn))
+				fmt.Fprintf(&sb, "Database: %s\n\n", sanitizedConn)
 			} else {
 				sb.WriteString(connectionMessage)
 			}
 
-			sb.WriteString(fmt.Sprintf("SQL Query:\n%s\n\n", sqlQuery))
+			fmt.Fprintf(&sb, "SQL Query:\n%s\n\n", sqlQuery)
 
 			if returnsRows {
 				// Build the results header with pagination info
@@ -412,22 +412,22 @@ To avoid rate limits (30,000 input tokens/minute):
 					startRow := offset + 1
 					endRow := offset + len(results)
 					if wasTruncated {
-						sb.WriteString(fmt.Sprintf("Results (rows %d-%d, more available - use offset=%d for next page):\n%s",
-							startRow, endRow, offset+limit, resultsTSV))
+						fmt.Fprintf(&sb, "Results (rows %d-%d, more available - use offset=%d for next page):\n%s",
+							startRow, endRow, offset+limit, resultsTSV)
 					} else {
-						sb.WriteString(fmt.Sprintf("Results (rows %d-%d):\n%s", startRow, endRow, resultsTSV))
+						fmt.Fprintf(&sb, "Results (rows %d-%d):\n%s", startRow, endRow, resultsTSV)
 					}
 				} else if wasTruncated {
-					sb.WriteString(fmt.Sprintf("Results (%d rows shown, more available - use offset=%d for next page or count_rows for total):\n%s",
-						len(results), limit, resultsTSV))
+					fmt.Fprintf(&sb, "Results (%d rows shown, more available - use offset=%d for next page or count_rows for total):\n%s",
+						len(results), limit, resultsTSV)
 				} else {
-					sb.WriteString(fmt.Sprintf("Results (%d rows):\n%s", len(results), resultsTSV))
+					fmt.Fprintf(&sb, "Results (%d rows):\n%s", len(results), resultsTSV)
 				}
 			} else {
 				// Format output for DDL/DML statements
-				sb.WriteString(fmt.Sprintf("Statement executed successfully.\nCommand: %s", commandTag))
+				fmt.Fprintf(&sb, "Statement executed successfully.\nCommand: %s", commandTag)
 				if rowsAffected > 0 || isDMLQuery {
-					sb.WriteString(fmt.Sprintf("\nRows affected: %d", rowsAffected))
+					fmt.Fprintf(&sb, "\nRows affected: %d", rowsAffected)
 				}
 			}
 

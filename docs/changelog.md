@@ -9,6 +9,17 @@ and this project adheres to
 
 ## [Unreleased]
 
+### Added
+
+- Schema metadata cache now refreshes automatically based on a
+  configurable TTL. The `metadata_ttl` database option controls
+  how long cached metadata remains valid (default: 5 minutes).
+  This fixes an issue where `get_schema_info` returned stale
+  results when tables were created outside the MCP server or
+  when using read-only database connections.
+
+## [1.0.0] - 2026-03-27
+
 ### Changed
 
 - Docker container now defaults to stdio mode instead of HTTP
@@ -144,6 +155,13 @@ and this project adheres to
   database selector, showing each configured host and port
   alongside the connection status.
 
+- GitHub Codespaces demo environment for one-click evaluation of
+  the MCP server in a browser-based development environment.
+
+- One-command installers for Claude Code and Claude Desktop that
+  automate binary download, configuration generation, and client
+  registration.
+
 - `--max-retries` flag for the kb-builder controls how many times
   transient embedding API errors are retried. The default is 5;
   set to 0 for unlimited retries. Backoff is capped at 60 seconds.
@@ -158,6 +176,11 @@ and this project adheres to
   server writes JSONL entries for tool calls, resource reads, prompt
   executions, HTTP requests, LLM interactions, database switches,
   configuration reloads, and session events.
+
+### Internal
+
+- Replaced the CGO SQLite driver with a pure Go driver, enabling
+  fully static binaries without a C compiler dependency.
 
 ### Improved
 
@@ -274,6 +297,11 @@ and this project adheres to
   temporarily unavailable during switching, and the client handles these
   transient states gracefully with automatic retry logic instead of showing
   a disconnection error.
+
+- SIGHUP configuration reload now invalidates stale database
+  connections. Previously, reloading the configuration did not close
+  connections whose parameters had changed, leaving the server with
+  outdated connection settings until restart.
 
 - The `-add-user`, `-add-token`, and related user/token management commands
   now respect the `user_file` and `token_file` paths from the server
@@ -931,7 +959,8 @@ software is now feature-complete and ready for broader testing.
 - CI/CD pipeline documentation
 - Testing guide for contributors
 
-[Unreleased]: https://github.com/pgEdge/pgedge-nla/compare/v1.0.0-beta3...HEAD
+[Unreleased]: https://github.com/pgEdge/pgedge-nla/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/pgEdge/pgedge-nla/compare/v1.0.0-beta3...v1.0.0
 [1.0.0-beta3]: https://github.com/pgEdge/pgedge-nla/releases/tag/v1.0.0-beta3
 [1.0.0-beta2]: https://github.com/pgEdge/pgedge-nla/releases/tag/v1.0.0-beta2
 [1.0.0-beta1]: https://github.com/pgEdge/pgedge-nla/releases/tag/v1.0.0-beta1

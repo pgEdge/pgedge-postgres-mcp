@@ -21,6 +21,7 @@ databases:
       password: ""  # Leave empty to use .pgpass file
       sslmode: "prefer"
       connect_timeout: "10s"
+      # metadata_ttl: "5m"
       pool_max_conns: 10
       pool_min_conns: 2
       pool_max_conn_idle_time: "5m"

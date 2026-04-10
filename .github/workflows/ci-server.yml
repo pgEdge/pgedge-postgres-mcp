@@ -31,23 +31,23 @@ jobs:
 
         steps:
             - name: Checkout code
-              uses: actions/checkout@v4
+              uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
 
             - name: Set up Go
-              uses: actions/setup-go@v5
+              uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
               with:
-                  go-version: '1.24'
+                  go-version: '1.25'
                   cache: false
 
             - name: Cache Go modules
-              uses: actions/cache@v4
+              uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
               with:
                   path: |
                       ~/go/pkg/mod
                       ~/.cache/go-build
-                  key: ${{ runner.os }}-go-1.24-${{ hashFiles('**/go.sum') }}
+                  key: ${{ runner.os }}-go-1.25-${{ hashFiles('**/go.sum') }}
                   restore-keys: |
-                      ${{ runner.os }}-go-1.24-
+                      ${{ runner.os }}-go-1.25-
 
             - name: Verify dependencies
               run: go mod verify
@@ -57,11 +57,10 @@ jobs:
 
             - name: Lint server code
               if: matrix.postgres-version == '18'
-              run: |
-                  # Install latest v1.x version (config is NOT compatible with v2)
-                  go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
-                  echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
-                  golangci-lint run ./internal/mcp/... ./internal/auth/... ./internal/config/... ./internal/crypto/... ./internal/database/... ./internal/resources/... ./internal/tools/... ./cmd/pgedge-pg-mcp-svr/...
+              uses: golangci/golangci-lint-action@9fae48acfc02a90574d7c304a1758ef9895495fa # v7
+              with:
+                  version: v2.11.4
+                  args: --timeout=5m ./internal/mcp/... ./internal/auth/... ./internal/config/... ./internal/crypto/... ./internal/database/... ./internal/resources/... ./internal/tools/... ./cmd/pgedge-pg-mcp-svr/...
 
             - name: Run go vet
               if: matrix.postgres-version == '18'
@@ -118,7 +117,7 @@ jobs:
 
             - name: Upload build artifact
               if: matrix.postgres-version == '18'
-              uses: actions/upload-artifact@v4
+              uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
               with:
                   name: pgedge-postgres-mcp-linux-amd64
                   path: bin/pgedge-postgres-mcp
@@ -126,7 +125,7 @@ jobs:
 
             - name: Upload coverage artifact
               if: matrix.postgres-version == '18'
-              uses: actions/upload-artifact@v4
+              uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
               with:
                   name: coverage-server
                   path: |

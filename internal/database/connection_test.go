@@ -106,9 +106,10 @@ func TestGetConnectionInfo(t *testing.T) {
 
 	// Add a mock connection
 	mockInfo := &ConnectionInfo{
-		ConnString:     "postgres://localhost/test",
-		Metadata:       make(map[string]TableInfo),
-		MetadataLoaded: true,
+		ConnString:       "postgres://localhost/test",
+		Metadata:         make(map[string]TableInfo),
+		MetadataLoaded:   true,
+		MetadataLoadedAt: time.Now(),
 	}
 	client.connections["postgres://localhost/test"] = mockInfo
 
@@ -129,36 +130,103 @@ func TestGetConnectionInfo(t *testing.T) {
 }
 
 func TestIsMetadataLoadedFor(t *testing.T) {
-	client := NewClient(nil)
-
 	// Test with non-existent connection
+	client := NewClient(nil)
 	loaded := client.IsMetadataLoadedFor("postgres://localhost/nonexistent")
 	if loaded {
 		t.Error("IsMetadataLoadedFor() returned true for non-existent connection")
 	}
 
-	// Add connection with metadata not loaded
+	// Test with metadata not loaded
 	client.connections["postgres://localhost/test1"] = &ConnectionInfo{
 		ConnString:     "postgres://localhost/test1",
 		Metadata:       make(map[string]TableInfo),
 		MetadataLoaded: false,
 	}
-
 	loaded = client.IsMetadataLoadedFor("postgres://localhost/test1")
 	if loaded {
 		t.Error("IsMetadataLoadedFor() returned true when metadata not loaded")
 	}
 
-	// Add connection with metadata loaded
+	// Test with metadata loaded and fresh (within default 5m TTL)
 	client.connections["postgres://localhost/test2"] = &ConnectionInfo{
-		ConnString:     "postgres://localhost/test2",
-		Metadata:       make(map[string]TableInfo),
-		MetadataLoaded: true,
+		ConnString:       "postgres://localhost/test2",
+		Metadata:         make(map[string]TableInfo),
+		MetadataLoaded:   true,
+		MetadataLoadedAt: time.Now(),
 	}
-
 	loaded = client.IsMetadataLoadedFor("postgres://localhost/test2")
 	if !loaded {
-		t.Error("IsMetadataLoadedFor() returned false when metadata is loaded")
+		t.Error("IsMetadataLoadedFor() returned false for fresh metadata")
+	}
+
+	// Test with metadata loaded but stale (older than default 5m TTL)
+	client.connections["postgres://localhost/test3"] = &ConnectionInfo{
+		ConnString:       "postgres://localhost/test3",
+		Metadata:         make(map[string]TableInfo),
+		MetadataLoaded:   true,
+		MetadataLoadedAt: time.Now().Add(-6 * time.Minute),
+	}
+	loaded = client.IsMetadataLoadedFor("postgres://localhost/test3")
+	if loaded {
+		t.Error("IsMetadataLoadedFor() returned true for stale metadata")
+	}
+
+	// Test with TTL=0 (always refresh)
+	clientZero := NewClient(&config.NamedDatabaseConfig{
+		MetadataTTL: "0",
+	})
+	clientZero.connections["postgres://localhost/test4"] = &ConnectionInfo{
+		ConnString:       "postgres://localhost/test4",
+		Metadata:         make(map[string]TableInfo),
+		MetadataLoaded:   true,
+		MetadataLoadedAt: time.Now(),
+	}
+	loaded = clientZero.IsMetadataLoadedFor("postgres://localhost/test4")
+	if loaded {
+		t.Error("IsMetadataLoadedFor() returned true with TTL=0 (should always refresh)")
+	}
+
+	// Test with custom TTL (10 minutes) and fresh metadata
+	clientCustom := NewClient(&config.NamedDatabaseConfig{
+		MetadataTTL: "10m",
+	})
+	clientCustom.connections["postgres://localhost/test5"] = &ConnectionInfo{
+		ConnString:       "postgres://localhost/test5",
+		Metadata:         make(map[string]TableInfo),
+		MetadataLoaded:   true,
+		MetadataLoadedAt: time.Now().Add(-7 * time.Minute),
+	}
+	loaded = clientCustom.IsMetadataLoadedFor("postgres://localhost/test5")
+	if !loaded {
+		t.Error("IsMetadataLoadedFor() returned false for metadata within custom 10m TTL")
+	}
+
+	// Test with custom TTL (10 minutes) and stale metadata
+	clientCustom.connections["postgres://localhost/test6"] = &ConnectionInfo{
+		ConnString:       "postgres://localhost/test6",
+		Metadata:         make(map[string]TableInfo),
+		MetadataLoaded:   true,
+		MetadataLoadedAt: time.Now().Add(-11 * time.Minute),
+	}
+	loaded = clientCustom.IsMetadataLoadedFor("postgres://localhost/test6")
+	if loaded {
+		t.Error("IsMetadataLoadedFor() returned true for metadata beyond custom 10m TTL")
+	}
+
+	// Test with invalid TTL (falls back to 5m default)
+	clientInvalid := NewClient(&config.NamedDatabaseConfig{
+		MetadataTTL: "not-a-duration",
+	})
+	clientInvalid.connections["postgres://localhost/test7"] = &ConnectionInfo{
+		ConnString:       "postgres://localhost/test7",
+		Metadata:         make(map[string]TableInfo),
+		MetadataLoaded:   true,
+		MetadataLoadedAt: time.Now().Add(-4 * time.Minute),
+	}
+	loaded = clientInvalid.IsMetadataLoadedFor("postgres://localhost/test7")
+	if !loaded {
+		t.Error("IsMetadataLoadedFor() returned false for metadata within default 5m TTL (invalid TTL string)")
 	}
 }
 
@@ -208,9 +276,10 @@ func TestGetMetadataFor(t *testing.T) {
 	}
 
 	client.connections["postgres://localhost/test"] = &ConnectionInfo{
-		ConnString:     "postgres://localhost/test",
-		Metadata:       mockMetadata,
-		MetadataLoaded: true,
+		ConnString:       "postgres://localhost/test",
+		Metadata:         mockMetadata,
+		MetadataLoaded:   true,
+		MetadataLoadedAt: time.Now(),
 	}
 
 	metadata = client.GetMetadataFor("postgres://localhost/test")

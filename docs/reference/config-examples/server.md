@@ -232,6 +232,12 @@ databases:
       # Default: 10s
       # connect_timeout: "10s"
 
+      # How long cached schema metadata remains valid before
+      # automatic refresh (Go duration string).
+      # Use "0" to refresh on every request.
+      # Default: 5m
+      # metadata_ttl: "5m"
+
       # Users who can access this database (empty = all users)
       available_to_users: []
 

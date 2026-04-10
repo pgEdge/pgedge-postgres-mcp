@@ -50,17 +50,17 @@ Use count_rows to efficiently determine data volume:
 </important>`,
 			InputSchema: mcp.InputSchema{
 				Type: "object",
-				Properties: map[string]interface{}{
-					"table": map[string]interface{}{
+				Properties: map[string]any{
+					"table": map[string]any{
 						"type":        "string",
 						"description": "Name of the table to count rows from",
 					},
-					"schema": map[string]interface{}{
+					"schema": map[string]any{
 						"type":        "string",
 						"description": "Schema name (default: public)",
 						"default":     "public",
 					},
-					"where": map[string]interface{}{
+					"where": map[string]any{
 						"type":        "string",
 						"description": "Optional WHERE clause condition (without the WHERE keyword). Example: \"status = 'active' AND created_at > '2024-01-01'\"",
 					},
@@ -68,7 +68,7 @@ Use count_rows to efficiently determine data volume:
 				Required: []string{"table"},
 			},
 		},
-		Handler: func(args map[string]interface{}) (mcp.ToolResponse, error) {
+		Handler: func(args map[string]any) (mcp.ToolResponse, error) {
 			table, ok := args["table"].(string)
 			if !ok || table == "" {
 				return mcp.NewToolError("Missing or invalid 'table' parameter")
@@ -157,9 +157,9 @@ Use count_rows to efficiently determine data volume:
 
 			// Build response
 			var sb strings.Builder
-			sb.WriteString(fmt.Sprintf("Database: %s\n\n", database.SanitizeConnStr(connStr)))
-			sb.WriteString(fmt.Sprintf("SQL Query:\n%s\n\n", sqlQuery))
-			sb.WriteString(fmt.Sprintf("Count: %d", count))
+			fmt.Fprintf(&sb, "Database: %s\n\n", database.SanitizeConnStr(connStr))
+			fmt.Fprintf(&sb, "SQL Query:\n%s\n\n", sqlQuery)
+			fmt.Fprintf(&sb, "Count: %d", count)
 
 			return mcp.NewToolSuccess(sb.String())
 		},

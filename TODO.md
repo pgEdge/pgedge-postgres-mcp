@@ -11,10 +11,13 @@ implemented.
 -  Add support for use of OpenAI API-compatible local LLM providers, such as
     LM Studio, Docker Model Runner, and EXO. These should just work if 
     configured as OpenAI, but without a requirement for an API key.
+- Add support for arbitrary request headers to be added to LLM request calls
+    to support servers such as Portkey which requires addition of headers such
+    as `x-portkey-provider: openai`
 
 ## Tools
 
-- Add an MCP  tool for validating SQL queries before presentation to the user.
+- Add an MCP tool for validating SQL queries before presentation to the user.
 
 ## Security
 

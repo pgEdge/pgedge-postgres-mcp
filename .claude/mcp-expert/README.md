@@ -327,4 +327,4 @@ This documentation should be updated when:
 
 **Last Updated:** 2025-11-08
 **MCP Protocol Version:** 2024-11-05
-**Server Version:** 1.0.0-beta3
+**Server Version:** 1.0.0

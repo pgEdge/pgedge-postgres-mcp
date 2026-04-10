@@ -151,6 +151,30 @@ sources:
       project_version: "0.1.0"
 
     - git_url: "https://github.com/pgEdge/ace.git"
+      tag: "v1.7.1"
+      doc_path: "docs"
+      project_name: "pgEdge ACE"
+      project_version: "1.7.1"
+
+    - git_url: "https://github.com/pgEdge/ace.git"
+      tag: "v1.7.0"
+      doc_path: "docs"
+      project_name: "pgEdge ACE"
+      project_version: "1.7.0"
+
+    - git_url: "https://github.com/pgEdge/ace.git"
+      tag: "v1.6.0"
+      doc_path: "docs"
+      project_name: "pgEdge ACE"
+      project_version: "1.6.0"
+
+    - git_url: "https://github.com/pgEdge/ace.git"
+      tag: "v1.5.5"
+      doc_path: "docs"
+      project_name: "pgEdge ACE"
+      project_version: "1.5.5"
+
+    - git_url: "https://github.com/pgEdge/ace.git"
       tag: "v1.5.4"
       doc_path: "docs"
       project_name: "pgEdge ACE"

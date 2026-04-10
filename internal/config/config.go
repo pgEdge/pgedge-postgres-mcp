@@ -272,6 +272,7 @@ type NamedDatabaseConfig struct {
 	PoolHealthCheckPeriod string `yaml:"pool_health_check_period"` // How often idle connections are checked (default: 30s for multi-host, 0 for single-host)
 	PoolMaxConnLifetime   string `yaml:"pool_max_conn_lifetime"`   // Max lifetime of a connection before it is closed and recreated (default: 5m for multi-host, 0 for single-host)
 	ConnectTimeout        string `yaml:"connect_timeout"`          // Timeout for initial connection (default: 10s)
+	MetadataTTL           string `yaml:"metadata_ttl"`             // How long cached schema metadata remains valid before automatic refresh (default: "5m", "0" = always refresh)
 }
 
 // formatHostPort returns a host:port string, bracketing IPv6 addresses.

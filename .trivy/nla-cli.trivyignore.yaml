@@ -1,0 +1,17 @@
+vulnerabilities:
+  # coreutils-single - Present in UBI9 micro base image.
+  - id: CVE-2025-5278
+    statement: >-
+      Heap buffer under-read in coreutils sort. No fix available. The
+      CLI container does not invoke sort with untrusted input.
+
+  # glibc - Core C library in UBI9 base image.
+  - id: CVE-2026-4046
+    statement: >-
+      glibc DoS via iconv() with specific character sets. Under
+      investigation by Red Hat. Risk accepted; the CLI uses the Go
+      runtime for string processing, not glibc iconv.
+  - id: CVE-2026-4437
+    statement: >-
+      glibc incorrect DNS response parsing. No fix available. Risk
+      accepted; DNS resolution is handled by the Go runtime, not glibc.

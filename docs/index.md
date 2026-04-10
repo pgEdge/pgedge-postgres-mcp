@@ -5,9 +5,6 @@ Model Context Protocol (MCP) Server, allowing you to use natural language
 queries when interacting with a Postgres database. The server supports
 PostgreSQL 14 and higher.
 
-!!! warning "Pre-Release"
-    This software is in pre-release status. Test thoroughly before production use.
-
 !!! danger "Not for Public-Facing Applications"
     This MCP server provides LLMs with read access to your entire database
     schema and data. It should only be used for internal tools, developer

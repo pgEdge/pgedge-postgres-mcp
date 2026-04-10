@@ -750,13 +750,14 @@ func (c *Client) handlePromptCommand(ctx context.Context, args []string) bool {
 	// Add prompt messages to conversation history
 	// The prompt result contains messages that guide the LLM through a workflow
 	for _, msg := range result.Messages {
-		if msg.Role == "user" {
+		switch msg.Role {
+		case "user":
 			// Add user message from prompt
 			c.messages = append(c.messages, Message{
 				Role:    "user",
 				Content: msg.Content.Text,
 			})
-		} else if msg.Role == "assistant" {
+		case "assistant":
 			// Add assistant message from prompt (less common but supported)
 			c.messages = append(c.messages, Message{
 				Role:    "assistant",

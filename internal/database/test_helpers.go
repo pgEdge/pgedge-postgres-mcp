@@ -10,6 +10,8 @@
 
 package database
 
+import "time"
+
 // NewTestClient creates a database client for testing with mock data
 // This allows tests in other packages to create clients with predetermined metadata
 func NewTestClient(connStr string, metadata map[string]TableInfo) *Client {
@@ -17,10 +19,11 @@ func NewTestClient(connStr string, metadata map[string]TableInfo) *Client {
 
 	// Add mock connection info
 	client.connections[connStr] = &ConnectionInfo{
-		ConnString:     connStr,
-		Pool:           nil, // No actual connection pool needed for tests
-		Metadata:       metadata,
-		MetadataLoaded: true,
+		ConnString:       connStr,
+		Pool:             nil, // No actual connection pool needed for tests
+		Metadata:         metadata,
+		MetadataLoaded:   true,
+		MetadataLoadedAt: time.Now(),
 	}
 
 	// Set as default connection

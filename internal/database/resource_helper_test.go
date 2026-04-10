@@ -15,6 +15,7 @@ import (
 	"errors"
 	"strings"
 	"testing"
+	"time"
 
 	"pgedge-postgres-mcp/internal/mcp"
 
@@ -281,10 +282,11 @@ func TestResourceHelperIntegration(t *testing.T) {
 // Test helper for creating mock connection info
 func createMockConnInfo(loaded bool, pool *pgxpool.Pool) *ConnectionInfo {
 	return &ConnectionInfo{
-		ConnString:     "postgres://test",
-		Pool:           pool,
-		Metadata:       make(map[string]TableInfo),
-		MetadataLoaded: loaded,
+		ConnString:       "postgres://test",
+		Pool:             pool,
+		Metadata:         make(map[string]TableInfo),
+		MetadataLoaded:   loaded,
+		MetadataLoadedAt: time.Now(),
 	}
 }
 

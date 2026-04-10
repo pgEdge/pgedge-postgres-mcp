@@ -327,7 +327,8 @@ func databaseConfigChanged(oldCfg, newCfg *config.NamedDatabaseConfig) bool {
 		oldCfg.PoolMaxConnIdleTime != newCfg.PoolMaxConnIdleTime ||
 		oldCfg.PoolHealthCheckPeriod != newCfg.PoolHealthCheckPeriod ||
 		oldCfg.PoolMaxConnLifetime != newCfg.PoolMaxConnLifetime ||
-		oldCfg.ConnectTimeout != newCfg.ConnectTimeout {
+		oldCfg.ConnectTimeout != newCfg.ConnectTimeout ||
+		oldCfg.MetadataTTL != newCfg.MetadataTTL {
 		return true
 	}
 	if !reflect.DeepEqual(oldCfg.Hosts, newCfg.Hosts) {
