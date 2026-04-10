@@ -73,34 +73,16 @@ sources:
       project_name: "pgEdge Enterprise"
 
     - git_url: "https://github.com/pgEdge/pgedge-postgres-mcp.git"
-      tag: "v1.0.0-beta3"
+      tag: "v1.0.0"
       doc_path: "docs"
       project_name: "pgEdge Postgres MCP"
-      project_version: "1.0.0-beta3"
-
-    - git_url: "https://github.com/pgEdge/pgedge-postgres-mcp.git"
-      tag: "v1.0.0-beta2"
-      doc_path: "docs"
-      project_name: "pgEdge Postgres MCP"
-      project_version: "1.0.0-beta2"
-
-    - git_url: "https://github.com/pgEdge/pgedge-postgres-mcp.git"
-      tag: "v1.0.0-beta1"
-      doc_path: "docs"
-      project_name: "pgEdge Postgres MCP"
-      project_version: "1.0.0-beta1"
+      project_version: "1.0.0"
 
     - git_url: "https://github.com/pgEdge/pgedge-anonymizer.git"
-      tag: "v1.0.0-beta2"
+      tag: "v1.0.0"
       doc_path: "docs"
       project_name: "pgEdge Anonymizer"
-      project_version: "1.0.0-beta2"
-
-    - git_url: "https://github.com/pgEdge/pgedge-anonymizer.git"
-      tag: "v1.0.0-beta1"
-      doc_path: "docs"
-      project_name: "pgEdge Anonymizer"
-      project_version: "1.0.0-beta1"
+      project_version: "1.0.0"
 
     - git_url: "https://github.com/pgEdge/pgedge-docloader.git"
       tag: "v1.0.0"
@@ -109,16 +91,10 @@ sources:
       project_version: "1.0.0"
 
     - git_url: "https://github.com/pgEdge/pgedge-rag-server.git"
-      tag: "v1.0.0-beta2"
+      tag: "v1.0.0"
       doc_path: "docs"
       project_name: "pgEdge RAG Server"
-      project_version: "1.0.0-beta2"
-
-    - git_url: "https://github.com/pgEdge/pgedge-rag-server.git"
-      tag: "v1.0.0-beta1"
-      doc_path: "docs"
-      project_name: "pgEdge RAG Server"
-      project_version: "1.0.0-beta1"
+      project_version: "1.0.0"
 
     - git_url: "https://github.com/pgEdge/spock.git"
       tag: "v5.0.6"
@@ -245,6 +221,12 @@ sources:
       doc_path: "doc"
       project_name: "PgBouncer"
       project_version: "1.24.1"
+
+    - git_url: "https://github.com/pgbackrest/pgbackrest.git"
+      tag: "release/2.58.0"
+      doc_path: "doc"
+      project_name: "pgBackRest"
+      project_version: "2.58.0"
 
     - git_url: "https://github.com/pgbackrest/pgbackrest.git"
       tag: "release/2.57.0"
