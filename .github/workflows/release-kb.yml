@@ -47,6 +47,13 @@ jobs:
                   [ -n "$PGEDGE_BUILDER_TOKEN" ] || { echo "PGEDGE_BUILDER_TOKEN secret is missing"; exit 1; }
                   git config --global url."https://x-access-token:${PGEDGE_BUILDER_TOKEN}@github.com/".insteadOf "https://github.com/"
 
+            - name: Start Ollama service
+              run: |
+                  docker run -d --name ollama -p 11434:11434 ollama/ollama
+                  until curl -s http://localhost:11434/api/tags > /dev/null; do sleep 2; done
+                  docker exec ollama ollama pull nomic-embed-text
+                  echo "Ollama ready with nomic-embed-text"
+
             - name: Build kb-builder binary
               run: CGO_ENABLED=0 go build -o pgedge-nla-kb-builder ./cmd/kb-builder
 
@@ -54,29 +61,24 @@ jobs:
               env:
                   OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
                   VOYAGE_API_KEY: ${{ secrets.VOYAGE_API_KEY }}
-                  OLLAMA_API_KEY: ${{ secrets.OLLAMA_API_KEY }}
               run: |
                   [ -n "$OPENAI_API_KEY" ] || { echo "OPENAI_API_KEY secret is missing"; exit 1; }
                   [ -n "$VOYAGE_API_KEY" ] || { echo "VOYAGE_API_KEY secret is missing"; exit 1; }
                   mkdir -p /tmp/api-keys
                   printf '%s' "$OPENAI_API_KEY" > /tmp/api-keys/openai-key
                   printf '%s' "$VOYAGE_API_KEY" > /tmp/api-keys/voyage-key
-                  printf '%s' "$OLLAMA_API_KEY" > /tmp/api-keys/ollama-key
                   chmod 600 /tmp/api-keys/*
 
             - name: Configure kb-builder for cloud providers
               run: |
                   cp examples/pgedge-nla-kb-builder.yaml examples/pgedge-nla-kb-builder-build.yaml
                   sed -i 's|database_path: "bin/pgedge-nla-kb.db"|database_path: "bin/kb.db"|' examples/pgedge-nla-kb-builder-build.yaml
-                  sed -i 's|endpoint: "http://localhost:11434"|endpoint: "https://ollama.com"|' examples/pgedge-nla-kb-builder-build.yaml
                   sed -i 's|api_key_file: "~/.openai-api-key"|api_key_file: "/tmp/api-keys/openai-key"|' examples/pgedge-nla-kb-builder-build.yaml
                   sed -i 's|api_key_file: "~/.voyage-api-key"|api_key_file: "/tmp/api-keys/voyage-key"|' examples/pgedge-nla-kb-builder-build.yaml
-                  sed -i 's|# api_key_file: "~/.ollama-api-key"|api_key_file: "/tmp/api-keys/ollama-key"|' examples/pgedge-nla-kb-builder-build.yaml
                   sed -i 's|git@github.com:|https://github.com/|g' examples/pgedge-nla-kb-builder-build.yaml
                   grep -q 'database_path: "bin/kb.db"' examples/pgedge-nla-kb-builder-build.yaml || { echo "database_path replacement failed"; exit 1; }
                   grep -q 'api_key_file: "/tmp/api-keys/openai-key"' examples/pgedge-nla-kb-builder-build.yaml || { echo "OpenAI key path replacement failed"; exit 1; }
                   grep -q 'api_key_file: "/tmp/api-keys/voyage-key"' examples/pgedge-nla-kb-builder-build.yaml || { echo "Voyage key path replacement failed"; exit 1; }
-                  grep -q 'api_key_file: "/tmp/api-keys/ollama-key"' examples/pgedge-nla-kb-builder-build.yaml || { echo "Ollama key path replacement failed"; exit 1; }
                   grep -q 'https://github.com/' examples/pgedge-nla-kb-builder-build.yaml || { echo "SSH URL replacement failed"; exit 1; }
 
             - name: Generate kb.db
@@ -86,7 +88,6 @@ jobs:
               env:
                   OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
                   VOYAGE_API_KEY: ${{ secrets.VOYAGE_API_KEY }}
-                  OLLAMA_API_KEY: ${{ secrets.OLLAMA_API_KEY }}
 
             - name: Verify kb.db was created
               run: |
