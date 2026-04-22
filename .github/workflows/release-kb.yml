@@ -50,7 +50,11 @@ jobs:
             - name: Start Ollama service
               run: |
                   docker run -d --name ollama -p 11434:11434 ollama/ollama
-                  until curl -s http://localhost:11434/api/tags > /dev/null; do sleep 2; done
+                  timeout=60; elapsed=0
+                  until curl -s http://localhost:11434/api/tags > /dev/null; do
+                    sleep 2; elapsed=$((elapsed + 2))
+                    if [ "$elapsed" -ge "$timeout" ]; then echo "Ollama did not start within ${timeout}s"; exit 1; fi
+                  done
                   docker exec ollama ollama pull nomic-embed-text
                   echo "Ollama ready with nomic-embed-text"
 
