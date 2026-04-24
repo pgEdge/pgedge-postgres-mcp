@@ -128,7 +128,7 @@ jobs:
               for name, raw in url_issues
           ]
           missing_lines = [
-              f"  - **MISSING** `{e['id']}` ({e['name']} {e.get('version','')}) — "
+              f"  - **MISSING** `{e.get('id','?')}` ({e.get('name','?')} {e.get('version','')}) — "
               f"ref `{k[1]}`, doc_path `{k[2]}`"
               for k, e in missing_entries.items()
           ]
