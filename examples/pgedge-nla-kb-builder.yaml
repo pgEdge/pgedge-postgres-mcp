@@ -86,18 +86,18 @@ sources:
       project_name: "pg_cron"
       project_version: "1.6.7"
 
-    - git_url: "git@github.com:pgEdge/pgedge-docs.git"
+    - git_url: "https://github.com/pgEdge/pgedge-docs.git"
       branch: "main"
       doc_path: "docs/cloud"
       project_name: "pgEdge Cloud"
       project_version: ""
 
-    - git_url: "git@github.com:pgEdge/pgedge-docs.git"
+    - git_url: "https://github.com/pgEdge/pgedge-docs.git"
       branch: "main"
       doc_path: "docs/platform"
       project_name: "pgEdge Platform"
 
-    - git_url: "git@github.com:pgEdge/pgedge-docs.git"
+    - git_url: "https://github.com/pgEdge/pgedge-docs.git"
       branch: "main"
       doc_path: "docs/enterprise"
       project_name: "pgEdge Enterprise"
