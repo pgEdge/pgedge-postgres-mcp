@@ -1,14 +1,12 @@
 name: Check Sources Against SSOT
 
-# On pull_request: posts a drift report as a PR comment (advisory only).
-# On schedule/workflow_dispatch: opens or updates a fix PR if actionable
-# drift is found (missing entries, SSH URLs). EXTRA and policy-excluded
-# entries are reported but never auto-removed.
+# Runs daily (or manually) to detect drift between pgedge-nla-kb-builder.yaml
+# and the canonical sources.yaml in pgEdge/pgedge-doc-sources.
+# If actionable drift is found (missing entries or SSH URLs), opens or updates
+# a dedicated fix PR on auto/sync-kb-builder. Never comments on developer PRs.
+# EXTRA and policy-excluded entries are reported but never auto-removed.
 
 on:
-  pull_request:
-    paths:
-      - 'examples/pgedge-nla-kb-builder.yaml'
   #schedule:
   #  - cron: '0 6 * * *'   # daily at 06:00 UTC
   workflow_dispatch:
@@ -203,22 +201,10 @@ jobs:
           env_file = os.environ.get("GITHUB_OUTPUT", "/tmp/github_output")
           with open(env_file, "a") as f:
               f.write(f"actionable={'true' if actionable else 'false'}\n")
-              f.write(f"clean={'true' if clean else 'false'}\n")
           PYEOF
 
-      - name: Post PR comment
-        if: github.event_name == 'pull_request' && steps.drift.outputs.clean != 'true'
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          gh pr comment "${{ github.event.pull_request.number }}" \
-            --body-file /tmp/drift-report.md \
-            --repo "${{ github.repository }}"
-
       - name: Open or update fix PR
-        if: >
-          steps.drift.outputs.actionable == 'true' &&
-          github.event_name != 'pull_request'
+        if: steps.drift.outputs.actionable == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
