@@ -41,11 +41,20 @@ jobs:
           GLOBAL_MAX_VERSIONS = 3
 
           def normalize_url(url):
+              """Normalize for key comparison only — lowercased."""
               url = re.sub(r"^git@github\.com:", "https://github.com/", url)
               url = url.rstrip("/")
               if not url.endswith(".git"):
                   url += ".git"
               return url.lower()
+
+          def clean_url(url):
+              """Canonical HTTPS URL for output — preserves original casing."""
+              url = re.sub(r"^git@github\.com:", "https://github.com/", url)
+              url = url.rstrip("/")
+              if not url.endswith(".git"):
+                  url += ".git"
+              return url
 
           def for_consumer(entry):
               tools = entry.get("tools")
@@ -171,7 +180,7 @@ jobs:
                   new_entries = []
                   seen_components = {}
                   for k, e in missing_entries.items():
-                      raw_url = normalize_url(e.get("kb_git_source") or e["upstream_git_source"])
+                      raw_url = clean_url(e.get("kb_git_source") or e["upstream_git_source"])
                       ref     = e.get("kb_tag") or e.get("kb_branch") or \
                                 e.get("upstream_tag") or e.get("upstream_branch", "")
                       doc     = e.get("kb_doc_path") or e.get("upstream_doc_path", "")
@@ -224,6 +233,10 @@ jobs:
           fi
 
           git add examples/pgedge-nla-kb-builder.yaml
+          if git diff --cached --quiet; then
+            echo "No file changes after applying fixes — drift already resolved, skipping PR."
+            exit 0
+          fi
           git commit -m "sync: fix kb-builder drift against SSOT sources.yaml"
           git push --force-with-lease origin "$FIX_BRANCH"
 
