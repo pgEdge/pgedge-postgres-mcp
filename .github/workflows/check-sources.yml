@@ -61,7 +61,7 @@ jobs:
               return tools is None or CONSUMER_TYPE in tools
 
           def ssot_key(entry):
-              raw = entry.get("kb_git_source") or entry["upstream_git_source"]
+              raw = entry.get("kb_git_source") or entry.get("upstream_git_source", "")
               url = normalize_url(raw)
               ref = (entry.get("kb_tag") or entry.get("kb_branch")
                      or entry.get("upstream_tag") or entry.get("upstream_branch", ""))
