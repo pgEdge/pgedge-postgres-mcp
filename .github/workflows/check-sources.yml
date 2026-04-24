@@ -165,15 +165,15 @@ jobs:
           if actionable:
               fixed = consumer_text
 
-              # Fix SSH URLs in-place
-              fixed = re.sub(r'git@github\.com:pgEdge/', 'https://github.com/pgEdge/', fixed)
+              # Fix SSH URLs in-place (any org, not just pgEdge)
+              fixed = re.sub(r'git@github\.com:([^/]+)/', r'https://github.com/\1/', fixed)
 
               # Append missing entries grouped by component
               if missing_entries:
                   new_entries = []
                   seen_components = {}
                   for k, e in missing_entries.items():
-                      raw_url = e.get("kb_git_source") or e["upstream_git_source"]
+                      raw_url = normalize_url(e.get("kb_git_source") or e["upstream_git_source"])
                       ref     = e.get("kb_tag") or e.get("kb_branch") or \
                                 e.get("upstream_tag") or e.get("upstream_branch", "")
                       doc     = e.get("kb_doc_path") or e.get("upstream_doc_path", "")
@@ -207,7 +207,7 @@ jobs:
           PYEOF
 
       - name: Post PR comment
-        if: github.event_name == 'pull_request' && hashFiles('/tmp/drift-report.md') != ''
+        if: github.event_name == 'pull_request' && steps.drift.outputs.clean != 'true'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
