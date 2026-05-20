@@ -199,6 +199,12 @@ sources:
       project_version: "5.0.4"
 
     - git_url: "https://github.com/pgEdge/control-plane.git"
+      tag: "v0.8.1"
+      doc_path: "docs"
+      project_name: "pgEdge Control Plane"
+      project_version: "0.8.1"
+
+    - git_url: "https://github.com/pgEdge/control-plane.git"
       tag: "v0.7.0"
       doc_path: "docs"
       project_name: "pgEdge Control Plane"
