@@ -106,9 +106,8 @@ install -m 755 %{_builddir}/server/pgedge-postgres-mcp %{buildroot}%{_bindir}/
 install -m 644 %{_builddir}/server/LICENSE.md %{buildroot}%{_defaultdocdir}/pgedge-postgres-mcp/
 install -m 644 %{_builddir}/server/README.md %{buildroot}%{_defaultdocdir}/pgedge-postgres-mcp/
 
-mkdir -p %{buildroot}%{_datadir}
-install -p -m 0644 %{_builddir}/pgedge-postgres-mcp-sbom.json %{buildroot}%{_datadir}/pgedge-postgres-mcp-sbom.json
-install -p -m 0644 %{_builddir}/pgedge-postgres-mcp-sbom.json.asc %{buildroot}%{_datadir}/pgedge-postgres-mcp-sbom.json.asc
+install -Dp -m 0644 %{_builddir}/pgedge-postgres-mcp-sbom.json %{buildroot}%{_datadir}/pgedge-postgres-mcp/pgedge-postgres-mcp-sbom.json
+install -Dp -m 0644 %{_builddir}/pgedge-postgres-mcp-sbom.json.asc %{buildroot}%{_datadir}/pgedge-postgres-mcp/pgedge-postgres-mcp-sbom.json.asc
 
 # Install systemd service
 install -d %{buildroot}%{_unitdir}
@@ -124,8 +123,8 @@ install -m 644 %{SOURCE6} %{buildroot}%{_sysconfdir}/pgedge/postgres-mcp.env
 install -m 755 %{_builddir}/cli/pgedge-nla-cli %{buildroot}%{_bindir}/
 install -m 644 %{_builddir}/cli/LICENSE.md %{buildroot}%{_defaultdocdir}/pgedge-nla-cli/
 install -m 644 %{_builddir}/cli/README.md %{buildroot}%{_defaultdocdir}/pgedge-nla-cli/
-install -p -m 0644 %{_builddir}/%{sname}-cli-sbom.json %{buildroot}%{_datadir}/%{sname}-cli-sbom.json
-install -p -m 0644 %{_builddir}/%{sname}-cli-sbom.json.asc %{buildroot}%{_datadir}/%{sname}-cli-sbom.json.asc
+install -Dp -m 0644 %{_builddir}/%{sname}-cli-sbom.json %{buildroot}%{_datadir}/pgedge-nla-cli/%{sname}-cli-sbom.json
+install -Dp -m 0644 %{_builddir}/%{sname}-cli-sbom.json.asc %{buildroot}%{_datadir}/pgedge-nla-cli/%{sname}-cli-sbom.json.asc
 install -m 644 %{SOURCE7} %{buildroot}%{_sysconfdir}/pgedge/nla-cli.yaml
 install -d -m 0755 %{buildroot}/etc/skel/.config/pgedge
 
@@ -137,8 +136,8 @@ install -d %{buildroot}/var/log/pgedge/nla-web
 cp -r %{_builddir}/web/dist/* %{buildroot}%{_datadir}/pgedge/nla-web/
 install -d %{buildroot}/etc/nginx/conf.d
 install -m 644 %{SOURCE8} %{buildroot}/etc/nginx/conf.d/pgedge-nla-web.conf
-install -p -m 0644 %{_builddir}/%{sname}-web-sbom.json %{buildroot}%{_datadir}/%{sname}-web-sbom.json
-install -p -m 0644 %{_builddir}/%{sname}-web-sbom.json.asc %{buildroot}%{_datadir}/%{sname}-web-sbom.json.asc
+install -Dp -m 0644 %{_builddir}/%{sname}-web-sbom.json %{buildroot}%{_datadir}/pgedge-nla-web/%{sname}-web-sbom.json
+install -Dp -m 0644 %{_builddir}/%{sname}-web-sbom.json.asc %{buildroot}%{_datadir}/pgedge-nla-web/%{sname}-web-sbom.json.asc
 
 # Note: the kb.db knowledgebase and the kb-builder tool are no longer shipped
 # here. The knowledgebase ships in the standalone pgedge-ai-kb package, and the
@@ -150,8 +149,9 @@ install -p -m 0644 %{_builddir}/%{sname}-web-sbom.json.asc %{buildroot}%{_datadi
 %{_bindir}/pgedge-postgres-mcp
 %config(noreplace) %{_sysconfdir}/pgedge/postgres-mcp.yaml
 %config(noreplace) %{_sysconfdir}/pgedge/postgres-mcp.env
-%{_datadir}/pgedge-postgres-mcp-sbom.json
-%{_datadir}/pgedge-postgres-mcp-sbom.json.asc
+%dir %{_datadir}/pgedge-postgres-mcp
+%{_datadir}/pgedge-postgres-mcp/pgedge-postgres-mcp-sbom.json
+%{_datadir}/pgedge-postgres-mcp/pgedge-postgres-mcp-sbom.json.asc
 %{_unitdir}/pgedge-postgres-mcp.service
 %dir %attr(0755,pgedge,pgedge) /var/lib/pgedge
 %dir %attr(0755,pgedge,pgedge) /var/lib/pgedge/postgres-mcp
@@ -165,8 +165,9 @@ install -p -m 0644 %{_builddir}/%{sname}-web-sbom.json.asc %{buildroot}%{_datadi
 %config(noreplace) %{_sysconfdir}/pgedge/nla-cli.yaml
 %dir %attr(0755,root,root) /etc/skel/.config
 %dir %attr(0755,root,root) /etc/skel/.config/pgedge
-%{_datadir}/%{sname}-cli-sbom.json
-%{_datadir}/%{sname}-cli-sbom.json.asc
+%dir %{_datadir}/pgedge-nla-cli
+%{_datadir}/pgedge-nla-cli/%{sname}-cli-sbom.json
+%{_datadir}/pgedge-nla-cli/%{sname}-cli-sbom.json.asc
 
 %files web
 %license %{_defaultdocdir}/pgedge-nla-web/LICENSE.md
@@ -175,8 +176,9 @@ install -p -m 0644 %{_builddir}/%{sname}-web-sbom.json.asc %{buildroot}%{_datadi
 %dir %attr(0755,pgedge,pgedge) /var/log/pgedge/nla-web
 %{_datadir}/pgedge/nla-web
 %config(noreplace) /etc/nginx/conf.d/pgedge-nla-web.conf
-%{_datadir}/%{sname}-web-sbom.json
-%{_datadir}/%{sname}-web-sbom.json.asc
+%dir %{_datadir}/pgedge-nla-web
+%{_datadir}/pgedge-nla-web/%{sname}-web-sbom.json
+%{_datadir}/pgedge-nla-web/%{sname}-web-sbom.json.asc
 
 %post -n pgedge-postgres-mcp
 %systemd_post pgedge-postgres-mcp.service

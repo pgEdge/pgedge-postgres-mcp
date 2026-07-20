@@ -28,8 +28,8 @@ override_dh_auto_install:
 	install -D -m 644 debian/postgres-mcp.env debian/pgedge-postgres-mcp/etc/pgedge/postgres-mcp.env
 	install -D -m 644 server/LICENSE.md debian/pgedge-postgres-mcp/usr/share/doc/pgedge-postgres-mcp/LICENSE.md
 	install -D -m 644 server/README.md debian/pgedge-postgres-mcp/usr/share/doc/pgedge-postgres-mcp/README.md
-	install -D -m 644 debian/tmp/sbom/pgedge-postgres-mcp-sbom.json debian/pgedge-postgres-mcp/usr/share/pgedge-postgres-mcp-sbom.json
-	install -D -m 644 debian/tmp/sbom/pgedge-postgres-mcp-sbom.json.asc debian/pgedge-postgres-mcp/usr/share/pgedge-postgres-mcp-sbom.json.asc
+	install -D -m 644 debian/tmp/sbom/pgedge-postgres-mcp-sbom.json debian/pgedge-postgres-mcp/usr/share/pgedge-postgres-mcp/pgedge-postgres-mcp-sbom.json
+	install -D -m 644 debian/tmp/sbom/pgedge-postgres-mcp-sbom.json.asc debian/pgedge-postgres-mcp/usr/share/pgedge-postgres-mcp/pgedge-postgres-mcp-sbom.json.asc
 	install -d debian/pgedge-postgres-mcp/var/lib/pgedge/postgres-mcp
 	install -d debian/pgedge-postgres-mcp/var/log/pgedge/postgres-mcp
 	#CLI
@@ -42,8 +42,8 @@ override_dh_auto_install:
 	install -D -m 644 debian/nla-cli.yaml debian/pgedge-nla-cli/etc/pgedge/nla-cli.yaml
 	install -D -m 644 cli/LICENSE.md debian/pgedge-nla-cli/usr/share/doc/pgedge-nla-cli/LICENSE.md
 	install -D -m 644 cli/README.md debian/pgedge-nla-cli/usr/share/doc/pgedge-nla-cli/README.md
-	install -D -m 644 debian/tmp/sbom/pgedge-nla-cli-sbom.json debian/pgedge-nla-cli/usr/share/pgedge-nla-cli-sbom.json
-	install -D -m 644 debian/tmp/sbom/pgedge-nla-cli-sbom.json.asc debian/pgedge-nla-cli/usr/share/pgedge-nla-cli-sbom.json.asc
+	install -D -m 644 debian/tmp/sbom/pgedge-nla-cli-sbom.json debian/pgedge-nla-cli/usr/share/pgedge-nla-cli/pgedge-nla-cli-sbom.json
+	install -D -m 644 debian/tmp/sbom/pgedge-nla-cli-sbom.json.asc debian/pgedge-nla-cli/usr/share/pgedge-nla-cli/pgedge-nla-cli-sbom.json.asc
 	install -d debian/pgedge-nla-cli/etc/skel/.config/pgedge
 	# Web
 	syft dir:$(CURDIR)/web -o cyclonedx-json > debian/tmp/sbom/pgedge-nla-web-sbom.json || exit 1
@@ -57,8 +57,8 @@ override_dh_auto_install:
 	install -D -m 644 web/LICENSE.md debian/pgedge-nla-web/usr/share/doc/pgedge-nla-web/LICENSE.md
 	install -D -m 644 web/README.md debian/pgedge-nla-web/usr/share/doc/pgedge-nla-web/README.md
 	install -d debian/pgedge-nla-web/var/log/pgedge/nla-web
-	install -D -m 644 debian/tmp/sbom/pgedge-nla-web-sbom.json debian/pgedge-nla-web/usr/share/pgedge-nla-web-sbom.json
-	install -D -m 644 debian/tmp/sbom/pgedge-nla-web-sbom.json.asc debian/pgedge-nla-web/usr/share/pgedge-nla-web-sbom.json.asc
+	install -D -m 644 debian/tmp/sbom/pgedge-nla-web-sbom.json debian/pgedge-nla-web/usr/share/pgedge-nla-web/pgedge-nla-web-sbom.json
+	install -D -m 644 debian/tmp/sbom/pgedge-nla-web-sbom.json.asc debian/pgedge-nla-web/usr/share/pgedge-nla-web/pgedge-nla-web-sbom.json.asc
 	# Note: the kb.db knowledgebase and the kb-builder tool are no longer shipped
 	# here. They now live in the standalone pgedge-ai-kb project.
 	rm -rf debian/tmp/sbom
