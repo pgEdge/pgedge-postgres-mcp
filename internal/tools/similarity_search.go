@@ -205,13 +205,10 @@ To avoid rate limits (30,000 input tokens/minute):
 			metadataMap := dbClient.GetMetadata()
 			tableInfo, err := findTableInMetadataMap(metadataMap, tableName)
 			if err != nil {
-				connStr := dbClient.GetDefaultConnection()
-				sanitizedConn := database.SanitizeConnStr(connStr)
-
 				var errMsg strings.Builder
 				fmt.Fprintf(&errMsg, "Table '%s' not found.\n\n", tableName)
 				errMsg.WriteString("<current_connection>\n")
-				fmt.Fprintf(&errMsg, "Connected to: %s\n", sanitizedConn)
+				fmt.Fprintf(&errMsg, "Connected to: %s\n", dbClient.DisplayName())
 				errMsg.WriteString("</current_connection>\n\n")
 				errMsg.WriteString("<diagnosis>\n")
 				errMsg.WriteString("Possible reasons:\n")
@@ -432,9 +429,7 @@ To avoid rate limits (30,000 input tokens/minute):
 			}
 
 			// Prepend database context
-			connStr := dbClient.GetDefaultConnection()
-			sanitizedConn := database.SanitizeConnStr(connStr)
-			result := fmt.Sprintf("Database: %s\nTable: %s\n\n%s", sanitizedConn, tableName, output)
+			result := fmt.Sprintf("Database: %s\nTable: %s\n\n%s", dbClient.DisplayName(), tableName, output)
 
 			// Log execution metrics
 			totalTokens := 0

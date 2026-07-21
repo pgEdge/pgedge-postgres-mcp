@@ -149,6 +149,25 @@ and this project adheres to
 
 ### Fixed
 
+- Tool and resource responses now show the operator-configured database
+  display name instead of the raw connection details. Previously,
+  `query_database`, `get_schema_info`, `execute_explain`, `count_rows`,
+  and `similarity_search` only masked the password in the connection
+  string they showed the caller, leaving the real host, port, and
+  database name visible; `pg://system_info` was worse, reporting the
+  live-resolved server address from `inet_server_addr()`, which can be
+  an internal-only address (a container or pod IP) that differs from,
+  and may be unreachable via, the address the operator actually
+  configured. A new `Client.DisplayName()` now backs every one of
+  these responses with the connection's configured `name` (falling
+  back to a password-masked connection string when none is
+  configured); `pg://system_info` gains a `connection_name` field and
+  its `host`/`port` fields now reflect the configured values rather
+  than a live-resolved one. Ad-hoc connection strings a caller types
+  inline (the `postgres://...` mini-DSL supported by `query_database`)
+  are intentionally left as-is, since echoing back what the caller
+  themselves supplied is not a leak. (#187)
+
 - Metadata loader now tolerates tables with zero columns
   (e.g. `CREATE TABLE foo()`). The query LEFT JOINs against the
   per-column catalog, so a zero-column table produced a row whose

@@ -10,7 +10,11 @@
 
 package database
 
-import "time"
+import (
+	"time"
+
+	"pgedge-postgres-mcp/internal/config"
+)
 
 // NewTestClient creates a database client for testing with mock data
 // This allows tests in other packages to create clients with predetermined metadata
@@ -29,5 +33,15 @@ func NewTestClient(connStr string, metadata map[string]TableInfo) *Client {
 	// Set as default connection
 	client.defaultConnStr = connStr
 
+	return client
+}
+
+// NewTestClientWithConfig is NewTestClient plus an attached
+// NamedDatabaseConfig, for tests that need to exercise config-derived
+// behavior such as DisplayName, ConfiguredHost, ConfiguredPort, or
+// AllowWrites.
+func NewTestClientWithConfig(connStr string, metadata map[string]TableInfo, cfg *config.NamedDatabaseConfig) *Client {
+	client := NewTestClient(connStr, metadata)
+	client.dbConfig = cfg
 	return client
 }

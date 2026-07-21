@@ -96,7 +96,7 @@ Use count_rows to efficiently determine data volume:
 
 			pool := dbClient.GetPoolFor(connStr)
 			if pool == nil {
-				return mcp.NewToolError(fmt.Sprintf("Connection pool not found for: %s", database.SanitizeConnStr(connStr)))
+				return mcp.NewToolError(fmt.Sprintf("Connection pool not found for: %s", dbClient.DisplayName()))
 			}
 
 			// Build the COUNT query with proper quoting
@@ -157,7 +157,7 @@ Use count_rows to efficiently determine data volume:
 
 			// Build response
 			var sb strings.Builder
-			fmt.Fprintf(&sb, "Database: %s\n\n", database.SanitizeConnStr(connStr))
+			fmt.Fprintf(&sb, "Database: %s\n\n", dbClient.DisplayName())
 			fmt.Fprintf(&sb, "SQL Query:\n%s\n\n", sqlQuery)
 			fmt.Fprintf(&sb, "Count: %d", count)
 
