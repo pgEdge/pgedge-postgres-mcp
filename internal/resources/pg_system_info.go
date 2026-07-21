@@ -51,8 +51,9 @@ Returns JSON with:
 - host: The operator-configured connection host (or "unix socket")
 - port: The operator-configured connection port
 - connection_name: The operator-configured display name for this
-  database, if one is set; prefer this when referring to "which
-  database" in a response to the caller
+  database, if one is set, otherwise a password-masked connection
+  string; prefer this when referring to "which database" in a
+  response to the caller
 - allow_writes: Whether write operations are permitted (default: false)
 </provided_info>
 

@@ -299,7 +299,9 @@ func (c *Client) DisplayName() string {
 // ConfiguredHost returns the operator-configured host for this client's
 // database (the first entry of Hosts when multi-host failover is
 // configured, matching the same backward-compatibility rule used by
-// GET /api/databases), or "unix socket" if no config is set.
+// GET /api/databases), defaulting to "localhost" when a single-host config
+// omits it (matching NamedDatabaseConfig.Host's documented default), or
+// "unix socket" if no config is set.
 //
 // This is deliberately the value the operator wrote in the config file,
 // never a live-resolved server address such as inet_server_addr(): the
@@ -313,7 +315,11 @@ func (c *Client) ConfiguredHost() string {
 		return "unix socket"
 	}
 	if len(c.dbConfig.Hosts) > 0 {
+		// Validate rejects empty entries in Hosts, so no default needed here.
 		return c.dbConfig.Hosts[0].Host
+	}
+	if c.dbConfig.Host == "" {
+		return "localhost"
 	}
 	return c.dbConfig.Host
 }

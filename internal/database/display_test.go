@@ -87,6 +87,11 @@ func TestConfiguredHost(t *testing.T) {
 			cfg:  nil,
 			want: "unix socket",
 		},
+		{
+			name: "single-host config with omitted host defaults to localhost",
+			cfg:  &config.NamedDatabaseConfig{Name: "db1", Port: 5432},
+			want: "localhost",
+		},
 	}
 
 	for _, tt := range tests {
