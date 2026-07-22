@@ -390,14 +390,11 @@ To avoid rate limits when calling this tool:
 
 			// Handle empty results with contextual guidance
 			if matchedTables == 0 {
-				connStr := dbClient.GetDefaultConnection()
-				sanitizedConn := database.SanitizeConnStr(connStr)
-
 				var emptyMsg strings.Builder
 				emptyMsg.WriteString("\nNo tables found matching your criteria.\n\n")
 
 				emptyMsg.WriteString("<current_connection>\n")
-				fmt.Fprintf(&emptyMsg, "Connected to: %s\n", sanitizedConn)
+				fmt.Fprintf(&emptyMsg, "Connected to: %s\n", dbClient.DisplayName())
 				emptyMsg.WriteString("</current_connection>\n\n")
 
 				emptyMsg.WriteString("<diagnosis>\n")
@@ -471,9 +468,7 @@ To avoid rate limits when calling this tool:
 			}
 
 			// Prepend database context to the response
-			connStr := dbClient.GetDefaultConnection()
-			sanitizedConn := database.SanitizeConnStr(connStr)
-			result := fmt.Sprintf("Database: %s\n\n%s", sanitizedConn, sb.String())
+			result := fmt.Sprintf("Database: %s\n\n%s", dbClient.DisplayName(), sb.String())
 
 			return mcp.NewToolSuccess(result)
 		},

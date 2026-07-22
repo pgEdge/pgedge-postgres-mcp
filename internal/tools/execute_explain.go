@@ -199,8 +199,7 @@ READ ONLY transaction to prevent side effects. However, be cautious with:
 
 			// Format the output
 			var result strings.Builder
-			sanitizedConn := database.SanitizeConnStr(connStr)
-			fmt.Fprintf(&result, "Database: %s\n\n", sanitizedConn)
+			fmt.Fprintf(&result, "Database: %s\n\n", dbClient.DisplayName())
 			fmt.Fprintf(&result, "Query:\n%s\n\n", query)
 			result.WriteString("Execution Plan:\n")
 			result.WriteString(strings.Repeat("=", 80))

@@ -70,6 +70,7 @@ When you read the resource to view PostgreSQL system information, the result is 
   "user": "postgres",
   "host": "localhost",
   "port": 5432,
+  "connection_name": "orders-prod",
   "allow_writes": false
 }
 ```
@@ -87,8 +88,9 @@ When you read the resource to view PostgreSQL system information, the result is 
 | `bit_version` | Architecture bit version (e.g., `64-bit`, `32-bit`). |
 | `database` | Currently connected database name. |
 | `user` | Current database user. |
-| `host` | Connection host (or `unix socket`). |
-| `port` | Connection port number. |
+| `host` | The operator-configured connection host (or `unix socket`), never a live-resolved server address. |
+| `port` | The operator-configured connection port. |
+| `connection_name` | The operator-configured display name for this database, when one is set; otherwise a password-masked connection string. Prefer this over `host`/`port` when referring to "which database" in a response to the caller. |
 | `allow_writes` | Whether write operations are permitted (default: `false`). |
 
 

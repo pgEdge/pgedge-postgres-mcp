@@ -11,6 +11,22 @@ and this project adheres to
 
 ### Added
 
+- Database configuration now accepts `sslcert`, `sslkey`, and
+  `sslrootcert` fields, letting the server authenticate to PostgreSQL
+  with a client certificate instead of, or alongside, a password.
+  Configure them with `databases[].sslcert`, `databases[].sslkey`,
+  and `databases[].sslrootcert` in the configuration file, the
+  `-db-sslcert`, `-db-sslkey`, and `-db-sslrootcert` CLI flags, or the
+  `PGEDGE_DB_SSLCERT`/`PGSSLCERT`, `PGEDGE_DB_SSLKEY`/`PGSSLKEY`, and
+  `PGEDGE_DB_SSLROOTCERT`/`PGSSLROOTCERT` environment variables.
+  `sslcert` and `sslkey` must be set together. `sslrootcert` takes
+  effect only under `sslmode` `require`, `verify-ca`, or `verify-full`;
+  under `disable`, `allow`, or `prefer` (the default) pgx never checks
+  the server certificate against it and silently ignores the value,
+  matching libpq and `psql`. In HTTP mode, changing any of these fields and
+  reloading the configuration (`SIGHUP`) now closes pooled per-token
+  connections so they reconnect with the new certificate settings.
+
 - A configurable per-attempt timeout bounds each individual HTTP attempt
   to an LLM or embedding provider, so a single slow attempt becomes
   retryable instead of consuming the whole request budget; the
@@ -174,6 +190,37 @@ and this project adheres to
   shape instead, matching its other error responses (400, 404, 403)
   rather than the bare `{"error": "..."}` it previously returned only
   for that one status code. (#189)
+
+- Tool and resource responses now show the operator-configured database
+  display name instead of the raw connection details. Previously,
+  `query_database`, `get_schema_info`, `execute_explain`, `count_rows`,
+  and `similarity_search` only masked the password in the connection
+  string they showed the caller, leaving the real host, port, and
+  database name visible; `pg://system_info` was worse, reporting the
+  live-resolved server address from `inet_server_addr()`, which can be
+  an internal-only address (a container or pod IP) that differs from,
+  and may be unreachable via, the address the operator actually
+  configured. A new `Client.DisplayName()` now backs every one of
+  these responses with the connection's configured `name` (falling
+  back to a password-masked connection string when none is
+  configured); `pg://system_info` gains a `connection_name` field and
+  its `host`/`port` fields now reflect the configured values rather
+  than a live-resolved one. Ad-hoc connection strings a caller types
+  inline (the `postgres://...` mini-DSL supported by `query_database`)
+  are intentionally left as-is, since echoing back what the caller
+  themselves supplied is not a leak. (#187)
+
+- The token and user file watchers now detect changes delivered through an
+  atomically-swapped symlink, such as a Kubernetes-projected Secret or
+  ConfigMap volume, or any tool that renames a new version into place.
+  Previously the watcher matched events by exact filename and only handled
+  `Write`/`Create`, so a symlink swap on a different directory entry (for
+  example Kubernetes' own `..data` symlink) never triggered a reload and
+  updates only took effect on restart. The watcher now reacts to any event
+  in the watched directory and re-resolves and hashes the watched path's
+  content to decide whether a reload is warranted, catching changes that
+  never touch the watched filename directly while still ignoring
+  unrelated activity elsewhere in the directory. (#186)
 
 - Metadata loader now tolerates tables with zero columns
   (e.g. `CREATE TABLE foo()`). The query LEFT JOINs against the

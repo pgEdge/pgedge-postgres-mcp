@@ -286,7 +286,15 @@ To avoid rate limits (30,000 input tokens/minute):
 			ctx := context.Background()
 			pool := dbClient.GetPoolFor(connStr)
 			if pool == nil {
-				return mcp.NewToolError(fmt.Sprintf("Connection pool not found for: %s", database.SanitizeConnStr(connStr)))
+				// An ad-hoc connection string the caller supplied inline is
+				// echoed back sanitized (they already know what they typed);
+				// otherwise show the configured display name, never the raw
+				// default connection's host (issue #187).
+				display := dbClient.DisplayName()
+				if queryCtx.ConnectionString != "" {
+					display = database.SanitizeConnStr(connStr)
+				}
+				return mcp.NewToolError(fmt.Sprintf("Connection pool not found for: %s", display))
 			}
 
 			// Begin a transaction with read-only protection
@@ -397,8 +405,7 @@ To avoid rate limits (30,000 input tokens/minute):
 
 			// Always show current database context (unless already shown via connection message)
 			if connectionMessage == "" {
-				sanitizedConn := database.SanitizeConnStr(connStr)
-				fmt.Fprintf(&sb, "Database: %s\n\n", sanitizedConn)
+				fmt.Fprintf(&sb, "Database: %s\n\n", dbClient.DisplayName())
 			} else {
 				sb.WriteString(connectionMessage)
 			}

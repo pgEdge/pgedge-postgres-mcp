@@ -278,6 +278,75 @@ func (c *Client) AllowWrites() bool {
 	return c.dbConfig.AllowWrites
 }
 
+// DisplayName returns the operator-configured display name for this
+// client's database (config.NamedDatabaseConfig.Name), for use in any
+// user-facing string. It deliberately never returns the raw host/port: an
+// internal-only address (a Kubernetes pod IP, a private VPC host) that the
+// caller cannot reach is not useful information and only exposes
+// infrastructure detail (issue #187).
+//
+// Falls back to a password-masked connection string when no name is
+// configured, e.g. a bare client built without a NamedDatabaseConfig.
+func (c *Client) DisplayName() string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	if c.dbConfig != nil && c.dbConfig.Name != "" {
+		return c.dbConfig.Name
+	}
+	return SanitizeConnStr(c.defaultConnStr)
+}
+
+// ConfiguredHost returns the operator-configured host for this client's
+// database (the first entry of Hosts when multi-host failover is
+// configured, matching the same backward-compatibility rule used by
+// GET /api/databases), defaulting to "localhost" when a single-host config
+// omits it (matching NamedDatabaseConfig.Host's documented default), or
+// "unix socket" if no config is set.
+//
+// This is deliberately the value the operator wrote in the config file,
+// never a live-resolved server address such as inet_server_addr(): the
+// latter can report an internal-only address (a container or pod IP) that
+// differs from, and may be unreachable via, the host the operator actually
+// configured (issue #187).
+func (c *Client) ConfiguredHost() string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	if c.dbConfig == nil {
+		return "unix socket"
+	}
+	if len(c.dbConfig.Hosts) > 0 {
+		// Validate rejects empty entries in Hosts, so no default needed here.
+		return c.dbConfig.Hosts[0].Host
+	}
+	if c.dbConfig.Host == "" {
+		return "localhost"
+	}
+	return c.dbConfig.Host
+}
+
+// ConfiguredPort returns the operator-configured port for this client's
+// database (the first entry of Hosts when multi-host failover is
+// configured), defaulting to 5432 when unset to match
+// NamedDatabaseConfig.BuildConnectionString's default. Returns 0 if no
+// config is set.
+func (c *Client) ConfiguredPort() int {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	if c.dbConfig == nil {
+		return 0
+	}
+	if len(c.dbConfig.Hosts) > 0 {
+		if c.dbConfig.Hosts[0].Port == 0 {
+			return 5432
+		}
+		return c.dbConfig.Hosts[0].Port
+	}
+	if c.dbConfig.Port == 0 {
+		return 5432
+	}
+	return c.dbConfig.Port
+}
+
 // Close closes all database connections
 func (c *Client) Close() {
 	c.mu.Lock()

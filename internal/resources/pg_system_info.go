@@ -48,8 +48,12 @@ Returns JSON with:
 - bit_version: 32-bit or 64-bit
 - database: Currently connected database name
 - user: Current database user
-- host: Connection host (or "unix socket")
-- port: Connection port number
+- host: The operator-configured connection host (or "unix socket")
+- port: The operator-configured connection port
+- connection_name: The operator-configured display name for this
+  database, if one is set, otherwise a password-masked connection
+  string; prefer this when referring to "which database" in a
+  response to the caller
 - allow_writes: Whether write operations are permitted (default: false)
 </provided_info>
 
@@ -73,9 +77,7 @@ Use before:
 					current_setting('server_version') AS version,
 					current_setting('server_version_num') AS version_number,
 					current_database() AS database,
-					current_user AS user,
-					COALESCE(inet_server_addr()::text, 'unix socket') AS host,
-					COALESCE(inet_server_port(), 0) AS port
+					current_user AS user
 			`
 
 			processor := func(rows pgx.Rows) (interface{}, error) {
@@ -83,9 +85,8 @@ Use before:
 					return nil, fmt.Errorf("no system information returned")
 				}
 
-				var fullVersion, version, versionNumber, database, user, host string
-				var port int
-				err := rows.Scan(&fullVersion, &version, &versionNumber, &database, &user, &host, &port)
+				var fullVersion, version, versionNumber, database, user string
+				err := rows.Scan(&fullVersion, &version, &versionNumber, &database, &user)
 				if err != nil {
 					return nil, fmt.Errorf("failed to scan system info: %w", err)
 				}
@@ -95,11 +96,17 @@ Use before:
 				systemInfo := parseVersionString(fullVersion, version, versionNumber)
 				systemInfo.Database = database
 				systemInfo.User = user
-				systemInfo.Host = host
-				systemInfo.Port = port
-				// Include write access status from database configuration
+				// Host/port are the operator-configured values, never the
+				// live-resolved server address (inet_server_addr() can
+				// report an internal-only address the caller cannot
+				// reach - issue #187).
 				if dbClient != nil {
+					systemInfo.Host = dbClient.ConfiguredHost()
+					systemInfo.Port = dbClient.ConfiguredPort()
+					systemInfo.ConnectionName = dbClient.DisplayName()
 					systemInfo.AllowWrites = dbClient.AllowWrites()
+				} else {
+					systemInfo.Host = "unix socket"
 				}
 				return systemInfo, nil
 			}
@@ -122,6 +129,7 @@ type SystemInfo struct {
 	User              string `json:"user"`
 	Host              string `json:"host"`
 	Port              int    `json:"port"`
+	ConnectionName    string `json:"connection_name,omitempty"`
 	AllowWrites       bool   `json:"allow_writes"`
 }
 

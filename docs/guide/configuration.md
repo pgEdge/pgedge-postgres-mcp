@@ -62,6 +62,9 @@ details on configuring multiple databases and access control.
 | `databases[].user` | `-db-user` | `PGEDGE_DB_USER`, `PGUSER` | Database user |
 | `databases[].password` | `-db-password` | `PGEDGE_DB_PASSWORD`, `PGPASSWORD` | Database password (uses `.pgpass` if not set) |
 | `databases[].sslmode` | `-db-sslmode` | `PGEDGE_DB_SSLMODE`, `PGSSLMODE` | SSL mode: disable, prefer, require, verify-ca, verify-full (default: "prefer") |
+| `databases[].sslcert` | `-db-sslcert` | `PGEDGE_DB_SSLCERT`, `PGSSLCERT` | Path to the client certificate file, for client certificate authentication. Must be set together with `sslkey`. |
+| `databases[].sslkey` | `-db-sslkey` | `PGEDGE_DB_SSLKEY`, `PGSSLKEY` | Path to the client private key file, for client certificate authentication. Must be set together with `sslcert`. |
+| `databases[].sslrootcert` | `-db-sslrootcert` | `PGEDGE_DB_SSLROOTCERT`, `PGSSLROOTCERT` | Path to the CA certificate file used to verify the server. Takes effect only under `sslmode` `require`, `verify-ca`, or `verify-full`; ignored under other modes, matching libpq. |
 | `databases[].allow_writes` | N/A | `PGEDGE_DB_ALLOW_WRITES`, `PGEDGE_DB_N_ALLOW_WRITES` | Allow write queries such as INSERT, UPDATE, and DELETE (default: false). See [Database Write Access](security.md#database-write-access). |
 | `databases[].allow_llm_switching` | N/A | N/A | Allow LLM to discover and switch to the database (default: true). See [Excluding Databases from LLM Switching](multiple_db_config.md#excluding-databases-from-llm-switching). |
 | `databases[].allowed_pl_languages` | N/A | N/A | PL languages allowed for custom tools, such as `["plpgsql"]`; use `["*"]` for all (default: none). See [Custom Definitions](../advanced/custom-definitions.md). |
@@ -241,6 +244,15 @@ options:
 - `-db-password` - Database password
 - `-db-sslmode` - Database SSL mode (disable, require, verify-ca,
   verify-full)
+- `-db-sslcert` - Path to the client certificate file, for client
+  certificate authentication. Must be set together with `-db-sslkey`.
+- `-db-sslkey` - Path to the client private key file, for client
+  certificate authentication. Must be set together with `-db-sslcert`.
+- `-db-sslrootcert` - Path to the CA certificate file used to verify
+  the server. Takes effect only under `-db-sslmode` `require`,
+  `verify-ca`, or `verify-full`; under `disable`, `allow`, or `prefer`
+  (the default) the certificate is never checked against it and the
+  value is silently ignored, matching libpq.
 - `-db-hosts` - Comma-separated `host:port` pairs for multi-host
   failover (e.g., `host1:5432,host2:5432`)
 - `-db-target-session-attrs` - Session routing attribute for

@@ -30,8 +30,14 @@ Usage of bin/pgedge-postgres-mcp:
     	Database password
   -db-port int
     	Database port
+  -db-sslcert string
+    	Path to the client certificate file, for client certificate authentication
+  -db-sslkey string
+    	Path to the client private key file, for client certificate authentication
   -db-sslmode string
     	Database SSL mode (disable, require, verify-ca, verify-full)
+  -db-sslrootcert string
+    	Path to the CA certificate file used to verify the server; only used when -db-sslmode is require, verify-ca, or verify-full
   -db-user string
     	Database user
   -debug

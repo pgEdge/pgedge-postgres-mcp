@@ -454,6 +454,21 @@ func TestDatabaseConfigChanged(t *testing.T) {
 			changed: true,
 		},
 		{
+			name:    "changed SSLCert",
+			modify:  func(c *config.NamedDatabaseConfig) { c.SSLCert = "/certs/new-client.crt" },
+			changed: true,
+		},
+		{
+			name:    "changed SSLKey",
+			modify:  func(c *config.NamedDatabaseConfig) { c.SSLKey = "/certs/new-client.key" },
+			changed: true,
+		},
+		{
+			name:    "changed SSLRootCert",
+			modify:  func(c *config.NamedDatabaseConfig) { c.SSLRootCert = "/certs/new-ca.crt" },
+			changed: true,
+		},
+		{
 			name: "changed non-connection field only",
 			modify: func(c *config.NamedDatabaseConfig) {
 				c.AvailableToUsers = []string{"alice"}

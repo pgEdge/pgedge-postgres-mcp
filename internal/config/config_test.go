@@ -251,6 +251,43 @@ func TestBuildConnectionString(t *testing.T) {
 			},
 			expected: "postgres://postgres@localhost:5432/testdb",
 		},
+		{
+			name: "with sslcert and sslkey",
+			config: NamedDatabaseConfig{
+				User:     "postgres",
+				Host:     "localhost",
+				Port:     5432,
+				Database: "testdb",
+				SSLCert:  "/certs/client.crt",
+				SSLKey:   "/certs/client.key",
+			},
+			expected: "postgres://postgres@localhost:5432/testdb?sslcert=%2Fcerts%2Fclient.crt&sslkey=%2Fcerts%2Fclient.key",
+		},
+		{
+			name: "with sslrootcert alone",
+			config: NamedDatabaseConfig{
+				User:        "postgres",
+				Host:        "localhost",
+				Port:        5432,
+				Database:    "testdb",
+				SSLRootCert: "/certs/ca.crt",
+			},
+			expected: "postgres://postgres@localhost:5432/testdb?sslrootcert=%2Fcerts%2Fca.crt",
+		},
+		{
+			name: "with sslmode, sslcert, sslkey, and sslrootcert combined",
+			config: NamedDatabaseConfig{
+				User:        "postgres",
+				Host:        "localhost",
+				Port:        5432,
+				Database:    "testdb",
+				SSLMode:     "verify-full",
+				SSLCert:     "/certs/client.crt",
+				SSLKey:      "/certs/client.key",
+				SSLRootCert: "/certs/ca.crt",
+			},
+			expected: "postgres://postgres@localhost:5432/testdb?sslcert=%2Fcerts%2Fclient.crt&sslkey=%2Fcerts%2Fclient.key&sslmode=verify-full&sslrootcert=%2Fcerts%2Fca.crt",
+		},
 	}
 
 	for _, tt := range tests {
@@ -801,6 +838,58 @@ func TestApplyCLIFlags(t *testing.T) {
 	}
 }
 
+func TestApplyCLIFlags_SSLCerts(t *testing.T) {
+	cfg := defaultConfig()
+	flags := CLIFlags{
+		DBSSLCertSet:     true,
+		DBSSLCert:        "/cli/client.crt",
+		DBSSLKeySet:      true,
+		DBSSLKey:         "/cli/client.key",
+		DBSSLRootCertSet: true,
+		DBSSLRootCert:    "/cli/ca.crt",
+	}
+
+	if err := applyCLIFlags(cfg, flags); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// A lone SSL cert flag (with no other DB flags set) should still
+	// trigger creation of the default database, just like DBUserSet does.
+	if len(cfg.Databases) != 1 {
+		t.Fatalf("expected 1 database to be created, got %d", len(cfg.Databases))
+	}
+	db := cfg.Databases[0]
+	if db.SSLCert != "/cli/client.crt" {
+		t.Errorf("SSLCert = %q, want /cli/client.crt", db.SSLCert)
+	}
+	if db.SSLKey != "/cli/client.key" {
+		t.Errorf("SSLKey = %q, want /cli/client.key", db.SSLKey)
+	}
+	if db.SSLRootCert != "/cli/ca.crt" {
+		t.Errorf("SSLRootCert = %q, want /cli/ca.crt", db.SSLRootCert)
+	}
+}
+
+func TestApplyCLIFlags_SSLCertsOverrideConfigFile(t *testing.T) {
+	cfg := defaultConfig()
+	cfg.Databases = []NamedDatabaseConfig{{
+		Name: "default", User: "postgres",
+		SSLCert: "/configured/client.crt",
+	}}
+	flags := CLIFlags{
+		DBSSLCertSet: true,
+		DBSSLCert:    "/cli/client.crt",
+	}
+
+	if err := applyCLIFlags(cfg, flags); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if got := cfg.Databases[0].SSLCert; got != "/cli/client.crt" {
+		t.Errorf("SSLCert = %q, want /cli/client.crt (CLI flag should override config file)", got)
+	}
+}
+
 func TestSetStringFromEnv(t *testing.T) {
 	os.Setenv("TEST_STRING_VAR", "test_value")
 	defer os.Unsetenv("TEST_STRING_VAR")
@@ -966,6 +1055,76 @@ func TestApplyEnvironmentVariables_Builtins(t *testing.T) {
 			t.Errorf("%s: expected false after env var override, got true", c.name)
 		}
 	}
+}
+
+func TestApplyEnvironmentVariables_DatabaseSSLCerts(t *testing.T) {
+	t.Run("PGEDGE_DB_ vars are applied", func(t *testing.T) {
+		t.Setenv("PGEDGE_DB_SSLCERT", "/pgedge/client.crt")
+		t.Setenv("PGEDGE_DB_SSLKEY", "/pgedge/client.key")
+		t.Setenv("PGEDGE_DB_SSLROOTCERT", "/pgedge/ca.crt")
+
+		cfg := defaultConfig()
+		cfg.Databases = []NamedDatabaseConfig{{Name: "default", User: "postgres"}}
+		applyEnvironmentVariables(cfg)
+
+		db := cfg.Databases[0]
+		if db.SSLCert != "/pgedge/client.crt" {
+			t.Errorf("SSLCert = %q, want /pgedge/client.crt", db.SSLCert)
+		}
+		if db.SSLKey != "/pgedge/client.key" {
+			t.Errorf("SSLKey = %q, want /pgedge/client.key", db.SSLKey)
+		}
+		if db.SSLRootCert != "/pgedge/ca.crt" {
+			t.Errorf("SSLRootCert = %q, want /pgedge/ca.crt", db.SSLRootCert)
+		}
+	})
+
+	t.Run("libpq-standard PG vars are used as fallback", func(t *testing.T) {
+		t.Setenv("PGSSLCERT", "/libpq/client.crt")
+		t.Setenv("PGSSLKEY", "/libpq/client.key")
+		t.Setenv("PGSSLROOTCERT", "/libpq/ca.crt")
+
+		cfg := defaultConfig()
+		cfg.Databases = []NamedDatabaseConfig{{Name: "default", User: "postgres"}}
+		applyEnvironmentVariables(cfg)
+
+		db := cfg.Databases[0]
+		if db.SSLCert != "/libpq/client.crt" {
+			t.Errorf("SSLCert = %q, want /libpq/client.crt", db.SSLCert)
+		}
+		if db.SSLKey != "/libpq/client.key" {
+			t.Errorf("SSLKey = %q, want /libpq/client.key", db.SSLKey)
+		}
+		if db.SSLRootCert != "/libpq/ca.crt" {
+			t.Errorf("SSLRootCert = %q, want /libpq/ca.crt", db.SSLRootCert)
+		}
+	})
+
+	t.Run("PGEDGE_DB_ vars take precedence over PG vars", func(t *testing.T) {
+		t.Setenv("PGEDGE_DB_SSLCERT", "/pgedge/client.crt")
+		t.Setenv("PGSSLCERT", "/libpq/client.crt")
+
+		cfg := defaultConfig()
+		cfg.Databases = []NamedDatabaseConfig{{Name: "default", User: "postgres"}}
+		applyEnvironmentVariables(cfg)
+
+		if got := cfg.Databases[0].SSLCert; got != "/pgedge/client.crt" {
+			t.Errorf("SSLCert = %q, want /pgedge/client.crt (PGEDGE_DB_SSLCERT should win)", got)
+		}
+	})
+
+	t.Run("config file value is not overridden when no env vars are set", func(t *testing.T) {
+		cfg := defaultConfig()
+		cfg.Databases = []NamedDatabaseConfig{{
+			Name: "default", User: "postgres",
+			SSLCert: "/configured/client.crt",
+		}}
+		applyEnvironmentVariables(cfg)
+
+		if got := cfg.Databases[0].SSLCert; got != "/configured/client.crt" {
+			t.Errorf("SSLCert = %q, want /configured/client.crt (should be left untouched)", got)
+		}
+	})
 }
 
 func TestParseHostEntries(t *testing.T) {
@@ -1293,6 +1452,119 @@ func TestNamedDatabaseConfig_Validate(t *testing.T) {
 			},
 			wantErr: true,
 			errMsg:  "invalid hostname",
+		},
+		{
+			name: "sslcert without sslkey",
+			config: NamedDatabaseConfig{
+				Name: "db1", User: "postgres",
+				Host: "localhost", Port: 5432,
+				Database: "mydb",
+				SSLCert:  "/certs/client.crt",
+			},
+			wantErr: true,
+			errMsg:  "sslcert",
+		},
+		{
+			name: "sslkey without sslcert",
+			config: NamedDatabaseConfig{
+				Name: "db1", User: "postgres",
+				Host: "localhost", Port: 5432,
+				Database: "mydb",
+				SSLKey:   "/certs/client.key",
+			},
+			wantErr: true,
+			errMsg:  "sslkey",
+		},
+		{
+			name: "sslcert and sslkey together",
+			config: NamedDatabaseConfig{
+				Name: "db1", User: "postgres",
+				Host: "localhost", Port: 5432,
+				Database: "mydb",
+				SSLCert:  "/certs/client.crt",
+				SSLKey:   "/certs/client.key",
+			},
+			wantErr: false,
+		},
+		// sslrootcert is threaded through verbatim under every sslmode,
+		// mirroring libpq/psql: pgx consults it only under the verifying
+		// modes and silently ignores it otherwise, so none of these are
+		// rejected at config time.
+		{
+			name: "sslrootcert without an sslmode defaults to prefer and is accepted",
+			config: NamedDatabaseConfig{
+				Name: "db1", User: "postgres",
+				Host: "localhost", Port: 5432,
+				Database:    "mydb",
+				SSLRootCert: "/certs/ca.crt",
+			},
+			wantErr: false,
+		},
+		{
+			name: "sslrootcert with sslmode disable is accepted (ignored by pgx)",
+			config: NamedDatabaseConfig{
+				Name: "db1", User: "postgres",
+				Host: "localhost", Port: 5432,
+				Database:    "mydb",
+				SSLMode:     "disable",
+				SSLRootCert: "/certs/ca.crt",
+			},
+			wantErr: false,
+		},
+		{
+			name: "sslrootcert with sslmode allow is accepted (ignored by pgx)",
+			config: NamedDatabaseConfig{
+				Name: "db1", User: "postgres",
+				Host: "localhost", Port: 5432,
+				Database:    "mydb",
+				SSLMode:     "allow",
+				SSLRootCert: "/certs/ca.crt",
+			},
+			wantErr: false,
+		},
+		{
+			name: "sslrootcert with sslmode prefer is accepted (ignored by pgx)",
+			config: NamedDatabaseConfig{
+				Name: "db1", User: "postgres",
+				Host: "localhost", Port: 5432,
+				Database:    "mydb",
+				SSLMode:     "prefer",
+				SSLRootCert: "/certs/ca.crt",
+			},
+			wantErr: false,
+		},
+		{
+			name: "sslrootcert with sslmode require is valid",
+			config: NamedDatabaseConfig{
+				Name: "db1", User: "postgres",
+				Host: "localhost", Port: 5432,
+				Database:    "mydb",
+				SSLMode:     "require",
+				SSLRootCert: "/certs/ca.crt",
+			},
+			wantErr: false,
+		},
+		{
+			name: "sslrootcert with sslmode verify-ca is valid",
+			config: NamedDatabaseConfig{
+				Name: "db1", User: "postgres",
+				Host: "localhost", Port: 5432,
+				Database:    "mydb",
+				SSLMode:     "verify-ca",
+				SSLRootCert: "/certs/ca.crt",
+			},
+			wantErr: false,
+		},
+		{
+			name: "sslrootcert with sslmode verify-full is valid",
+			config: NamedDatabaseConfig{
+				Name: "db1", User: "postgres",
+				Host: "localhost", Port: 5432,
+				Database:    "mydb",
+				SSLMode:     "verify-full",
+				SSLRootCert: "/certs/ca.crt",
+			},
+			wantErr: false,
 		},
 	}
 

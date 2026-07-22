@@ -43,6 +43,38 @@ databases:
       - "bob"
 ```
 
+### Client Certificate Authentication
+
+A database entry can authenticate to PostgreSQL with a client
+certificate instead of, or alongside, a password. Set `sslcert` and
+`sslkey` together to supply the client certificate and its private
+key; set `sslrootcert` to verify the server's certificate against a
+trusted CA:
+
+```yaml
+databases:
+  - name: "secure"
+    host: "secure-db.example.com"
+    port: 5432
+    database: "myapp"
+    user: "cert_user"
+    sslmode: "verify-full"
+    sslcert: "/etc/pgedge/certs/client.crt"
+    sslkey: "/etc/pgedge/certs/client.key"
+    sslrootcert: "/etc/pgedge/certs/ca.crt"
+    available_to_users: []
+```
+
+The `sslcert` and `sslkey` fields must be set together; providing
+only one causes the server to reject the configuration at startup.
+The `sslrootcert` field is independent and can be set on its own to
+verify the server's certificate without client certificate
+authentication, but only takes effect under `sslmode: "require"`,
+`"verify-ca"`, or `"verify-full"`; under `"disable"`, `"allow"`, or
+`"prefer"` (the default) the server certificate is never checked
+against it and the value is silently ignored, matching libpq and
+`psql`.
+
 ### Access Control
 
 The `available_to_users` field controls which session users can access each

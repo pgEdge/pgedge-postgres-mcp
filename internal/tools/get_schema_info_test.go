@@ -14,6 +14,7 @@ import (
 	"strings"
 	"testing"
 
+	"pgedge-postgres-mcp/internal/config"
 	"pgedge-postgres-mcp/internal/database"
 )
 
@@ -966,6 +967,61 @@ func TestGetSchemaInfoTool(t *testing.T) {
 		}
 		if strings.Contains(content, "events_2024_01") {
 			t.Error("Expected child partition hidden in compact mode")
+		}
+	})
+}
+
+// TestGetSchemaInfoTool_UsesDisplayName is a regression test for issue
+// #187: responses must show the operator-configured display name, never
+// the raw (possibly internal-only) connection host.
+func TestGetSchemaInfoTool_UsesDisplayName(t *testing.T) {
+	internalHost := "10.244.1.7"
+	cfg := &config.NamedDatabaseConfig{Name: "orders-prod", Host: internalHost, Port: 5432}
+
+	t.Run("empty results path", func(t *testing.T) {
+		client := database.NewTestClientWithConfig(
+			"postgres://appuser:secret@10.244.1.7:5432/orders_prod",
+			map[string]database.TableInfo{},
+			cfg,
+		)
+
+		tool := GetSchemaInfoTool(client)
+		response, err := tool.Handler(map[string]interface{}{"schema_name": "nonexistent"})
+		if err != nil {
+			t.Fatalf("Handler returned error: %v", err)
+		}
+
+		content := response.Content[0].Text
+		if !strings.Contains(content, "Connected to: orders-prod") {
+			t.Errorf("expected display name in response, got: %s", content)
+		}
+		if strings.Contains(content, internalHost) {
+			t.Errorf("BUG #187 reproduced: response leaked the raw host: %s", content)
+		}
+	})
+
+	t.Run("normal results path", func(t *testing.T) {
+		metadata := map[string]database.TableInfo{
+			"public.users": {SchemaName: "public", TableName: "users", TableType: "TABLE"},
+		}
+		client := database.NewTestClientWithConfig(
+			"postgres://appuser:secret@10.244.1.7:5432/orders_prod",
+			metadata,
+			cfg,
+		)
+
+		tool := GetSchemaInfoTool(client)
+		response, err := tool.Handler(map[string]interface{}{})
+		if err != nil {
+			t.Fatalf("Handler returned error: %v", err)
+		}
+
+		content := response.Content[0].Text
+		if !strings.Contains(content, "Database: orders-prod") {
+			t.Errorf("expected display name in response, got: %s", content)
+		}
+		if strings.Contains(content, internalHost) {
+			t.Errorf("BUG #187 reproduced: response leaked the raw host: %s", content)
 		}
 	})
 }

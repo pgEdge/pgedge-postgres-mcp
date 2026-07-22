@@ -320,6 +320,9 @@ func databaseConfigChanged(oldCfg, newCfg *config.NamedDatabaseConfig) bool {
 		oldCfg.User != newCfg.User ||
 		oldCfg.Password != newCfg.Password ||
 		oldCfg.SSLMode != newCfg.SSLMode ||
+		oldCfg.SSLCert != newCfg.SSLCert ||
+		oldCfg.SSLKey != newCfg.SSLKey ||
+		oldCfg.SSLRootCert != newCfg.SSLRootCert ||
 		oldCfg.TargetSessionAttrs != newCfg.TargetSessionAttrs ||
 		oldCfg.AllowWrites != newCfg.AllowWrites ||
 		oldCfg.PoolMaxConns != newCfg.PoolMaxConns ||

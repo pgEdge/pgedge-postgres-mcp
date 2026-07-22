@@ -249,6 +249,14 @@ type NamedDatabaseConfig struct {
 	Password string `yaml:"password"` // Database password (optional, will use PGEDGE_DB_PASSWORD env var or .pgpass if not set)
 	SSLMode  string `yaml:"sslmode"`  // SSL mode: disable, require, verify-ca, verify-full (default: prefer)
 
+	// Client certificate authentication (optional; lets the server
+	// authenticate to Postgres with a client certificate instead of, or
+	// alongside, a password). SSLCert and SSLKey must be set together;
+	// SSLRootCert is independent and verifies the server's certificate.
+	SSLCert     string `yaml:"sslcert,omitempty"`     // Path to the client certificate file
+	SSLKey      string `yaml:"sslkey,omitempty"`      // Path to the client private key file
+	SSLRootCert string `yaml:"sslrootcert,omitempty"` // Path to the CA certificate used to verify the server
+
 	// Multi-host connection support (optional; overrides Host/Port when set).
 	// Each entry specifies a host:port pair. pgx/v5 tries hosts in order for failover.
 	Hosts []HostEntry `yaml:"hosts,omitempty"`
@@ -320,6 +328,15 @@ func (cfg *NamedDatabaseConfig) BuildConnectionString() string {
 	q := u.Query()
 	if cfg.SSLMode != "" {
 		q.Set("sslmode", cfg.SSLMode)
+	}
+	if cfg.SSLCert != "" {
+		q.Set("sslcert", cfg.SSLCert)
+	}
+	if cfg.SSLKey != "" {
+		q.Set("sslkey", cfg.SSLKey)
+	}
+	if cfg.SSLRootCert != "" {
+		q.Set("sslrootcert", cfg.SSLRootCert)
 	}
 	if cfg.TargetSessionAttrs != "" && len(cfg.Hosts) > 0 {
 		q.Set("target_session_attrs", cfg.TargetSessionAttrs)
@@ -418,6 +435,23 @@ func (cfg *NamedDatabaseConfig) Validate() error {
 				cfg.Name, cfg.TargetSessionAttrs,
 			)
 		}
+	}
+
+	// A client certificate and its private key must be supplied together;
+	// providing only one is almost always a misconfiguration, and libpq's
+	// own error for a lone sslkey/sslcert is not always clear about why.
+	// sslrootcert carries no such pairing requirement: it verifies the
+	// server's certificate, not the client's, and is threaded through
+	// verbatim. Like libpq (and psql), pgx only consults it under the
+	// verifying sslmodes ("require" when a root cert is present,
+	// "verify-ca", and "verify-full"); under "disable", "allow", and
+	// "prefer" it is silently ignored rather than rejected, so no
+	// validation is applied here.
+	if (cfg.SSLCert != "") != (cfg.SSLKey != "") {
+		return fmt.Errorf(
+			"database %q: 'sslcert' and 'sslkey' must be set together",
+			cfg.Name,
+		)
 	}
 
 	return nil
@@ -563,6 +597,14 @@ type CLIFlags struct {
 	DBPassSet  bool
 	DBSSLMode  string
 	DBSSLSet   bool
+
+	// Client certificate authentication flags
+	DBSSLCert        string
+	DBSSLCertSet     bool
+	DBSSLKey         string
+	DBSSLKeySet      bool
+	DBSSLRootCert    string
+	DBSSLRootCertSet bool
 
 	// Multi-host database flags
 	DBHosts                 string
@@ -992,6 +1034,9 @@ func applyEnvironmentVariables(cfg *Config) {
 		setStringFromEnv(&cfg.Databases[0].User, "PGEDGE_DB_USER")
 		setStringFromEnv(&cfg.Databases[0].Password, "PGEDGE_DB_PASSWORD")
 		setStringFromEnv(&cfg.Databases[0].SSLMode, "PGEDGE_DB_SSLMODE")
+		setStringFromEnv(&cfg.Databases[0].SSLCert, "PGEDGE_DB_SSLCERT")
+		setStringFromEnv(&cfg.Databases[0].SSLKey, "PGEDGE_DB_SSLKEY")
+		setStringFromEnv(&cfg.Databases[0].SSLRootCert, "PGEDGE_DB_SSLROOTCERT")
 		setBoolFromEnv(&cfg.Databases[0].AllowWrites, "PGEDGE_DB_ALLOW_WRITES")
 
 		// Also support standard PostgreSQL environment variables for convenience
@@ -1012,6 +1057,15 @@ func applyEnvironmentVariables(cfg *Config) {
 		}
 		if cfg.Databases[0].SSLMode == "prefer" {
 			setStringFromEnv(&cfg.Databases[0].SSLMode, "PGSSLMODE")
+		}
+		if cfg.Databases[0].SSLCert == "" {
+			setStringFromEnv(&cfg.Databases[0].SSLCert, "PGSSLCERT")
+		}
+		if cfg.Databases[0].SSLKey == "" {
+			setStringFromEnv(&cfg.Databases[0].SSLKey, "PGSSLKEY")
+		}
+		if cfg.Databases[0].SSLRootCert == "" {
+			setStringFromEnv(&cfg.Databases[0].SSLRootCert, "PGSSLROOTCERT")
 		}
 
 		// Multi-host connection support via environment variable
@@ -1198,7 +1252,7 @@ func applyCLIFlags(cfg *Config, flags CLIFlags) error {
 
 	// Database CLI flags apply to the first database in the list
 	// Create a default database if none exists and any DB flag is set
-	if len(cfg.Databases) == 0 && (flags.DBHostSet || flags.DBPortSet || flags.DBNameSet || flags.DBUserSet || flags.DBPassSet || flags.DBSSLSet || flags.DBHostsSet || flags.DBTargetSessionAttrsSet) {
+	if len(cfg.Databases) == 0 && (flags.DBHostSet || flags.DBPortSet || flags.DBNameSet || flags.DBUserSet || flags.DBPassSet || flags.DBSSLSet || flags.DBSSLCertSet || flags.DBSSLKeySet || flags.DBSSLRootCertSet || flags.DBHostsSet || flags.DBTargetSessionAttrsSet) {
 		cfg.Databases = []NamedDatabaseConfig{{
 			Name:                "default",
 			Host:                "localhost",
@@ -1229,6 +1283,15 @@ func applyCLIFlags(cfg *Config, flags CLIFlags) error {
 		}
 		if flags.DBSSLSet {
 			cfg.Databases[0].SSLMode = flags.DBSSLMode
+		}
+		if flags.DBSSLCertSet {
+			cfg.Databases[0].SSLCert = flags.DBSSLCert
+		}
+		if flags.DBSSLKeySet {
+			cfg.Databases[0].SSLKey = flags.DBSSLKey
+		}
+		if flags.DBSSLRootCertSet {
+			cfg.Databases[0].SSLRootCert = flags.DBSSLRootCert
 		}
 		if flags.DBHostsSet {
 			entries, err := ParseHostEntries(flags.DBHosts)
