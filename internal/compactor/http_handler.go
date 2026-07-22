@@ -29,6 +29,7 @@ const maxRequestBodySize = 10 * 1024 * 1024
 func HandleCompact(w http.ResponseWriter, r *http.Request) {
 	// Only accept POST requests
 	if r.Method != http.MethodPost {
+		w.Header().Set("Allow", http.MethodPost)
 		httperror.Write(w, http.StatusMethodNotAllowed, "Method not allowed")
 		return
 	}

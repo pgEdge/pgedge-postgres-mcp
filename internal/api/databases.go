@@ -97,6 +97,7 @@ func NewDatabaseHandler(
 func (h *DatabaseHandler) HandleListDatabases(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Allow", http.MethodGet)
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		//nolint:errcheck // Error would only occur if connection is closed
 		json.NewEncoder(w).Encode(map[string]string{"error": "Method not allowed"})
@@ -165,6 +166,7 @@ func (h *DatabaseHandler) HandleListDatabases(w http.ResponseWriter, r *http.Req
 func (h *DatabaseHandler) HandleSelectDatabase(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Allow", http.MethodPost)
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		//nolint:errcheck // Error would only occur if connection is closed
 		json.NewEncoder(w).Encode(map[string]string{"error": "Method not allowed"})

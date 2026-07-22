@@ -93,6 +93,7 @@ func decodeJSONBody(w http.ResponseWriter, r *http.Request, dst interface{}) boo
 // HandleList handles GET /api/conversations
 func (h *Handler) HandleList(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
+		w.Header().Set("Allow", http.MethodGet)
 		sendError(w, http.StatusMethodNotAllowed, "Method not allowed")
 		return
 	}
@@ -137,6 +138,7 @@ func (h *Handler) HandleList(w http.ResponseWriter, r *http.Request) {
 // HandleGet handles GET /api/conversations/{id}
 func (h *Handler) HandleGet(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
+		w.Header().Set("Allow", http.MethodGet)
 		sendError(w, http.StatusMethodNotAllowed, "Method not allowed")
 		return
 	}
@@ -178,6 +180,7 @@ type CreateRequest struct {
 // HandleCreate handles POST /api/conversations
 func (h *Handler) HandleCreate(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
+		w.Header().Set("Allow", http.MethodPost)
 		sendError(w, http.StatusMethodNotAllowed, "Method not allowed")
 		return
 	}
@@ -218,6 +221,7 @@ type UpdateRequest struct {
 // HandleUpdate handles PUT /api/conversations/{id}
 func (h *Handler) HandleUpdate(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPut {
+		w.Header().Set("Allow", http.MethodPut)
 		sendError(w, http.StatusMethodNotAllowed, "Method not allowed")
 		return
 	}
@@ -263,6 +267,7 @@ type RenameRequest struct {
 // HandleRename handles PATCH /api/conversations/{id}
 func (h *Handler) HandleRename(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPatch {
+		w.Header().Set("Allow", http.MethodPatch)
 		sendError(w, http.StatusMethodNotAllowed, "Method not allowed")
 		return
 	}
@@ -306,6 +311,7 @@ func (h *Handler) HandleRename(w http.ResponseWriter, r *http.Request) {
 // HandleDelete handles DELETE /api/conversations/{id}
 func (h *Handler) HandleDelete(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodDelete {
+		w.Header().Set("Allow", http.MethodDelete)
 		sendError(w, http.StatusMethodNotAllowed, "Method not allowed")
 		return
 	}
@@ -339,6 +345,7 @@ func (h *Handler) HandleDelete(w http.ResponseWriter, r *http.Request) {
 // HandleDeleteAll handles DELETE /api/conversations (with query param all=true)
 func (h *Handler) HandleDeleteAll(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodDelete {
+		w.Header().Set("Allow", http.MethodDelete)
 		sendError(w, http.StatusMethodNotAllowed, "Method not allowed")
 		return
 	}
@@ -378,6 +385,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux, authWrapper func(http.Handl
 				sendError(w, http.StatusBadRequest, "Use ?all=true to delete all conversations")
 			}
 		default:
+			w.Header().Set("Allow", "GET, POST, DELETE")
 			sendError(w, http.StatusMethodNotAllowed, "Method not allowed")
 		}
 	}))
@@ -394,6 +402,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux, authWrapper func(http.Handl
 		case http.MethodDelete:
 			h.HandleDelete(w, r)
 		default:
+			w.Header().Set("Allow", "GET, PUT, PATCH, DELETE")
 			sendError(w, http.StatusMethodNotAllowed, "Method not allowed")
 		}
 	}))

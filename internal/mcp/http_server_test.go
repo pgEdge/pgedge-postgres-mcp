@@ -74,6 +74,9 @@ func TestHandleHTTPRequest_MethodNotAllowed(t *testing.T) {
 	if w.Code != http.StatusMethodNotAllowed {
 		t.Errorf("expected status 405, got %d", w.Code)
 	}
+	if allow := w.Header().Get("Allow"); allow != http.MethodPost {
+		t.Errorf("expected Allow header %q, got %q", http.MethodPost, allow)
+	}
 	if ct := w.Header().Get("Content-Type"); ct != "application/json" {
 		t.Errorf("expected Content-Type application/json, got %q", ct)
 	}

@@ -108,6 +108,9 @@ func TestHandleListDatabases_MethodNotAllowed(t *testing.T) {
 	if w.Code != http.StatusMethodNotAllowed {
 		t.Errorf("expected status 405, got %d", w.Code)
 	}
+	if allow := w.Header().Get("Allow"); allow != http.MethodGet {
+		t.Errorf("expected Allow header %q, got %q", http.MethodGet, allow)
+	}
 }
 
 func TestHandleListDatabases_WithTokenHash(t *testing.T) {
@@ -203,6 +206,9 @@ func TestHandleSelectDatabase_MethodNotAllowed(t *testing.T) {
 
 	if w.Code != http.StatusMethodNotAllowed {
 		t.Errorf("expected status 405, got %d", w.Code)
+	}
+	if allow := w.Header().Get("Allow"); allow != http.MethodPost {
+		t.Errorf("expected Allow header %q, got %q", http.MethodPost, allow)
 	}
 }
 
