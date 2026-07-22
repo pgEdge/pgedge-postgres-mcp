@@ -168,6 +168,18 @@ and this project adheres to
   are intentionally left as-is, since echoing back what the caller
   themselves supplied is not a leak. (#187)
 
+- The token and user file watchers now detect changes delivered through an
+  atomically-swapped symlink, such as a Kubernetes-projected Secret or
+  ConfigMap volume, or any tool that renames a new version into place.
+  Previously the watcher matched events by exact filename and only handled
+  `Write`/`Create`, so a symlink swap on a different directory entry (for
+  example Kubernetes' own `..data` symlink) never triggered a reload and
+  updates only took effect on restart. The watcher now reacts to any event
+  in the watched directory and re-resolves and hashes the watched path's
+  content to decide whether a reload is warranted, catching changes that
+  never touch the watched filename directly while still ignoring
+  unrelated activity elsewhere in the directory. (#186)
+
 - Metadata loader now tolerates tables with zero columns
   (e.g. `CREATE TABLE foo()`). The query LEFT JOINs against the
   per-column catalog, so a zero-column table produced a row whose
