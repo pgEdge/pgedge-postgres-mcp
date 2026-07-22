@@ -234,6 +234,38 @@ func TestHandleSelectDatabase_InvalidBody(t *testing.T) {
 	}
 }
 
+func TestHandleSelectDatabase_OversizedBody(t *testing.T) {
+	cm := createTestClientManager()
+	handler := NewDatabaseHandler(cm, nil, false, false)
+
+	// Must be syntactically valid JSON so json.Decoder keeps reading
+	// (buffering the string token) until it exceeds the body-size cap,
+	// rather than failing fast on a syntax error before the cap is hit.
+	huge := bytes.Repeat([]byte("x"), maxRequestBodySize+1)
+	oversized := append(append([]byte(`{"name":"`), huge...), []byte(`"}`)...)
+	req := httptest.NewRequest(http.MethodPost, "/api/databases/select",
+		bytes.NewReader(oversized))
+	req.Header.Set("Content-Type", "application/json")
+
+	w := httptest.NewRecorder()
+	handler.HandleSelectDatabase(w, req)
+
+	if w.Code != http.StatusRequestEntityTooLarge {
+		t.Errorf("expected status 413, got %d", w.Code)
+	}
+
+	var response SelectDatabaseResponse
+	if err := json.NewDecoder(w.Body).Decode(&response); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+	if response.Success {
+		t.Error("expected success=false")
+	}
+	if response.Error != "Request body too large" {
+		t.Errorf("expected error 'Request body too large', got %q", response.Error)
+	}
+}
+
 func TestHandleSelectDatabase_EmptyName(t *testing.T) {
 	cm := createTestClientManager()
 	handler := NewDatabaseHandler(cm, nil, false, false)

@@ -149,6 +149,25 @@ and this project adheres to
 
 ### Fixed
 
+- Every HTTP error response is now a consistent JSON object
+  (`{"error": "..."}`) with an appropriate status code, including
+  framework-level cases that previously bypassed the normal handlers
+  and returned a plaintext or empty body: an unknown route (404), a
+  method mismatch (405), an oversized request body (413, distinguished
+  from other body-read failures), and a panic inside a handler (500;
+  previously the connection was simply closed with no response at
+  all). A shared `internal/httperror` helper backs the new panic
+  recovery and 404 catch-all middleware, as well as the handlers that
+  previously wrote plaintext errors via `http.Error`
+  (`/mcp/v1`, `/api/chat/compact`, `/api/openapi.json`, and the
+  session-auth wrapper). Request bodies on `/api/chat/compact`,
+  `/api/databases/select`, and the `/api/conversations*` endpoints are
+  now also capped at 10MB, matching the existing `/mcp/v1` limit. The
+  HTTP server now sets `ReadHeaderTimeout`, `ReadTimeout`, and
+  `IdleTimeout` to guard against slow-header and slow-body attacks;
+  these fire before a request reaches a handler, so (unlike the cases
+  above) there is no response body to produce. (#189)
+
 - Metadata loader now tolerates tables with zero columns
   (e.g. `CREATE TABLE foo()`). The query LEFT JOINs against the
   per-column catalog, so a zero-column table produced a row whose

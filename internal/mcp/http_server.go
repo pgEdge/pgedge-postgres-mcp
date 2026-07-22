@@ -15,14 +15,17 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"encoding/pem"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
+	"runtime/debug"
 	"strings"
 	"time"
 
 	"pgedge-postgres-mcp/internal/auth"
+	"pgedge-postgres-mcp/internal/httperror"
 	"pgedge-postgres-mcp/internal/tracing"
 )
 
@@ -40,16 +43,11 @@ type HTTPConfig struct {
 	Debug         bool                           // Enable debug logging
 }
 
-// RunHTTP starts the MCP server in HTTP/HTTPS mode
-func (s *Server) RunHTTP(config *HTTPConfig) error {
-	if config == nil {
-		return fmt.Errorf("HTTP config is required")
-	}
-
-	// Store debug flag for use in handlers
-	s.debug = config.Debug
-
-	// Create HTTP handler
+// buildHandler assembles the full mux and middleware chain used in HTTP
+// mode. Split out from RunHTTP so the complete chain (including the
+// JSON 404 catch-all and panic recovery) can be exercised directly in
+// tests without binding a real listener.
+func (s *Server) buildHandler(config *HTTPConfig) (http.Handler, error) {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/mcp/v1", s.handleHTTPRequest)
 	mux.HandleFunc("/health", s.handleHealthCheck)
@@ -57,9 +55,15 @@ func (s *Server) RunHTTP(config *HTTPConfig) error {
 	// Call custom handler setup if provided (allows main.go to add LLM proxy endpoints)
 	if config.SetupHandlers != nil {
 		if err := config.SetupHandlers(mux); err != nil {
-			return fmt.Errorf("failed to setup custom handlers: %w", err)
+			return nil, fmt.Errorf("failed to setup custom handlers: %w", err)
 		}
 	}
+
+	// Catch-all for any path not matched above. http.ServeMux has no
+	// NotFoundHandler hook, so registering "/" (the least-specific
+	// pattern) is the standard way to intercept unmatched routes; it
+	// only fires when nothing more specific matched.
+	mux.HandleFunc("/", jsonNotFoundHandler)
 
 	// Wrap with auth middleware if enabled
 	var handler http.Handler = mux
@@ -70,10 +74,39 @@ func (s *Server) RunHTTP(config *HTTPConfig) error {
 	// Wrap with security headers middleware
 	handler = securityHeadersMiddleware(config.TLSEnable)(handler)
 
+	// Wrap with panic recovery so a handler panic always yields a JSON
+	// 500 response instead of an abruptly closed connection with no body.
+	handler = recoveryMiddleware(handler)
+
+	return handler, nil
+}
+
+// RunHTTP starts the MCP server in HTTP/HTTPS mode
+func (s *Server) RunHTTP(config *HTTPConfig) error {
+	if config == nil {
+		return fmt.Errorf("HTTP config is required")
+	}
+
+	// Store debug flag for use in handlers
+	s.debug = config.Debug
+
+	handler, err := s.buildHandler(config)
+	if err != nil {
+		return err
+	}
+
 	// Configure server
 	httpServer := &http.Server{
 		Addr:    config.Addr,
 		Handler: handler,
+
+		// Guard against slow-header and slow-body attacks (e.g.
+		// Slowloris): these fire before a request ever reaches a
+		// handler, so the connection is simply closed - there is no
+		// application-level body to write at this point.
+		ReadHeaderTimeout: 10 * time.Second,
+		ReadTimeout:       60 * time.Second,
+		IdleTimeout:       120 * time.Second,
 	}
 
 	// Start server with or without TLS
@@ -128,6 +161,38 @@ func (s *Server) loadTLSConfig(config *HTTPConfig) (*tls.Config, error) {
 	return tlsConfig, nil
 }
 
+// jsonNotFoundHandler responds to any request that didn't match a more
+// specific registered route with a JSON 404, instead of net/http's
+// default plaintext "404 page not found".
+func jsonNotFoundHandler(w http.ResponseWriter, r *http.Request) {
+	httperror.Write(w, http.StatusNotFound, "Not found")
+}
+
+// recoveryMiddleware recovers from a panic anywhere in the wrapped
+// handler chain and responds with a JSON 500 instead of leaving the
+// client with an abruptly closed connection and no body at all. The
+// stack trace is logged the same way an unrecovered panic would be.
+func recoveryMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		defer func() {
+			if p := recover(); p != nil {
+				// http.ErrAbortHandler is a sentinel panic value net/http
+				// itself treats specially: it silently aborts the
+				// response with no logging and no body. Preserve that
+				// behavior by re-panicking so the stdlib's own handling
+				// takes over instead of writing a JSON error for it.
+				if p == http.ErrAbortHandler {
+					panic(p)
+				}
+				fmt.Fprintf(os.Stderr, "PANIC serving %s %s: %v\n%s\n",
+					r.Method, r.URL.Path, p, debug.Stack())
+				httperror.Write(w, http.StatusInternalServerError, "Internal server error")
+			}
+		}()
+		next.ServeHTTP(w, r)
+	})
+}
+
 // securityHeadersMiddleware adds standard HTTP security headers to all
 // responses to mitigate clickjacking, MIME-type confusion, and XSS.
 // It also adds the RFC 8631 Link header on /api/* paths for API
@@ -159,7 +224,7 @@ const MaxRequestBodySize = 10 * 1024 * 1024
 func (s *Server) handleHTTPRequest(w http.ResponseWriter, r *http.Request) {
 	// Only accept POST requests
 	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		httperror.Write(w, http.StatusMethodNotAllowed, "Method not allowed")
 		return
 	}
 
@@ -173,7 +238,12 @@ func (s *Server) handleHTTPRequest(w http.ResponseWriter, r *http.Request) {
 	// Read request body
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
-		http.Error(w, "Failed to read request body", http.StatusBadRequest)
+		var maxBytesErr *http.MaxBytesError
+		if errors.As(err, &maxBytesErr) {
+			httperror.Write(w, http.StatusRequestEntityTooLarge, "Request body too large")
+			return
+		}
+		httperror.Write(w, http.StatusBadRequest, "Failed to read request body")
 		return
 	}
 	defer func() {

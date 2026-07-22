@@ -74,6 +74,41 @@ func TestHandleHTTPRequest_MethodNotAllowed(t *testing.T) {
 	if w.Code != http.StatusMethodNotAllowed {
 		t.Errorf("expected status 405, got %d", w.Code)
 	}
+	if ct := w.Header().Get("Content-Type"); ct != "application/json" {
+		t.Errorf("expected Content-Type application/json, got %q", ct)
+	}
+	var body map[string]string
+	if err := json.NewDecoder(w.Body).Decode(&body); err != nil {
+		t.Fatalf("response body is not valid JSON: %v (body: %q)", err, w.Body.String())
+	}
+	if body["error"] == "" {
+		t.Error("expected non-empty error message")
+	}
+}
+
+func TestHandleHTTPRequest_OversizedBody(t *testing.T) {
+	tools := &mockToolProvider{}
+	server := NewServer(tools)
+
+	oversized := bytes.Repeat([]byte("x"), MaxRequestBodySize+1)
+	req := httptest.NewRequest(http.MethodPost, "/mcp/v1", bytes.NewReader(oversized))
+	w := httptest.NewRecorder()
+
+	server.handleHTTPRequest(w, req)
+
+	if w.Code != http.StatusRequestEntityTooLarge {
+		t.Errorf("expected status 413, got %d", w.Code)
+	}
+	if ct := w.Header().Get("Content-Type"); ct != "application/json" {
+		t.Errorf("expected Content-Type application/json, got %q", ct)
+	}
+	var body map[string]string
+	if err := json.NewDecoder(w.Body).Decode(&body); err != nil {
+		t.Fatalf("response body is not valid JSON: %v (body: %q)", err, w.Body.String())
+	}
+	if body["error"] == "" {
+		t.Error("expected non-empty error message")
+	}
 }
 
 func TestHandleHTTPRequest_InvalidJSON(t *testing.T) {
@@ -1065,4 +1100,117 @@ func TestRunHTTP_NilConfig(t *testing.T) {
 	if err == nil {
 		t.Error("expected error for nil config")
 	}
+}
+
+func TestBuildHandler_UnknownRouteReturnsJSON404(t *testing.T) {
+	tools := &mockToolProvider{}
+	server := NewServer(tools)
+
+	handler, err := server.buildHandler(&HTTPConfig{})
+	if err != nil {
+		t.Fatalf("unexpected error building handler: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/this-route-does-not-exist", nil)
+	w := httptest.NewRecorder()
+	handler.ServeHTTP(w, req)
+
+	if w.Code != http.StatusNotFound {
+		t.Errorf("expected status 404, got %d", w.Code)
+	}
+	if ct := w.Header().Get("Content-Type"); ct != "application/json" {
+		t.Errorf("expected Content-Type application/json, got %q", ct)
+	}
+	var body map[string]string
+	if err := json.NewDecoder(w.Body).Decode(&body); err != nil {
+		t.Fatalf("response body is not valid JSON: %v (body: %q)", err, w.Body.String())
+	}
+	if body["error"] == "" {
+		t.Error("expected non-empty error message")
+	}
+}
+
+func TestBuildHandler_KnownRouteStillWorks(t *testing.T) {
+	tools := &mockToolProvider{}
+	server := NewServer(tools)
+
+	handler, err := server.buildHandler(&HTTPConfig{})
+	if err != nil {
+		t.Fatalf("unexpected error building handler: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/health", nil)
+	w := httptest.NewRecorder()
+	handler.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("expected the JSON 404 catch-all to not shadow /health; got status %d", w.Code)
+	}
+}
+
+func TestBuildHandler_PanicRecoveryReturnsJSON500(t *testing.T) {
+	tools := &mockToolProvider{}
+	server := NewServer(tools)
+
+	handler, err := server.buildHandler(&HTTPConfig{
+		SetupHandlers: func(mux *http.ServeMux) error {
+			mux.HandleFunc("/panic", func(w http.ResponseWriter, r *http.Request) {
+				panic("boom")
+			})
+			return nil
+		},
+	})
+	if err != nil {
+		t.Fatalf("unexpected error building handler: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/panic", nil)
+	w := httptest.NewRecorder()
+
+	// The handler must not panic out of ServeHTTP itself; recovery
+	// middleware should catch it and produce a JSON 500.
+	handler.ServeHTTP(w, req)
+
+	if w.Code != http.StatusInternalServerError {
+		t.Errorf("expected status 500, got %d", w.Code)
+	}
+	if ct := w.Header().Get("Content-Type"); ct != "application/json" {
+		t.Errorf("expected Content-Type application/json, got %q", ct)
+	}
+	var body map[string]string
+	if err := json.NewDecoder(w.Body).Decode(&body); err != nil {
+		t.Fatalf("response body is not valid JSON: %v (body: %q)", err, w.Body.String())
+	}
+	if body["error"] == "" {
+		t.Error("expected non-empty error message")
+	}
+}
+
+func TestBuildHandler_ErrAbortHandlerNotRecovered(t *testing.T) {
+	tools := &mockToolProvider{}
+	server := NewServer(tools)
+
+	handler, err := server.buildHandler(&HTTPConfig{
+		SetupHandlers: func(mux *http.ServeMux) error {
+			mux.HandleFunc("/abort", func(w http.ResponseWriter, r *http.Request) {
+				panic(http.ErrAbortHandler)
+			})
+			return nil
+		},
+	})
+	if err != nil {
+		t.Fatalf("unexpected error building handler: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/abort", nil)
+	w := httptest.NewRecorder()
+
+	defer func() {
+		p := recover()
+		if p != http.ErrAbortHandler {
+			t.Errorf("expected http.ErrAbortHandler to propagate past recoveryMiddleware, got %v", p)
+		}
+	}()
+	handler.ServeHTTP(w, req)
+	t.Error("expected handler.ServeHTTP to panic with http.ErrAbortHandler")
 }

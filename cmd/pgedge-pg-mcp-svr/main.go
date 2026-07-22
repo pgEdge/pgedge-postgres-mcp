@@ -34,6 +34,7 @@ import (
 	"pgedge-postgres-mcp/internal/conversations"
 	"pgedge-postgres-mcp/internal/database"
 	"pgedge-postgres-mcp/internal/definitions"
+	"pgedge-postgres-mcp/internal/httperror"
 	"pgedge-postgres-mcp/internal/llmtracing"
 	"pgedge-postgres-mcp/internal/mcp"
 	"pgedge-postgres-mcp/internal/openapi"
@@ -791,16 +792,16 @@ func main() {
 					// Extract token from Authorization header
 					authHeader := r.Header.Get("Authorization")
 					if authHeader == "" {
-						http.Error(w, "Missing Authorization header",
-							http.StatusUnauthorized)
+						httperror.Write(w, http.StatusUnauthorized,
+							"Missing Authorization header")
 						return
 					}
 
 					// Extract Bearer token
 					token := strings.TrimPrefix(authHeader, "Bearer ")
 					if token == authHeader {
-						http.Error(w, "Invalid Authorization header format",
-							http.StatusUnauthorized)
+						httperror.Write(w, http.StatusUnauthorized,
+							"Invalid Authorization header format")
 						return
 					}
 
@@ -809,13 +810,13 @@ func main() {
 						// Try session token if user auth is enabled
 						if userStore != nil {
 							if _, err := userStore.ValidateSessionToken(token); err != nil {
-								http.Error(w, "Invalid or expired token",
-									http.StatusUnauthorized)
+								httperror.Write(w, http.StatusUnauthorized,
+									"Invalid or expired token")
 								return
 							}
 						} else {
-							http.Error(w, "Invalid or expired token",
-								http.StatusUnauthorized)
+							httperror.Write(w, http.StatusUnauthorized,
+								"Invalid or expired token")
 							return
 						}
 					}
@@ -945,7 +946,7 @@ func main() {
 			}
 			mux.HandleFunc("/api/openapi.json", func(w http.ResponseWriter, r *http.Request) {
 				if r.Method != http.MethodGet {
-					http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+					httperror.Write(w, http.StatusMethodNotAllowed, "Method not allowed")
 					return
 				}
 				w.Header().Set("Content-Type", "application/json")

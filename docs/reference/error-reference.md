@@ -27,6 +27,7 @@ returns.
 | 403    | Forbidden            | The user lacks permission. |
 | 404    | Not Found            | The resource does not exist. |
 | 405    | Method Not Allowed   | The HTTP method is wrong.  |
+| 413    | Payload Too Large    | The request body exceeds the 10MB limit. |
 | 429    | Too Many Requests    | The rate limit is exceeded. |
 | 500    | Internal Server Error| A server-side error occurred. |
 

@@ -12,12 +12,17 @@ package api
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 
 	"pgedge-postgres-mcp/internal/auth"
 	"pgedge-postgres-mcp/internal/config"
 	"pgedge-postgres-mcp/internal/database"
 )
+
+// maxRequestBodySize is the maximum allowed size for a request body
+// (10MB), preventing memory exhaustion from an oversized request.
+const maxRequestBodySize = 10 * 1024 * 1024
 
 // HostInfo represents a single host:port pair in the API response
 type HostInfo struct {
@@ -169,15 +174,25 @@ func (h *DatabaseHandler) HandleSelectDatabase(w http.ResponseWriter, r *http.Re
 	ctx := r.Context()
 	tokenHash := auth.GetTokenHashFromContext(ctx)
 
+	// Limit request body size to prevent memory exhaustion attacks
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestBodySize)
+
 	// Parse request body
 	var req SelectDatabaseRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		status := http.StatusBadRequest
+		errMsg := "Invalid request body"
+		var maxBytesErr *http.MaxBytesError
+		if errors.As(err, &maxBytesErr) {
+			status = http.StatusRequestEntityTooLarge
+			errMsg = "Request body too large"
+		}
 		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusBadRequest)
+		w.WriteHeader(status)
 		//nolint:errcheck // Error would only occur if connection is closed
 		json.NewEncoder(w).Encode(SelectDatabaseResponse{
 			Success: false,
-			Error:   "Invalid request body",
+			Error:   errMsg,
 		})
 		return
 	}

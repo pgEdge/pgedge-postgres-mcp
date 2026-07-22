@@ -12,29 +12,46 @@ package compactor
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
+	"os"
+
+	"pgedge-postgres-mcp/internal/httperror"
 )
+
+// maxRequestBodySize is the maximum allowed size for a compaction
+// request body (10MB), preventing memory exhaustion from an oversized
+// message history.
+const maxRequestBodySize = 10 * 1024 * 1024
 
 // HandleCompact is the HTTP handler for the /api/chat/compact endpoint.
 func HandleCompact(w http.ResponseWriter, r *http.Request) {
 	// Only accept POST requests
 	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		httperror.Write(w, http.StatusMethodNotAllowed, "Method not allowed")
 		return
 	}
+
+	// Limit request body size to prevent memory exhaustion attacks
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestBodySize)
 
 	// Parse request
 	var req CompactRequest
 	decoder := json.NewDecoder(r.Body)
 	if err := decoder.Decode(&req); err != nil {
-		http.Error(w, fmt.Sprintf("Invalid request body: %v", err), http.StatusBadRequest)
+		var maxBytesErr *http.MaxBytesError
+		if errors.As(err, &maxBytesErr) {
+			httperror.Write(w, http.StatusRequestEntityTooLarge, "Request body too large")
+			return
+		}
+		httperror.Write(w, http.StatusBadRequest, fmt.Sprintf("Invalid request body: %v", err))
 		return
 	}
 
 	// Validate request
 	if len(req.Messages) == 0 {
-		http.Error(w, "Messages array cannot be empty", http.StatusBadRequest)
+		httperror.Write(w, http.StatusBadRequest, "Messages array cannot be empty")
 		return
 	}
 
@@ -54,7 +71,6 @@ func HandleCompact(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	encoder := json.NewEncoder(w)
 	if err := encoder.Encode(response); err != nil {
-		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
-		return
+		fmt.Fprintf(os.Stderr, "WARNING: Failed to encode compact response: %v\n", err)
 	}
 }

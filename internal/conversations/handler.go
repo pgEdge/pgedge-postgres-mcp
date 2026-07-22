@@ -12,6 +12,7 @@ package conversations
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -19,6 +20,11 @@ import (
 
 	"pgedge-postgres-mcp/internal/auth"
 )
+
+// maxRequestBodySize is the maximum allowed size for a conversation
+// request body (10MB), preventing memory exhaustion from an oversized
+// request.
+const maxRequestBodySize = 10 * 1024 * 1024
 
 // Handler handles conversation API requests
 type Handler struct {
@@ -65,6 +71,23 @@ func sendJSON(w http.ResponseWriter, status int, data interface{}) {
 // sendError sends an error response
 func sendError(w http.ResponseWriter, status int, message string) {
 	sendJSON(w, status, map[string]string{"error": message})
+}
+
+// decodeJSONBody limits the request body size and decodes it as JSON
+// into dst. On failure it writes the appropriate JSON error response
+// (413 for an oversized body, 400 otherwise) and returns false.
+func decodeJSONBody(w http.ResponseWriter, r *http.Request, dst interface{}) bool {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestBodySize)
+	if err := json.NewDecoder(r.Body).Decode(dst); err != nil {
+		var maxBytesErr *http.MaxBytesError
+		if errors.As(err, &maxBytesErr) {
+			sendError(w, http.StatusRequestEntityTooLarge, "Request body too large")
+		} else {
+			sendError(w, http.StatusBadRequest, "Invalid request body")
+		}
+		return false
+	}
+	return true
 }
 
 // HandleList handles GET /api/conversations
@@ -166,8 +189,7 @@ func (h *Handler) HandleCreate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req CreateRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		sendError(w, http.StatusBadRequest, "Invalid request body")
+	if !decodeJSONBody(w, r, &req) {
 		return
 	}
 
@@ -214,8 +236,7 @@ func (h *Handler) HandleUpdate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req UpdateRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		sendError(w, http.StatusBadRequest, "Invalid request body")
+	if !decodeJSONBody(w, r, &req) {
 		return
 	}
 
@@ -260,8 +281,7 @@ func (h *Handler) HandleRename(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req RenameRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		sendError(w, http.StatusBadRequest, "Invalid request body")
+	if !decodeJSONBody(w, r, &req) {
 		return
 	}
 

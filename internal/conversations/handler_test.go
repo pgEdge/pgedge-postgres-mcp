@@ -224,6 +224,37 @@ func TestHandleCreate_InvalidBody(t *testing.T) {
 	}
 }
 
+func TestHandleCreate_OversizedBody(t *testing.T) {
+	handler, cleanup, token := setupTestHandler(t)
+	defer cleanup()
+
+	// Must be syntactically valid JSON so json.Decoder keeps reading
+	// (buffering the string token) until it exceeds the body-size cap,
+	// rather than failing fast on a syntax error before the cap is hit.
+	huge := bytes.Repeat([]byte("x"), maxRequestBodySize+1)
+	oversized := append(append([]byte(`{"provider":"`), huge...), []byte(`"}`)...)
+	req := httptest.NewRequest("POST", "/api/conversations", bytes.NewReader(oversized))
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("Content-Type", "application/json")
+	rr := httptest.NewRecorder()
+
+	handler.HandleCreate(rr, req)
+
+	if rr.Code != http.StatusRequestEntityTooLarge {
+		t.Errorf("Expected status %d, got %d", http.StatusRequestEntityTooLarge, rr.Code)
+	}
+	if ct := rr.Header().Get("Content-Type"); ct != "application/json" {
+		t.Errorf("expected Content-Type application/json, got %q", ct)
+	}
+	var body map[string]string
+	if err := json.NewDecoder(rr.Body).Decode(&body); err != nil {
+		t.Fatalf("response body is not valid JSON: %v (body: %q)", err, rr.Body.String())
+	}
+	if body["error"] != "Request body too large" {
+		t.Errorf("expected error 'Request body too large', got %q", body["error"])
+	}
+}
+
 func TestHandleGet(t *testing.T) {
 	handler, cleanup, token := setupTestHandler(t)
 	defer cleanup()
