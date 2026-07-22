@@ -166,7 +166,14 @@ and this project adheres to
   HTTP server now sets `ReadHeaderTimeout`, `ReadTimeout`, and
   `IdleTimeout` to guard against slow-header and slow-body attacks;
   these fire before a request reaches a handler, so (unlike the cases
-  above) there is no response body to produce. (#189)
+  above) there is no response body to produce. Every 405 response now
+  also sets the `Allow` header naming the supported method(s), per
+  RFC 7231 §6.5.5. `GET /api/databases`'s 405 uses the shared
+  `internal/httperror` writer; `POST /api/databases/select`'s 405 uses
+  the endpoint's own documented `{"success": false, "error": "..."}`
+  shape instead, matching its other error responses (400, 404, 403)
+  rather than the bare `{"error": "..."}` it previously returned only
+  for that one status code. (#189)
 
 - Metadata loader now tolerates tables with zero columns
   (e.g. `CREATE TABLE foo()`). The query LEFT JOINs against the

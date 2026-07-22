@@ -18,6 +18,7 @@ import (
 	"pgedge-postgres-mcp/internal/auth"
 	"pgedge-postgres-mcp/internal/config"
 	"pgedge-postgres-mcp/internal/database"
+	"pgedge-postgres-mcp/internal/httperror"
 )
 
 // maxRequestBodySize is the maximum allowed size for a request body
@@ -96,11 +97,8 @@ func NewDatabaseHandler(
 // HandleListDatabases handles GET /api/databases
 func (h *DatabaseHandler) HandleListDatabases(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		w.Header().Set("Content-Type", "application/json")
 		w.Header().Set("Allow", http.MethodGet)
-		w.WriteHeader(http.StatusMethodNotAllowed)
-		//nolint:errcheck // Error would only occur if connection is closed
-		json.NewEncoder(w).Encode(map[string]string{"error": "Method not allowed"})
+		httperror.Write(w, http.StatusMethodNotAllowed, "Method not allowed")
 		return
 	}
 
@@ -169,7 +167,10 @@ func (h *DatabaseHandler) HandleSelectDatabase(w http.ResponseWriter, r *http.Re
 		w.Header().Set("Allow", http.MethodPost)
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		//nolint:errcheck // Error would only occur if connection is closed
-		json.NewEncoder(w).Encode(map[string]string{"error": "Method not allowed"})
+		json.NewEncoder(w).Encode(SelectDatabaseResponse{
+			Success: false,
+			Error:   "Method not allowed",
+		})
 		return
 	}
 
