@@ -225,9 +225,13 @@ and this project adheres to
   re-applied when a pooled connection is released, and a connection
   whose state cannot be confirmed is discarded rather than reused.
   Previously the setting was applied only when the connection was
-  established, so a successful `RESET ALL` or `DISCARD ALL` left that
-  pooled connection writable for every later caller that received it,
-  across sessions and tokens.
+  established, so a `RESET ALL` or `DISCARD ALL` persisted on that
+  pooled connection for every later caller that received it. This was
+  not a route through `query_database`, which set the access mode on
+  each of its own transactions and so remained protected; it mattered
+  for any path that did not, such as the custom tool executor's
+  `pl-func` type, and it left the session-level layer disabled for the
+  rest of that connection's life.
 
 - Custom `pl-do` tools no longer interpolate arguments between fixed
   dollar-quote delimiters. The wrapper used `$mcp_custom_tool$` and
