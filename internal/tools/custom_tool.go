@@ -57,6 +57,28 @@ func (e *CustomToolExecutor) isLanguageAllowed(language string) bool {
 	return e.allowedPLLanguages[lang] || e.allowedPLLanguages["*"]
 }
 
+// txOptions returns the transaction options for a custom tool, requesting
+// read-only access unless the connection explicitly permits writes. Setting
+// the mode as part of BEGIN is both atomic with the transaction start and
+// impossible to fail separately.
+func (e *CustomToolExecutor) txOptions() pgx.TxOptions {
+	if e.dbClient != nil && e.dbClient.AllowWrites() {
+		return pgx.TxOptions{}
+	}
+	return pgx.TxOptions{AccessMode: pgx.ReadOnly}
+}
+
+// newDollarQuoteTags returns a pair of unpredictable dollar-quote delimiters
+// for one tool invocation: one for the statement body and one for the argument
+// payload nested inside it. Fixed delimiters are unsafe whenever caller-
+// supplied values are interpolated between them, because a value containing
+// the delimiter ends the quoted section and everything after it is parsed as
+// SQL.
+func newDollarQuoteTags() (bodyTag string, argsTag string) {
+	nonce := strings.ReplaceAll(uuid.New().String(), "-", "")
+	return fmt.Sprintf("$mcp_do_%s$", nonce), fmt.Sprintf("$mcp_args_%s$", nonce)
+}
+
 // CreateTool creates an MCP Tool from a ToolDefinition
 func (e *CustomToolExecutor) CreateTool(def definitions.ToolDefinition) Tool {
 	// Convert the input schema to MCP format
@@ -155,8 +177,10 @@ func (e *CustomToolExecutor) executeSQLTool(ctx context.Context, def definitions
 		return mcp.NewToolError("connection pool not available")
 	}
 
-	// Execute in a read-only transaction (unless writes are allowed)
-	tx, err := pool.Begin(ctx)
+	// Execute in a read-only transaction (unless writes are allowed), with
+	// the access mode set on the BEGIN itself rather than by a following
+	// statement, so the transaction is never briefly writable.
+	tx, err := pool.BeginTx(ctx, e.txOptions())
 	if err != nil {
 		return mcp.NewToolError(fmt.Sprintf("failed to begin transaction: %v", err))
 	}
@@ -167,13 +191,6 @@ func (e *CustomToolExecutor) executeSQLTool(ctx context.Context, def definitions
 			_ = tx.Rollback(context.Background()) //nolint:errcheck // best-effort rollback
 		}
 	}()
-
-	// Set read-only unless writes are explicitly allowed
-	if !e.dbClient.AllowWrites() {
-		if _, err := tx.Exec(ctx, "SET TRANSACTION READ ONLY"); err != nil {
-			return mcp.NewToolError(fmt.Sprintf("failed to set transaction read-only: %v", err))
-		}
-	}
 
 	// Execute the query
 	rows, err := tx.Query(ctx, def.SQL, params...)
@@ -219,14 +236,37 @@ func (e *CustomToolExecutor) executePLDOTool(ctx context.Context, def definition
 		return mcp.NewToolError("connection pool not available")
 	}
 
-	// Build the DO block SQL
-	wrappedCode := e.wrapPLDOCode(def.Language, def.Code, args)
-	doSQL := fmt.Sprintf("DO $mcp_custom_tool$\n%s\n$mcp_custom_tool$ LANGUAGE %s;", wrappedCode, def.Language)
+	// Build the DO block SQL. The tool arguments are interpolated into the
+	// block, so the dollar-quote tags that delimit it are generated fresh for
+	// every invocation: with a fixed tag, an argument value containing that
+	// tag would close the quoting early and the remainder of the value would
+	// be executed as SQL. This statement is run through Exec with no bind
+	// parameters, which means the simple query protocol, which in turn accepts
+	// any number of statements, so such an escape would be a complete bypass
+	// of read-only mode rather than merely a broken tool.
+	doTag, argsTag := newDollarQuoteTags()
+
+	// Belt and braces: the tags are unguessable, but confirm that no argument
+	// carries either of them before the statement is sent, so that a future
+	// change to tag generation cannot silently reintroduce the escape.
+	if argsJSON, err := json.Marshal(args); err == nil {
+		if strings.Contains(string(argsJSON), doTag) ||
+			strings.Contains(string(argsJSON), argsTag) {
+			return mcp.NewToolError("tool arguments conflict with the generated statement delimiters")
+		}
+	}
+
+	wrappedCode := e.wrapPLDOCode(def.Language, def.Code, args, argsTag)
+	if strings.Contains(wrappedCode, doTag) {
+		return mcp.NewToolError("tool code conflicts with the generated statement delimiters")
+	}
+
+	doSQL := fmt.Sprintf("DO %s\n%s\n%s LANGUAGE %s;", doTag, wrappedCode, doTag, def.Language)
 
 	// Execute the DO block and retrieve the result in a single transaction
 	// so that the transaction-local set_config value is visible to the
 	// subsequent current_setting query.
-	tx, err := pool.Begin(ctx)
+	tx, err := pool.BeginTx(ctx, e.txOptions())
 	if err != nil {
 		return mcp.NewToolError(fmt.Sprintf("failed to begin transaction: %v", err))
 	}
@@ -237,13 +277,6 @@ func (e *CustomToolExecutor) executePLDOTool(ctx context.Context, def definition
 			_ = tx.Rollback(context.Background()) //nolint:errcheck // best-effort rollback
 		}
 	}()
-
-	// Set read-only unless writes are explicitly allowed
-	if !e.dbClient.AllowWrites() {
-		if _, err := tx.Exec(ctx, "SET TRANSACTION READ ONLY"); err != nil {
-			return mcp.NewToolError(fmt.Sprintf("failed to set transaction read-only: %v", err))
-		}
-	}
 
 	// nosemgrep: go.lang.security.audit.sqli.tainted-sql-string
 	if _, err := tx.Exec(ctx, doSQL); err != nil {
@@ -299,7 +332,11 @@ type plFuncSQL struct {
 
 // buildPLFuncSQL builds the SQL statements for PL function execution
 func (e *CustomToolExecutor) buildPLFuncSQL(def definitions.ToolDefinition, args map[string]interface{}) (*plFuncSQL, error) {
-	funcName := fmt.Sprintf("_mcp_custom_tool_%s", strings.ReplaceAll(uuid.New().String(), "-", ""))
+	nonce := strings.ReplaceAll(uuid.New().String(), "-", "")
+	funcName := fmt.Sprintf("_mcp_custom_tool_%s", nonce)
+	// As with pl-do, the body delimiter is generated per invocation rather
+	// than fixed, so that no interpolated content can close it early.
+	bodyTag := fmt.Sprintf("$mcp_func_%s$", nonce)
 	wrappedCode := e.wrapPLFuncCode(def.Language, def.Code, args)
 
 	argsJSON, err := json.Marshal(args)
@@ -307,9 +344,13 @@ func (e *CustomToolExecutor) buildPLFuncSQL(def definitions.ToolDefinition, args
 		return nil, fmt.Errorf("failed to serialize arguments: %w", err)
 	}
 
+	if strings.Contains(wrappedCode, bodyTag) {
+		return nil, fmt.Errorf("tool code conflicts with the generated statement delimiters")
+	}
+
 	createSQL := fmt.Sprintf(
-		"CREATE OR REPLACE FUNCTION %s(args jsonb) RETURNS %s AS $mcp_func$\n%s\n$mcp_func$ LANGUAGE %s;",
-		funcName, def.Returns, wrappedCode, def.Language,
+		"CREATE OR REPLACE FUNCTION %s(args jsonb) RETURNS %s AS %s\n%s\n%s LANGUAGE %s;",
+		funcName, def.Returns, bodyTag, wrappedCode, bodyTag, def.Language,
 	)
 
 	callSQL := fmt.Sprintf("SELECT %s($1::jsonb);", funcName)
@@ -335,6 +376,19 @@ func (e *CustomToolExecutor) executePLFuncTool(ctx context.Context, def definiti
 		return mcp.NewToolError("database client not available")
 	}
 
+	// A pl-func tool creates and drops a temporary function, which is a
+	// catalogue write, so it cannot run on a read-only connection. This was
+	// previously left to fail as an opaque permissions error partway through
+	// execution, which invited the wrong fix: turning read-only mode off.
+	// Refuse it up front instead, and name the alternative.
+	if !e.dbClient.AllowWrites() {
+		return mcp.NewToolError(
+			"pl-func tools create a temporary function and therefore " +
+				"require a database connection configured with " +
+				"allow_writes: true; use a pl-do tool on a read-only " +
+				"connection")
+	}
+
 	pool := e.dbClient.GetPoolFor(e.dbClient.GetDefaultConnection())
 	if pool == nil {
 		return mcp.NewToolError("connection pool not available")
@@ -348,7 +402,12 @@ func (e *CustomToolExecutor) executePLFuncTool(ctx context.Context, def definiti
 	return e.executePLFuncInTransaction(ctx, pool, sqlStmts)
 }
 
-// executePLFuncInTransaction executes the PL function within a transaction
+// executePLFuncInTransaction executes the PL function within a transaction.
+//
+// The transaction is deliberately read-write: creating and dropping the
+// temporary function are catalogue writes. Callers must therefore establish
+// that the connection permits writes before reaching this point, which
+// executePLFuncTool does.
 func (e *CustomToolExecutor) executePLFuncInTransaction(ctx context.Context, pool *pgxpool.Pool, sql *plFuncSQL) (mcp.ToolResponse, error) {
 	tx, err := pool.Begin(ctx)
 	if err != nil {
@@ -454,7 +513,9 @@ func (e *CustomToolExecutor) buildSQLParams(sql string, schema definitions.ToolI
 // wrapPLDOCode wraps user code with args injection and mcp_return helper for DO blocks
 // The mcp_return() function uses set_config to store results in a session variable,
 // which works in read-only transactions and doesn't pollute server logs.
-func (e *CustomToolExecutor) wrapPLDOCode(language, code string, args map[string]interface{}) string {
+// argsTag is the dollar-quote delimiter used for the argument payload, and is
+// generated per invocation by newDollarQuoteTags.
+func (e *CustomToolExecutor) wrapPLDOCode(language, code string, args map[string]interface{}, argsTag string) string {
 	argsJSON, _ := json.Marshal(args) //nolint:errcheck // args is always serializable
 	argsStr := string(argsJSON)
 
@@ -462,7 +523,7 @@ func (e *CustomToolExecutor) wrapPLDOCode(language, code string, args map[string
 	case "plpython3u", "plpythonu":
 		return wrapPLDOPython(argsStr, code)
 	case "plpgsql":
-		return wrapPLDOPgSQL(argsStr, code)
+		return wrapPLDOPgSQL(argsStr, code, argsTag)
 	case "plv8":
 		return wrapPLDOV8(argsStr, code)
 	case "plperl":
@@ -492,20 +553,22 @@ def mcp_return(result):
 `, argsJSON, mcpResultConfigKey, code)
 }
 
-func wrapPLDOPgSQL(argsJSON, code string) string {
-	// Use dollar-quoting ($mcp_args$...$mcp_args$) for the JSON args to avoid
-	// escaping issues with backslashes or quotes in JSON values.
+func wrapPLDOPgSQL(argsJSON, code, argsTag string) string {
+	// Use dollar-quoting for the JSON args to avoid escaping issues with
+	// backslashes or quotes in JSON values.
 	// Note: %q would add Go-style backslash escapes that PostgreSQL doesn't understand.
+	// The delimiter is generated per invocation so that an argument value
+	// cannot close it and have the rest of the value parsed as code.
 	return fmt.Sprintf(`
 <<mcp_block>>
 DECLARE
-    args jsonb := $mcp_args$%s$mcp_args$::jsonb;
+    args jsonb := %s%s%s::jsonb;
     result jsonb;
 BEGIN
     -- To return a result, use: PERFORM set_config('%s', result::text, true);
 %s
 END mcp_block;
-`, argsJSON, mcpResultConfigKey, code)
+`, argsTag, argsJSON, argsTag, mcpResultConfigKey, code)
 }
 
 func wrapPLDOV8(argsJSON, code string) string {

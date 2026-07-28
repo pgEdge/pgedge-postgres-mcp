@@ -171,6 +171,81 @@ and this project adheres to
   whole conversation. Deleting a conversation now requires confirmation
   via a dialog instead of a browser prompt. (#73)
 
+- Custom `pl-func` tools now fail immediately, with an explanation, on
+  a database connection that does not permit writes. Such a tool
+  creates and drops a temporary function, which a read-only
+  transaction cannot do, so it previously failed partway through with
+  an opaque permissions error that invited disabling read-only mode as
+  the remedy. Use a `pl-do` tool on a read-only connection.
+
+- The read-only statement guard no longer rejects a query merely for
+  mentioning `transaction_read_only` or `default_transaction_read_only`
+  inside a string literal or a comment, so an ordinary lookup such as
+  `SELECT * FROM config WHERE key = 'transaction_read_only'` is now
+  permitted. A rejection additionally requires a construct capable of
+  changing a setting.
+
+### Security
+
+- Read-only connections no longer accept more than one SQL statement
+  per request. `query_database` previously executed any statement that
+  did not begin with `SELECT`, `WITH`, `TABLE`, or `VALUES` through
+  pgx's `Exec`, which falls back to the PostgreSQL simple query
+  protocol whenever no bind parameters are supplied. That protocol
+  accepts several semicolon-separated statements in one message, so a
+  caller could append their own statements to a request, including
+  `SET TRANSACTION READ WRITE` or `COMMIT; BEGIN READ WRITE`, and then
+  write to the database. On a read-only connection every statement now
+  runs through the extended query protocol, which carries exactly one
+  statement per message and rejects anything else. Note that a leading
+  comment was enough to reach the vulnerable path, so no unusual
+  keyword was required. Connections configured with
+  `allow_writes: true` keep the previous behaviour, including support
+  for multi-statement scripts.
+
+- The read-only statement guard now recognises the transaction access
+  mode, which it previously ignored altogether: it matched only the
+  literal strings `transaction_read_only` and
+  `default_transaction_read_only`, and never `READ WRITE`. It now also
+  rejects `SET SESSION CHARACTERISTICS`, `RESET ALL`, `DISCARD`,
+  transaction control statements, `SET ROLE`,
+  `SET SESSION AUTHORIZATION`, `ALTER ROLE`, `ALTER USER`,
+  `ALTER DATABASE`, and
+  operations whose effects fall outside the transaction and which a
+  read-only transaction therefore does not prevent: `DO` blocks,
+  `COPY ... TO PROGRAM`, the server-side file functions, and `dblink`.
+  Statements are matched after comments and literals have been
+  stripped, so a comment can no longer be used to split a keyword, and
+  the guard now runs on the `count_rows` `where` argument and the
+  `execute_explain` query as well as on `query_database`. Rejected
+  statements are logged in full, since a rejection records an attempt
+  to escape read-only mode.
+
+- The session-level `default_transaction_read_only` setting is now
+  re-applied when a pooled connection is released, and a connection
+  whose state cannot be confirmed is discarded rather than reused.
+  Previously the setting was applied only when the connection was
+  established, so a successful `RESET ALL` or `DISCARD ALL` left that
+  pooled connection writable for every later caller that received it,
+  across sessions and tokens.
+
+- Custom `pl-do` tools no longer interpolate arguments between fixed
+  dollar-quote delimiters. The wrapper used `$mcp_custom_tool$` and
+  `$mcp_args$`, and JSON encoding does not escape a dollar sign, so an
+  argument value containing either delimiter closed the quoting early
+  and had the remainder of the value parsed as SQL. Combined with the
+  simple query protocol used for these statements, that was a complete
+  bypass of read-only mode that the statement guard never saw.
+  Delimiters are now generated per invocation, for `pl-func` tools as
+  well, and an argument that carries one is refused.
+
+- Read-only transactions now request their access mode as part of
+  `BEGIN` rather than issuing `SET TRANSACTION READ ONLY` as a
+  following statement, in `query_database`, `count_rows`,
+  `execute_explain`, and the custom tool executor. The transaction is
+  therefore never briefly writable, and the mode cannot fail to apply
+  independently of the transaction starting.
+
 ### Fixed
 
 - Metadata loader no longer emits duplicate column entries for a

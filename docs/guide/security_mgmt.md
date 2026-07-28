@@ -151,11 +151,14 @@ You should always monitor your API keys:
 
 ## Query Safety
 
-The `query_database` tool executes all queries in **read-only transactions**:
+The `query_database` tool executes all queries in **read-only
+transactions**, with the access mode requested as part of the `BEGIN`
+so that the transaction is never briefly writable:
 
 ```sql
-SET TRANSACTION READ ONLY;
+BEGIN READ ONLY;
 -- Your generated SQL here
+COMMIT;
 ```
 
 The server prevents:
@@ -176,12 +179,24 @@ CREATE TABLE test (id INT);
 DROP TABLE old_data;
 ```
 
-To  enforce additional safeguards, use a read-only database role:
+Transaction-level protection depends on settings that the connected
+role is permitted to change, so it guards against accidents rather
+than against a determined client. For any deployment where the client
+is untrusted, give the server a role whose write privileges have been
+revoked; that restriction does not rely on the server's own
+enforcement, and no transaction-mode manipulation can defeat it:
 
 ```sql
 -- Even if transaction protection fails, the user lacks permissions
 REVOKE INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public FROM mcp_readonly;
 ```
+
+Note that revoking table privileges does not restrain everything a
+query can reach. `COPY ... TO PROGRAM`, the server-side file
+functions, untrusted procedural languages such as `plpython3u` and
+`plperlu`, and `dblink` all act outside the current transaction, so
+avoid installing them on databases exposed to the server, and revoke
+`EXECUTE` on them where they are already present.
 
 Use the following queries to monitor your query logs:
 

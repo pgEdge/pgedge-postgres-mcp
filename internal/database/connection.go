@@ -18,10 +18,21 @@ import (
 	"time"
 
 	"pgedge-postgres-mcp/internal/config"
+	"pgedge-postgres-mcp/internal/logging"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
+
+// setSessionReadOnlySQL applies the session-level read-only default. It is
+// applied when a pooled connection is established and re-applied when the
+// connection is released, so that a session setting cleared during one request
+// cannot leak into the next.
+const setSessionReadOnlySQL = "SET default_transaction_read_only = 'on'"
+
+// readOnlyReassertTimeout bounds the re-assertion on release. A connection
+// whose state cannot be confirmed within this window is discarded.
+const readOnlyReassertTimeout = 5 * time.Second
 
 // ConnectionInfo holds a connection pool and its metadata
 type ConnectionInfo struct {
@@ -183,8 +194,36 @@ func (c *Client) ConnectTo(connStr string) error {
 	// parameters that connection poolers like PgBouncer and HAProxy do not support.
 	if c.dbConfig == nil || !c.dbConfig.AllowWrites {
 		poolConfig.AfterConnect = func(ctx context.Context, conn *pgx.Conn) error {
-			_, err := conn.Exec(ctx, "SET default_transaction_read_only = 'on'")
+			_, err := conn.Exec(ctx, setSessionReadOnlySQL)
 			return err
+		}
+
+		// Applying the setting once at connect time is not enough on its own,
+		// because it is a session setting on a connection that outlives the
+		// request that created it. RESET ALL and DISCARD ALL both clear it,
+		// and a connection returned to the pool in that state would be handed
+		// to the next caller, and the next token, still writable. Re-assert it
+		// on release, and discard the connection if that fails rather than
+		// pooling one whose state cannot be confirmed.
+		//
+		// AfterRelease runs on a goroutine and the connection is not returned
+		// to the idle pool until it returns, so this costs a round trip off
+		// the request path rather than on it.
+		poolConfig.AfterRelease = func(conn *pgx.Conn) bool {
+			ctx, cancel := context.WithTimeout(context.Background(), readOnlyReassertTimeout)
+			defer cancel()
+
+			if _, err := conn.Exec(ctx, setSessionReadOnlySQL); err != nil {
+				// Reported through internal/logging rather than this
+				// package's logger, which is silent unless
+				// PGEDGE_DB_LOG_LEVEL is set.
+				logging.Warn("read_only_session_reassert_failed",
+					"error", err.Error(),
+					"action", "connection discarded",
+				)
+				return false
+			}
+			return true
 		}
 	}
 

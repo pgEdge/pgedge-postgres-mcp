@@ -435,88 +435,338 @@ func TestFormatResultsAsTSV(t *testing.T) {
 
 func TestValidateReadOnlyQuery(t *testing.T) {
 	tests := []struct {
-		name      string
-		query     string
-		expectErr bool
+		name string
+		// query is the statement handed to the guard.
+		query string
+		// errContains, when set, is a substring the rejection must mention.
+		// An empty value means the query must be accepted.
+		errContains string
 	}{
+		// Ordinary read-only work must pass untouched.
 		{
-			name:      "safe SELECT query",
-			query:     "SELECT * FROM users",
-			expectErr: false,
+			name:  "safe SELECT query",
+			query: "SELECT * FROM users",
 		},
 		{
-			name:      "safe SELECT with WHERE clause",
-			query:     "SELECT id, name FROM users WHERE active = true",
-			expectErr: false,
+			name:  "safe SELECT with WHERE clause",
+			query: "SELECT id, name FROM users WHERE active = true",
 		},
 		{
-			name:      "safe SHOW command",
-			query:     "SHOW server_version",
-			expectErr: false,
+			name:  "safe SHOW command",
+			query: "SHOW server_version",
 		},
 		{
-			name:      "DO block with transaction_read_only",
-			query:     "DO $$ BEGIN PERFORM set_config('transaction_read_only', 'off', true); END $$",
-			expectErr: true,
+			name:  "safe query with transaction keyword",
+			query: "SELECT * FROM transaction_logs",
 		},
 		{
-			name:      "uppercase TRANSACTION_READ_ONLY",
-			query:     "SELECT set_config('TRANSACTION_READ_ONLY', 'off', true)",
-			expectErr: true,
+			name:  "safe query with read_only keyword",
+			query: "SELECT * FROM read_only_replicas",
 		},
 		{
-			name:      "mixed case Transaction_Read_Only",
-			query:     "SELECT set_config('Transaction_Read_Only', 'off', true)",
-			expectErr: true,
+			name:  "single statement with trailing semicolon",
+			query: "SELECT 1;",
 		},
 		{
-			name:      "default_transaction_read_only",
-			query:     "SET default_transaction_read_only = off",
-			expectErr: true,
+			// Previously rejected: the old guard matched the setting name
+			// anywhere, including inside a string literal, so an ordinary
+			// lookup in a configuration table was refused. The name alone is
+			// harmless without something capable of changing a setting.
+			name:  "setting name inside a literal is not a change attempt",
+			query: "SELECT * FROM config WHERE key = 'transaction_read_only'",
 		},
 		{
-			name:      "DEFAULT_TRANSACTION_READ_ONLY uppercase",
-			query:     "SET DEFAULT_TRANSACTION_READ_ONLY TO off",
-			expectErr: true,
+			name:  "setting name in a comment is not a change attempt",
+			query: "SELECT 1 -- transaction_read_only",
+		},
+
+		// The setting names, reached directly or through set_config.
+		{
+			name:        "uppercase TRANSACTION_READ_ONLY",
+			query:       "SELECT set_config('TRANSACTION_READ_ONLY', 'off', true)",
+			errContains: "transaction_read_only",
 		},
 		{
-			name:      "DO block bypass attempt",
-			query:     "DO $$ BEGIN PERFORM set_config('transaction_read_only', 'off', true); EXECUTE 'DELETE FROM users'; END $$",
-			expectErr: true,
+			name:        "mixed case Transaction_Read_Only",
+			query:       "SELECT set_config('Transaction_Read_Only', 'off', true)",
+			errContains: "transaction_read_only",
 		},
 		{
-			name:      "embedded in longer query",
-			query:     "SELECT 1; SET transaction_read_only = off; DELETE FROM users",
-			expectErr: true,
+			name:        "default_transaction_read_only",
+			query:       "SET default_transaction_read_only = off",
+			errContains: "transaction_read_only",
 		},
 		{
-			name:      "query mentioning read_only in a comment",
-			query:     "SELECT * FROM config WHERE key = 'transaction_read_only'",
-			expectErr: true,
+			name:        "DEFAULT_TRANSACTION_READ_ONLY uppercase",
+			query:       "SET DEFAULT_TRANSACTION_READ_ONLY TO off",
+			errContains: "transaction_read_only",
 		},
 		{
-			name:      "safe query with transaction keyword",
-			query:     "SELECT * FROM transaction_logs",
-			expectErr: false,
+			name:        "quoted setting name",
+			query:       `SET "default_transaction_read_only" = off`,
+			errContains: "transaction_read_only",
 		},
 		{
-			name:      "safe query with read_only keyword",
-			query:     "SELECT * FROM read_only_replicas",
-			expectErr: false,
+			name:        "RESET of the setting",
+			query:       "RESET default_transaction_read_only",
+			errContains: "transaction_read_only",
+		},
+
+		// The transaction access mode, which the original guard never
+		// mentioned and which was the reported bypass.
+		{
+			name:        "SET TRANSACTION READ WRITE",
+			query:       "SET TRANSACTION READ WRITE",
+			errContains: "read-write transaction mode",
+		},
+		{
+			name:        "lower case set transaction read write",
+			query:       "set transaction read write",
+			errContains: "read-write transaction mode",
+		},
+		{
+			name:        "BEGIN READ WRITE",
+			query:       "BEGIN READ WRITE",
+			errContains: "read-write transaction mode",
+		},
+		{
+			name:        "START TRANSACTION READ WRITE",
+			query:       "START TRANSACTION READ WRITE",
+			errContains: "read-write transaction mode",
+		},
+		{
+			name:        "READ WRITE split across whitespace and a comment",
+			query:       "SET TRANSACTION READ /* sneaky */ WRITE",
+			errContains: "read-write transaction mode",
+		},
+		{
+			name:        "SET SESSION CHARACTERISTICS AS TRANSACTION READ WRITE",
+			query:       "SET SESSION CHARACTERISTICS AS TRANSACTION READ WRITE",
+			errContains: "read-write transaction mode",
+		},
+		{
+			name:        "SET SESSION CHARACTERISTICS on its own",
+			query:       "SET SESSION CHARACTERISTICS AS TRANSACTION ISOLATION LEVEL SERIALIZABLE",
+			errContains: "session transaction characteristics",
+		},
+
+		// Session state resets, which clear the session-level default
+		// applied when the pooled connection was established.
+		{
+			name:        "RESET ALL",
+			query:       "RESET ALL",
+			errContains: "RESET ALL",
+		},
+		{
+			name:        "DISCARD ALL",
+			query:       "DISCARD ALL",
+			errContains: "DISCARD",
+		},
+
+		// Transaction control, which ends the transaction the server opened.
+		{
+			name:        "COMMIT",
+			query:       "COMMIT",
+			errContains: "transaction control",
+		},
+		{
+			name:        "ROLLBACK",
+			query:       "ROLLBACK",
+			errContains: "transaction control",
+		},
+		{
+			name:        "BEGIN on its own",
+			query:       "BEGIN",
+			errContains: "transaction control",
+		},
+
+		// Statement smuggling, the channel that made the above exploitable.
+		{
+			name:        "two statements",
+			query:       "SELECT 1; DELETE FROM users",
+			errContains: "multiple SQL statements",
+		},
+		{
+			name:        "commit then write",
+			query:       "COMMIT; BEGIN READ WRITE; CREATE TABLE pwn(i int); COMMIT",
+			errContains: "multiple SQL statements",
+		},
+		{
+			name:        "statement hidden behind a leading comment",
+			query:       "/* comment */ SELECT 1; CREATE TABLE pwn(i int)",
+			errContains: "multiple SQL statements",
+		},
+		{
+			name:        "semicolon inside a literal is not a separator",
+			query:       "SELECT * FROM t WHERE note = 'a; b'",
+			errContains: "",
+		},
+
+		// Role changes.
+		{
+			name:        "SET ROLE",
+			query:       "SET ROLE postgres",
+			errContains: "SET ROLE",
+		},
+		{
+			name:        "SET SESSION AUTHORIZATION",
+			query:       "SET SESSION AUTHORIZATION postgres",
+			errContains: "SESSION AUTHORIZATION",
+		},
+		{
+			name:        "ALTER ROLE persisting a changed default",
+			query:       "ALTER ROLE mcp_app SET default_transaction_read_only = off",
+			errContains: "ALTER ROLE",
+		},
+
+		// Writes that happen outside the transaction's scope, which the
+		// read-only access mode does not prevent at all.
+		{
+			name:        "DO block",
+			query:       "DO $$ BEGIN PERFORM 1; END $$",
+			errContains: "DO blocks",
+		},
+		{
+			name:        "DO block bypass attempt",
+			query:       "DO $$ BEGIN PERFORM set_config('transaction_read_only', 'off', true); EXECUTE 'DELETE FROM users'; END $$",
+			errContains: "DO blocks",
+		},
+		{
+			name:        "COPY TO PROGRAM",
+			query:       "COPY (SELECT 1) TO PROGRAM 'curl http://example.com'",
+			errContains: "COPY ... TO PROGRAM",
+		},
+		{
+			name:        "lo_export",
+			query:       "SELECT lo_export(1234, '/tmp/x')",
+			errContains: "server-side file modification",
+		},
+		{
+			name:        "dblink write",
+			query:       "SELECT dblink_exec('dbname=postgres', 'CREATE TABLE pwn(i int)')",
+			errContains: "dblink",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			err := validateReadOnlyQuery(tt.query)
-			if tt.expectErr && err == nil {
-				t.Errorf("expected error for query %q, got nil", tt.query)
+
+			if tt.errContains == "" {
+				if err != nil {
+					t.Errorf("unexpected rejection of %q: %v", tt.query, err)
+				}
+				return
 			}
-			if !tt.expectErr && err != nil {
-				t.Errorf("unexpected error for query %q: %v", tt.query, err)
+
+			if err == nil {
+				t.Fatalf("expected rejection of %q, got nil", tt.query)
 			}
-			if err != nil && !strings.Contains(err.Error(), "transaction_read_only") {
-				t.Errorf("error message should mention 'transaction_read_only', got: %v", err)
+			if !strings.Contains(err.Error(), tt.errContains) {
+				t.Errorf("rejection of %q should mention %q, got: %v",
+					tt.query, tt.errContains, err)
+			}
+		})
+	}
+}
+
+func TestStripSQLNoise(t *testing.T) {
+	tests := []struct {
+		name        string
+		query       string
+		wantResidue string
+		wantBare    string
+	}{
+		{
+			name:        "plain statement is unchanged",
+			query:       "SELECT 1",
+			wantResidue: "SELECT 1",
+			wantBare:    "SELECT 1",
+		},
+		{
+			name:        "string literal is emptied in the residue only",
+			query:       "SELECT 'abc'",
+			wantResidue: "SELECT ''",
+			wantBare:    "SELECT 'abc'",
+		},
+		{
+			name:        "doubled quote does not end the literal",
+			query:       "SELECT 'a''b', 1",
+			wantResidue: "SELECT '', 1",
+			wantBare:    "SELECT 'a''b', 1",
+		},
+		{
+			name:        "line comment becomes a separator",
+			query:       "SELECT 1 -- DROP TABLE t\n, 2",
+			wantResidue: "SELECT 1  \n, 2",
+			wantBare:    "SELECT 1  \n, 2",
+		},
+		{
+			name:        "nested block comment is removed entirely",
+			query:       "SELECT /* a /* b */ c */ 1",
+			wantResidue: "SELECT   1",
+			wantBare:    "SELECT   1",
+		},
+		{
+			name:        "quoted identifier is emptied in the residue only",
+			query:       `SELECT "col" FROM t`,
+			wantResidue: `SELECT "" FROM t`,
+			wantBare:    `SELECT "col" FROM t`,
+		},
+		{
+			name:        "dollar quoted body is emptied in the residue only",
+			query:       "DO $tag$ DELETE FROM t; $tag$",
+			wantResidue: "DO $tag$$tag$",
+			wantBare:    "DO $tag$ DELETE FROM t; $tag$",
+		},
+		{
+			name:        "positional parameters are not dollar quotes",
+			query:       "SELECT $1, $2",
+			wantResidue: "SELECT $1, $2",
+			wantBare:    "SELECT $1, $2",
+		},
+		{
+			// An unterminated construct must not swallow the rest of the
+			// statement into a literal, because that would hide code from
+			// every check that runs on the residue.
+			name:        "unterminated dollar quote is treated as code",
+			query:       "SELECT $tag$ ; DROP TABLE t",
+			wantResidue: "SELECT $tag$ ; DROP TABLE t",
+			wantBare:    "SELECT $tag$ ; DROP TABLE t",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			residue, bare := stripSQLNoise(tt.query)
+			if residue != tt.wantResidue {
+				t.Errorf("residue: got %q, want %q", residue, tt.wantResidue)
+			}
+			if bare != tt.wantBare {
+				t.Errorf("bare: got %q, want %q", bare, tt.wantBare)
+			}
+		})
+	}
+}
+
+func TestHasMultipleStatements(t *testing.T) {
+	tests := []struct {
+		residue string
+		want    bool
+	}{
+		{"SELECT 1", false},
+		{"SELECT 1;", false},
+		{"SELECT 1;  ", false},
+		{"SELECT 1;;", false},
+		{"SELECT 1; SELECT 2", true},
+		{"SELECT 1; SELECT 2;", true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.residue, func(t *testing.T) {
+			if got := hasMultipleStatements(tt.residue); got != tt.want {
+				t.Errorf("hasMultipleStatements(%q) = %v, want %v",
+					tt.residue, got, tt.want)
 			}
 		})
 	}

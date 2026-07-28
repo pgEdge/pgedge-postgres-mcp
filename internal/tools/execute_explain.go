@@ -16,6 +16,8 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/jackc/pgx/v5"
+
 	"pgedge-postgres-mcp/internal/database"
 	"pgedge-postgres-mcp/internal/logging"
 	"pgedge-postgres-mcp/internal/mcp"
@@ -124,6 +126,19 @@ READ ONLY transaction to prevent side effects. However, be cautious with:
 				return mcp.NewToolError("Only SELECT queries are supported. EXPLAIN ANALYZE executes the query, which could have side effects for INSERT/UPDATE/DELETE/DDL statements.")
 			}
 
+			// EXPLAIN ANALYZE runs the query, so screen it as well. This tool
+			// always executes in a read-only transaction, so the guard applies
+			// regardless of whether the connection permits writes.
+			if err := validateReadOnlyQuery(trimmedQuery); err != nil {
+				logging.Warn("read_only_query_rejected",
+					"database", dbClient.DisplayName(),
+					"tool", "execute_explain",
+					"reason", err.Error(),
+					"statement", trimmedQuery,
+				)
+				return mcp.NewToolError(err.Error())
+			}
+
 			// Build EXPLAIN command
 			var explainCmd strings.Builder
 			explainCmd.WriteString("EXPLAIN (")
@@ -151,8 +166,9 @@ READ ONLY transaction to prevent side effects. However, be cautious with:
 
 			ctx := context.Background()
 
-			// Execute EXPLAIN in a READ ONLY transaction
-			tx, err := pool.Begin(ctx)
+			// Execute EXPLAIN in a READ ONLY transaction, with the access mode
+			// set on the BEGIN itself rather than by a following statement.
+			tx, err := pool.BeginTx(ctx, pgx.TxOptions{AccessMode: pgx.ReadOnly})
 			if err != nil {
 				return mcp.NewToolError(fmt.Sprintf("Failed to begin transaction: %v", err))
 			}
@@ -163,12 +179,6 @@ READ ONLY transaction to prevent side effects. However, be cautious with:
 					_ = tx.Rollback(ctx) //nolint:errcheck // rollback in defer after commit is expected to fail
 				}
 			}()
-
-			// Set transaction to read-only
-			_, err = tx.Exec(ctx, "SET TRANSACTION READ ONLY")
-			if err != nil {
-				return mcp.NewToolError(fmt.Sprintf("Failed to set transaction to read-only: %v", err))
-			}
 
 			// Execute EXPLAIN
 			rows, err := tx.Query(ctx, explainQuery)

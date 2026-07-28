@@ -11,9 +11,12 @@
 package tools
 
 import (
+	"context"
 	"strings"
 	"testing"
 
+	"pgedge-postgres-mcp/internal/config"
+	"pgedge-postgres-mcp/internal/database"
 	"pgedge-postgres-mcp/internal/definitions"
 )
 
@@ -377,7 +380,7 @@ func TestWrapPLDOCode(t *testing.T) {
 
 	t.Run("plpgsql wrapping", func(t *testing.T) {
 		code := "result := '{}'::jsonb;"
-		wrapped := executor.wrapPLDOCode("plpgsql", code, args)
+		wrapped := executor.wrapPLDOCode("plpgsql", code, args, "$mcp_args_test$")
 
 		if !strings.Contains(wrapped, "args jsonb") {
 			t.Error("should declare args variable")
@@ -396,7 +399,7 @@ func TestWrapPLDOCode(t *testing.T) {
 
 	t.Run("plpython3u wrapping", func(t *testing.T) {
 		code := "mcp_return({'result': args['key']})"
-		wrapped := executor.wrapPLDOCode("plpython3u", code, args)
+		wrapped := executor.wrapPLDOCode("plpython3u", code, args, "$mcp_args_test$")
 
 		if !strings.Contains(wrapped, "import json") {
 			t.Error("should import json")
@@ -415,7 +418,7 @@ func TestWrapPLDOCode(t *testing.T) {
 
 	t.Run("plv8 wrapping", func(t *testing.T) {
 		code := "mcp_return({result: args.key});"
-		wrapped := executor.wrapPLDOCode("plv8", code, args)
+		wrapped := executor.wrapPLDOCode("plv8", code, args, "$mcp_args_test$")
 
 		if !strings.Contains(wrapped, "var args") {
 			t.Error("should declare args variable")
@@ -430,7 +433,7 @@ func TestWrapPLDOCode(t *testing.T) {
 
 	t.Run("plperl trusted wrapping", func(t *testing.T) {
 		code := "mcp_return({result => $args->{'key'}});"
-		wrapped := executor.wrapPLDOCode("plperl", code, args)
+		wrapped := executor.wrapPLDOCode("plperl", code, args, "$mcp_args_test$")
 
 		if strings.Contains(wrapped, "use JSON") {
 			t.Error("trusted plperl must not use JSON module")
@@ -454,7 +457,7 @@ func TestWrapPLDOCode(t *testing.T) {
 
 	t.Run("plperlu untrusted wrapping", func(t *testing.T) {
 		code := "mcp_return({result => $args->{'key'}});"
-		wrapped := executor.wrapPLDOCode("plperlu", code, args)
+		wrapped := executor.wrapPLDOCode("plperlu", code, args, "$mcp_args_test$")
 
 		if !strings.Contains(wrapped, "use JSON") {
 			t.Error("untrusted plperlu should use JSON module")
@@ -472,7 +475,7 @@ func TestWrapPLDOCode(t *testing.T) {
 
 	t.Run("unknown language fallback", func(t *testing.T) {
 		code := "SOME CODE"
-		wrapped := executor.wrapPLDOCode("unknown", code, args)
+		wrapped := executor.wrapPLDOCode("unknown", code, args, "$mcp_args_test$")
 
 		if !strings.Contains(wrapped, "-- args:") {
 			t.Error("should have args comment")
@@ -813,4 +816,96 @@ func TestInputSchemaConversion(t *testing.T) {
 			t.Errorf("tags.items.type = %v, want string", items["type"])
 		}
 	})
+}
+
+// TestNewDollarQuoteTags covers the delimiters used to wrap custom tool code.
+// They must be unpredictable, because tool arguments are interpolated between
+// them: a fixed delimiter appearing in an argument value would end the quoted
+// section early and the remainder of that value would be parsed as SQL.
+func TestNewDollarQuoteTags(t *testing.T) {
+	bodyTag, argsTag := newDollarQuoteTags()
+
+	if bodyTag == argsTag {
+		t.Error("body and args delimiters must differ, otherwise the inner one closes the outer")
+	}
+	for _, tag := range []string{bodyTag, argsTag} {
+		if !strings.HasPrefix(tag, "$") || !strings.HasSuffix(tag, "$") {
+			t.Errorf("tag %q is not dollar-quoted", tag)
+		}
+		if len(tag) < 10 {
+			t.Errorf("tag %q is too short to be unguessable", tag)
+		}
+	}
+
+	otherBody, otherArgs := newDollarQuoteTags()
+	if otherBody == bodyTag || otherArgs == argsTag {
+		t.Error("delimiters must be generated fresh for each invocation")
+	}
+}
+
+// TestWrapPLDOCodeResistsDelimiterEscape is a regression test for a read-only
+// bypass. The wrapper previously used the fixed delimiters $mcp_custom_tool$
+// and $mcp_args$, and JSON encoding does not escape a dollar sign, so an
+// argument containing either literal closed the quoting and had the rest of
+// its value executed. Because the resulting statement is run through Exec with
+// no bind parameters, and pgx then uses the simple query protocol, which
+// accepts several statements at once, that was enough to escape read-only mode
+// altogether.
+func TestWrapPLDOCodeResistsDelimiterEscape(t *testing.T) {
+	executor := NewCustomToolExecutor(nil, []string{"plpgsql"})
+
+	hostile := map[string]interface{}{
+		"name": "$mcp_args$::jsonb; END; $mcp_custom_tool$ LANGUAGE plpgsql; " +
+			"CREATE TABLE pwn(i int); --",
+	}
+
+	bodyTag, argsTag := newDollarQuoteTags()
+	wrapped := executor.wrapPLDOCode("plpgsql", "PERFORM 1;", hostile, argsTag)
+
+	// The generated delimiters must appear exactly twice: as the opening and
+	// closing pair. A third occurrence would mean the payload introduced one.
+	if got := strings.Count(wrapped, argsTag); got != 2 {
+		t.Errorf("args delimiter appears %d times, want exactly 2; quoting is unbalanced", got)
+	}
+	if strings.Contains(wrapped, bodyTag) {
+		t.Error("body delimiter must not appear inside the wrapped body")
+	}
+
+	// The historic fixed delimiters may appear, but only as inert text.
+	if !strings.Contains(wrapped, "$mcp_args$") {
+		t.Error("expected the payload to survive as ordinary data")
+	}
+}
+
+// TestExecutePLFuncToolRequiresWrites checks that a pl-func tool is refused up
+// front on a read-only connection. It creates and drops a temporary function,
+// so it cannot work in a read-only transaction; failing partway through with a
+// permissions error invited turning read-only mode off as the remedy.
+func TestExecutePLFuncToolRequiresWrites(t *testing.T) {
+	client := database.NewTestClientWithConfig(
+		"postgres://localhost/test",
+		map[string]database.TableInfo{},
+		&config.NamedDatabaseConfig{Name: "test", AllowWrites: false},
+	)
+
+	executor := NewCustomToolExecutor(client, []string{"plpgsql"})
+	def := definitions.ToolDefinition{
+		Name:     "example",
+		Type:     "pl-func",
+		Language: "plpgsql",
+		Returns:  "jsonb",
+		Code:     "BEGIN RETURN '{}'::jsonb; END;",
+	}
+
+	resp, err := executor.executePLFuncTool(context.Background(), def, map[string]interface{}{})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !resp.IsError {
+		t.Fatal("pl-func tool should be refused on a read-only connection")
+	}
+
+	if len(resp.Content) == 0 || !strings.Contains(resp.Content[0].Text, "allow_writes") {
+		t.Errorf("refusal should name the setting that governs it, got: %+v", resp.Content)
+	}
 }

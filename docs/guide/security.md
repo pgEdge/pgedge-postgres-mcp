@@ -88,21 +88,53 @@ unintentionally modifying your data.
 
 ### Read-Only Protection
 
-The server enforces read-only mode through three layers of
+The server enforces read-only mode through several layers of
 defense-in-depth:
 
+- Every statement runs through the PostgreSQL extended query
+  protocol, which carries exactly one statement per message. The
+  server therefore rejects any attempt to append extra statements
+  to a request, which is the channel through which a bypass would
+  otherwise smuggle its own transaction control.
+- A read-only access mode requested as part of `BEGIN` itself, so
+  the transaction is never briefly writable and the mode cannot
+  fail to apply separately.
 - A session-level `default_transaction_read_only` setting applied
-  when each database connection is established.
-- A per-query `SET TRANSACTION READ ONLY` statement executed before
-  every query.
-- A query validator that rejects any query referencing the
-  `transaction_read_only` or `default_transaction_read_only`
-  settings, preventing single-statement bypass attacks such as
-  PL/pgSQL `DO` blocks that call `set_config()`.
+  when each database connection is established, and re-applied
+  when the connection returns to the pool. A connection whose
+  state cannot be confirmed is discarded rather than reused.
+- A statement guard that rejects constructs known to escape
+  read-only mode. These include read-write transaction modes,
+  `SET SESSION CHARACTERISTICS`, `RESET ALL`, `DISCARD`,
+  transaction control, `SET ROLE`, `SET SESSION AUTHORIZATION`,
+  changes to the `transaction_read_only` or
+  `default_transaction_read_only` settings, and operations whose
+  effects fall outside the transaction altogether, such as `DO`
+  blocks, `COPY ... TO PROGRAM`, server-side file functions, and
+  `dblink`.
 
 When the database connection is in read-only mode, the system
 prompt sent to the LLM includes explicit instructions that forbid
 attempts to bypass the read-only restrictions.
+
+### The Limits of Read-Only Mode
+
+Read-only mode is a safety feature, and you should understand what
+it does not do. Each of the layers above is a setting that the
+connected role is entitled to change; the guard in particular can
+only reject the constructs it recognises, so it should be read as a
+way of closing known bypasses and recording attempts, not as a
+guarantee.
+
+The only enforcement a client cannot undo comes from database
+privileges. Grant the server a role whose write privileges have
+been revoked, as described in
+[Security Management](security_mgmt.md), and no amount of
+transaction-mode manipulation can reach your data, because the
+restriction no longer depends on a setting the client controls. Do
+this for any deployment where the client is untrusted, and treat
+read-only mode as protection against accident rather than against
+an adversary.
 
 ### The `allow_writes` Setting
 

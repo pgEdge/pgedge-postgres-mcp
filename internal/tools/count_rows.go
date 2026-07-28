@@ -15,6 +15,8 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/jackc/pgx/v5"
+
 	"pgedge-postgres-mcp/internal/database"
 	"pgedge-postgres-mcp/internal/logging"
 	"pgedge-postgres-mcp/internal/mcp"
@@ -80,9 +82,22 @@ Use count_rows to efficiently determine data volume:
 				schema = s
 			}
 
-			// Get optional WHERE clause
+			// Get optional WHERE clause. The condition is interpolated into
+			// the count query, so it is screened with the same guard as any
+			// other caller-supplied SQL. This tool always counts inside a
+			// read-only transaction, so the guard applies whether or not the
+			// connection permits writes elsewhere.
 			whereClause := ""
 			if w, ok := args["where"].(string); ok && w != "" {
+				if err := validateReadOnlyQuery(w); err != nil {
+					logging.Warn("read_only_query_rejected",
+						"database", dbClient.DisplayName(),
+						"tool", "count_rows",
+						"reason", err.Error(),
+						"statement", w,
+					)
+					return mcp.NewToolError(err.Error())
+				}
 				whereClause = w
 			}
 
@@ -112,9 +127,11 @@ Use count_rows to efficiently determine data volume:
 					quoteIdentifier(table))
 			}
 
-			// Execute in a read-only transaction
+			// Execute in a read-only transaction. The access mode is set on
+			// the BEGIN itself rather than by a following statement, so there
+			// is no window in which the transaction is writable.
 			ctx := context.Background()
-			tx, err := pool.Begin(ctx)
+			tx, err := pool.BeginTx(ctx, pgx.TxOptions{AccessMode: pgx.ReadOnly})
 			if err != nil {
 				return mcp.NewToolError(fmt.Sprintf("Failed to begin transaction: %v", err))
 			}
@@ -129,12 +146,6 @@ Use count_rows to efficiently determine data volume:
 					_ = tx.Rollback(ctx) //nolint:errcheck // rollback in defer after commit is expected to fail
 				}
 			}()
-
-			// Set transaction to read-only
-			_, err = tx.Exec(ctx, "SET TRANSACTION READ ONLY")
-			if err != nil {
-				return mcp.NewToolError(fmt.Sprintf("Failed to set transaction read-only: %v", err))
-			}
 
 			var count int64
 			err = tx.QueryRow(ctx, sqlQuery).Scan(&count)

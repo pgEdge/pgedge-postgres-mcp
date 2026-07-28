@@ -855,3 +855,152 @@ func TestReadOnlyProtection(t *testing.T) {
 		}
 	})
 }
+
+// TestReadOnlyStatementSmuggling verifies that a caller cannot escape
+// read-only mode by appending statements to a query_database request.
+//
+// Each payload below was, at some point, a working bypass. They rely on
+// pgx falling back to the PostgreSQL simple query protocol when Exec is
+// given no bind parameters: that protocol accepts several
+// semicolon-separated statements in one message, so a caller could set a
+// read-write access mode, or commit the server's own read-only
+// transaction, before issuing a write. The final two payloads instead
+// attack the pooled connection's session state, so that a later request
+// inherits a writable session.
+//
+// This test requires only a database connection: query_database takes SQL
+// directly, so no LLM provider is involved.
+func TestReadOnlyStatementSmuggling(t *testing.T) {
+	connString := os.Getenv("TEST_PGEDGE_POSTGRES_CONNECTION_STRING")
+	if connString == "" {
+		t.Skip("TEST_PGEDGE_POSTGRES_CONNECTION_STRING not set")
+	}
+
+	server, err := StartMCPServer(t, connString, "dummy-key-for-testing")
+	if err != nil {
+		t.Fatalf("Failed to start server: %v", err)
+	}
+	defer func() { _ = server.Close() }()
+
+	ctx := context.Background()
+	pool, err := pgxpool.New(ctx, connString)
+	if err != nil {
+		t.Fatalf("Failed to connect to database: %v", err)
+	}
+	defer pool.Close()
+
+	// Table names this test may create if a bypass succeeds. They are
+	// dropped before and after so a stale table cannot mask a failure.
+	targets := []string{
+		"ro_bypass_set_transaction",
+		"ro_bypass_commit_begin",
+		"ro_bypass_leading_comment",
+		"ro_bypass_session_characteristics",
+		"ro_bypass_reset_all",
+	}
+	dropTargets := func() {
+		for _, name := range targets {
+			_, _ = pool.Exec(ctx, "DROP TABLE IF EXISTS "+name) //nolint:errcheck // best-effort cleanup
+		}
+	}
+	dropTargets()
+	defer dropTargets()
+
+	// Control: confirm the configured role really can create a table when
+	// nothing is stopping it, so that a passing test means the guardrails
+	// worked rather than that the role was powerless all along.
+	if _, err := pool.Exec(ctx, "CREATE TABLE ro_bypass_control (i int)"); err != nil {
+		t.Skipf("configured role cannot create tables, so this test proves nothing: %v", err)
+	}
+	_, _ = pool.Exec(ctx, "DROP TABLE IF EXISTS ro_bypass_control") //nolint:errcheck // best-effort cleanup
+
+	runQuery := func(t *testing.T, sql string) {
+		t.Helper()
+		params := map[string]interface{}{
+			"name": "query_database",
+			"arguments": map[string]interface{}{
+				"query": sql,
+			},
+		}
+		if _, err := server.SendRequest("tools/call", params); err != nil {
+			t.Fatalf("Failed to send request: %v", err)
+		}
+		// The response is deliberately not asserted on. A rejection and a
+		// database error are both acceptable outcomes; what matters is the
+		// out-of-band check that no write took place.
+	}
+
+	tableExists := func(t *testing.T, name string) bool {
+		t.Helper()
+		var exists bool
+		err := pool.QueryRow(ctx,
+			"SELECT EXISTS (SELECT 1 FROM pg_class WHERE relname = $1)",
+			name).Scan(&exists)
+		if err != nil {
+			t.Fatalf("Failed to check for table %s: %v", name, err)
+		}
+		return exists
+	}
+
+	t.Run("SET TRANSACTION READ WRITE then write", func(t *testing.T) {
+		runQuery(t, "SET TRANSACTION READ WRITE; CREATE TABLE ro_bypass_set_transaction (i int)")
+		if tableExists(t, "ro_bypass_set_transaction") {
+			t.Error("read-only bypassed: smuggled CREATE TABLE succeeded")
+		}
+	})
+
+	t.Run("COMMIT then BEGIN READ WRITE then write", func(t *testing.T) {
+		runQuery(t, "COMMIT; BEGIN READ WRITE; CREATE TABLE ro_bypass_commit_begin (i int); COMMIT")
+		if tableExists(t, "ro_bypass_commit_begin") {
+			t.Error("read-only bypassed: smuggled CREATE TABLE succeeded")
+		}
+	})
+
+	t.Run("leading comment reaches the smuggling path", func(t *testing.T) {
+		// No blocked keyword is needed to reach the vulnerable code path:
+		// a leading comment alone stops the statement being recognised as a
+		// SELECT, which was enough to route it through Exec.
+		runQuery(t, "/* not a select */ SELECT 1; CREATE TABLE ro_bypass_leading_comment (i int)")
+		if tableExists(t, "ro_bypass_leading_comment") {
+			t.Error("read-only bypassed: smuggled CREATE TABLE succeeded")
+		}
+	})
+
+	t.Run("session characteristics do not persist to a later request", func(t *testing.T) {
+		runQuery(t, "SET SESSION CHARACTERISTICS AS TRANSACTION READ WRITE")
+		// A separate request, which may well be served by the same pooled
+		// connection.
+		runQuery(t, "CREATE TABLE ro_bypass_session_characteristics (i int)")
+		if tableExists(t, "ro_bypass_session_characteristics") {
+			t.Error("read-only bypassed: session was left writable for a later request")
+		}
+	})
+
+	t.Run("RESET ALL does not persist to a later request", func(t *testing.T) {
+		runQuery(t, "RESET ALL")
+		runQuery(t, "CREATE TABLE ro_bypass_reset_all (i int)")
+		if tableExists(t, "ro_bypass_reset_all") {
+			t.Error("read-only bypassed: session default was cleared for a later request")
+		}
+	})
+
+	// Ordinary read-only work must still function after all of the above.
+	t.Run("legitimate queries still work", func(t *testing.T) {
+		params := map[string]interface{}{
+			"name": "query_database",
+			"arguments": map[string]interface{}{
+				"query": "SELECT 42 AS answer",
+			},
+		}
+		resp, err := server.SendRequest("tools/call", params)
+		if err != nil {
+			t.Fatalf("Failed to send request: %v", err)
+		}
+		if resp.Error != nil {
+			t.Fatalf("SELECT should succeed, got error: %v", resp.Error.Message)
+		}
+		if !strings.Contains(string(resp.Result), "42") {
+			t.Errorf("expected the result to contain 42, got: %s", resp.Result)
+		}
+	})
+}

@@ -16,27 +16,12 @@ import (
 	"strings"
 	"unicode"
 
+	"github.com/jackc/pgx/v5"
+
 	"pgedge-postgres-mcp/internal/database"
 	"pgedge-postgres-mcp/internal/logging"
 	"pgedge-postgres-mcp/internal/mcp"
 )
-
-// validateReadOnlyQuery checks whether a query attempts to tamper with
-// the read-only transaction setting. Queries that reference
-// transaction_read_only or default_transaction_read_only are rejected
-// because constructs such as DO blocks with set_config() can bypass
-// SET TRANSACTION READ ONLY within a single statement.
-func validateReadOnlyQuery(query string) error {
-	upper := strings.ToUpper(query)
-	if strings.Contains(upper, "TRANSACTION_READ_ONLY") ||
-		strings.Contains(upper, "DEFAULT_TRANSACTION_READ_ONLY") {
-		return fmt.Errorf(
-			"query rejected: queries cannot reference " +
-				"'transaction_read_only' when the database " +
-				"connection is in read-only mode")
-	}
-	return nil
-}
 
 // stripTrailingSemicolons removes trailing semicolons and whitespace from
 // a SQL query so that LIMIT/OFFSET clauses can be safely appended.
@@ -208,6 +193,14 @@ To avoid rate limits (30,000 input tokens/minute):
 			allowWrites := dbClient != nil && dbClient.AllowWrites()
 			if !allowWrites {
 				if err := validateReadOnlyQuery(sqlQuery); err != nil {
+					// Log the rejected statement in full. A rejection here is
+					// an attempt to escape read-only mode, and the statement
+					// text is the only useful evidence of what was tried.
+					logging.Warn("read_only_query_rejected",
+						"database", dbClient.DisplayName(),
+						"reason", err.Error(),
+						"statement", sqlQuery,
+					)
 					return mcp.NewToolError(err.Error())
 				}
 			}
@@ -273,6 +266,11 @@ To avoid rate limits (30,000 input tokens/minute):
 			// DDL and DML without RETURNING do not return rows
 			returnsRows := isSelectQuery || hasReturning
 
+			// Truncation is only detectable for the statements that had a
+			// limit+1 appended below, so it is keyed on the classification
+			// rather than on what the server turned out to return.
+			truncationDetectable := returnsRows
+
 			// Only inject LIMIT/OFFSET for SELECT queries that don't already have them
 			// Fetch limit+1 to detect if more rows exist
 			if isSelectQuery && limit > 0 && !hasExistingLimit {
@@ -297,8 +295,16 @@ To avoid rate limits (30,000 input tokens/minute):
 				return mcp.NewToolError(fmt.Sprintf("Connection pool not found for: %s", display))
 			}
 
-			// Begin a transaction with read-only protection
-			tx, err := pool.Begin(ctx)
+			// Begin the transaction with its access mode set on the BEGIN
+			// itself. Issuing SET TRANSACTION READ ONLY as a separate
+			// statement afterwards leaves a window in which the transaction
+			// exists but is still read-write, and relies on that statement
+			// succeeding; requesting the mode up front does neither.
+			txOptions := pgx.TxOptions{}
+			if !allowWrites {
+				txOptions.AccessMode = pgx.ReadOnly
+			}
+			tx, err := pool.BeginTx(ctx, txOptions)
 			if err != nil {
 				return mcp.NewToolError(fmt.Sprintf("Failed to begin transaction: %v", err))
 			}
@@ -319,23 +325,33 @@ To avoid rate limits (30,000 input tokens/minute):
 				}
 			}()
 
-			// Set transaction to read-only to prevent any data modifications
-			// Unless write access is explicitly enabled for this database connection
-			if !allowWrites {
-				_, err = tx.Exec(ctx, "SET TRANSACTION READ ONLY")
-				if err != nil {
-					return mcp.NewToolError(fmt.Sprintf("Failed to set transaction read-only: %v", err))
-				}
-			}
-
 			// Execute the statement using the appropriate method based on whether it returns rows
 			var columnNames []string
 			var results [][]any
 			var commandTag string
 			var rowsAffected int64
 
-			if returnsRows {
-				// Use Query() for SELECT and DML with RETURNING
+			// Decide which pgx entry point runs the caller's SQL.
+			//
+			// Query() always uses the extended query protocol, which carries
+			// exactly one statement per message: PostgreSQL rejects anything
+			// else with "cannot insert multiple commands into a prepared
+			// statement". Exec() is different. When it is given no bind
+			// parameters pgx falls back to the simple query protocol
+			// unconditionally, and that protocol accepts any number of
+			// semicolon-separated statements in one message. A caller could
+			// therefore append their own statements after the one the tool
+			// meant to run, including statements that alter the transaction
+			// access mode before a write.
+			//
+			// So on a read-only connection every statement goes through
+			// Query(), which removes that channel entirely rather than trying
+			// to recognise the payloads that use it. Where writes are
+			// explicitly enabled there is no boundary left to protect, and
+			// Exec() is kept so that multi-statement scripts still work.
+			useExtendedProtocol := returnsRows || !allowWrites
+
+			if useExtendedProtocol {
 				rows, err := tx.Query(ctx, sqlQuery)
 				if err != nil {
 					errMsg := fmt.Sprintf("%sSQL Query:\n%s\n\nError executing query: %v", connectionMessage, sqlQuery, err)
@@ -349,7 +365,8 @@ To avoid rate limits (30,000 input tokens/minute):
 					columnNames = append(columnNames, string(fd.Name))
 				}
 
-				// Collect results as array of arrays for TSV formatting
+				// Collect results as array of arrays for TSV formatting. A
+				// statement that returns nothing simply yields no rows here.
 				for rows.Next() {
 					values, err := rows.Values()
 					if err != nil {
@@ -362,12 +379,21 @@ To avoid rate limits (30,000 input tokens/minute):
 					return mcp.NewToolError(fmt.Sprintf("Error iterating rows: %v", err))
 				}
 
-				// Close rows before commit to ensure statement is fully processed
+				// Close rows before commit to ensure statement is fully
+				// processed; the command tag is only complete afterwards.
 				rows.Close()
+				tag := rows.CommandTag()
+				commandTag = tag.String()
+				rowsAffected = tag.RowsAffected()
+
+				// Whether to present a result set is settled by what the
+				// server actually described, which is more reliable than
+				// inferring it from the statement's leading keyword. This
+				// matters for statements that return rows without starting
+				// with SELECT, such as SHOW and EXPLAIN, whose output was
+				// previously discarded in favour of the command tag.
+				returnsRows = len(columnNames) > 0
 			} else {
-				// Use Exec() for DDL and DML without RETURNING
-				// This is critical: Query() may not properly execute DDL/DML statements
-				// due to pgx's prepared statement caching and extended query protocol
 				tag, err := tx.Exec(ctx, sqlQuery)
 				if err != nil {
 					errMsg := fmt.Sprintf("%sSQL Query:\n%s\n\nError executing statement: %v", connectionMessage, sqlQuery, err)
@@ -379,7 +405,7 @@ To avoid rate limits (30,000 input tokens/minute):
 
 			// Check if results were truncated (we fetched limit+1 to detect this)
 			wasTruncated := false
-			if returnsRows && !hasExistingLimit && limit > 0 && len(results) > limit {
+			if truncationDetectable && !hasExistingLimit && limit > 0 && len(results) > limit {
 				wasTruncated = true
 				results = results[:limit] // Truncate to requested limit
 			}
