@@ -31,40 +31,42 @@ func TestStringRedactsKeyShapes(t *testing.T) {
 	tests := []struct {
 		name  string
 		input string
-		// mustNotContain is the fragment that must be gone afterwards.
-		mustNotContain string
+		// mustNotContain are fragments that must all be gone afterwards.
+		// Checking both ends of the key, not just one, is what would catch a
+		// regression that redacts a prefix but leaves the tail behind.
+		mustNotContain []string
 	}{
 		{
 			// This is the message shape that prompted the work: a provider
 			// quoting back the key it rejected.
 			name:           "OpenAI style authentication failure",
 			input:          "openai (401): Incorrect API key provided: " + fakeOpenAIKey + ". You can find your API key at https://platform.openai.com/account/api-keys.",
-			mustNotContain: "AAAABBBB",
+			mustNotContain: []string{"AAAABBBB", "IIIIJJJJ"},
 		},
 		{
 			name:           "partially masked key keeps no tail",
 			input:          "Incorrect API key provided: sk-proj-AAAA****JJJJ.",
-			mustNotContain: "JJJJ",
+			mustNotContain: []string{"AAAA", "JJJJ"},
 		},
 		{
 			name:           "Anthropic key",
 			input:          "anthropic (401): invalid x-api-key " + fakeAnthropicKey,
-			mustNotContain: "KKKKLLLL",
+			mustNotContain: []string{"KKKKLLLL", "QQQQRRRR"},
 		},
 		{
 			name:           "Gemini key",
 			input:          "gemini (400): API key not valid: " + fakeGeminiKey,
-			mustNotContain: "SSSSTTTT",
+			mustNotContain: []string{"SSSSTTTT", "YYYYZZZZ"},
 		},
 		{
 			name:           "Voyage key",
 			input:          "voyage (401): bad key " + fakeVoyageKey,
-			mustNotContain: "0123456789abcdef",
+			mustNotContain: []string{"0123456789abcdef", "stuvwxyz"},
 		},
 		{
 			name:           "bearer token",
 			input:          "upstream rejected Authorization: Bearer abcdefghijklmnop",
-			mustNotContain: "abcdefghijklmnop",
+			mustNotContain: []string{"abcdefghijklmnop"},
 		},
 	}
 
@@ -72,8 +74,10 @@ func TestStringRedactsKeyShapes(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			got := String(tt.input)
 
-			if strings.Contains(got, tt.mustNotContain) {
-				t.Errorf("redacted text still contains %q: %s", tt.mustNotContain, got)
+			for _, fragment := range tt.mustNotContain {
+				if strings.Contains(got, fragment) {
+					t.Errorf("redacted text still contains %q: %s", fragment, got)
+				}
 			}
 			if !strings.Contains(got, Placeholder) {
 				t.Errorf("expected %s in the result, got: %s", Placeholder, got)
@@ -186,7 +190,7 @@ func TestErrorRedacts(t *testing.T) {
 
 	err := errors.New("openai (401): Incorrect API key provided: " + fakeOpenAIKey)
 	got := Error(err)
-	if strings.Contains(got, "AAAABBBB") {
+	if strings.Contains(got, "AAAABBBB") || strings.Contains(got, "IIIIJJJJ") {
 		t.Errorf("Error() leaked the key: %s", got)
 	}
 }
@@ -202,7 +206,7 @@ func TestBytes(t *testing.T) {
 
 	in = []byte(`{"error":"openai (401): Incorrect API key provided: ` + fakeOpenAIKey + `"}`)
 	got := Bytes(in)
-	if strings.Contains(string(got), "AAAABBBB") {
+	if strings.Contains(string(got), "AAAABBBB") || strings.Contains(string(got), "IIIIJJJJ") {
 		t.Errorf("Bytes() leaked the key: %s", got)
 	}
 	if !strings.Contains(string(got), Placeholder) {
