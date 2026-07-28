@@ -84,7 +84,9 @@ and this project adheres to
   the trace file, and the CLI's own output. All three are now redacted, with
   both the configured credentials and anything matching a known key format
   replaced by `[REDACTED]`; the rest of the message survives, so the
-  provider, status code and reason are still reported.
+  provider, status code and reason are still reported. The `/api/llm/`
+  filtering is best-effort: it inspects each response write on its own, so
+  a credential split across two writes would evade it.
 
   The durable fix belongs in the provider client library, so that a
   credential never reaches an error value at all. What is added here is a

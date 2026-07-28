@@ -302,7 +302,13 @@ matching a known key format are replaced with `[REDACTED]`. The
 surrounding message survives, so the provider, the status code, and
 the reason for the failure are still reported.
 
-Understand the limits of this. Redaction is a filter over text that
+Understand the limits of this. Filtering the `/api/llm/` response is
+best-effort, not absolute: it inspects each write to the response body
+on its own, so a credential split across two writes would evade it.
+This does not arise for a JSON error body, which is encoded in one
+go, or a server-sent event, which is written as a unit, but it is a
+genuine limit of filtering a stream rather than fixing the source.
+Redaction is a filter over text that
 should not have contained a credential in the first place, so it
 recognises the formats this project knows about and the values it was
 given; a provider inventing a new format, or quoting a key in a way
