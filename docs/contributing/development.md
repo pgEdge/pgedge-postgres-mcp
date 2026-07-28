@@ -200,9 +200,10 @@ Check the module's dependencies against the Go vulnerability database:
 make vulncheck
 ```
 
-The target uses `govulncheck`, which reports only those vulnerabilities the
-code can actually reach; its call-graph analysis distinguishes an advisory
-affecting a dependency from one affecting a function this project calls.
+The target uses `govulncheck`, whose call-graph analysis distinguishes an
+advisory affecting a dependency from one affecting a function this project
+calls; it may still report an informational package- or module-level
+finding when no reachable symbol exists.
 Install the tool with the following command:
 
 ```bash

@@ -177,8 +177,10 @@ lint-client:
 	fi
 
 # Check dependencies for known vulnerabilities (requires govulncheck)
-# govulncheck reports only vulnerabilities this code can actually reach, using
-# call-graph analysis, rather than every advisory affecting a dependency.
+# govulncheck's call-graph analysis prioritizes vulnerabilities this code can
+# actually reach over every advisory affecting a dependency, though it still
+# reports informational package- and module-level findings when no reachable
+# symbol is found.
 # Note that findings in the standard library reflect the toolchain in use, so
 # an out-of-date local Go installation reports issues that CI, which tracks the
 # latest patch release, does not.
@@ -190,7 +192,9 @@ vulncheck:
 	@echo "Running govulncheck over the module..."
 	@if command -v govulncheck >/dev/null 2>&1; then \
 		govulncheck ./...; \
-	elif [ -f "$$(go env GOPATH)/bin/govulncheck" ]; then \
+	elif [ -n "$$(go env GOBIN)" ] && [ -x "$$(go env GOBIN)/govulncheck" ]; then \
+		$$(go env GOBIN)/govulncheck ./...; \
+	elif [ -x "$$(go env GOPATH)/bin/govulncheck" ]; then \
 		$$(go env GOPATH)/bin/govulncheck ./...; \
 	else \
 		echo "govulncheck not found. Install it with:"; \

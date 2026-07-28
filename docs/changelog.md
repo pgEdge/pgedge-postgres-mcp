@@ -39,9 +39,9 @@ and this project adheres to
 
 ### Added
 
-- A `make vulncheck` target runs `govulncheck` over the module, reporting the
-  known vulnerabilities that this code can actually reach rather than every
-  advisory affecting a dependency. See
+- A `make vulncheck` target runs `govulncheck` over the module, using
+  call-graph analysis to prioritize known vulnerabilities that this code can
+  actually reach over every advisory affecting a dependency. See
   [Development](contributing/development.md) for details.
 
 - Database configuration now accepts `sslcert`, `sslkey`, and
