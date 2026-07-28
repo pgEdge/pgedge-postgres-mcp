@@ -191,7 +191,15 @@ enforcement, and no transaction-mode manipulation can defeat it:
 REVOKE INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public FROM mcp_readonly;
 ```
 
-Note that revoking table privileges does not restrain everything a
+This `REVOKE` covers `INSERT`, `UPDATE`, and `DELETE` on tables
+that already exist in the `public` schema; it does not, by itself,
+cover tables created afterward, tables in other schemas, or
+schema-modification privileges such as `CREATE`, `DROP`, and
+`ALTER`. Use `ALTER DEFAULT PRIVILEGES` to keep future tables from
+inheriting the same write privileges, and repeat the equivalent
+grants and revokes for every schema the role can reach.
+
+Revoking table privileges also does not restrain everything a
 query can reach. `COPY ... TO PROGRAM`, the server-side file
 functions, untrusted procedural languages such as `plpython3u` and
 `plperlu`, and `dblink` all act outside the current transaction, so

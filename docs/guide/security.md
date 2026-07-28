@@ -120,18 +120,30 @@ attempts to bypass the read-only restrictions.
 ### The Limits of Read-Only Mode
 
 Read-only mode is a safety feature, and you should understand what
-it does not do. Each of the layers above is a setting that the
-connected role is entitled to change; the guard in particular can
-only reject the constructs it recognises, so it should be read as a
-way of closing known bypasses and recording attempts, not as a
-guarantee.
+it does not do. Two of the layers above are themselves PostgreSQL
+settings: the session-level `default_transaction_read_only` value
+and the read-only access mode requested on `BEGIN`. PostgreSQL lets
+a connected role change either one through ordinary SQL, which is
+why the guard exists to intercept the attempt. The other two layers
+are not settings at all: enforcing the extended query protocol and
+running the statement guard both happen in server code, and no
+client action can reach or disable them. The guard's own limitation
+is different and narrower: it can only reject the constructs it
+recognises, so read it as a way of closing known bypasses and
+recording attempts, not as a guarantee.
 
 The only enforcement a client cannot undo comes from database
-privileges. Grant the server a role whose write privileges have
-been revoked, as described in
-[Security Management](security_mgmt.md), and no amount of
-transaction-mode manipulation can reach your data, because the
-restriction no longer depends on a setting the client controls. Do
+privileges, and that guarantee extends only as far as the
+privileges you actually revoke. Grant the server a role whose
+`INSERT`, `UPDATE`, and `DELETE` privileges have been revoked, as
+described in [Security Management](security_mgmt.md), and no
+amount of transaction-mode manipulation can route a write through
+that role, because the restriction no longer depends on a setting
+the client controls. Revoking those privileges does not close
+every avenue by itself; schema-modification privileges such as
+`CREATE`, `DROP`, and `ALTER`, grants on future objects, and
+execute privileges on transaction-escaping functions remain the
+deploying operator's responsibility to lock down separately. Do
 this for any deployment where the client is untrusted, and treat
 read-only mode as protection against accident rather than against
 an adversary.
