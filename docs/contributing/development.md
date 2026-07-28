@@ -192,6 +192,29 @@ Check for common Go issues:
 go vet ./...
 ```
 
+### Checking Dependencies for Vulnerabilities
+
+Check the module's dependencies against the Go vulnerability database:
+
+```bash
+make vulncheck
+```
+
+The target uses `govulncheck`, which reports only those vulnerabilities the
+code can actually reach; its call-graph analysis distinguishes an advisory
+affecting a dependency from one affecting a function this project calls.
+Install the tool with the following command:
+
+```bash
+go install golang.org/x/vuln/cmd/govulncheck@latest
+```
+
+The target exits non-zero when it finds a reachable vulnerability, so you can
+use it as a gate. Note that findings in the standard library reflect the Go
+toolchain you build with, so an out-of-date local installation reports issues
+that continuous integration, which tracks the latest patch release, does not;
+upgrade Go before investigating a standard library finding.
+
 ## Development Workflow
 
 ### 1. Clone and Setup

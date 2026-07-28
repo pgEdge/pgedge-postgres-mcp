@@ -1,4 +1,4 @@
-.PHONY: build build-server build-client clean clean-server clean-client test test-server test-client run install help lint lint-server lint-client fmt format gofmt openapi
+.PHONY: build build-server build-client clean clean-server clean-client test test-server test-client run install help lint lint-server lint-client vulncheck fmt format gofmt openapi
 
 # Binary names and directories
 SERVER_BINARY=pgedge-postgres-mcp
@@ -176,6 +176,29 @@ lint-client:
 		echo "  or visit https://golangci-lint.run/usage/install/"; \
 	fi
 
+# Check dependencies for known vulnerabilities (requires govulncheck)
+# govulncheck reports only vulnerabilities this code can actually reach, using
+# call-graph analysis, rather than every advisory affecting a dependency.
+# Note that findings in the standard library reflect the toolchain in use, so
+# an out-of-date local Go installation reports issues that CI, which tracks the
+# latest patch release, does not.
+# Unlike the lint targets, a missing tool is an error rather than a warning: a
+# security check that passes silently because it never ran is worse than none.
+# govulncheck's own non-zero exit on findings is propagated, so this target is
+# usable as a gate.
+vulncheck:
+	@echo "Running govulncheck over the module..."
+	@if command -v govulncheck >/dev/null 2>&1; then \
+		govulncheck ./...; \
+	elif [ -f "$$(go env GOPATH)/bin/govulncheck" ]; then \
+		$$(go env GOPATH)/bin/govulncheck ./...; \
+	else \
+		echo "govulncheck not found. Install it with:"; \
+		echo "  go install golang.org/x/vuln/cmd/govulncheck@latest"; \
+		echo "  or visit https://go.dev/doc/tutorial/govulncheck"; \
+		exit 1; \
+	fi
+
 # Show help
 help:
 	@echo "pgEdge Postgres MCP - Makefile commands:"
@@ -206,6 +229,9 @@ help:
 	@echo "  make lint           - Run linter on all code"
 	@echo "  make lint-server    - Run linter on server code only"
 	@echo "  make lint-client    - Run linter on client code only"
+	@echo ""
+	@echo "Security:"
+	@echo "  make vulncheck      - Check dependencies for known vulnerabilities"
 	@echo ""
 	@echo "Cleaning:"
 	@echo "  make clean          - Remove all build artifacts"

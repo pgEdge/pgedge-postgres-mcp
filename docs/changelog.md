@@ -9,7 +9,40 @@ and this project adheres to
 
 ## [Unreleased]
 
+### Security
+
+- Upgraded `github.com/jackc/pgx/v5` from 5.7.6 to 5.10.0, resolving three
+  advisories against the PostgreSQL driver. Two are memory-safety issues
+  (GO-2026-4771/CVE-2026-33815 and GO-2026-4772/CVE-2026-33816, fixed in
+  5.9.0), which `govulncheck` reports at package level, meaning it finds no
+  call path to them from this code. The third is a SQL injection through
+  placeholder confusion with dollar-quoted string literals
+  (GO-2026-5004/CVE-2026-41889, fixed in 5.9.2), which `govulncheck` reports
+  at symbol level with a reachable path from the metadata loader into the
+  driver's SQL sanitiser, making it the one of the three that demonstrably
+  affects this project.
+
+- Upgraded `golang.org/x/text` from 0.35.0 to 0.40.0 (GO-2026-5970, an
+  infinite loop on invalid input, reachable through connection setup) and
+  `github.com/yuin/goldmark` from 1.7.8 to 1.7.17 (GO-2026-5320, cross-site
+  scripting, reachable through the chat client's markdown rendering).
+  `golang.org/x/net` moves from 0.51.0 to 0.57.0, clearing a DNS message
+  parsing panic (GO-2026-5942) that was only ever reachable at module level.
+  `golang.org/x/crypto`, `golang.org/x/sync`, `golang.org/x/sys` and
+  `golang.org/x/term` move with them.
+
+  After these upgrades `govulncheck` reports no reachable vulnerability in any
+  dependency. The findings that remain are in the Go standard library and are
+  resolved by building with Go 1.26.5 or later; the continuous integration
+  workflows and container images track the latest 1.26 patch release, so they
+  pick that up without a change here.
+
 ### Added
+
+- A `make vulncheck` target runs `govulncheck` over the module, reporting the
+  known vulnerabilities that this code can actually reach rather than every
+  advisory affecting a dependency. See
+  [Development](contributing/development.md) for details.
 
 - Database configuration now accepts `sslcert`, `sslkey`, and
   `sslrootcert` fields, letting the server authenticate to PostgreSQL
