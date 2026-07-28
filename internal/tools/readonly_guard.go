@@ -139,6 +139,20 @@ var readOnlyRejections = []readOnlyRejection{
 		pattern: regexp.MustCompile(`(?i)\bDBLINK\w*\s*\(`),
 		reason:  "dblink is not permitted on a read-only connection",
 	},
+	// set_config() changes a session or transaction setting the same way SET
+	// does, but as an ordinary function call rather than a keyword, so its
+	// arguments can be built at runtime instead of written as literal text:
+	// SELECT set_config(chr(100)||chr(101)||..., 'off', false) sets
+	// default_transaction_read_only just as effectively as a literal SET, and
+	// the setting name never appears anywhere in the statement text for
+	// readOnlyGUCPattern to match. No fixed pattern can distinguish that from
+	// a harmless call, so every call is refused outright, the same blanket
+	// treatment DO blocks get, rather than trying to recognise which calls
+	// are dangerous.
+	{
+		pattern: regexp.MustCompile(`(?i)\bSET_CONFIG\s*\(`),
+		reason:  "set_config() is not permitted on a read-only connection",
+	},
 }
 
 // readOnlyGUCPattern matches the settings that control read-only behaviour.
@@ -217,42 +231,23 @@ func stripSQLNoise(query string) (residue string, bare string) {
 	for i < len(query) {
 		switch {
 		case isLineCommentStart(query, i):
-			end := strings.IndexByte(query[i:], '\n')
-			if end < 0 {
-				i = len(query)
-			} else {
-				i += end
-			}
-			// A comment separates tokens, so it must not join them.
-			res.WriteByte(' ')
-			bar.WriteByte(' ')
+			i = skipLineCommentBody(query, i)
+			writeNoiseSeparator(&res, &bar)
 
 		case isBlockCommentStart(query, i):
 			i = skipBlockComment(query, i)
-			res.WriteByte(' ')
-			bar.WriteByte(' ')
+			writeNoiseSeparator(&res, &bar)
 
 		case query[i] == '\'':
-			end := endOfQuoted(query, i, '\'')
-			bar.WriteString(query[i:end])
-			res.WriteString("''")
-			i = end
+			i = consumeQuoted(query, i, '\'', &res, &bar)
 
 		case query[i] == '"':
-			end := endOfQuoted(query, i, '"')
-			bar.WriteString(query[i:end])
-			res.WriteString(`""`)
-			i = end
+			i = consumeQuoted(query, i, '"', &res, &bar)
 
 		case query[i] == '$':
-			if tag, ok := dollarQuoteTag(query, i); ok {
-				if end := endOfDollarQuote(query, i, tag); end > 0 {
-					bar.WriteString(query[i:end])
-					res.WriteString(tag)
-					res.WriteString(tag)
-					i = end
-					continue
-				}
+			if end, ok := consumeDollarQuote(query, i, &res, &bar); ok {
+				i = end
+				continue
 			}
 			// Not a dollar quote, or never closed: treat as ordinary text so
 			// that anything following is still scanned as code.
@@ -268,6 +263,55 @@ func stripSQLNoise(query string) (residue string, bare string) {
 	}
 
 	return res.String(), bar.String()
+}
+
+// writeNoiseSeparator writes a single space to both builders, in place of a
+// dropped comment, so that the comment cannot join the tokens on either
+// side of it.
+func writeNoiseSeparator(res, bar *strings.Builder) {
+	res.WriteByte(' ')
+	bar.WriteByte(' ')
+}
+
+// skipLineCommentBody returns the index just past a "--" line comment
+// starting at i: the position of the next newline, or the end of the
+// string if the comment runs to the end of it.
+func skipLineCommentBody(query string, i int) int {
+	if end := strings.IndexByte(query[i:], '\n'); end >= 0 {
+		return i + end
+	}
+	return len(query)
+}
+
+// consumeQuoted returns the index just past a quoted literal or identifier
+// starting at i, having written the original text to bar and an empty
+// same-quote placeholder to res.
+func consumeQuoted(query string, i int, quote byte, res, bar *strings.Builder) int {
+	end := endOfQuoted(query, i, quote)
+	bar.WriteString(query[i:end])
+	res.WriteByte(quote)
+	res.WriteByte(quote)
+	return end
+}
+
+// consumeDollarQuote reports whether a dollar-quoted block starts at i, and
+// if so returns the index just past it, having written the original text to
+// bar and the tag doubled to res. Reports false if there is no valid, closed
+// dollar-quote at i, in which case the caller falls back to treating
+// query[i] as ordinary text.
+func consumeDollarQuote(query string, i int, res, bar *strings.Builder) (int, bool) {
+	tag, ok := dollarQuoteTag(query, i)
+	if !ok {
+		return 0, false
+	}
+	end := endOfDollarQuote(query, i, tag)
+	if end <= 0 {
+		return 0, false
+	}
+	bar.WriteString(query[i:end])
+	res.WriteString(tag)
+	res.WriteString(tag)
+	return end, true
 }
 
 func isLineCommentStart(query string, i int) bool {

@@ -480,16 +480,20 @@ func TestValidateReadOnlyQuery(t *testing.T) {
 			query: "SELECT 1 -- transaction_read_only",
 		},
 
-		// The setting names, reached directly or through set_config.
+		// The setting names, reached directly or through set_config. Any
+		// set_config() call is now refused outright (see the dedicated
+		// set_config test below), so these two specifically confirm that a
+		// literal read-only-related setting name is still refused, just
+		// through the broader rule rather than the GUC-name check.
 		{
 			name:        "uppercase TRANSACTION_READ_ONLY",
 			query:       "SELECT set_config('TRANSACTION_READ_ONLY', 'off', true)",
-			errContains: "transaction_read_only",
+			errContains: "set_config",
 		},
 		{
 			name:        "mixed case Transaction_Read_Only",
 			query:       "SELECT set_config('Transaction_Read_Only', 'off', true)",
-			errContains: "transaction_read_only",
+			errContains: "set_config",
 		},
 		{
 			name:        "default_transaction_read_only",
@@ -645,6 +649,33 @@ func TestValidateReadOnlyQuery(t *testing.T) {
 			name:        "dblink write",
 			query:       "SELECT dblink_exec('dbname=postgres', 'CREATE TABLE pwn(i int)')",
 			errContains: "dblink",
+		},
+		// set_config() is refused outright, not just when it names a
+		// read-only-related setting as literal text: found by manual testing
+		// against a live database, a call whose arguments are built from
+		// chr()/concatenation at runtime evades the GUC-name check (residue
+		// and bare both only ever see the chr()/|| expression, never the
+		// literal string "default_transaction_read_only"), and was confirmed
+		// to actually flip the session's default_transaction_read_only to
+		// "off" against a real server before this rule existed.
+		{
+			name:        "set_config with a literal setting name",
+			query:       "SELECT set_config('some_other_setting', 'value', false)",
+			errContains: "set_config",
+		},
+		{
+			name: "set_config with the setting name built at runtime, not written as text",
+			query: "SELECT set_config(" +
+				"chr(100)||chr(101)||chr(102)||chr(97)||chr(117)||chr(108)||chr(116)||chr(95)||" +
+				"chr(116)||chr(114)||chr(97)||chr(110)||chr(115)||chr(97)||chr(99)||chr(116)||" +
+				"chr(105)||chr(111)||chr(110)||chr(95)||chr(114)||chr(101)||chr(97)||chr(100)||" +
+				"chr(95)||chr(111)||chr(110)||chr(108)||chr(121), chr(111)||chr(102)||chr(102), false)",
+			errContains: "set_config",
+		},
+		{
+			name:        "schema-qualified pg_catalog.set_config",
+			query:       "SELECT pg_catalog.set_config('some_other_setting', 'value', false)",
+			errContains: "set_config",
 		},
 	}
 
