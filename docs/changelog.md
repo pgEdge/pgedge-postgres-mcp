@@ -37,6 +37,44 @@ and this project adheres to
   workflows and container images track the latest 1.26 patch release, so they
   pick that up without a change here.
 
+- The system prompt now states that everything returned by a tool is
+  untrusted content: query results, table and column names, document text
+  and search results are data to report to the user, never instructions to
+  follow. Retrieved content is written by whoever populated the database
+  rather than by the person asking the question, so a document can carry
+  instructions of its own; one that asks an assistant to copy it into the
+  table it came from is read again by the next session that searches for
+  it. The rule applies in read-only mode and otherwise. It is a mitigation
+  and not a control, since a model can be argued out of any instruction,
+  which is why the documentation now states plainly that the measure which
+  actually prevents such a document propagating itself is the absence of
+  write access.
+
+- Custom tools now advertise whether they can modify the database, using
+  the same `readOnlyHint` and `destructiveHint` MCP annotations already
+  set on `query_database`. Any `pl-do` or `pl-func` tool is treated as
+  capable of writing, as is a `sql` tool whose statement is not plainly a
+  read; on a connection that does not permit writes every custom tool is
+  advertised as read-only. A statement that cannot be classified is
+  assumed to write, so an incorrect guess costs a confirmation prompt
+  rather than an unannounced write.
+
+- The CLI and the web client now ask for confirmation before any tool call
+  that the server advertises as capable of writing, rather than only before
+  a write through `query_database`. A custom tool that modified data
+  previously executed without a prompt in either client, because the check
+  was keyed to a single tool name. Statements passed to `query_database`
+  are still classified individually, so an ordinary read on a
+  write-enabled connection is not interrupted, and a tool that advertises
+  no annotation is not treated as a write, so the built-in read-only tools
+  are unaffected. The confirmation wording is now neutral, since the
+  subject may be a tool call rather than a SQL statement.
+
+  Note that the untrusted content rule above applies only to the CLI,
+  which is the only client that sends a system prompt; the web client
+  sends none, so it receives neither that rule nor the pre-existing
+  read-only safety instructions.
+
 ### Added
 
 - A `make vulncheck` target runs `govulncheck` over the module, using

@@ -9,7 +9,12 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { isWriteQuery } from './queryClassify';
+import {
+    isWriteQuery,
+    toolMayWrite,
+    writeConfirmationSubject,
+    describeToolCall,
+} from './queryClassify';
 
 describe('isWriteQuery', () => {
     describe('read queries return false', () => {
@@ -148,5 +153,92 @@ describe('isWriteQuery', () => {
         it('returns false for non-string (boolean)', () => {
             expect(isWriteQuery(true)).toBe(false);
         });
+    });
+});
+
+describe('toolMayWrite', () => {
+    const tools = [
+        { name: 'query_database' },
+        { name: 'custom_writer', annotations: { readOnlyHint: false } },
+        { name: 'custom_reader', annotations: { readOnlyHint: true } },
+        { name: 'unannotated' },
+    ];
+
+    it('reports true only for an explicit readOnlyHint of false', () => {
+        expect(toolMayWrite(tools, 'custom_writer')).toBe(true);
+        expect(toolMayWrite(tools, 'custom_reader')).toBe(false);
+    });
+
+    it('treats a missing annotation as read-only', () => {
+        expect(toolMayWrite(tools, 'unannotated')).toBe(false);
+        expect(toolMayWrite(tools, 'query_database')).toBe(false);
+    });
+
+    it('handles an unknown tool and a missing tool list', () => {
+        expect(toolMayWrite(tools, 'no_such_tool')).toBe(false);
+        expect(toolMayWrite(undefined, 'custom_writer')).toBe(false);
+        expect(toolMayWrite(null, 'custom_writer')).toBe(false);
+    });
+});
+
+describe('writeConfirmationSubject', () => {
+    const tools = [
+        { name: 'query_database' },
+        { name: 'custom_writer', annotations: { readOnlyHint: false } },
+        { name: 'custom_reader', annotations: { readOnlyHint: true } },
+    ];
+
+    it('confirms a write statement and shows the SQL', () => {
+        const { needsConfirmation, subject } = writeConfirmationSubject(
+            tools, 'query_database', { query: 'DELETE FROM users' });
+        expect(needsConfirmation).toBe(true);
+        expect(subject).toBe('DELETE FROM users');
+    });
+
+    it('does not interrupt a read statement', () => {
+        const { needsConfirmation } = writeConfirmationSubject(
+            tools, 'query_database', { query: 'SELECT * FROM users' });
+        expect(needsConfirmation).toBe(false);
+    });
+
+    it('confirms an unclassifiable statement', () => {
+        const { needsConfirmation } = writeConfirmationSubject(
+            tools, 'query_database', { query: '/* c */ INSERT INTO t VALUES (1)' });
+        expect(needsConfirmation).toBe(true);
+    });
+
+    it('ignores a query_database call with no query argument', () => {
+        expect(writeConfirmationSubject(tools, 'query_database', {})
+            .needsConfirmation).toBe(false);
+        expect(writeConfirmationSubject(tools, 'query_database', undefined)
+            .needsConfirmation).toBe(false);
+    });
+
+    // Custom tools can write and were previously never confirmed, because the
+    // check was keyed to the query_database tool name.
+    it('confirms a custom tool that advertises that it may write', () => {
+        const { needsConfirmation, subject } = writeConfirmationSubject(
+            tools, 'custom_writer', { id: 7 });
+        expect(needsConfirmation).toBe(true);
+        expect(subject).toContain('custom_writer');
+        expect(subject).toContain('7');
+    });
+
+    it('does not confirm a custom tool marked read-only', () => {
+        expect(writeConfirmationSubject(tools, 'custom_reader', { id: 7 })
+            .needsConfirmation).toBe(false);
+    });
+});
+
+describe('describeToolCall', () => {
+    it('renders a call with no arguments', () => {
+        expect(describeToolCall('do_thing', {})).toBe('do_thing()');
+        expect(describeToolCall('do_thing', undefined)).toBe('do_thing()');
+    });
+
+    it('renders arguments as formatted JSON', () => {
+        const text = describeToolCall('do_thing', { a: 1 });
+        expect(text).toContain('do_thing');
+        expect(text).toContain('"a": 1');
     });
 });

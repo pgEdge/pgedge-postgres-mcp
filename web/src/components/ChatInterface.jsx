@@ -23,7 +23,7 @@ import MessageInput from './MessageInput';
 import ProviderSelector from './ProviderSelector';
 import PromptPopover from './PromptPopover';
 import WriteQueryConfirmDialog from './WriteQueryConfirmDialog';
-import { isWriteQuery } from '../utils/queryClassify';
+import { writeConfirmationSubject } from '../utils/queryClassify';
 import { sseChat } from '../utils/sseChat';
 import { conversationToMarkdown, downloadMarkdown } from '../lib/conversationExport';
 
@@ -996,16 +996,20 @@ const ChatInterface = ({ conversations }) => {
                             return newMessages;
                         });
 
-                        // Check if this is a write query needing confirmation
-                        if (toolName === 'query_database' && toolInput?.query) {
-                            if (isWriteAccessEnabled() && isWriteQuery(toolInput.query)) {
-                                const confirmed = await requestWriteConfirmation(toolInput.query);
+                        // Check whether this call needs confirmation. This
+                        // covers custom tools that can write, not only
+                        // query_database.
+                        if (isWriteAccessEnabled()) {
+                            const { needsConfirmation, subject } =
+                                writeConfirmationSubject(tools, toolName, toolInput);
+                            if (needsConfirmation) {
+                                const confirmed = await requestWriteConfirmation(subject);
                                 if (!confirmed) {
                                     activity[activityIndex].isError = true;
                                     activity[activityIndex].tokens = 0;
                                     toolResultMessages.push(buildToolResultMessage(
                                         toolUseId,
-                                        'Query execution was declined by the user. Do not retry this query. Ask the user how they would like to proceed.',
+                                        'Execution was declined by the user. Do not retry this call. Ask the user how they would like to proceed.',
                                         true,
                                     ));
                                     continue;
@@ -1502,16 +1506,20 @@ const ChatInterface = ({ conversations }) => {
                             return newMessages;
                         });
 
-                        // Check if this is a write query needing confirmation
-                        if (toolName === 'query_database' && toolInput?.query) {
-                            if (isWriteAccessEnabled() && isWriteQuery(toolInput.query)) {
-                                const confirmed = await requestWriteConfirmation(toolInput.query);
+                        // Check whether this call needs confirmation. This
+                        // covers custom tools that can write, not only
+                        // query_database.
+                        if (isWriteAccessEnabled()) {
+                            const { needsConfirmation, subject } =
+                                writeConfirmationSubject(tools, toolName, toolInput);
+                            if (needsConfirmation) {
+                                const confirmed = await requestWriteConfirmation(subject);
                                 if (!confirmed) {
                                     activity[activityIndex].isError = true;
                                     activity[activityIndex].tokens = 0;
                                     toolResultMessages.push(buildToolResultMessage(
                                         toolUseId,
-                                        'Query execution was declined by the user. Do not retry this query. Ask the user how they would like to proceed.',
+                                        'Execution was declined by the user. Do not retry this call. Ask the user how they would like to proceed.',
                                         true,
                                     ));
                                     continue;

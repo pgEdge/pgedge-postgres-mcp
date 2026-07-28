@@ -59,7 +59,7 @@ const WriteQueryConfirmDialog = ({
                         component="span"
                         sx={{ color: isDark ? '#F1F5F9' : '#1F2937' }}
                     >
-                        Confirm Write Query
+                        Confirm Write Operation
                     </Typography>
                 </Box>
             </DialogTitle>
@@ -72,7 +72,7 @@ const WriteQueryConfirmDialog = ({
                         mb: 2,
                     }}
                 >
-                    The following query will modify data:
+                    The following operation can modify data:
                 </Typography>
                 <Box
                     sx={{

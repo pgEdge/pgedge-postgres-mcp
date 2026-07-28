@@ -382,6 +382,65 @@ func (c *Client) setTools(tools []mcp.Tool) {
 	c.libTools = mcpToolsToLibTools(tools)
 }
 
+// writeConfirmationSubject decides whether a tool call must be confirmed by
+// the user before it runs, and returns the text to show them. It is only
+// consulted when the current database permits writes.
+//
+// For query_database the statement itself is classified, so an ordinary read
+// on a write-enabled connection is not interrupted. Every other tool is judged
+// by the readOnlyHint the server advertises. That covers operator-defined
+// custom tools, which can write too and were previously never confirmed
+// because this check was keyed to a single tool name.
+//
+// A tool that advertises no annotation at all is not confirmed, which keeps
+// the built-in read-only tools quiet. Any new tool capable of writing must
+// therefore advertise readOnlyHint false to be caught here.
+func (c *Client) writeConfirmationSubject(name string, input map[string]interface{}) (string, bool) {
+	if name == "query_database" {
+		queryStr, ok := input["query"].(string)
+		if !ok {
+			return "", false
+		}
+		if _, isWrite := ClassifyQuery(queryStr); !isWrite {
+			return "", false
+		}
+		return queryStr, true
+	}
+
+	if !c.toolMayWrite(name) {
+		return "", false
+	}
+	return describeToolCall(name, input), true
+}
+
+// toolMayWrite reports whether the named tool advertises that it can modify
+// the database. Only an explicit readOnlyHint of false counts; an absent
+// annotation is treated as read-only.
+func (c *Client) toolMayWrite(name string) bool {
+	for _, t := range c.tools {
+		if t.Name != name {
+			continue
+		}
+		return t.Annotations != nil &&
+			t.Annotations.ReadOnlyHint != nil &&
+			!*t.Annotations.ReadOnlyHint
+	}
+	return false
+}
+
+// describeToolCall renders a tool call for the confirmation prompt, since
+// there is no single statement to show for a tool that is not query_database.
+func describeToolCall(name string, input map[string]interface{}) string {
+	if len(input) == 0 {
+		return fmt.Sprintf("%s()", name)
+	}
+	args, err := json.MarshalIndent(input, "", "  ")
+	if err != nil {
+		return fmt.Sprintf("%s(...)", name)
+	}
+	return fmt.Sprintf("%s with arguments:\n%s", name, args)
+}
+
 // mcpToolsToLibTools converts the MCP tool descriptors into the
 // library's tool form used in llmlib.ChatRequest. The MCP InputSchema
 // is round-tripped through JSON because llmlib.Tool.InputSchema is a
@@ -1031,28 +1090,25 @@ func (c *Client) processQuery(ctx context.Context, query string) error {
 				// Start new Escape listener for this tool execution
 				go ListenForEscape(ctx, thinkingDone, cancel)
 
-				// Check if this is a write query needing confirmation
-				if toolUse.Name == "query_database" && c.currentDBWritable {
-					if queryStr, ok := input["query"].(string); ok {
-						_, isWrite := ClassifyQuery(queryStr)
-						if isWrite {
-							close(thinkingDone)
-							time.Sleep(50 * time.Millisecond)
+				// Check whether this call needs the user's confirmation
+				if c.currentDBWritable {
+					if subject, needsConfirmation := c.writeConfirmationSubject(toolUse.Name, input); needsConfirmation {
+						close(thinkingDone)
+						time.Sleep(50 * time.Millisecond)
 
-							if !c.ui.PromptWriteConfirmation(queryStr) {
-								toolResultBlocks = append(toolResultBlocks, llmlib.ToolResultBlock(
-									toolUse.ID,
-									"Query execution was declined by the user. Do not retry this query. Ask the user how they would like to proceed.",
-									true,
-								))
-								continue
-							}
-
-							// Restart thinking animation after confirmation
-							thinkingDone = make(chan struct{})
-							go c.ui.ShowThinking(reqCtx, thinkingDone)
-							go ListenForEscape(ctx, thinkingDone, cancel)
+						if !c.ui.PromptWriteConfirmation(subject) {
+							toolResultBlocks = append(toolResultBlocks, llmlib.ToolResultBlock(
+								toolUse.ID,
+								"Execution was declined by the user. Do not retry this call. Ask the user how they would like to proceed.",
+								true,
+							))
+							continue
 						}
+
+						// Restart thinking animation after confirmation
+						thinkingDone = make(chan struct{})
+						go c.ui.ShowThinking(reqCtx, thinkingDone)
+						go ListenForEscape(ctx, thinkingDone, cancel)
 					}
 				}
 

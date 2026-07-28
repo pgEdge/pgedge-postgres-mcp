@@ -369,14 +369,17 @@ func (ui *UI) PromptForPassword(ctx context.Context) (string, error) {
 	}
 }
 
-// PromptWriteConfirmation displays a warning about a write query and
-// asks the user to confirm execution. Returns true only if the user
-// enters "y" or "yes" (case-insensitive).
-func (ui *UI) PromptWriteConfirmation(query string) bool {
+// PromptWriteConfirmation displays a warning about an operation that can
+// modify the database and asks the user to confirm execution. Returns true
+// only if the user enters "y" or "yes" (case-insensitive).
+//
+// The subject is a SQL statement for query_database, and a rendered tool call
+// for any other tool that advertises that it may write.
+func (ui *UI) PromptWriteConfirmation(subject string) bool {
 	fmt.Println()
-	fmt.Println(ui.colorize(ColorYellow, "The following write query will be executed:"))
-	fmt.Println(ui.colorize(ColorCyan, query))
-	fmt.Print(ui.colorize(ColorYellow, "Execute this query? [y/N]: "))
+	fmt.Println(ui.colorize(ColorYellow, "The following operation can modify the database:"))
+	fmt.Println(ui.colorize(ColorCyan, subject))
+	fmt.Print(ui.colorize(ColorYellow, "Execute this operation? [y/N]: "))
 
 	var answer string
 	_, _ = fmt.Scanln(&answer) //nolint:errcheck // User input, errors not actionable

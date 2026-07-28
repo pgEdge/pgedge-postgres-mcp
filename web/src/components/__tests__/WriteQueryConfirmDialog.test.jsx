@@ -39,7 +39,7 @@ describe('WriteQueryConfirmDialog Component', () => {
             />
         );
 
-        expect(screen.getByText('Confirm Write Query')).toBeInTheDocument();
+        expect(screen.getByText('Confirm Write Operation')).toBeInTheDocument();
         expect(screen.getByText(defaultQuery)).toBeInTheDocument();
         expect(screen.getByText('Cancel')).toBeInTheDocument();
         expect(screen.getByText('Execute')).toBeInTheDocument();
@@ -56,7 +56,7 @@ describe('WriteQueryConfirmDialog Component', () => {
         );
 
         expect(
-            screen.queryByText('Confirm Write Query')
+            screen.queryByText('Confirm Write Operation')
         ).not.toBeInTheDocument();
     });
 
@@ -163,7 +163,7 @@ describe('WriteQueryConfirmDialog Component', () => {
         );
 
         expect(
-            screen.getByText('The following query will modify data:')
+            screen.getByText('The following operation can modify data:')
         ).toBeInTheDocument();
     });
 
@@ -176,7 +176,7 @@ describe('WriteQueryConfirmDialog Component', () => {
             />
         );
 
-        expect(screen.getByText('Confirm Write Query')).toBeInTheDocument();
+        expect(screen.getByText('Confirm Write Operation')).toBeInTheDocument();
         expect(screen.getByText('Cancel')).toBeInTheDocument();
         expect(screen.getByText('Execute')).toBeInTheDocument();
     });

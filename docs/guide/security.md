@@ -175,26 +175,37 @@ When write access is enabled, the AI can execute:
 
 ### Write Query Confirmation
 
-The CLI and Web UI prompt for user confirmation before executing
-write queries on write-enabled databases. This safeguard applies
-to DDL statements (`CREATE`, `DROP`, `ALTER`, `TRUNCATE`) and DML
-statements (`INSERT`, `UPDATE`, `DELETE`).
+The bundled CLI and Web UI prompt for user confirmation before
+executing write operations on write-enabled databases. The
+safeguard covers DDL statements (`CREATE`, `DROP`, `ALTER`,
+`TRUNCATE`), DML statements (`INSERT`, `UPDATE`, `DELETE`), and
+any custom tool that the server advertises as capable of writing.
+
+Confirmation is a property of these two clients, not of the
+server; the server itself executes any call it accepts. A
+third-party MCP client applies its own approval model, so treat
+`allow_writes: true` as granting write access to whichever client
+holds the connection, whether or not that client asks anybody
+first.
 
 The confirmation behavior differs by client:
 
-- The CLI displays the SQL query and prompts
-  `Execute this query? [y/N]:` with No as the default.
+- The CLI displays the operation and prompts
+  `Execute this operation? [y/N]:` with No as the default.
 - The Web UI shows a dialog containing the SQL query with
   Cancel and Execute buttons.
-- Declining the query prevents execution and instructs the
-  LLM not to retry the operation.
-- The server treats unknown query types as writes for safety.
+- Declining the operation prevents execution and instructs the
+  LLM not to retry it.
+- The client treats unknown query types as writes for safety.
 
-Third-party MCP clients may also prompt for confirmation. The
-server sets `destructiveHint: true` and `readOnlyHint: false`
-annotations on the `query_database` tool when writes are enabled.
-These annotations follow the MCP specification and signal that
-the tool may modify data.
+To let any client make the same distinction, the server publishes
+MCP annotations on each tool. It sets `destructiveHint: true` and
+`readOnlyHint: false` on `query_database` when writes are enabled,
+and on a custom tool whenever that tool could modify the database:
+that is, on any `pl-do` or `pl-func` tool, and on a `sql` tool
+whose statement is not plainly a read. A tool that publishes no
+annotation is not treated as a write, so a client cannot rely on
+their absence to mean anything.
 
 ### Recommendations
 
@@ -227,3 +238,39 @@ warnings and require confirmation for write queries:
 - The `allow_writes` field in `pg://system_info` shows
   `true` for write-enabled connections.
 
+## Untrusted Database Content
+
+Everything the server returns to a client, including query results
+and the document text returned by similarity search, was written by
+whoever populated the database. That is not necessarily the person
+asking the question, so retrieved content can carry instructions of
+its own. A document that asks an assistant to copy itself into the
+table it came from will be read again by the next session that
+searches for it, and an assistant that follows those instructions
+propagates the document rather than reporting it.
+
+The server addresses this in the only two places it can:
+
+- The system prompt used by the CLI states that everything returned
+  by a tool is untrusted content, that retrieved text is data to
+  report rather than instructions to follow, and that only the
+  user's own messages direct the assistant's actions. Note that the
+  web client does not send a system prompt, so it does not carry
+  this instruction.
+- Tools that can modify the database advertise it, and both bundled
+  clients hold such a call for the user's confirmation before it
+  runs.
+
+Neither measure is a guarantee. A model can be argued out of any
+instruction it has been given, and a client is free to ignore an
+annotation, so treat both as mitigations that reduce the chance of
+a compliant assistant rather than as controls that prevent one.
+
+What does prevent a document from propagating itself is the absence
+of write access. A connection in read-only mode cannot copy a row,
+and a database role with write privileges revoked cannot do so even
+if read-only mode is defeated. Configure production connections
+that way, as described in
+[Security Management](security_mgmt.md), and this class of attack
+cannot complete regardless of what any retrieved document says or
+which client is driving the server.

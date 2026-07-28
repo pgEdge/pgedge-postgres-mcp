@@ -14,6 +14,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"regexp"
 	"strings"
 	"time"
 
@@ -99,14 +100,72 @@ func (e *CustomToolExecutor) CreateTool(def definitions.ToolDefinition) Tool {
 		description = fmt.Sprintf("Custom %s tool", def.Type)
 	}
 
+	// Advertise whether the tool can modify the database, matching what
+	// query_database does. Clients use this to decide whether a call needs
+	// the user's confirmation, and without it a custom tool that writes was
+	// indistinguishable from one that only reads.
+	boolTrue := true
+	boolFalse := false
+	annotations := &mcp.ToolAnnotations{ReadOnlyHint: &boolTrue}
+	if customToolMayWrite(def, e.dbClient != nil && e.dbClient.AllowWrites()) {
+		annotations = &mcp.ToolAnnotations{
+			ReadOnlyHint:    &boolFalse,
+			DestructiveHint: &boolTrue,
+		}
+	}
+
 	return Tool{
 		Definition: mcp.Tool{
 			Name:        def.Name,
 			Description: description,
 			InputSchema: inputSchema,
+			Annotations: annotations,
 		},
 		Handler: e.createHandler(def),
 	}
+}
+
+// writeKeywordPattern matches the keywords that make a statement a write.
+var writeKeywordPattern = regexp.MustCompile(
+	`(?i)\b(INSERT|UPDATE|DELETE|MERGE|CREATE|DROP|ALTER|TRUNCATE|GRANT|REVOKE|COPY)\b`)
+
+// readOnlyStatementPrefixes are the leading keywords of a statement that
+// returns data without modifying it.
+var readOnlyStatementPrefixes = []string{"SELECT", "TABLE", "VALUES", "EXPLAIN", "SHOW"}
+
+// customToolMayWrite reports whether a custom tool could modify the database.
+//
+// On a connection that does not permit writes the answer is always no: every
+// tool type runs in a read-only transaction, and a pl-func tool cannot even
+// create the function it needs.
+//
+// Where writes are permitted, procedural code can do anything, so pl-do and
+// pl-func tools are assumed to write. A sql tool is treated as read-only only
+// when its statement plainly is: WITH is excluded, since a data-modifying CTE
+// is a write dressed as a query, and any write keyword anywhere in the text
+// settles it. Anything unrecognised is assumed to write, so the effect of
+// being wrong is a confirmation prompt the user did not need rather than a
+// write they were never asked about.
+func customToolMayWrite(def definitions.ToolDefinition, allowWrites bool) bool {
+	if !allowWrites {
+		return false
+	}
+	if strings.ToLower(def.Type) != "sql" {
+		return true
+	}
+
+	upper := strings.ToUpper(strings.TrimSpace(def.SQL))
+	plainRead := false
+	for _, prefix := range readOnlyStatementPrefixes {
+		if strings.HasPrefix(upper, prefix) {
+			plainRead = true
+			break
+		}
+	}
+	if !plainRead {
+		return true
+	}
+	return writeKeywordPattern.MatchString(def.SQL)
 }
 
 // convertPropertyToMCP converts a ToolProperty to MCP-compatible format

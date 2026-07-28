@@ -909,3 +909,114 @@ func TestExecutePLFuncToolRequiresWrites(t *testing.T) {
 		t.Errorf("refusal should name the setting that governs it, got: %+v", resp.Content)
 	}
 }
+
+// TestCustomToolMayWrite covers the readOnlyHint advertised for custom tools.
+// Clients use the hint to decide whether a call needs the user's confirmation,
+// so an unrecognised statement must be assumed to write: being wrong that way
+// costs a needless prompt, whereas the opposite silently skips the gate.
+func TestCustomToolMayWrite(t *testing.T) {
+	tests := []struct {
+		name        string
+		def         definitions.ToolDefinition
+		allowWrites bool
+		want        bool
+	}{
+		{
+			name:        "read-only connection can never write",
+			def:         definitions.ToolDefinition{Type: "pl-func", Code: "..."},
+			allowWrites: false,
+			want:        false,
+		},
+		{
+			name:        "plain SELECT is a read",
+			def:         definitions.ToolDefinition{Type: "sql", SQL: "SELECT * FROM orders WHERE id = $1"},
+			allowWrites: true,
+			want:        false,
+		},
+		{
+			name:        "SHOW is a read",
+			def:         definitions.ToolDefinition{Type: "sql", SQL: "SHOW server_version"},
+			allowWrites: true,
+			want:        false,
+		},
+		{
+			name:        "leading whitespace and mixed case do not matter",
+			def:         definitions.ToolDefinition{Type: "sql", SQL: "\n  select 1"},
+			allowWrites: true,
+			want:        false,
+		},
+		{
+			name:        "INSERT is a write",
+			def:         definitions.ToolDefinition{Type: "sql", SQL: "INSERT INTO audit VALUES ($1)"},
+			allowWrites: true,
+			want:        true,
+		},
+		{
+			// A data-modifying CTE is a write dressed as a query, which is why
+			// WITH is not in the read-only prefix set.
+			name:        "data-modifying CTE is a write",
+			def:         definitions.ToolDefinition{Type: "sql", SQL: "WITH d AS (DELETE FROM t RETURNING *) SELECT * FROM d"},
+			allowWrites: true,
+			want:        true,
+		},
+		{
+			// The keyword match is word-bounded, so a table whose name merely
+			// contains a keyword does not make the statement a write.
+			name:        "SELECT from a table named after a keyword is still a read",
+			def:         definitions.ToolDefinition{Type: "sql", SQL: "SELECT * FROM my_update_log"},
+			allowWrites: true,
+			want:        false,
+		},
+		{
+			name:        "pl-do runs arbitrary code so may write",
+			def:         definitions.ToolDefinition{Type: "pl-do", Language: "plpgsql", Code: "PERFORM 1;"},
+			allowWrites: true,
+			want:        true,
+		},
+		{
+			name:        "pl-func may write",
+			def:         definitions.ToolDefinition{Type: "pl-func", Language: "plpgsql", Code: "BEGIN RETURN 1; END;"},
+			allowWrites: true,
+			want:        true,
+		},
+		{
+			name:        "unknown type is assumed to write",
+			def:         definitions.ToolDefinition{Type: "something-new"},
+			allowWrites: true,
+			want:        true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := customToolMayWrite(tt.def, tt.allowWrites); got != tt.want {
+				t.Errorf("customToolMayWrite() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+// TestCreateToolAnnotations checks that the hint reaches the tool definition,
+// since that is what clients actually read.
+func TestCreateToolAnnotations(t *testing.T) {
+	// With no database client the executor cannot permit writes, so every
+	// custom tool is advertised as read-only.
+	executor := NewCustomToolExecutor(nil, []string{"plpgsql"})
+
+	tool := executor.CreateTool(definitions.ToolDefinition{
+		Name:     "example",
+		Type:     "pl-do",
+		Language: "plpgsql",
+		Code:     "PERFORM 1;",
+	})
+
+	if tool.Definition.Annotations == nil {
+		t.Fatal("custom tools should advertise annotations")
+	}
+	if tool.Definition.Annotations.ReadOnlyHint == nil {
+		t.Fatal("readOnlyHint should be set")
+	}
+	if !*tool.Definition.Annotations.ReadOnlyHint {
+		t.Error("a tool on a connection that cannot write should be advertised read-only")
+	}
+}
