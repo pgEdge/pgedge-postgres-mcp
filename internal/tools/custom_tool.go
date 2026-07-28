@@ -126,8 +126,10 @@ func (e *CustomToolExecutor) CreateTool(def definitions.ToolDefinition) Tool {
 }
 
 // writeKeywordPattern matches the keywords that make a statement a write.
+// INTO is included for SELECT ... INTO, which creates and populates a new
+// table rather than just returning data, unlike an ordinary SELECT.
 var writeKeywordPattern = regexp.MustCompile(
-	`(?i)\b(INSERT|UPDATE|DELETE|MERGE|CREATE|DROP|ALTER|TRUNCATE|GRANT|REVOKE|COPY)\b`)
+	`(?i)\b(INSERT|UPDATE|DELETE|MERGE|CREATE|DROP|ALTER|TRUNCATE|GRANT|REVOKE|COPY|INTO)\b`)
 
 // readOnlyStatementPrefixes are the leading keywords of a statement that
 // returns data without modifying it.

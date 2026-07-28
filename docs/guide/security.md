@@ -176,10 +176,11 @@ When write access is enabled, the AI can execute:
 ### Write Query Confirmation
 
 The bundled CLI and Web UI prompt for user confirmation before
-executing write operations on write-enabled databases. The
-safeguard covers DDL statements (`CREATE`, `DROP`, `ALTER`,
-`TRUNCATE`), DML statements (`INSERT`, `UPDATE`, `DELETE`), and
-any custom tool that the server advertises as capable of writing.
+executing recognized or server-advertised write operations on
+write-enabled databases: `query_database` statements classified as
+DDL (`CREATE`, `DROP`, `ALTER`, `TRUNCATE`) or DML (`INSERT`,
+`UPDATE`, `DELETE`), and any custom tool the server advertises with
+`readOnlyHint: false`.
 
 Confirmation is a property of these two clients, not of the
 server; the server itself executes any call it accepts. A
@@ -192,8 +193,9 @@ The confirmation behavior differs by client:
 
 - The CLI displays the operation and prompts
   `Execute this operation? [y/N]:` with No as the default.
-- The Web UI shows a dialog containing the SQL query with
-  Cancel and Execute buttons.
+- The Web UI shows a dialog with Cancel and Execute buttons,
+  containing the SQL query for `query_database` or the tool
+  name and its arguments for a custom tool.
 - Declining the operation prevents execution and instructs the
   LLM not to retry it.
 - The client treats unknown query types as writes for safety.
@@ -249,17 +251,18 @@ table it came from will be read again by the next session that
 searches for it, and an assistant that follows those instructions
 propagates the document rather than reporting it.
 
-The server addresses this in the only two places it can:
+This is addressed in the only two places it can be, one in the CLI
+client and one in the server:
 
-- The system prompt used by the CLI states that everything returned
+- The system prompt the CLI sends states that everything returned
   by a tool is untrusted content, that retrieved text is data to
   report rather than instructions to follow, and that only the
-  user's own messages direct the assistant's actions. Note that the
-  web client does not send a system prompt, so it does not carry
-  this instruction.
-- Tools that can modify the database advertise it, and both bundled
-  clients hold such a call for the user's confirmation before it
-  runs.
+  user's own messages direct the assistant's actions. The web
+  client sends no system prompt at all, so it carries neither this
+  instruction nor the pre-existing read-only safety block.
+- The server publishes annotations on tools that can modify the
+  database, and both bundled clients hold such a call for the
+  user's confirmation before it runs.
 
 Neither measure is a guarantee. A model can be argued out of any
 instruction it has been given, and a client is free to ignore an

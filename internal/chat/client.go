@@ -1102,6 +1102,9 @@ func (c *Client) processQuery(ctx context.Context, query string) error {
 								"Execution was declined by the user. Do not retry this call. Ask the user how they would like to proceed.",
 								true,
 							))
+							thinkingDone = make(chan struct{})
+							go c.ui.ShowThinking(reqCtx, thinkingDone)
+							go ListenForEscape(ctx, thinkingDone, cancel)
 							continue
 						}
 

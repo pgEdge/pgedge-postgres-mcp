@@ -968,6 +968,21 @@ func TestCustomToolMayWrite(t *testing.T) {
 			want:        false,
 		},
 		{
+			// SELECT INTO creates and populates a new table, unlike an
+			// ordinary SELECT, so it must not be advertised as read-only.
+			name:        "SELECT INTO is a write",
+			def:         definitions.ToolDefinition{Type: "sql", SQL: "SELECT * INTO new_table FROM orders"},
+			allowWrites: true,
+			want:        true,
+		},
+		{
+			// The INTO keyword match is also word-bounded.
+			name:        "SELECT from a table named after into is still a read",
+			def:         definitions.ToolDefinition{Type: "sql", SQL: "SELECT * FROM into_the_archive"},
+			allowWrites: true,
+			want:        false,
+		},
+		{
 			name:        "pl-do runs arbitrary code so may write",
 			def:         definitions.ToolDefinition{Type: "pl-do", Language: "plpgsql", Code: "PERFORM 1;"},
 			allowWrites: true,
