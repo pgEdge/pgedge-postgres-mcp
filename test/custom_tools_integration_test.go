@@ -285,13 +285,18 @@ func TestCustomToolsRespectReadOnly(t *testing.T) {
 	// concurrent test runs race on the same name.
 	quotedFixtureTable := quoteIdentifier(newFixtureTableName())
 
+	// Integration testing being unavailable is already handled above by the
+	// connString == "" skip. Past that point a connection is expected to
+	// work, so a failure here means the fixture, not the assertion this test
+	// exists to make, and must fail loudly rather than skip: a silent skip
+	// would let read-only enforcement go untested while CI stays green.
 	_, err = pool.Exec(ctx, fmt.Sprintf(`
 		DROP TABLE IF EXISTS %[1]s;
 		CREATE TABLE %[1]s (id SERIAL PRIMARY KEY, note TEXT);
 		INSERT INTO %[1]s (note) VALUES ('created out of band');
 	`, quotedFixtureTable))
 	if err != nil {
-		t.Skipf("configured role cannot create the fixture table, so this test proves nothing: %v", err)
+		t.Fatalf("failed to create fixture table: %v", err)
 	}
 	defer func() {
 		//nolint:errcheck // best-effort cleanup

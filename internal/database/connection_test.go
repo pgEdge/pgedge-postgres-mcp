@@ -677,3 +677,96 @@ func TestVectorColumnInfo(t *testing.T) {
 		}
 	}
 }
+
+// TestAfterReleaseRestoresReadOnlyDefault verifies the AfterRelease hook in
+// isolation from every other read-only layer: it poisons a connection's
+// session default directly, through the raw pgx connection rather than
+// through any tool, so neither the statement guard (readonly_guard.go, which
+// now rejects RESET ALL and SET SESSION CHARACTERISTICS before either reaches
+// the database) nor a tool's own per-transaction pgx.ReadOnly access mode
+// (set on every BeginTx regardless of the session default) can mask a broken
+// reassertion. A test that poisons the session by calling a tool, as
+// test/integration_test.go's smuggling subtests do, cannot tell this hook
+// apart from those other two layers: both already prevent the poisoning
+// statement from ever running, so the probe passes whether or not this hook
+// still works. It is gated on TEST_PGEDGE_POSTGRES_CONNECTION_STRING,
+// matching the convention used elsewhere in this file.
+func TestAfterReleaseRestoresReadOnlyDefault(t *testing.T) {
+	connStr := os.Getenv("TEST_PGEDGE_POSTGRES_CONNECTION_STRING")
+	if connStr == "" {
+		t.Skip("TEST_PGEDGE_POSTGRES_CONNECTION_STRING not set")
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	// Pinned to one connection, so the acquire after release is guaranteed
+	// to return the exact connection this test poisoned, not a different
+	// idle one.
+	dbConfig := &config.NamedDatabaseConfig{PoolMaxConns: 1}
+	client := NewClientWithConnectionString(connStr, dbConfig)
+	defer client.Close()
+
+	if err := client.ConnectTo(connStr); err != nil {
+		t.Fatalf("ConnectTo failed: %v", err)
+	}
+
+	pool := client.GetPoolFor(connStr)
+	if pool == nil {
+		t.Fatal("GetPoolFor returned nil after a successful ConnectTo")
+	}
+
+	acquired, err := pool.Acquire(ctx)
+	if err != nil {
+		t.Fatalf("failed to acquire connection: %v", err)
+	}
+
+	// AfterConnect should have already set this to "on"; confirm the
+	// baseline before poisoning it, so a failure below is legible as a
+	// regression rather than the setting having never been "on" at all.
+	var before string
+	if err := acquired.QueryRow(ctx,
+		"SELECT current_setting('default_transaction_read_only')").Scan(&before); err != nil {
+		t.Fatalf("failed to read baseline setting: %v", err)
+	}
+	if before != "on" {
+		t.Fatalf("default_transaction_read_only = %q immediately after connect, want \"on\"; "+
+			"AfterConnect did not apply", before)
+	}
+
+	// Poison the session directly on the raw connection. This is the same
+	// statement RESET ALL issues; going around every tool and the guard is
+	// the point, since both already block RESET ALL from a caller.
+	if _, err := acquired.Exec(ctx, "RESET ALL"); err != nil {
+		t.Fatalf("failed to poison session: %v", err)
+	}
+
+	var poisoned string
+	if err := acquired.QueryRow(ctx,
+		"SELECT current_setting('default_transaction_read_only')").Scan(&poisoned); err != nil {
+		t.Fatalf("failed to read poisoned setting: %v", err)
+	}
+	if poisoned != "off" {
+		t.Fatalf("default_transaction_read_only = %q after RESET ALL, want \"off\"; "+
+			"the poisoning step itself did not work, so this test cannot prove anything", poisoned)
+	}
+
+	// Releasing back to the pool is what should trigger AfterRelease.
+	acquired.Release()
+
+	reacquired, err := pool.Acquire(ctx)
+	if err != nil {
+		t.Fatalf("failed to reacquire connection: %v", err)
+	}
+	defer reacquired.Release()
+
+	var after string
+	if err := reacquired.QueryRow(ctx,
+		"SELECT current_setting('default_transaction_read_only')").Scan(&after); err != nil {
+		t.Fatalf("failed to read setting after reacquire: %v", err)
+	}
+	if after != "on" {
+		t.Errorf("default_transaction_read_only = %q after release and reacquire, want \"on\"; "+
+			"AfterRelease did not restore the session default", after)
+	}
+}
