@@ -87,9 +87,11 @@ clean-client:
 test: test-server test-client
 
 # Run server tests
+# Lists every server-side package that has tests. The client-side packages are
+# covered by test-client, so they are deliberately absent rather than missing.
 test-server:
 	@echo "Running server tests..."
-	$(GO) test -v ./internal/mcp/... ./internal/auth/... ./internal/config/... ./internal/crypto/... ./internal/database/... ./internal/openapi/... ./internal/resources/... ./internal/tools/... ./internal/tracing/... ./$(SERVER_CMD_DIR)/...
+	$(GO) test -v ./internal/api/... ./internal/auth/... ./internal/compactor/... ./internal/config/... ./internal/conversations/... ./internal/crypto/... ./internal/database/... ./internal/definitions/... ./internal/httperror/... ./internal/llmtracing/... ./internal/logging/... ./internal/mcp/... ./internal/openapi/... ./internal/prompts/... ./internal/redact/... ./internal/resources/... ./internal/search/... ./internal/tools/... ./internal/tracing/... ./internal/tsv/... ./$(SERVER_CMD_DIR)/...
 
 # Run client tests
 test-client:

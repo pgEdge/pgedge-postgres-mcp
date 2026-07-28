@@ -39,6 +39,7 @@ import (
 	"pgedge-postgres-mcp/internal/mcp"
 	"pgedge-postgres-mcp/internal/openapi"
 	"pgedge-postgres-mcp/internal/prompts"
+	"pgedge-postgres-mcp/internal/redact"
 	"pgedge-postgres-mcp/internal/resources"
 	"pgedge-postgres-mcp/internal/tools"
 	"pgedge-postgres-mcp/internal/tracing"
@@ -410,6 +411,22 @@ func main() {
 		fmt.Fprintf(os.Stderr, "ERROR: %v\n", err)
 		os.Exit(1)
 	}
+
+	// Register the configured provider credentials for redaction before
+	// anything can fail and quote one back. An LLM provider that rejects a key
+	// commonly names it in the error body it returns, and that body is relayed
+	// into HTTP responses and trace entries; registering the values here lets
+	// them be matched exactly, in addition to the key formats recognised by
+	// pattern.
+	redact.Register(
+		cfg.LLM.AnthropicAPIKey,
+		cfg.LLM.OpenAIAPIKey,
+		cfg.LLM.GeminiAPIKey,
+		cfg.Embedding.VoyageAPIKey,
+		cfg.Embedding.OpenAIAPIKey,
+		cfg.Knowledgebase.EmbeddingVoyageAPIKey,
+		cfg.Knowledgebase.EmbeddingOpenAIAPIKey,
+	)
 
 	// Set default token file path if not specified and HTTP is enabled
 	if cfg.HTTP.Enabled && cfg.HTTP.Auth.TokenFile == "" {
@@ -940,8 +957,14 @@ func main() {
 					OnResponse:      llmtracing.OnResponse,
 					OnError:         llmtracing.OnError,
 				})
+				// Filter the proxy's responses on their way out. The proxy
+				// builds its error bodies from the provider's own message, and
+				// providers quote the key they rejected when authentication
+				// fails, so there is no call site here at which the text could
+				// be cleaned before it is written.
 				mux.Handle("/api/llm/",
-					authWrapper(http.StripPrefix("/api/llm", p.Handler()).ServeHTTP))
+					authWrapper(redact.Handler(
+						http.StripPrefix("/api/llm", p.Handler())).ServeHTTP))
 			}
 
 			// Database listing and selection endpoints

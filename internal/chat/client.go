@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"pgedge-postgres-mcp/internal/mcp"
+	"pgedge-postgres-mcp/internal/redact"
 
 	"github.com/chzyer/readline"
 	llmlib "github.com/pgEdge/pgedge-go-llm-lib/llm"
@@ -521,7 +522,7 @@ func (c *Client) initializeLLM() error {
 	availableModels, err := tempClient.ListModels(ctx)
 	if err != nil {
 		if c.config.UI.Debug {
-			fmt.Fprintf(os.Stderr, "Warning: Failed to list models from %s: %v\n", provider, err)
+			fmt.Fprintf(os.Stderr, "Warning: Failed to list models from %s: %s\n", provider, redact.Error(err))
 		}
 		availableModels = nil
 	}
@@ -1033,7 +1034,9 @@ func (c *Client) processQuery(ctx context.Context, query string) error {
 				c.ui.PrintCanceled()
 				return nil // Return without error to continue the chat loop
 			}
-			return fmt.Errorf("LLM error: %w", err)
+			// The provider quotes the key it rejected in an authentication
+			// failure, and this message may be redirected to a log file.
+			return fmt.Errorf("LLM error: %w", redact.ErrorValue(err))
 		}
 
 		if c.config.UI.Debug {

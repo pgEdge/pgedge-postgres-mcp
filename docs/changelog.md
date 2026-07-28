@@ -75,6 +75,32 @@ and this project adheres to
   sends none, so it receives neither that rule nor the pre-existing
   read-only safety instructions.
 
+- Provider API keys are no longer disclosed in error output. When an LLM or
+  embedding provider rejects a credential it commonly quotes that credential
+  back in its error body: OpenAI's authentication failure names the key it
+  was given, partially masked but with its opening characters intact. The
+  shared pgEdge LLM library relays a provider's message verbatim into the
+  error it returns, and that error reached the `/api/llm/` response body,
+  the trace file, and the CLI's own output. All three are now redacted, with
+  both the configured credentials and anything matching a known key format
+  replaced by `[REDACTED]`; the rest of the message survives, so the
+  provider, status code and reason are still reported.
+
+  The durable fix belongs in the provider client library, so that a
+  credential never reaches an error value at all. What is added here is a
+  filter over text that should not have contained a credential in the first
+  place: it recognises the formats this project handles and the values it was
+  configured with, so it is a safety net rather than a guarantee. See
+  [Security](guide/security.md) for the limits.
+
+### Fixed
+
+- `make test` now runs every package that has tests. Ten packages were absent
+  from the server target and so were never exercised by the suite or by
+  continuous integration: `api`, `compactor`, `conversations`, `definitions`,
+  `httperror`, `llmtracing`, `logging`, `prompts`, `search` and `tsv`. All of
+  them pass; they were simply never run.
+
 ### Added
 
 - A `make vulncheck` target runs `govulncheck` over the module, using

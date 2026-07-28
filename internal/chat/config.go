@@ -17,6 +17,8 @@ import (
 	"strings"
 
 	"gopkg.in/yaml.v3"
+
+	"pgedge-postgres-mcp/internal/redact"
 )
 
 // Config holds all configuration for the chat client
@@ -142,6 +144,13 @@ func LoadConfig(configPath string) (*Config, error) {
 
 	// Load authentication token with priority
 	cfg.MCP.Token = loadAuthToken()
+
+	// Register the credentials for redaction, so that a provider quoting a key
+	// back in an error cannot reach the terminal or a redirected log.
+	redact.Register(
+		cfg.LLM.AnthropicAPIKey,
+		cfg.LLM.OpenAIAPIKey,
+	)
 
 	return cfg, nil
 }

@@ -21,6 +21,8 @@ import (
 	"time"
 
 	llmlib "github.com/pgEdge/pgedge-go-llm-lib/llm"
+
+	"pgedge-postgres-mcp/internal/redact"
 )
 
 // SlashCommand represents a parsed slash command
@@ -448,7 +450,7 @@ func (c *Client) handleSetLLMModel(model string) bool {
 	if err != nil {
 		// If we can't validate, warn but allow the change
 		c.ui.PrintSystemMessage(fmt.Sprintf(
-			"Warning: Could not validate model (error: %v)", err))
+			"Warning: Could not validate model (error: %s)", redact.Error(err)))
 	} else if !isModelAvailable(model, availableModels) {
 		c.ui.PrintError(fmt.Sprintf(
 			"Model '%s' not available from %s", model, c.config.LLM.Provider))
@@ -625,7 +627,7 @@ func (c *Client) handleListCommand(ctx context.Context, args []string) bool {
 func (c *Client) listModels(ctx context.Context) bool {
 	models, err := c.llm.ListModels(ctx)
 	if err != nil {
-		c.ui.PrintError(fmt.Sprintf("Failed to list models: %v", err))
+		c.ui.PrintError(fmt.Sprintf("Failed to list models: %s", redact.Error(err)))
 		return true
 	}
 

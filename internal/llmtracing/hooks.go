@@ -21,6 +21,7 @@ import (
 	"github.com/pgEdge/pgedge-go-llm-lib/llm/proxy"
 
 	"pgedge-postgres-mcp/internal/auth"
+	"pgedge-postgres-mcp/internal/redact"
 	"pgedge-postgres-mcp/internal/tracing"
 )
 
@@ -105,5 +106,11 @@ func OnError(r *http.Request, info proxy.ErrorInfo) {
 	if info.Stream {
 		contextLabel = "llm_chat_stream"
 	}
-	tracing.LogError(sessionID, tokenHash, info.RequestID, contextLabel, info.Err)
+
+	// The error carries the provider's own message, which on an authentication
+	// failure quotes the key it rejected, so it is redacted before it reaches
+	// the trace file. Traces persist and get attached to support tickets, which
+	// makes this the more durable of the two places the fragment escaped.
+	tracing.LogError(sessionID, tokenHash, info.RequestID, contextLabel,
+		redact.ErrorValue(info.Err))
 }
