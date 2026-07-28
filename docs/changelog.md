@@ -233,6 +233,16 @@ and this project adheres to
   `pl-func` type, and it left the session-level layer disabled for the
   rest of that connection's life.
 
+- The custom tools framework now has end-to-end test coverage. It is
+  invisible until an operator sets `custom_definitions_path`, so none of its
+  three tool types had ever been exercised through the MCP protocol, which is
+  how a tool type came to depend on a single guardrail without anyone
+  noticing. `TestCustomToolsRespectReadOnly` enables the framework the way an
+  operator would and checks each type against a read-only connection: `sql`
+  and `pl-do` tools read successfully and are refused when they write, and a
+  `pl-func` tool is refused up front. Each case also verifies out of band that
+  the database was not modified and that no temporary function survived.
+
 - Custom `pl-do` tools no longer interpolate arguments between fixed
   dollar-quote delimiters. The wrapper used `$mcp_custom_tool$` and
   `$mcp_args$`, and JSON encoding does not escape a dollar sign, so an

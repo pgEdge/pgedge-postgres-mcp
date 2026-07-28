@@ -1,0 +1,395 @@
+/*-------------------------------------------------------------------------
+ *
+ * pgEdge Natural Language Agent
+ *
+ * Copyright (c) 2025 - 2026, pgEdge, Inc.
+ * This software is released under The PostgreSQL License
+ *
+ *-------------------------------------------------------------------------
+ */
+
+package test
+
+import (
+	"bufio"
+	"context"
+	"encoding/json"
+	"fmt"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/jackc/pgx/v5/pgxpool"
+)
+
+// The custom tools framework lets an operator define extra tools backed by raw
+// SQL, a DO block, or a temporary PostgreSQL function. It is invisible until
+// somebody points custom_definitions_path at a definitions file, which is why
+// it had no end-to-end coverage at all: every test here would have passed
+// vacuously by never enabling the feature.
+//
+// These tests turn it on the way an operator would, against a read-only
+// database connection, and check that each of the three tool types respects
+// that. The out-of-band assertions matter as much as the tool responses: a
+// tool reporting failure whilst having written anyway is the case worth
+// catching.
+
+// customToolsDefinitions is the definitions file an operator would supply.
+// The tools are deliberately mundane, because the question is not whether the
+// SQL is clever but whether the framework honours read-only mode.
+const customToolsDefinitions = `
+tools:
+    # A plain read. This must work, or the rest of the test proves nothing.
+    - name: custom_read_tool
+      description: Counts rows in the fixture table
+      type: sql
+      input_schema:
+          type: object
+          properties: {}
+          required: []
+      sql: |
+          SELECT count(*) AS row_count FROM custom_tool_fixture
+
+    # A write, defined by the operator rather than smuggled in by a caller.
+    # The connection is read-only, so this must be refused.
+    - name: custom_write_tool
+      description: Inserts a row into the fixture table
+      type: sql
+      input_schema:
+          type: object
+          properties: {}
+          required: []
+      sql: |
+          INSERT INTO custom_tool_fixture (note) VALUES ('written by custom tool')
+
+    # A DO block that only reads.
+    - name: custom_pl_do_read_tool
+      description: Returns a value from a DO block
+      type: pl-do
+      language: plpgsql
+      input_schema:
+          type: object
+          properties: {}
+          required: []
+      code: |
+          PERFORM set_config('mcp.tool_result', 'pl-do executed', true);
+
+    # A DO block that attempts a write. Procedural code is still subject to the
+    # transaction's access mode, so this must be refused.
+    - name: custom_pl_do_write_tool
+      description: Attempts a write from a DO block
+      type: pl-do
+      language: plpgsql
+      input_schema:
+          type: object
+          properties: {}
+          required: []
+      code: |
+          INSERT INTO custom_tool_fixture (note) VALUES ('written by pl-do');
+
+    # The function-based type. Creating its temporary function is a catalogue
+    # write, so on a read-only connection it cannot work at all.
+    - name: custom_pl_func_tool
+      description: Returns a value from a temporary function
+      type: pl-func
+      language: plpgsql
+      returns: jsonb
+      input_schema:
+          type: object
+          properties: {}
+          required: []
+      code: |
+          BEGIN
+              RETURN '{"result": "pl-func executed"}'::jsonb;
+          END;
+`
+
+// writeCustomToolsConfig writes the definitions file and a server
+// configuration that enables it, and returns the config path.
+func writeCustomToolsConfig(t *testing.T, connString string) string {
+	t.Helper()
+
+	dir := t.TempDir()
+
+	defsPath := filepath.Join(dir, "definitions.yaml")
+	if err := os.WriteFile(defsPath, []byte(customToolsDefinitions), 0o600); err != nil {
+		t.Fatalf("failed to write definitions: %v", err)
+	}
+
+	cfg, err := pgxpool.ParseConfig(connString)
+	if err != nil {
+		t.Fatalf("failed to parse connection string: %v", err)
+	}
+	conn := cfg.ConnConfig
+
+	port := int(conn.Port)
+	if port == 0 {
+		port = 5432
+	}
+
+	// allow_writes is false, which is the default and the point of the test.
+	// allowed_pl_languages must name plpgsql, or the PL tool types refuse to
+	// run for an unrelated reason and the test would pass vacuously.
+	configYAML := fmt.Sprintf(`
+custom_definitions_path: %q
+
+databases:
+    - name: "test"
+      host: %q
+      port: %d
+      database: %q
+      user: %q
+      password: %q
+      sslmode: "disable"
+      allow_writes: false
+      allowed_pl_languages: ["plpgsql"]
+`, defsPath, conn.Host, port, conn.Database, conn.User, conn.Password)
+
+	configPath := filepath.Join(dir, "config.yaml")
+	if err := os.WriteFile(configPath, []byte(configYAML), 0o600); err != nil {
+		t.Fatalf("failed to write config: %v", err)
+	}
+
+	return configPath
+}
+
+// startMCPServerWithConfig starts the server in stdio mode against a specific
+// configuration file, which is how custom tools get enabled.
+func startMCPServerWithConfig(t *testing.T, configPath string) *MCPServer {
+	t.Helper()
+
+	binaryPath := filepath.Join("..", "bin", "pgedge-postgres-mcp")
+	if _, err := os.Stat(binaryPath); os.IsNotExist(err) {
+		t.Fatalf("server binary not found at %s; run make build first", binaryPath)
+	}
+
+	cmd := exec.Command(binaryPath, "-http=false", "-config", configPath)
+	cmd.Env = os.Environ()
+
+	stdin, err := cmd.StdinPipe()
+	if err != nil {
+		t.Fatalf("failed to get stdin pipe: %v", err)
+	}
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		t.Fatalf("failed to get stdout pipe: %v", err)
+	}
+	stderr, err := cmd.StderrPipe()
+	if err != nil {
+		t.Fatalf("failed to get stderr pipe: %v", err)
+	}
+
+	go func() {
+		scanner := bufio.NewScanner(stderr)
+		for scanner.Scan() {
+			t.Logf("[SERVER STDERR] %s", scanner.Text())
+		}
+	}()
+
+	if err := cmd.Start(); err != nil {
+		t.Fatalf("failed to start server: %v", err)
+	}
+
+	server := &MCPServer{
+		cmd:    cmd,
+		stdin:  stdin,
+		stdout: stdout,
+		stderr: stderr,
+		reader: bufio.NewReader(stdout),
+		t:      t,
+	}
+
+	time.Sleep(500 * time.Millisecond)
+	return server
+}
+
+// callToolText invokes a tool and returns its text content along with whether
+// the server reported it as an error.
+func callToolText(t *testing.T, server *MCPServer, name string) (string, bool) {
+	t.Helper()
+
+	resp, err := server.SendRequest("tools/call", map[string]interface{}{
+		"name":      name,
+		"arguments": map[string]interface{}{},
+	})
+	if err != nil {
+		t.Fatalf("failed to call %s: %v", name, err)
+	}
+	if resp.Error != nil {
+		// A JSON-RPC level error still counts as the call failing.
+		return resp.Error.Message, true
+	}
+
+	var result struct {
+		Content []struct {
+			Text string `json:"text"`
+		} `json:"content"`
+		IsError bool `json:"isError"`
+	}
+	if err := json.Unmarshal(resp.Result, &result); err != nil {
+		t.Fatalf("failed to unmarshal result for %s: %v", name, err)
+	}
+
+	var text strings.Builder
+	for _, item := range result.Content {
+		text.WriteString(item.Text)
+	}
+	return text.String(), result.IsError
+}
+
+func TestCustomToolsRespectReadOnly(t *testing.T) {
+	connString := os.Getenv("TEST_PGEDGE_POSTGRES_CONNECTION_STRING")
+	if connString == "" {
+		t.Skip("TEST_PGEDGE_POSTGRES_CONNECTION_STRING not set")
+	}
+
+	ctx := context.Background()
+	pool, err := pgxpool.New(ctx, connString)
+	if err != nil {
+		t.Fatalf("failed to connect to database: %v", err)
+	}
+	defer pool.Close()
+
+	// Fixture table, created out of band so the tools have something to aim at.
+	_, err = pool.Exec(ctx, `
+		DROP TABLE IF EXISTS custom_tool_fixture;
+		CREATE TABLE custom_tool_fixture (id SERIAL PRIMARY KEY, note TEXT);
+		INSERT INTO custom_tool_fixture (note) VALUES ('created out of band');
+	`)
+	if err != nil {
+		t.Skipf("configured role cannot create the fixture table, so this test proves nothing: %v", err)
+	}
+	defer func() {
+		_, _ = pool.Exec(ctx, "DROP TABLE IF EXISTS custom_tool_fixture") //nolint:errcheck // best-effort cleanup
+	}()
+
+	server := startMCPServerWithConfig(t, writeCustomToolsConfig(t, connString))
+	defer func() { _ = server.Close() }()
+
+	rowCount := func() int {
+		var n int
+		if err := pool.QueryRow(ctx, "SELECT count(*) FROM custom_tool_fixture").Scan(&n); err != nil {
+			t.Fatalf("failed to count fixture rows: %v", err)
+		}
+		return n
+	}
+
+	// The framework must actually be enabled, or everything below passes for
+	// the wrong reason.
+	t.Run("custom tools are registered", func(t *testing.T) {
+		resp, err := server.SendRequest("tools/list", nil)
+		if err != nil {
+			t.Fatalf("failed to list tools: %v", err)
+		}
+		var result struct {
+			Tools []struct {
+				Name        string `json:"name"`
+				Annotations *struct {
+					ReadOnlyHint *bool `json:"readOnlyHint"`
+				} `json:"annotations"`
+			} `json:"tools"`
+		}
+		if err := json.Unmarshal(resp.Result, &result); err != nil {
+			t.Fatalf("failed to unmarshal tools/list: %v", err)
+		}
+
+		found := map[string]bool{}
+		for _, tool := range result.Tools {
+			found[tool.Name] = true
+		}
+		for _, want := range []string{
+			"custom_read_tool", "custom_write_tool", "custom_pl_do_read_tool",
+			"custom_pl_do_write_tool", "custom_pl_func_tool",
+		} {
+			if !found[want] {
+				t.Errorf("custom tool %q was not registered; the framework is not enabled", want)
+			}
+		}
+	})
+
+	t.Run("sql tool that reads succeeds", func(t *testing.T) {
+		text, isErr := callToolText(t, server, "custom_read_tool")
+		if isErr {
+			t.Fatalf("a read-only custom tool should succeed, got: %s", text)
+		}
+		if !strings.Contains(text, "1") {
+			t.Errorf("expected the row count in the result, got: %s", text)
+		}
+	})
+
+	t.Run("sql tool that writes is refused", func(t *testing.T) {
+		before := rowCount()
+
+		text, isErr := callToolText(t, server, "custom_write_tool")
+		if !isErr {
+			t.Errorf("a writing custom tool must be refused on a read-only connection, got: %s", text)
+		}
+		if !strings.Contains(strings.ToLower(text), "read-only") {
+			t.Errorf("the refusal should explain that the transaction is read-only, got: %s", text)
+		}
+
+		if after := rowCount(); after != before {
+			t.Errorf("row count changed from %d to %d: the write took effect", before, after)
+		}
+	})
+
+	t.Run("pl-do tool that reads succeeds", func(t *testing.T) {
+		text, isErr := callToolText(t, server, "custom_pl_do_read_tool")
+		if isErr {
+			t.Fatalf("a read-only pl-do tool should succeed, got: %s", text)
+		}
+		if !strings.Contains(text, "pl-do executed") {
+			t.Errorf("expected the tool's own result, got: %s", text)
+		}
+	})
+
+	t.Run("pl-do tool that writes is refused", func(t *testing.T) {
+		before := rowCount()
+
+		text, isErr := callToolText(t, server, "custom_pl_do_write_tool")
+		if !isErr {
+			t.Errorf("a writing pl-do tool must be refused, got: %s", text)
+		}
+
+		if after := rowCount(); after != before {
+			t.Errorf("row count changed from %d to %d: the write took effect", before, after)
+		}
+	})
+
+	// The function-based type creates and drops a real function, which is a
+	// catalogue write. On a read-only connection it must be refused, and the
+	// refusal should name the setting that governs it rather than surfacing an
+	// opaque permissions error partway through: an operator who reads
+	// "permission denied" is liable to reach for allow_writes.
+	t.Run("pl-func tool is refused and creates nothing", func(t *testing.T) {
+		text, isErr := callToolText(t, server, "custom_pl_func_tool")
+		if !isErr {
+			t.Errorf("a pl-func tool must be refused on a read-only connection, got: %s", text)
+		}
+		if !strings.Contains(text, "allow_writes") {
+			t.Errorf("the refusal should name the setting that governs it, got: %s", text)
+		}
+
+		// The landmine check: whatever the tool reported, no function may
+		// survive, and none may have been created and dropped either.
+		var leftover int
+		err := pool.QueryRow(ctx,
+			"SELECT count(*) FROM pg_proc WHERE proname LIKE '_mcp_custom_tool_%'").Scan(&leftover)
+		if err != nil {
+			t.Fatalf("failed to check pg_proc: %v", err)
+		}
+		if leftover != 0 {
+			t.Errorf("%d temporary function(s) survived in pg_proc", leftover)
+		}
+	})
+
+	// Nothing above should have modified the fixture at all.
+	t.Run("no custom tool modified the database", func(t *testing.T) {
+		if n := rowCount(); n != 1 {
+			t.Errorf("fixture table has %d rows, want the 1 created out of band", n)
+		}
+	})
+}
