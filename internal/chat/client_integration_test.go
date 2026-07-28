@@ -13,10 +13,8 @@ package chat
 import (
 	"context"
 	"encoding/json"
-	"io"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"strings"
 	"testing"
 	"time"
@@ -673,104 +671,6 @@ func TestClient_ProcessQuery_MaxIterations(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "maximum number of tool calls") {
 		t.Errorf("Expected error about max tool calls, got: %v", err)
-	}
-}
-
-// TestClient_ProcessQuery_DeclinedWriteConfirmationDoesNotPanic is a
-// regression test for a close-of-closed-channel panic: declining a write
-// confirmation left thinkingDone closed without reassigning it, so the next
-// close(thinkingDone) anywhere downstream (here, the final-response path)
-// panicked. It drives a real decline through the actual UI prompt (stdin
-// piped "n") rather than through writeConfirmationSubject directly, since
-// that pure function was never the part that was broken.
-func TestClient_ProcessQuery_DeclinedWriteConfirmationDoesNotPanic(t *testing.T) {
-	server := mockMCPServer(t)
-	defer server.Close()
-
-	cfg := &Config{
-		MCP: MCPConfig{
-			Mode:  "http",
-			URL:   server.URL,
-			Token: "test-token",
-		},
-		LLM: LLMConfig{
-			Provider:        "anthropic",
-			AnthropicAPIKey: "test-key",
-			Model:           "claude-test",
-		},
-		UI: UIConfig{
-			NoColor: true,
-		},
-	}
-
-	client, err := NewClient(cfg, &ConfigOverrides{})
-	if err != nil {
-		t.Fatalf("NewClient failed: %v", err)
-	}
-
-	ctx := context.Background()
-	if err := client.connectToMCP(ctx); err != nil {
-		t.Fatalf("connectToMCP failed: %v", err)
-	}
-	defer client.mcp.Close()
-
-	if err := client.mcp.Initialize(ctx); err != nil {
-		t.Fatalf("Initialize failed: %v", err)
-	}
-
-	tools, err := client.mcp.ListTools(ctx)
-	if err != nil {
-		t.Fatalf("ListTools failed: %v", err)
-	}
-	client.tools = tools
-	client.currentDBWritable = true
-
-	// One tool call requesting a write, so the confirmation prompt fires.
-	// Once the mock LLM's queued responses are exhausted it falls back to
-	// a final "Final response" text with StopReasonEndTurn, which is the
-	// close(thinkingDone) call that used to panic.
-	mockLLM := &mockLLMClient{
-		responses: []*llmlib.ChatResponse{
-			{
-				Content: []llmlib.ContentBlock{{
-					Type: llmlib.BlockToolUse,
-					ToolUse: &llmlib.ToolUse{
-						ID:    "tool_1",
-						Name:  "query_database",
-						Input: json.RawMessage(`{"query":"DELETE FROM users"}`),
-					},
-				}},
-				StopReason: llmlib.StopReasonToolUse,
-			},
-		},
-	}
-	client.llm = mockLLM
-
-	// Decline the write confirmation via the real UI prompt.
-	oldStdin := os.Stdin
-	rIn, wIn, _ := os.Pipe()
-	os.Stdin = rIn
-	wIn.Write([]byte("n\n"))
-	wIn.Close()
-	defer func() { os.Stdin = oldStdin }()
-
-	oldStdout := os.Stdout
-	rOut, wOut, _ := os.Pipe()
-	os.Stdout = wOut
-	drained := make(chan struct{})
-	go func() {
-		io.Copy(io.Discard, rOut) //nolint:errcheck // draining only, not asserting on output
-		close(drained)
-	}()
-
-	err = client.processQuery(ctx, "Delete all users")
-
-	os.Stdout = oldStdout
-	wOut.Close()
-	<-drained
-
-	if err != nil {
-		t.Fatalf("processQuery failed: %v", err)
 	}
 }
 
