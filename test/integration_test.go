@@ -58,8 +58,11 @@ type MCPServer struct {
 	t      *testing.T
 }
 
-// StartMCPServer starts the MCP server binary for testing
-func StartMCPServer(t *testing.T, connString, apiKey string) (*MCPServer, error) {
+// StartMCPServer starts the MCP server binary for testing. Any extraArgs are
+// appended to the command line after the default "-http=false", so callers
+// can pass flags such as "-config <path>" to exercise non-default settings
+// (for example, pinning the connection pool size).
+func StartMCPServer(t *testing.T, connString, apiKey string, extraArgs ...string) (*MCPServer, error) {
 	// Find the binary
 	binaryPath := filepath.Join("..", "bin", "pgedge-postgres-mcp")
 
@@ -74,7 +77,8 @@ func StartMCPServer(t *testing.T, connString, apiKey string) (*MCPServer, error)
 	}
 
 	// Force stdio mode even if there's a config file with HTTP enabled
-	cmd := exec.Command(binaryPath, "-http=false")
+	args := append([]string{"-http=false"}, extraArgs...)
+	cmd := exec.Command(binaryPath, args...)
 
 	// Set up environment with database connection from connString
 	env := append(os.Environ(),
@@ -150,6 +154,39 @@ func StartMCPServer(t *testing.T, connString, apiKey string) (*MCPServer, error)
 	time.Sleep(500 * time.Millisecond)
 
 	return server, nil
+}
+
+// writeSingleConnPoolConfig writes a minimal server config file that pins the
+// default database's connection pool to exactly one connection, and returns
+// its path. Host, port, database, user, and password are deliberately left
+// at the same sentinel values applyEnvironmentVariables() checks for
+// (internal/config/config.go), so the PGHOST/PGPORT/PGDATABASE/PGUSER/
+// PGPASSWORD variables set by StartMCPServer from connString still take
+// effect; only pool_max_conns is actually forced by this file.
+//
+// This is used by tests that need to guarantee two successive requests are
+// served by the same pooled connection, such as verifying that session-level
+// tampering (e.g. RESET ALL) does not leak into a later request.
+func writeSingleConnPoolConfig(t *testing.T) string {
+	t.Helper()
+
+	const configYAML = `
+databases:
+  - name: default
+    host: localhost
+    port: 5432
+    database: postgres
+    sslmode: prefer
+    pool_max_conns: 1
+    pool_min_conns: 0
+    pool_max_conn_idle_time: 30m
+`
+
+	configPath := filepath.Join(t.TempDir(), "single-conn-pool.yaml")
+	if err := os.WriteFile(configPath, []byte(configYAML), 0o600); err != nil {
+		t.Fatalf("Failed to write test config file: %v", err)
+	}
+	return configPath
 }
 
 // SendRequest sends a JSON-RPC request and returns the response
@@ -876,7 +913,15 @@ func TestReadOnlyStatementSmuggling(t *testing.T) {
 		t.Skip("TEST_PGEDGE_POSTGRES_CONNECTION_STRING not set")
 	}
 
-	server, err := StartMCPServer(t, connString, "dummy-key-for-testing")
+	// Pin the server's connection pool to a single connection. Two of the
+	// subtests below (session characteristics / RESET ALL) send a
+	// session-tampering request followed by a probe request and assert the
+	// probe was unaffected; that assertion only proves anything if both
+	// requests are guaranteed to be served by the very same pooled
+	// connection whose session state was tampered with.
+	configPath := writeSingleConnPoolConfig(t)
+
+	server, err := StartMCPServer(t, connString, "dummy-key-for-testing", "-config", configPath)
 	if err != nil {
 		t.Fatalf("Failed to start server: %v", err)
 	}

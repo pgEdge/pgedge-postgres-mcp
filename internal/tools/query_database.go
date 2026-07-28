@@ -269,7 +269,7 @@ To avoid rate limits (30,000 input tokens/minute):
 			// Truncation is only detectable for the statements that had a
 			// limit+1 appended below, so it is keyed on the classification
 			// rather than on what the server turned out to return.
-			truncationDetectable := returnsRows
+			truncationDetectable := isSelectQuery
 
 			// Only inject LIMIT/OFFSET for SELECT queries that don't already have them
 			// Fetch limit+1 to detect if more rows exist

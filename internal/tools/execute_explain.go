@@ -163,6 +163,9 @@ READ ONLY transaction to prevent side effects. However, be cautious with:
 			// Get database connection
 			connStr := dbClient.GetDefaultConnection()
 			pool := dbClient.GetPoolFor(connStr)
+			if pool == nil {
+				return mcp.NewToolError(fmt.Sprintf("Connection pool not found for: %s", dbClient.DisplayName()))
+			}
 
 			ctx := context.Background()
 
