@@ -13,6 +13,7 @@ package tools
 import (
 	"context"
 	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/jackc/pgx/v5"
@@ -48,6 +49,8 @@ Use count_rows to efficiently determine data volume:
 - Much more efficient than SELECT * with LIMIT for checking data volume
 - Use this before query_database to plan appropriate LIMIT values
 - WHERE clause is optional - omit for total count
+- WHERE clause must be a simple filter predicate against the named table;
+  subqueries are rejected. Use query_database for anything that needs one
 - Returns a single integer count - minimal token usage
 </important>`,
 			InputSchema: mcp.InputSchema{
@@ -64,7 +67,7 @@ Use count_rows to efficiently determine data volume:
 					},
 					"where": map[string]any{
 						"type":        "string",
-						"description": "Optional WHERE clause condition (without the WHERE keyword). Example: \"status = 'active' AND created_at > '2024-01-01'\"",
+						"description": "Optional WHERE clause condition (without the WHERE keyword). Must be a simple filter predicate; subqueries are rejected. Example: \"status = 'active' AND created_at > '2024-01-01'\"",
 					},
 				},
 				Required: []string{"table"},
@@ -87,10 +90,32 @@ Use count_rows to efficiently determine data volume:
 			// other caller-supplied SQL. This tool always counts inside a
 			// read-only transaction, so the guard applies whether or not the
 			// connection permits writes elsewhere.
+			//
+			// validateReadOnlyQuery only recognises constructs that escape
+			// read-only mode; an arbitrary boolean subquery is ordinary
+			// legal SQL and is invisible to it. count_rows's where is
+			// documented and intended as a simple predicate against the
+			// named table, so validateCountRowsWhereClause additionally
+			// rejects a subquery, which closes the cross-table blind
+			// injection vector reported in issue #200: without it, a where
+			// clause let a caller run a boolean- or error-based oracle
+			// against any table the connected role can read, not just the
+			// one named in the call. query_database and execute_explain are
+			// unaffected; their entire purpose is running arbitrary SQL,
+			// subqueries included.
 			whereClause := ""
 			if w, ok := args["where"].(string); ok && w != "" {
 				if err := validateReadOnlyQuery(w); err != nil {
 					logging.Warn("read_only_query_rejected",
+						"database", dbClient.DisplayName(),
+						"tool", "count_rows",
+						"reason", err.Error(),
+						"statement", w,
+					)
+					return mcp.NewToolError(err.Error())
+				}
+				if err := validateCountRowsWhereClause(w); err != nil {
+					logging.Warn("count_rows_where_clause_rejected",
 						"database", dbClient.DisplayName(),
 						"tool", "count_rows",
 						"reason", err.Error(),
@@ -182,4 +207,52 @@ func quoteIdentifier(name string) string {
 	// Double any existing double quotes and wrap in double quotes
 	escaped := strings.ReplaceAll(name, `"`, `""`)
 	return `"` + escaped + `"`
+}
+
+// subqueryPattern matches a bare SELECT or TABLE keyword — the two
+// constructs PostgreSQL's grammar allows to start a row-returning
+// "simple_select" that can appear as a parenthesised subquery. TABLE
+// tablename is shorthand for SELECT * FROM tablename and reads exactly the
+// same data; a where clause of "(TABLE other_table) = value" leaks another
+// table's contents through the same boolean oracle as "(SELECT ... FROM
+// other_table) = value" without the word SELECT ever appearing. VALUES is
+// the grammar's third alternative but is deliberately not blocked here: it
+// cannot itself reference a table (VALUES (...) admits no FROM clause, so
+// it can only construct a literal row, not read one), and unlike SELECT and
+// TABLE it is not a fully reserved keyword in PostgreSQL — it can
+// legitimately be an unquoted column name — so banning it would risk
+// rejecting a genuine predicate for no security benefit.
+//
+// Checked against the comment-stripped, literal-blanked residue produced
+// by stripSQLNoise, so a literal string such as 'select this row' cannot
+// trigger a false rejection, and a comment cannot be used to split either
+// keyword to slip past.
+var subqueryPattern = regexp.MustCompile(`(?i)\b(SELECT|TABLE)\b`)
+
+// validateCountRowsWhereClause rejects a where clause containing a
+// subquery.
+//
+// count_rows's where parameter is documented as a simple filter predicate
+// against the named table (see the tool's own examples: "status = 'active'
+// AND created_at > '2024-01-01'"); no legitimate use of it needs a
+// subquery. Without this check, a subquery in where lets a caller run a
+// boolean- or error-based blind-injection oracle against any table the
+// connected role can read, not only the table named in the call — see
+// issue #200. As with the DO-block and set_config() rejections in
+// readonly_guard.go, no fixed pattern can separate a "safe" subquery from a
+// dangerous one, so every subquery is refused outright rather than trying
+// to recognise which ones are dangerous. query_database and
+// execute_explain do not call this: their entire purpose is running
+// arbitrary SQL, subqueries included, and validateReadOnlyQuery is the
+// only guard applicable there.
+func validateCountRowsWhereClause(where string) error {
+	residue, _ := stripSQLNoise(where)
+	if subqueryPattern.MatchString(residue) {
+		return fmt.Errorf(
+			"where clause rejected: subqueries are not permitted; " +
+				"count_rows only accepts a simple filter predicate " +
+				"against the named table (use query_database for " +
+				"anything that needs a subquery)")
+	}
+	return nil
 }

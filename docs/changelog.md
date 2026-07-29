@@ -30,6 +30,37 @@ and this project adheres to
   in the documentation now set `X-Forwarded-For` to `$remote_addr` rather
   than `$proxy_add_x_forwarded_for`.
 
+- `count_rows`'s `where` parameter now rejects a subquery. The parameter is
+  interpolated directly into the generated `SELECT COUNT(*)` statement, and
+  a subquery there let a caller run a boolean- or error-based blind
+  injection oracle against any table the connected role could read, not
+  only the table named in the call: a crafted `where` clause used the
+  returned count as a true/false signal to enumerate arbitrary data a
+  character at a time. `validateReadOnlyQuery` had no way to recognise
+  this, since a boolean subquery is ordinary legal SQL and not one of the
+  read-only escapes it screens for. The fix, `validateCountRowsWhereClause`
+  in `internal/tools/count_rows.go`, rejects a bare `SELECT` or `TABLE` in
+  the clause's comment-stripped, literal-blanked residue; every documented
+  use of `where` is a simple predicate that never needs either. `TABLE`
+  matters because `TABLE tablename` is PostgreSQL shorthand for `SELECT *
+  FROM tablename` and reads exactly the same data without the word
+  `SELECT` ever appearing — an initial version of this fix that checked
+  only for `SELECT` missed it. `VALUES`, the grammar's third row-returning
+  form, is deliberately left unblocked: it admits no `FROM` clause, so it
+  can only construct a literal row and never read a table, and unlike
+  `SELECT`/`TABLE` it is not fully reserved, so it can legitimately be an
+  unquoted column name. `query_database` and `execute_explain` are
+  unaffected, since running arbitrary SQL, subqueries included, is their
+  entire purpose. Reported and fully reproduced, including full end-to-end
+  secret extraction, before this fix (issue #200); a stacked-query attempt
+  against the same parameter was already correctly rejected. Calling an
+  arbitrary function in `where` (for example `to_regclass('other_table')
+  IS NOT NULL`, which reveals only whether a name exists in the catalogue,
+  not any row's contents) and a same-table filter bypass (`where="status =
+  'x' OR 1=1"`) both remain possible and are out of scope for this fix:
+  neither lets a caller read another table's contents, which is what
+  issue #200 reported.
+
 - Upgraded `github.com/jackc/pgx/v5` from 5.7.6 to 5.10.0, resolving three
   advisories against the PostgreSQL driver. Two are memory-safety issues
   (GO-2026-4771/CVE-2026-33815 and GO-2026-4772/CVE-2026-33816, fixed in
