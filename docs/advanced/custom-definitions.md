@@ -570,8 +570,8 @@ function, and drops the function automatically. Arguments
 arrive as a single `args` JSONB parameter. The `returns`
 field specifies the SQL return type.
 
-A `pl-func` tool has two separate requirements, and both must be
-met before it will run:
+A `pl-func` tool has three separate requirements, and all three
+must be met before it will run:
 
 - The database role the server connects as needs `CREATE`
   permission on the schema, because the tool creates and drops a
@@ -585,12 +585,20 @@ met before it will run:
   language; see [Configuring Allowed
   Languages](#configuring-allowed-languages) below.
 
-Granting the privilege without allowing the language, or allowing
-the language without granting the privilege, leaves the tool
-unusable. A tool whose language is not allowed does not appear in
-`tools/list` at all, rather than appearing and then failing, so
-check the configuration first if a `pl-func` tool you have defined
-is missing.
+- The database connection itself needs `allow_writes: true`,
+  because creating and dropping the function is a catalogue write
+  regardless of what the tool's own SQL does. A `pl-func` tool
+  defined against a connection without `allow_writes` is refused
+  when called, naming that setting as the fix; use a `pl-do` tool
+  instead where the connection must stay read-only.
+
+Missing any one of the three leaves the tool unusable, and not
+always in the same way. A tool whose language is not allowed does
+not appear in `tools/list` at all, rather than appearing and then
+failing, so check the configuration first if a `pl-func` tool you
+have defined is missing. A tool that fails the `allow_writes`
+check behaves differently: it does appear in `tools/list`, and
+only fails, with the reason above, once something calls it.
 
 In the following example, the `pl-func` tool creates a
 temporary function that returns a table of row counts.

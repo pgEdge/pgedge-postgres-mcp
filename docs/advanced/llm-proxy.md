@@ -314,7 +314,7 @@ In the following example, the configuration file specifies the LLM provider, mod
 # Configuration file: pgedge-pg-mcp-web.yaml
 llm:
     enabled: true
-    provider: "anthropic"  # anthropic, openai, or ollama
+    provider: "anthropic"  # anthropic, openai, gemini, or ollama
     model: "claude-sonnet-4-5"
 
     # API key configuration (priority: env vars > key files > direct values)
@@ -322,9 +322,11 @@ llm:
     # Option 2: API key files (recommended for production)
     anthropic_api_key_file: "~/.anthropic-api-key"
     openai_api_key_file: "~/.openai-api-key"
+    gemini_api_key_file: "~/.gemini-api-key"
     # Option 3: Direct values (not recommended - use env vars or files)
     # anthropic_api_key: "your-key-here"
     # openai_api_key: "your-key-here"
+    # gemini_api_key: "your-key-here"
 
     # Optional: Custom base URLs for API proxies
     # Leave empty to use default provider URLs
@@ -339,28 +341,36 @@ llm:
     temperature: 0.7
 ```
 
+The proxy is disabled unless `enabled` (or `PGEDGE_LLM_ENABLED`) is
+set to `true`; at least one provider's API key, or a reachable
+`ollama_url`, must also be configured, or the server refuses to
+start with the proxy enabled.
+
 **API Key Priority:**
 
 API keys are loaded in the following order (highest to lowest):
 
-1. Environment variables (`PGEDGE_ANTHROPIC_API_KEY`, `PGEDGE_OPENAI_API_KEY`).
-2. API key files (`anthropic_api_key_file`, `openai_api_key_file`).
+1. Environment variables (`PGEDGE_ANTHROPIC_API_KEY`,
+   `PGEDGE_OPENAI_API_KEY`, `PGEDGE_GEMINI_API_KEY`).
+2. API key files (`anthropic_api_key_file`, `openai_api_key_file`,
+   `gemini_api_key_file`).
 3. Direct configuration values (not recommended).
 
 **Environment variables:**
 
-- `PGEDGE_LLM_ENABLED`: Enable/disable the LLM proxy (default: true).
+- `PGEDGE_LLM_ENABLED`: Enable/disable the LLM proxy (default: false).
 - `PGEDGE_LLM_PROVIDER`: The default provider.
 - `PGEDGE_LLM_MODEL`: The default model.
 - `PGEDGE_ANTHROPIC_API_KEY` or `ANTHROPIC_API_KEY`: The Anthropic API key.
 - `PGEDGE_ANTHROPIC_BASE_URL`: Custom Anthropic API base URL (for proxies).
 - `PGEDGE_OPENAI_API_KEY` or `OPENAI_API_KEY`: The OpenAI API key.
 - `PGEDGE_OPENAI_BASE_URL`: Custom OpenAI API base URL (for proxies).
+- `PGEDGE_GEMINI_API_KEY` or `GEMINI_API_KEY`: The Google Gemini API key.
 - `PGEDGE_OLLAMA_URL`: The Ollama server URL (used for both embeddings and LLM).
 - `PGEDGE_LLM_MAX_TOKENS`: The maximum tokens per response.
 - `PGEDGE_LLM_TEMPERATURE`: The LLM temperature (0.0-1.0).
 
-**Implementation:** [internal/config/config.go:459-489](https://github.com/pgEdge/pgedge-postgres-mcp/blob/main/internal/config/config.go#L459-L489)
+**Implementation:** [internal/config/config.go:497-513](https://github.com/pgEdge/pgedge-postgres-mcp/blob/main/internal/config/config.go#L497-L513)
 
 ## Building Web Clients with JSON-RPC
 
