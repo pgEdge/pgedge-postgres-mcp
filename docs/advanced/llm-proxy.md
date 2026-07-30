@@ -290,7 +290,7 @@ Content-Type: application/json
 ```
 
 **Response:**
-```
+```text
 data: {"type":"text","text":"The database contains"}
 
 data: {"type":"text","text":" three tables."}

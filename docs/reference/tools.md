@@ -78,7 +78,7 @@ table:
 
 The tool returns:
 
-```
+```text
 Database: production
 
 SQL Query:
@@ -100,7 +100,7 @@ condition, in a named schema:
 
 The tool returns:
 
-```
+```text
 Database: production
 
 SQL Query:
