@@ -179,6 +179,7 @@ func (s *HTTPMCPServer) getHTTPClient() *http.Client {
 			Transport: &http.Transport{
 				TLSClientConfig: &tls.Config{
 					InsecureSkipVerify: true,
+					MinVersion:         tls.VersionTLS12,
 				},
 			},
 			Timeout: 5 * time.Second,

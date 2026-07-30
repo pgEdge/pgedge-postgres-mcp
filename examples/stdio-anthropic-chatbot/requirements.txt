@@ -5,7 +5,7 @@
 anthropic>=0.40.0
 
 # Model Context Protocol SDK
-mcp>=1.23.0
+mcp>=1.28.1
 
 # Optional: python-dotenv for .env file support
-python-dotenv>=1.0.0
+python-dotenv>=1.2.2
