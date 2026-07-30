@@ -70,8 +70,8 @@ server documents or advertises in its OpenAPI specification; use the
 ### GET /api/llm/v1/health
 
 Reports whether each configured provider is reachable. The server
-builds a client for every configured provider and pings it with a five
-second deadline, so a hanging provider cannot stall the check.
+builds a client for every configured provider and pings it with a
+five-second deadline, so a hanging provider cannot stall the check.
 
 The response `status` is `ok` when every provider answers, and
 `degraded` when at least one does not; a degraded response also carries

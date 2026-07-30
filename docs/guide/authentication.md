@@ -637,9 +637,9 @@ curl http://localhost:8080/api/openapi.json
 None of the three exposes database contents or accepts a query, so the
 data they return is limited to the server's own status, whether
 authentication is switched on, and the shape of the API. Treat the
-specification as public information when deciding what to expose a
-server to; if that is not acceptable for your deployment, restrict
-these paths at the reverse proxy rather than in the server.
+specification as public information when deciding what network to
+expose a server to; if that is not acceptable for your deployment,
+restrict these paths at the reverse proxy rather than in the server.
 
 
 ## To Disable Authentication (Development Only)
