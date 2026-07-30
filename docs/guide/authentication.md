@@ -98,6 +98,34 @@ With this configuration:
 - IP addresses are limited to 10 failed attempts per 15-minute window.
 - The server logs show when rate limiting is enabled.
 
+!!! warning "Lockout is permanent and keyed on the username alone"
+
+    Understand two properties of account lockout before enabling it,
+    because together they make it a denial-of-service tool as well as a
+    safety feature.
+
+    A lockout never expires on its own. The server clears the account's
+    `enabled` flag and leaves it clear; there is no timeout after which
+    the account recovers. An administrator must run `-enable-user`, as
+    described below, so a lockout during an out-of-hours incident lasts
+    until someone with shell access attends to it.
+
+    The counter is keyed on the username and takes no account of who is
+    making the attempts. Anyone who can reach the server and who knows
+    or guesses a valid username can therefore lock that account
+    deliberately, by failing authentication against it the configured
+    number of times; the attempts need not come from one address, and
+    the real owner's own address is never consulted. This is why the
+    setting defaults to `0`, which disables lockout entirely and leaves
+    brute-force protection to the per-address rate limiting described
+    above.
+
+    Weigh those properties against your threat model. Lockout is worth
+    enabling where the accounts are few, the administrators are reachable,
+    and the usernames are not widely known; it is a poor fit for a server
+    exposed to untrusted callers, where it hands them a way to disable a
+    known account at will.
+
 You can also configure lockout with the following environment variables:
 
 ```bash
@@ -586,14 +614,32 @@ The following responses may occur as a result of authentication errors:
 **Note:** For security reasons, specific error details are not exposed.
 
 
-## Health Endpoint
+## Endpoints That Skip Authentication
 
-The `/health` endpoint is **always accessible** without authentication:
+Three endpoints are **always accessible** without a token, even when
+authentication is enabled:
+
+| Endpoint | Why it skips authentication |
+|----------|------------------------------|
+| `/health` | Load balancers and orchestrators need to probe liveness before they hold any credential. |
+| `/api/user/info` | The web client calls this to discover whether authentication is enabled at all, which it must do before it can know to ask for a token. |
+| `/api/openapi.json` | The API specification is published for discoverability, so that a client can be written against it before credentials are issued. |
+
+In the following example, each endpoint responds without a token.
 
 ```bash
 # No token required
 curl http://localhost:8080/health
+curl http://localhost:8080/api/user/info
+curl http://localhost:8080/api/openapi.json
 ```
+
+None of the three exposes database contents or accepts a query, so the
+data they return is limited to the server's own status, whether
+authentication is switched on, and the shape of the API. Treat the
+specification as public information when deciding what to expose a
+server to; if that is not acceptable for your deployment, restrict
+these paths at the reverse proxy rather than in the server.
 
 
 ## To Disable Authentication (Development Only)

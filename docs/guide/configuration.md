@@ -110,15 +110,25 @@ details on configuring multiple databases and access control.
 | `databases[].sslrootcert` | `-db-sslrootcert` | `PGEDGE_DB_SSLROOTCERT`, `PGSSLROOTCERT` | Path to the CA certificate file used to verify the server. Takes effect only under `sslmode` `require`, `verify-ca`, or `verify-full`; ignored under other modes, matching libpq. |
 | `databases[].allow_writes` | N/A | `PGEDGE_DB_ALLOW_WRITES`, `PGEDGE_DB_N_ALLOW_WRITES` | Allow write queries such as INSERT, UPDATE, and DELETE (default: false). See [Database Write Access](security.md#database-write-access). |
 | `databases[].allow_llm_switching` | N/A | N/A | Allow LLM to discover and switch to the database (default: true). See [Excluding Databases from LLM Switching](multiple_db_config.md#excluding-databases-from-llm-switching). |
-| `databases[].allowed_pl_languages` | N/A | N/A | PL languages allowed for custom tools, such as `["plpgsql"]`; use `["*"]` for all (default: none). See [Custom Definitions](../advanced/custom-definitions.md). |
+| `databases[].allowed_pl_languages` | N/A | N/A | PL languages allowed for custom tools, such as `["plpgsql"]`; use `["*"]` for all (default: `["plpgsql"]`). See [Custom Definitions](../advanced/custom-definitions.md). |
 | `databases[].available_to_users` | N/A | N/A | Usernames allowed to access the database; empty list means all users (default: `[]`) |
 | `databases[].pool_max_conns` | N/A | N/A | Maximum connections in the pool (default: 4) |
 | `databases[].pool_min_conns` | N/A | N/A | Minimum connections in the pool (default: 0) |
 | `databases[].pool_max_conn_idle_time` | N/A | N/A | Maximum idle time before a connection is closed (default: "30m") |
-| `databases[].pool_health_check_period` | N/A | N/A | Interval for background pool health checks (default: disabled) |
-| `databases[].pool_max_conn_lifetime` | N/A | N/A | Maximum lifetime of a connection before the pool closes the connection (default: "1h") |
+| `databases[].pool_health_check_period` | N/A | N/A | Interval for background pool health checks (default: "1m", or "30s" when multiple hosts are configured) |
+| `databases[].pool_max_conn_lifetime` | N/A | N/A | Maximum lifetime of a connection before the pool closes the connection (default: "1h", or "5m" when multiple hosts are configured) |
 | `databases[].connect_timeout` | N/A | N/A | Timeout for the initial database connection as a Go duration string such as "10s" or "30s" (default: "10s") |
 | `databases[].metadata_ttl` | N/A | N/A | How long cached schema metadata remains valid before automatic refresh as a Go duration string such as "5m" or "30s"; use "0" to refresh on every request (default: "5m") |
+
+The two pool settings above take shorter defaults when a database
+configures more than one host, because a connection to a host that has
+failed is only discovered when something checks it. Recycling
+connections every five minutes and checking idle ones every thirty
+seconds keeps a failed host's connections from lingering in the pool,
+at the cost of reconnecting more often than a single-host deployment
+needs to. The two settings are independent: giving one an explicit value
+overrides only that setting, and the other still takes its multi-host
+default.
 
 CLI flags and single-database environment variables (`PGEDGE_DB_*`,
 `PG*`) apply to the first database in the list. Use numbered

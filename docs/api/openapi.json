@@ -471,97 +471,175 @@
         "type": "object"
       },
       "LLMChatRequest": {
-        "description": "Request to send a chat completion to an LLM provider.",
         "properties": {
-          "debug": {
-            "default": false,
-            "description": "Whether to include debug information in the response.",
-            "type": "boolean"
+          "max_tokens": {
+            "type": "integer"
           },
           "messages": {
-            "description": "The conversation messages to send.",
             "items": {
-              "$ref": "#/components/schemas/ChatMessage"
+              "$ref": "#/components/schemas/LLMMessage"
             },
             "type": "array"
           },
           "model": {
-            "description": "The model to use for completion.",
+            "description": "Override default model",
             "type": "string"
           },
           "provider": {
-            "description": "The LLM provider to use.",
+            "description": "Override default provider",
             "type": "string"
           },
-          "tools": {
-            "description": "Optional tool definitions for function calling.",
+          "stop_sequences": {
             "items": {
-              "description": "A tool definition.",
-              "properties": {
-                "description": {
-                  "description": "A description of what the tool does.",
-                  "type": "string"
-                },
-                "inputSchema": {
-                  "description": "JSON Schema describing the tool's input parameters.",
-                  "type": "object"
-                },
-                "name": {
-                  "description": "The tool name.",
-                  "type": "string"
-                }
-              },
-              "required": [
-                "name",
-                "description",
-                "inputSchema"
-              ],
-              "type": "object"
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "system_prompt": {
+            "type": "string"
+          },
+          "temperature": {
+            "type": "number"
+          },
+          "tools": {
+            "items": {
+              "$ref": "#/components/schemas/LLMTool"
             },
             "type": "array"
           }
         },
         "required": [
-          "messages",
-          "provider",
-          "model"
+          "messages"
         ],
         "type": "object"
       },
       "LLMChatResponse": {
-        "description": "Response from an LLM chat completion request.",
         "properties": {
           "content": {
-            "description": "The response content blocks.",
             "items": {
-              "description": "A content block from the LLM response.",
-              "type": "object"
+              "$ref": "#/components/schemas/LLMContentBlock"
             },
             "type": "array"
           },
           "stop_reason": {
-            "description": "The reason the model stopped generating.",
+            "enum": [
+              "end_turn",
+              "max_tokens",
+              "stop_sequence",
+              "tool_use",
+              "content_filter",
+              "error"
+            ],
             "type": "string"
           },
-          "token_usage": {
-            "description": "Token usage statistics for the request.",
-            "properties": {
-              "input_tokens": {
-                "description": "Number of input tokens consumed.",
-                "type": "integer"
-              },
-              "output_tokens": {
-                "description": "Number of output tokens generated.",
-                "type": "integer"
-              }
-            },
-            "type": "object"
+          "usage": {
+            "$ref": "#/components/schemas/LLMTokenUsage"
           }
         },
         "required": [
           "content",
-          "stop_reason",
-          "token_usage"
+          "stop_reason"
+        ],
+        "type": "object"
+      },
+      "LLMContentBlock": {
+        "properties": {
+          "is_error": {
+            "description": "Populated when type=tool_result",
+            "type": "boolean"
+          },
+          "text": {
+            "type": "string"
+          },
+          "tool_use": {
+            "description": "Populated when type=tool_use",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "input": {
+                "type": "object"
+              },
+              "name": {
+                "type": "string"
+              }
+            },
+            "type": "object"
+          },
+          "tool_use_id": {
+            "description": "Populated when type=tool_result",
+            "type": "string"
+          },
+          "type": {
+            "enum": [
+              "text",
+              "image",
+              "document",
+              "tool_use",
+              "tool_result"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "type"
+        ],
+        "type": "object"
+      },
+      "LLMMessage": {
+        "properties": {
+          "content": {
+            "items": {
+              "$ref": "#/components/schemas/LLMContentBlock"
+            },
+            "type": "array"
+          },
+          "role": {
+            "enum": [
+              "user",
+              "assistant",
+              "system",
+              "tool"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "role",
+          "content"
+        ],
+        "type": "object"
+      },
+      "LLMTokenUsage": {
+        "properties": {
+          "completion_tokens": {
+            "type": "integer"
+          },
+          "prompt_tokens": {
+            "type": "integer"
+          },
+          "total_tokens": {
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "LLMTool": {
+        "properties": {
+          "description": {
+            "type": "string"
+          },
+          "input_schema": {
+            "type": "object"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "description",
+          "input_schema"
         ],
         "type": "object"
       },
@@ -608,9 +686,9 @@
         "description": "Response listing models for an LLM provider.",
         "properties": {
           "models": {
-            "description": "The available models.",
+            "description": "The available model identifiers.",
             "items": {
-              "$ref": "#/components/schemas/ModelInfo"
+              "type": "string"
             },
             "type": "array"
           }
@@ -623,13 +701,13 @@
       "ProviderInfo": {
         "description": "Information about an LLM provider.",
         "properties": {
-          "display": {
-            "description": "A human-readable display name for the provider.",
-            "type": "string"
-          },
-          "isDefault": {
+          "default": {
             "description": "Whether this provider is the default.",
             "type": "boolean"
+          },
+          "model": {
+            "description": "The default model for this provider.",
+            "type": "string"
           },
           "name": {
             "description": "The provider identifier.",
@@ -638,16 +716,16 @@
         },
         "required": [
           "name",
-          "display",
-          "isDefault"
+          "model",
+          "default"
         ],
         "type": "object"
       },
       "ProvidersResponse": {
         "description": "Response listing available LLM providers.",
         "properties": {
-          "defaultModel": {
-            "description": "The name of the default model.",
+          "default_provider": {
+            "description": "The name of the default provider.",
             "type": "string"
           },
           "providers": {
@@ -660,7 +738,7 @@
         },
         "required": [
           "providers",
-          "defaultModel"
+          "default_provider"
         ],
         "type": "object"
       },
@@ -1384,7 +1462,7 @@
         ]
       }
     },
-    "/api/llm/chat": {
+    "/api/llm/v1/chat": {
       "post": {
         "description": "Proxies a chat completion request to the specified LLM provider and model. Supports tool definitions for function calling.",
         "operationId": "llmChat",
@@ -1442,7 +1520,102 @@
         ]
       }
     },
-    "/api/llm/models": {
+    "/api/llm/v1/chat/stream": {
+      "post": {
+        "description": "Returns Server-Sent Events conforming to pgedge-go-llm-lib's SSE wire format. See https://github.com/pgEdge/pgedge-go-llm-lib for the full chunk/event schema.",
+        "operationId": "llmChatStream",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LLMChatRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "text/event-stream": {}
+            },
+            "description": "SSE stream of chat chunks. Each data line is a JSON-encoded llm.StreamChunk; a terminator 'event: done' or 'event: error' precedes connection close."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing or invalid authentication token."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Insufficient permissions."
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "summary": "Streaming chat (SSE) via the LLM proxy",
+        "tags": [
+          "LLM Proxy"
+        ]
+      }
+    },
+    "/api/llm/v1/health": {
+      "get": {
+        "operationId": "llmHealth",
+        "responses": {
+          "200": {
+            "description": "All providers healthy"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing or invalid authentication token."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Insufficient permissions."
+          },
+          "503": {
+            "description": "One or more providers unhealthy"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "summary": "Check provider connectivity",
+        "tags": [
+          "LLM Proxy"
+        ]
+      }
+    },
+    "/api/llm/v1/models": {
       "get": {
         "description": "Returns the models available for the specified LLM provider.",
         "operationId": "listLLMModels",
@@ -1500,9 +1673,9 @@
         ]
       }
     },
-    "/api/llm/providers": {
+    "/api/llm/v1/providers": {
       "get": {
-        "description": "Returns the available LLM providers and the default model.",
+        "description": "Returns the configured LLM providers (with each provider's default model) and the overall default provider name.",
         "operationId": "listLLMProviders",
         "responses": {
           "200": {

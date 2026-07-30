@@ -107,11 +107,19 @@ defense-in-depth:
   read-only mode. These include read-write transaction modes,
   `SET SESSION CHARACTERISTICS`, `RESET ALL`, `DISCARD`,
   transaction control, `SET ROLE`, `SET SESSION AUTHORIZATION`,
-  changes to the `transaction_read_only` or
-  `default_transaction_read_only` settings, and operations whose
-  effects fall outside the transaction altogether, such as `DO`
-  blocks, `COPY ... TO PROGRAM`, server-side file functions, and
-  `dblink`.
+  `ALTER ROLE`, `ALTER USER`, `ALTER DATABASE`, changes to the
+  `transaction_read_only` or `default_transaction_read_only`
+  settings, and operations whose effects fall outside the
+  transaction altogether, such as `DO` blocks,
+  `COPY ... TO PROGRAM`, server-side file functions, and `dblink`.
+  The guard also refuses more than one statement in a single
+  request, since a batch lets a rejected construct travel behind an
+  innocuous leading statement.
+
+  The `ALTER` forms matter because they persist a setting rather
+  than change the current session: `ALTER ROLE ... SET
+  default_transaction_read_only = off` would apply to the next
+  connection the pool opens, outliving the request that issued it.
 
 When the database connection is in read-only mode, the system
 prompt sent to the LLM includes explicit instructions that forbid

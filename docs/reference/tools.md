@@ -29,6 +29,87 @@ The tools in the following sections are available through the MCP
 server component.
 
 
+## count_rows
+
+The `count_rows` tool returns the number of rows in a table, with an
+optional filter. It exists so that an agent can size a table before
+querying it, rather than fetching rows to find out how many there are;
+the response is a single number, which costs the LLM very few tokens.
+
+**Use Cases**
+
+* **Sizing a query**: Check how large a table is before choosing a
+  `LIMIT` for `query_database`.
+* **Verifying a filter**: Confirm that a condition matches the expected
+  number of rows before acting on it.
+* **Checking for data**: Establish that rows exist without transferring
+  any of them.
+
+**Parameters**
+
+| Name | Required | Description |
+|------|----------|-------------|
+| `table` | Required | The name of the table to count rows in. |
+| `schema` | Optional | The schema holding the table; defaults to `public`. |
+| `where` | Optional | A filter condition, written without the `WHERE` keyword. |
+
+The schema and table names are quoted before use, so a name that needs
+quoting, or one chosen to look like SQL, is treated as an identifier
+rather than as code.
+
+The filter condition is different, because a condition has to reach the
+database as SQL to be of any use. The server therefore screens it with
+the same guard it applies to any caller-supplied SQL, rejecting the
+constructs described in the [Security
+Guide](../guide/security.md#read-only-protection). The count always runs in a
+read-only transaction, so that screening applies even on a connection
+that permits writes elsewhere.
+
+**Examples**
+
+In the following example, the `count_rows` tool counts every row in a
+table:
+
+```json
+{
+  "table": "orders"
+}
+```
+
+The tool returns:
+
+```
+Database: production
+
+SQL Query:
+SELECT COUNT(*) FROM "public"."orders"
+
+Count: 15234
+```
+
+In the following example, the tool counts only the rows matching a
+condition, in a named schema:
+
+```json
+{
+  "table": "orders",
+  "schema": "sales",
+  "where": "status = 'pending'"
+}
+```
+
+The tool returns:
+
+```
+Database: production
+
+SQL Query:
+SELECT COUNT(*) FROM "sales"."orders" WHERE status = 'pending'
+
+Count: 412
+```
+
+
 ## execute_explain
 
 The `execute_explain` tool executes `EXPLAIN ANALYZE` on a SQL query to
@@ -224,6 +305,24 @@ must be enabled in the server configuration.
     This tool requires `llm_connection_selection: true` in the
     `builtins.tools` configuration section.
 
+!!! warning "Connection details are returned verbatim"
+
+    This tool and `select_database_connection` both report the `host`
+    and `port` recorded in the server configuration, along with the
+    full `hosts` array where multi-host failover is configured. These
+    are returned exactly as an operator wrote them, so a private
+    address that no client could reach, such as a Kubernetes pod IP or
+    an internal VPC hostname, is disclosed to whoever can call the
+    tool, and to the LLM behind it.
+
+    This is a known exposure rather than an accident: a client that is
+    permitted to choose between connections needs enough detail to tell
+    them apart. Both tools are nevertheless disabled by default, and
+    where the addresses are sensitive you can leave them that way, or
+    exclude individual databases with `allow_llm_switching: false`.
+    Other tools deliberately avoid the raw address and report the
+    configured name instead.
+
 **Configuration**
 
 To enable this tool, add the following to your server configuration:
@@ -315,6 +414,12 @@ selected database.
     After switching databases, the available schemas, tables, and
     permissions may change. Consider re-examining the schema using
     `get_schema_info` after switching.
+
+!!! warning "Connection details are returned verbatim"
+
+    As the example below shows, the response reports the configured
+    `host`. See the note under `list_database_connections` for what that
+    discloses.
 
 **Configuration**
 
@@ -501,10 +606,24 @@ The `query_database` tool executes a SQL query against the PostgreSQL database.
     translate natural language into SQL queries that are then executed
     by this server.
 
-Note that for security, all queries are executed in read-only
-transactions using `SET TRANSACTION READ ONLY`, preventing `INSERT`,
-`UPDATE`, `DELETE`, and other data modifications. Write operations will
-fail with `cannot execute ... in a read-only transaction`.
+Unless the connection sets `allow_writes`, queries run read-only, so
+`INSERT`, `UPDATE`, `DELETE` and other modifications fail with
+`cannot execute ... in a read-only transaction`.
+
+Read-only mode is enforced in four layers rather than by one statement.
+The server requests read-only access as part of the `BEGIN` that starts
+each transaction, so there is no moment at which the transaction is
+writable and no separate statement that could fail on its own; it also
+applies `default_transaction_read_only` at the session level when a
+connection is established and again when the connection returns to the
+pool, sends every query through the extended query protocol so that a
+request cannot smuggle a second statement past the parser, and screens
+each statement for constructs known to escape read-only mode, such as
+requesting a read-write transaction or changing the settings that
+control it. Earlier releases relied on issuing `SET TRANSACTION READ
+ONLY` after the transaction had begun, which the current approach
+replaces. See [Read-Only Mode](../guide/security.md#read-only-protection) for
+the layers in full, and for what they do and do not guarantee.
 
 When `allow_writes` is enabled for a database connection and the
 query is a write operation, the CLI and Web UI prompt for user

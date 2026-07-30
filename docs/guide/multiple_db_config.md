@@ -9,7 +9,23 @@ projects.
 ## Configuring Multiple Databases
 
 Each database must have a unique name that users reference when switching
-connections:
+connections. The name doubles as the label the server shows wherever it
+names a database in tool output or an error message, and it is used in
+preference to the real address deliberately, so that an internal-only
+host is not disclosed to a caller who could not reach it anyway.
+
+!!! note "Always configure a name"
+
+    When a connection has no configured name, the label falls back to
+    the connection string with the password masked, which still contains
+    the host, port, database and user. Naming every database therefore
+    keeps the address out of tool output as well as making the output
+    easier to read. A connection built without a name is unusual in a
+    normal deployment, arising mainly from a single database supplied
+    entirely through command-line flags or environment variables.
+
+In the following example, the configuration file defines three named
+databases:
 
 ```yaml
 databases:
