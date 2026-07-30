@@ -11,6 +11,14 @@ and this project adheres to
 
 ### Security
 
+- Raised the `go.mod` floor from 1.26.1 to 1.26.5. Building this server
+  with the actual go1.26.3 toolchain and running `govulncheck` in binary
+  mode showed crypto/tls, net/textproto, and crypto/x509 stdlib
+  vulnerabilities genuinely reachable from this server's TLS and
+  HTTP-header handling; rebuilding with 1.26.5 drops that to zero. CI and
+  the Dockerfiles already float on `1.26`/`golang:1.26-alpine`, so this
+  sets an explicit floor rather than changing what a fresh build produces.
+
 - Login rate limiting no longer counts against an address the caller can
   choose. The server previously read the leftmost entry of
   `X-Forwarded-For`, which is the part of that header a caller sets for
