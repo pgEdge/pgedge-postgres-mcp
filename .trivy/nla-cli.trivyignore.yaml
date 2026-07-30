@@ -1,17 +1,56 @@
 vulnerabilities:
   # coreutils-single - Present in UBI9 micro base image.
-  - id: CVE-2025-5278
+  - id: CVE-2026-56391
     statement: >-
-      Heap buffer under-read in coreutils sort. No fix available. The
-      CLI container does not invoke sort with untrusted input.
+      GNU coreutils uniq out-of-bounds read with multibyte input via -w.
+      No fix available. The CLI does not invoke coreutils uniq.
+  - id: CVE-2026-56392
+    statement: >-
+      GNU coreutils unexpand heap buffer overflow via crafted -t tab stop
+      values. No fix available. The CLI does not invoke coreutils
+      unexpand.
 
-  # glibc - Core C library in UBI9 base image.
-  - id: CVE-2026-4046
+  # libattr - Present in UBI9 micro base image.
+  - id: CVE-2026-54371
     statement: >-
-      glibc DoS via iconv() with specific character sets. Under
-      investigation by Red Hat. Risk accepted; the CLI uses the Go
-      runtime for string processing, not glibc iconv.
-  - id: CVE-2026-4437
+      attr symlink traversal privilege escalation via getfattr/setfattr.
+      No fix available. The CLI does not invoke getfattr or setfattr and
+      requires local attacker access to a shared pathname component to
+      exploit, which does not apply to this container.
+
+  # libgcc - Present in UBI9 micro base image.
+  - id: CVE-2021-46195
     statement: >-
-      glibc incorrect DNS response parsing. No fix available. Risk
-      accepted; DNS resolution is handled by the Go runtime, not glibc.
+      GCC libiberty uncontrolled recursion in rust-demangle.c. No fix
+      available. The CLI is a statically linked Go binary and does not
+      invoke libiberty demangling.
+  - id: CVE-2022-27943
+    statement: >-
+      GCC libiberty stack exhaustion in demangle_const. No fix available.
+      The CLI is a statically linked Go binary and does not invoke
+      libiberty demangling.
+
+  # ncurses-base / ncurses-libs - Present in UBI9 micro base image.
+  - id: CVE-2023-50495
+    statement: >-
+      ncurses segmentation fault via _nc_wrap_entry(). No fix available.
+      The CLI does not use ncurses or terminfo APIs.
+
+  # pcre2 / pcre2-syntax - Present in UBI9 micro base image.
+  - id: CVE-2022-41409
+    statement: >-
+      pcre2test integer overflow via negative repeat value. No fix
+      available. The CLI does not invoke pcre2test or link against
+      pcre2 directly; it is a statically linked Go binary.
+
+  # golang.org/x/crypto - openpgp package flagged as unmaintained.
+  - id: GO-2026-5932
+    purls:
+      - "pkg:golang/golang.org/x/crypto@v0.54.0"
+    statement: >-
+      golang.org/x/crypto/openpgp is unmaintained and flagged unsafe by
+      design. Not a CVE with a fix version; it is an advisory against the
+      package's continued use. The CLI only imports golang.org/x/crypto/
+      bcrypt (internal/auth/users.go); it does not import or call the
+      openpgp package. Verified with `govulncheck ./cmd/pgedge-pg-mcp-cli/
+      ...`: 0 reachable vulnerabilities.
