@@ -5,71 +5,116 @@ vulnerabilities:
   # against or calls into libglib-2.0.so. No fix available from Red Hat
   # for any of these.
   - id: CVE-2026-1484
+    purls:
+      - "pkg:rpm/redhat/glib2@2.68.4-19.el9_8.2"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       glib2 integer overflow leading to buffer underflow in
       g_base64_encode(). No fix available. Not exploitable; the
       CGO_ENABLED=0 Go binary never calls glib2 APIs.
   - id: CVE-2026-1489
+    purls:
+      - "pkg:rpm/redhat/glib2@2.68.4-19.el9_8.2"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       glib2 memory corruption in Unicode case conversion. No fix
       available. Risk accepted; server does not perform locale-dependent
       Unicode case conversion via glib2.
   - id: CVE-2026-1485
+    purls:
+      - "pkg:rpm/redhat/glib2@2.68.4-19.el9_8.2"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       glib2 local DoS via buffer underflow in content type parsing. No
       fix available. Not exploitable; the server never calls glib2
       content-type APIs.
   - id: CVE-2026-15588
+    purls:
+      - "pkg:rpm/redhat/glib2@2.68.4-19.el9_8.2"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       GDBusServer pre-authentication DoS via unbounded SASL line
       buffering. No fix available. Not exploitable; the server does not
       run a D-Bus server or use GDBusServer.
   - id: CVE-2026-16118
+    purls:
+      - "pkg:rpm/redhat/glib2@2.68.4-19.el9_8.2"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       Heap buffer overflow in xdgmime magic-line parsing. No fix
       available. Not exploitable; the server never invokes glib2 MIME
       detection.
   - id: CVE-2026-58010
+    purls:
+      - "pkg:rpm/redhat/glib2@2.68.4-19.el9_8.2"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       Buffer over-read in GVariant tuple normalisation. No fix available.
       Not exploitable; the server does not parse GVariant data.
   - id: CVE-2026-58011
+    purls:
+      - "pkg:rpm/redhat/glib2@2.68.4-19.el9_8.2"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       Out-of-bounds read in g_date_time_get_ymd() on an invalid
       GDateTime. No fix available. The server uses Go's time package,
       not glib2 GDateTime.
   - id: CVE-2026-58012
+    purls:
+      - "pkg:rpm/redhat/glib2@2.68.4-19.el9_8.2"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       Buffer over-read in g_regex_replace(). No fix available. The
       server uses Go's regexp package, not glib2 GRegex.
   - id: CVE-2026-58013
+    purls:
+      - "pkg:rpm/redhat/glib2@2.68.4-19.el9_8.2"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       Buffer over-read in g_io_channel_read_line_backend(). No fix
       available. The server uses Go's bufio/io packages, not GIOChannel.
   - id: CVE-2026-58014
+    purls:
+      - "pkg:rpm/redhat/glib2@2.68.4-19.el9_8.2"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       Off-by-one in g_key_file_get_locale_string_list(). No fix
       available. The server does not read GLib key files.
   - id: CVE-2026-58015
+    purls:
+      - "pkg:rpm/redhat/glib2@2.68.4-19.el9_8.2"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       Path traversal in the D-Bus SHA1 auth mechanism's keyring lookup.
       No fix available. Not exploitable; the server does not run a
       D-Bus server or use SASL/SHA1 D-Bus authentication.
   - id: CVE-2023-32636
+    purls:
+      - "pkg:rpm/redhat/glib2@2.68.4-19.el9_8.2"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       Timeout in the GVariant text-format fuzz harness. No fix
       available. Not exploitable; this affects glib2's own fuzz tooling,
       not a code path the server reaches.
   - id: CVE-2025-3360
+    purls:
+      - "pkg:rpm/redhat/glib2@2.68.4-19.el9_8.2"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       Integer overflow and buffer under-read parsing an invalid ISO 8601
       timestamp in g_date_time_new_from_iso8601(). No fix available. The
       server parses timestamps with Go's time package, not glib2.
   - id: CVE-2025-7039
+    purls:
+      - "pkg:rpm/redhat/glib2@2.68.4-19.el9_8.2"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       Buffer under-read in glib2's get_tmp_file(). No fix available. The
       server uses Go's os.CreateTemp, not glib2 temp-file helpers.
   - id: CVE-2026-0988
+    purls:
+      - "pkg:rpm/redhat/glib2@2.68.4-19.el9_8.2"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       Integer overflow DoS in g_buffered_input_stream_peek(). No fix
       available. The server does not use GLib's GIO input streams.
@@ -79,23 +124,38 @@ vulnerabilities:
   # (the pgedge RPM repo's GPG key is only checked by rpm/microdnf
   # during image build, not by the running server).
   - id: CVE-2025-68972
+    purls:
+      - "pkg:rpm/redhat/gnupg2@2.3.3-5.el9_7"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       GnuPG signature bypass via form feed character. No fix available.
       The server does not verify GPG signatures.
   - id: CVE-2022-3219
+    purls:
+      - "pkg:rpm/redhat/gnupg2@2.3.3-5.el9_7"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       DoS via resource consumption using compressed packets. No fix
       available. The server does not invoke gpg at runtime.
   - id: CVE-2025-30258
+    purls:
+      - "pkg:rpm/redhat/gnupg2@2.3.3-5.el9_7"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       Verification DoS due to a malicious subkey in the keyring. No
       fix available. The server does not verify GPG signatures at
       runtime.
   - id: CVE-2026-24883
+    purls:
+      - "pkg:rpm/redhat/gnupg2@2.3.3-5.el9_7"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       DoS due to a specially crafted signature packet. No fix
       available. The server does not process GPG signature packets.
   - id: CVE-2026-57062
+    purls:
+      - "pkg:rpm/redhat/gnupg2@2.3.3-5.el9_7"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       Incorrect cryptographic message parsing. No fix available. The
       server does not invoke gpg's message parser.
@@ -103,51 +163,87 @@ vulnerabilities:
   # libarchive - Present in UBI9 base image but not used by the server;
   # it does not extract or create tar/zip/RAR/WARC/ISO archives.
   - id: CVE-2026-14164
+    purls:
+      - "pkg:rpm/redhat/libarchive@3.5.3-9.el9_7"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       Double-free in RAR5 decompression. No fix available. The server
       does not process archive files.
   - id: CVE-2026-5745
+    purls:
+      - "pkg:rpm/redhat/libarchive@3.5.3-9.el9_7"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       NULL pointer dereference in the ACL parser. No fix available.
       The server does not process archive ACLs.
   - id: CVE-2025-1632
+    purls:
+      - "pkg:rpm/redhat/libarchive@3.5.3-9.el9_7"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       NULL pointer dereference in bsdunzip. No fix available. The
       server does not invoke bsdunzip or libarchive APIs.
   - id: CVE-2025-5915
+    purls:
+      - "pkg:rpm/redhat/libarchive@3.5.3-9.el9_7"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       Heap buffer over-read in RAR LZSS window decompression. No fix
       available. The server does not process RAR archives.
   - id: CVE-2025-5916
+    purls:
+      - "pkg:rpm/redhat/libarchive@3.5.3-9.el9_7"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       Integer overflow reading WARC files. No fix available. The
       server does not process WARC files.
   - id: CVE-2025-5917
+    purls:
+      - "pkg:rpm/redhat/libarchive@3.5.3-9.el9_7"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       Off-by-one error building a ustar/pax entry name. No fix
       available. The server does not create tar archives.
   - id: CVE-2025-5918
+    purls:
+      - "pkg:rpm/redhat/libarchive@3.5.3-9.el9_7"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       Reading past EOF on piped file streams. No fix available. The
       server does not pipe data through libarchive.
   - id: CVE-2023-30571
+    purls:
+      - "pkg:rpm/redhat/libarchive@3.5.3-9.el9_7"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       libarchive race condition. Will not fix per Red Hat. The server
       does not use libarchive.
   - id: CVE-2025-60753
+    purls:
+      - "pkg:rpm/redhat/libarchive@3.5.3-9.el9_7"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       bsdtar OOM with zero-length pattern matches. No fix available.
       The server does not invoke bsdtar or libarchive APIs.
   - id: CVE-2026-4426
+    purls:
+      - "pkg:rpm/redhat/libarchive@3.5.3-9.el9_7"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       libarchive DoS via malformed ISO file. No fix available. The
       server does not process ISO files.
   - id: CVE-2026-15028
+    purls:
+      - "pkg:rpm/redhat/libarchive@3.5.3-9.el9_7"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       Heap overflow OOB read parsing a PAX extended header in a tar
       archive. No fix available. The server does not process tar
       archives.
   - id: CVE-2026-16517
+    purls:
+      - "pkg:rpm/redhat/libarchive@3.5.3-9.el9_7"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       Signed integer overflow in archive_write_zip_header. No fix
       available. The server does not create zip archives.
@@ -158,27 +254,47 @@ vulnerabilities:
   # auth scheme, and no QUIC/WebSocket/SCP negotiation. No fix available
   # from Red Hat for curl-minimal 7.76.1 for any of the below.
   - id: CVE-2026-11352
+    purls:
+      - "pkg:rpm/redhat/curl-minimal@7.76.1-40.el9"
+      - "pkg:rpm/redhat/libcurl-minimal@7.76.1-40.el9"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       Remote DoS via the QUIC UDP receive function. No fix available.
       Not exploitable; the single curl invocation is a plain HTTPS GET
       and never negotiates HTTP/3 or QUIC.
   - id: CVE-2026-11586
+    purls:
+      - "pkg:rpm/redhat/curl-minimal@7.76.1-40.el9"
+      - "pkg:rpm/redhat/libcurl-minimal@7.76.1-40.el9"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       DoS via WebSocket PING flood. No fix available. Not exploitable;
       curl is invoked for a plain file download, never with WebSocket
       options.
   - id: CVE-2026-8286
+    purls:
+      - "pkg:rpm/redhat/curl-minimal@7.76.1-40.el9"
+      - "pkg:rpm/redhat/libcurl-minimal@7.76.1-40.el9"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       Insecure connection establishment from a TLS configuration
       mismatch. No fix available. Not exploitable; the invocation passes
       no custom TLS flags, so the mismatched-configuration precondition
       does not arise.
   - id: CVE-2026-8925
+    purls:
+      - "pkg:rpm/redhat/curl-minimal@7.76.1-40.el9"
+      - "pkg:rpm/redhat/libcurl-minimal@7.76.1-40.el9"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       Double-free in SASL authentication. No fix available. Not
       exploitable; the download is an unauthenticated HTTPS GET and
       never triggers curl's SASL auth path.
   - id: CVE-2026-9547
+    purls:
+      - "pkg:rpm/redhat/curl-minimal@7.76.1-40.el9"
+      - "pkg:rpm/redhat/libcurl-minimal@7.76.1-40.el9"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       MITM via SSH host key bypass. No fix available. Not exploitable;
       KB_SOURCE is validated to be an http(s):// URL before curl runs,
@@ -193,104 +309,188 @@ vulnerabilities:
   # -c/-b cookie flags, and no Authorization header. No fix available
   # from Red Hat for curl-minimal 7.76.1 for any of the below.
   - id: CVE-2025-13034
+    purls:
+      - "pkg:rpm/redhat/curl-minimal@7.76.1-40.el9"
+      - "pkg:rpm/redhat/libcurl-minimal@7.76.1-40.el9"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       Public key pinning bypass via QUIC and GnuTLS. No fix available.
       Not exploitable; the invocation never negotiates QUIC or uses
       public key pinning.
   - id: CVE-2025-14017
+    purls:
+      - "pkg:rpm/redhat/curl-minimal@7.76.1-40.el9"
+      - "pkg:rpm/redhat/libcurl-minimal@7.76.1-40.el9"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       Global TLS option changes in multi-threaded LDAPS transfers. No
       fix available. Not exploitable; the invocation is a single-
       threaded HTTPS GET, not LDAPS.
   - id: CVE-2026-11856
+    purls:
+      - "pkg:rpm/redhat/curl-minimal@7.76.1-40.el9"
+      - "pkg:rpm/redhat/libcurl-minimal@7.76.1-40.el9"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       Information disclosure via incorrect Digest auth header reuse.
       No fix available. Not exploitable; no Digest auth credentials
       are ever supplied to this invocation.
   - id: CVE-2026-1965
+    purls:
+      - "pkg:rpm/redhat/curl-minimal@7.76.1-40.el9"
+      - "pkg:rpm/redhat/libcurl-minimal@7.76.1-40.el9"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       Authentication bypass via incorrect connection reuse with
       Negotiate authentication. No fix available. Not exploitable; the
       invocation supplies no Negotiate/Kerberos credentials.
   - id: CVE-2026-3783
+    purls:
+      - "pkg:rpm/redhat/curl-minimal@7.76.1-40.el9"
+      - "pkg:rpm/redhat/libcurl-minimal@7.76.1-40.el9"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       OAuth2 bearer token leakage during an HTTP(S) redirect. No fix
       available. Not exploitable; no OAuth2 bearer token is ever
       supplied to this invocation, so there is nothing to leak.
   - id: CVE-2026-3784
+    purls:
+      - "pkg:rpm/redhat/curl-minimal@7.76.1-40.el9"
+      - "pkg:rpm/redhat/libcurl-minimal@7.76.1-40.el9"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       Improper HTTP proxy connection reuse. No fix available. Not
       exploitable; the invocation is run without a proxy configured.
   - id: CVE-2026-4873
+    purls:
+      - "pkg:rpm/redhat/curl-minimal@7.76.1-40.el9"
+      - "pkg:rpm/redhat/libcurl-minimal@7.76.1-40.el9"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       Information disclosure via incorrect TLS connection reuse. No
       fix available. Not exploitable; this is a single one-shot
       request with nothing session-sensitive to leak across reuse.
   - id: CVE-2026-5545
+    purls:
+      - "pkg:rpm/redhat/curl-minimal@7.76.1-40.el9"
+      - "pkg:rpm/redhat/libcurl-minimal@7.76.1-40.el9"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       Authentication bypass via incorrect HTTP Negotiate connection
       reuse. No fix available. Not exploitable; no Negotiate auth is
       configured for this invocation.
   - id: CVE-2026-5773
+    purls:
+      - "pkg:rpm/redhat/curl-minimal@7.76.1-40.el9"
+      - "pkg:rpm/redhat/libcurl-minimal@7.76.1-40.el9"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       Wrong file transfer due to incorrect SMB connection reuse. No
       fix available. Not exploitable; KB_SOURCE is validated as
       http(s):// before curl runs, so the smb:// scheme is never used.
   - id: CVE-2026-6253
+    purls:
+      - "pkg:rpm/redhat/curl-minimal@7.76.1-40.el9"
+      - "pkg:rpm/redhat/libcurl-minimal@7.76.1-40.el9"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       Proxy credential disclosure via redirects to unauthenticated
       proxies. No fix available. Not exploitable; no proxy or proxy
       credentials are configured for this invocation.
   - id: CVE-2026-6429
+    purls:
+      - "pkg:rpm/redhat/curl-minimal@7.76.1-40.el9"
+      - "pkg:rpm/redhat/libcurl-minimal@7.76.1-40.el9"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       Credential leak via reused proxy connection during HTTP
       redirects. No fix available. Not exploitable; no proxy is
       configured for this invocation.
   - id: CVE-2026-7168
+    purls:
+      - "pkg:rpm/redhat/curl-minimal@7.76.1-40.el9"
+      - "pkg:rpm/redhat/libcurl-minimal@7.76.1-40.el9"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       Information disclosure via incorrect Proxy-Authorization header
       reuse. No fix available. Not exploitable; no proxy is configured
       for this invocation.
   - id: CVE-2026-8924
+    purls:
+      - "pkg:rpm/redhat/curl-minimal@7.76.1-40.el9"
+      - "pkg:rpm/redhat/libcurl-minimal@7.76.1-40.el9"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       Cookie injection via a malicious HTTP server using super cookies.
       No fix available. Not exploitable; the invocation uses no cookie
       jar (-c/-b) and discards response headers, keeping only the body.
   - id: CVE-2026-8926
+    purls:
+      - "pkg:rpm/redhat/curl-minimal@7.76.1-40.el9"
+      - "pkg:rpm/redhat/libcurl-minimal@7.76.1-40.el9"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       Information disclosure via incorrect .netrc password lookup. No
       fix available. Not exploitable; the invocation does not pass
       --netrc, and no .netrc file exists in this minimal image.
   - id: CVE-2024-11053
+    purls:
+      - "pkg:rpm/redhat/curl-minimal@7.76.1-40.el9"
+      - "pkg:rpm/redhat/libcurl-minimal@7.76.1-40.el9"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       curl netrc password leak. No fix available. Not exploitable; the
       invocation does not use --netrc and no .netrc file is present.
   - id: CVE-2024-7264
+    purls:
+      - "pkg:rpm/redhat/curl-minimal@7.76.1-40.el9"
+      - "pkg:rpm/redhat/libcurl-minimal@7.76.1-40.el9"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       ASN.1 date parser overread validating a certificate. No fix
       available. KB_SOURCE is an operator-supplied build-time value,
       not attacker-controlled, and the finding is a bounded overread.
   - id: CVE-2024-9681
+    purls:
+      - "pkg:rpm/redhat/curl-minimal@7.76.1-40.el9"
+      - "pkg:rpm/redhat/libcurl-minimal@7.76.1-40.el9"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       HSTS subdomain overwrites parent cache entry. No fix available.
       Not exploitable; this is a single one-shot invocation in a
       throwaway build container with no persistent HSTS store.
   - id: CVE-2025-14524
+    purls:
+      - "pkg:rpm/redhat/curl-minimal@7.76.1-40.el9"
+      - "pkg:rpm/redhat/libcurl-minimal@7.76.1-40.el9"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       Information disclosure via cross-protocol redirect with an
       OAuth2 bearer token. No fix available. Not exploitable; no
       OAuth2 token is ever supplied to this invocation.
   - id: CVE-2025-15079
+    purls:
+      - "pkg:rpm/redhat/curl-minimal@7.76.1-40.el9"
+      - "pkg:rpm/redhat/libcurl-minimal@7.76.1-40.el9"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       Host verification bypass during SSH transfers. No fix available.
       Not exploitable; KB_SOURCE is validated as http(s):// before
       curl runs, so the SSH/SCP/SFTP code path is never reached.
   - id: CVE-2025-15224
+    purls:
+      - "pkg:rpm/redhat/curl-minimal@7.76.1-40.el9"
+      - "pkg:rpm/redhat/libcurl-minimal@7.76.1-40.el9"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       libssh key passphrase bypass without an agent set. No fix
       available. Not exploitable; SSH-based transfers are never
       reached from this http(s)-only invocation.
   - id: CVE-2026-6276
+    purls:
+      - "pkg:rpm/redhat/curl-minimal@7.76.1-40.el9"
+      - "pkg:rpm/redhat/libcurl-minimal@7.76.1-40.el9"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       Cookie leak via connection reuse with custom Host headers. No
       fix available. Not exploitable; the invocation sets no custom
@@ -299,6 +499,9 @@ vulnerabilities:
   # libnghttp2 - HTTP/2 library in UBI9 base image; the MCP server uses
   # the Go HTTP stack, not libnghttp2.
   - id: CVE-2026-58055
+    purls:
+      - "pkg:rpm/redhat/libnghttp2@1.43.0-6.el9_8.1"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       HTTP request/response smuggling via ambiguous HTTP/1.1 Upgrade
       requests. No fix available. The MCP server uses the Go HTTP
@@ -307,45 +510,75 @@ vulnerabilities:
 
   # libxml2 - Present in UBI9 base image but not used by the server.
   - id: CVE-2026-0990
+    purls:
+      - "pkg:rpm/redhat/libxml2@2.9.13-14.el9_8.2"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       libxml2 DoS via uncontrolled recursion in XML catalog processing.
       No fix available. The server does not parse XML.
   - id: CVE-2026-1757
+    purls:
+      - "pkg:rpm/redhat/libxml2@2.9.13-14.el9_8.2"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       libxml2 memory leak in xmllint interactive mode. No fix available.
       The server does not invoke xmllint.
   - id: CVE-2026-11979
+    purls:
+      - "pkg:rpm/redhat/libxml2@2.9.13-14.el9_8.2"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       Arbitrary code execution in the xmlcatalog utility via buffer
       overflow. No fix available. The server does not invoke xmlcatalog.
   - id: CVE-2026-6653
+    purls:
+      - "pkg:rpm/redhat/libxml2@2.9.13-14.el9_8.2"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       DoS via crafted XML input due to a use-after-free. No fix
       available. The server does not parse XML.
   - id: CVE-2026-6732
+    purls:
+      - "pkg:rpm/redhat/libxml2@2.9.13-14.el9_8.2"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       DoS via a crafted XSD-validated document. No fix available. The
       server does not validate XML against XSD schemas.
   - id: CVE-2023-45322
+    purls:
+      - "pkg:rpm/redhat/libxml2@2.9.13-14.el9_8.2"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       Use-after-free in xmlUnlinkNode(). No fix available. The server
       does not parse or manipulate XML DOM trees.
   - id: CVE-2025-27113
+    purls:
+      - "pkg:rpm/redhat/libxml2@2.9.13-14.el9_8.2"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       NULL pointer dereference in xmlPatMatch. No fix available. The
       server does not use libxml2 pattern matching.
   - id: CVE-2026-0989
+    purls:
+      - "pkg:rpm/redhat/libxml2@2.9.13-14.el9_8.2"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       Unbounded RelaxNG include recursion leading to stack overflow.
       No fix available. The server does not validate XML against
       RelaxNG schemas.
   - id: CVE-2026-0992
+    purls:
+      - "pkg:rpm/redhat/libxml2@2.9.13-14.el9_8.2"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       DoS via crafted XML catalogs. No fix available. The server does
       not use XML catalogs.
 
   # openldap - Present in UBI9 base image but not used by the server.
   - id: CVE-2026-22185
+    purls:
+      - "pkg:rpm/redhat/openldap@2.6.8-4.el9"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       OpenLDAP LMDB heap buffer overflow. No fix available. The server
       does not use LDAP or LMDB.
@@ -356,40 +589,74 @@ vulnerabilities:
   # linking against or calling into libssl.so/libcrypto.so. No fix
   # available from Red Hat for any of these.
   - id: CVE-2025-9232
+    purls:
+      - "pkg:rpm/redhat/openssl@3.5.5-6.el9_8"
+      - "pkg:rpm/redhat/openssl-libs@3.5.5-6.el9_8"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       Out-of-bounds read in OpenSSL's built-in HTTP client no_proxy
       handling. No fix available. Not exploitable; the server never
       invokes OpenSSL's HTTP client.
   - id: CVE-2026-2673
+    purls:
+      - "pkg:rpm/redhat/openssl@3.5.5-6.el9_8"
+      - "pkg:rpm/redhat/openssl-fips-provider@3.0.7-11.el9_8"
+      - "pkg:rpm/redhat/openssl-fips-provider-so@3.0.7-11.el9_8"
+      - "pkg:rpm/redhat/openssl-libs@3.5.5-6.el9_8"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       OpenSSL TLS 1.3 server may choose an unexpected key agreement
       group. No fix available. Not exploitable; TLS is terminated by
       Go's crypto/tls, not OpenSSL.
   - id: CVE-2026-28387
+    purls:
+      - "pkg:rpm/redhat/openssl@3.5.5-6.el9_8"
+      - "pkg:rpm/redhat/openssl-libs@3.5.5-6.el9_8"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       Use-after-free in OpenSSL DANE TLSA authentication. No fix
       available. The server does not use DANE/TLSA and does not call
       OpenSSL directly.
   - id: CVE-2026-28388
+    purls:
+      - "pkg:rpm/redhat/openssl@3.5.5-6.el9_8"
+      - "pkg:rpm/redhat/openssl-libs@3.5.5-6.el9_8"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       NULL pointer dereference in OpenSSL delta CRL processing. No fix
       available. The server does not process CRLs via OpenSSL.
   - id: CVE-2026-28389
+    purls:
+      - "pkg:rpm/redhat/openssl@3.5.5-6.el9_8"
+      - "pkg:rpm/redhat/openssl-libs@3.5.5-6.el9_8"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       DoS in OpenSSL CMS processing. No fix available. The server does
       not use CMS and does not call OpenSSL directly.
   - id: CVE-2026-31789
+    purls:
+      - "pkg:rpm/redhat/openssl@3.5.5-6.el9_8"
+      - "pkg:rpm/redhat/openssl-libs@3.5.5-6.el9_8"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       Heap buffer overflow on 32-bit systems from large X.509
       certificate processing in OpenSSL. No fix available. The server
       runs on 64-bit only and validates certificates with Go's
       crypto/x509, not OpenSSL.
   - id: CVE-2024-13176
+    purls:
+      - "pkg:rpm/redhat/openssl@3.5.5-6.el9_8"
+      - "pkg:rpm/redhat/openssl-libs@3.5.5-6.el9_8"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       Timing side-channel in ECDSA signature computation. No fix
       available. The server signs nothing with OpenSSL; Go's
       crypto/ecdsa is unaffected by this OpenSSL-specific issue.
   - id: CVE-2024-41996
+    purls:
+      - "pkg:rpm/redhat/openssl@3.5.5-6.el9_8"
+      - "pkg:rpm/redhat/openssl-libs@3.5.5-6.el9_8"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       Expensive server-side DHE modular-exponentiation triggerable by
       a client. No fix available. Not exploitable; the server's TLS
@@ -399,6 +666,10 @@ vulnerabilities:
   # server does not use PKCS#11 for key derivation, trust storage, or
   # anything else. Go's crypto/x509 has its own certificate handling.
   - id: CVE-2026-13757
+    purls:
+      - "pkg:rpm/redhat/p11-kit@0.26.4-1.el9_8"
+      - "pkg:rpm/redhat/p11-kit-trust@0.26.4-1.el9_8"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       Stack exhaustion via unbounded recursion in RPC attribute
       parsing. No fix available. The server does not use p11-kit's
@@ -406,12 +677,18 @@ vulnerabilities:
 
   # systemd-libs - Present in UBI9 base image.
   - id: CVE-2026-4105
+    purls:
+      - "pkg:rpm/redhat/systemd-libs@252-67.el9_8.4"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       systemd privilege escalation via RegisterMachine D-Bus method.
       No fix available. The container does not run systemd or use D-Bus.
 
   # libattr - Present in UBI9 base image but not used by the server.
   - id: CVE-2026-54371
+    purls:
+      - "pkg:rpm/redhat/libattr@2.5.1-3.el9"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       Symlink traversal privilege escalation via getfattr and setfattr.
       No fix available. The server does not invoke getfattr/setfattr
@@ -420,6 +697,9 @@ vulnerabilities:
   # bzip2-libs - Present in UBI9 base image; the server does not shell
   # out to bzip2/bzip2recover and does not decompress bzip2 streams.
   - id: CVE-2026-42250
+    purls:
+      - "pkg:rpm/redhat/bzip2-libs@1.0.8-11.el9"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       DoS in bzip2recover via a specially crafted file. No fix
       available. The server never invokes bzip2recover.
@@ -427,11 +707,17 @@ vulnerabilities:
   # coreutils-single - Present in UBI9 base image; the server does not
   # shell out to uniq/unexpand or any other coreutils utility.
   - id: CVE-2026-56391
+    purls:
+      - "pkg:rpm/redhat/coreutils-single@8.32-41.el9_8"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       DoS and information disclosure in coreutils uniq via
       out-of-bounds read with multibyte input. No fix available. The
       server never invokes uniq.
   - id: CVE-2026-56392
+    purls:
+      - "pkg:rpm/redhat/coreutils-single@8.32-41.el9_8"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       DoS via crafted tab stop values in coreutils unexpand. No fix
       available. The server never invokes unexpand.
@@ -439,6 +725,9 @@ vulnerabilities:
   # gawk - Present in UBI9 base image; the server does not shell out
   # to awk/gawk.
   - id: CVE-2023-4156
+    purls:
+      - "pkg:rpm/redhat/gawk@5.1.0-6.el9"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       Heap out-of-bounds read in gawk's builtin.c. No fix available.
       The server never invokes gawk.
@@ -448,11 +737,19 @@ vulnerabilities:
   # binary does not link the C++ runtime's demangler and never
   # demangles Rust symbol names.
   - id: CVE-2021-46195
+    purls:
+      - "pkg:rpm/redhat/libgcc@11.5.0-14.el9"
+      - "pkg:rpm/redhat/libstdc%2B%2B@11.5.0-14.el9"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       Uncontrolled recursion in libiberty's Rust demangler. No fix
       available. Not exploitable; the Go binary never demangles Rust
       symbols.
   - id: CVE-2022-27943
+    purls:
+      - "pkg:rpm/redhat/libgcc@11.5.0-14.el9"
+      - "pkg:rpm/redhat/libstdc%2B%2B@11.5.0-14.el9"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       Stack exhaustion in libiberty's Rust demangler
       (demangle_const). No fix available. Not exploitable; the Go
@@ -461,6 +758,9 @@ vulnerabilities:
   # gzip - Present in UBI9 base image; the server does not shell out
   # to gzip/gzexe.
   - id: CVE-2026-41991
+    purls:
+      - "pkg:rpm/redhat/gzip@1.12-1.el9"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       Arbitrary file overwrite via insecure temp file handling in
       gzexe. No fix available. The server never invokes gzexe.
@@ -468,6 +768,9 @@ vulnerabilities:
   # krb5-libs - Present in UBI9 base image; the server does not use
   # Kerberos authentication.
   - id: CVE-2026-11850
+    purls:
+      - "pkg:rpm/redhat/krb5-libs@1.21.1-10.el9_8"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       Integer underflow in berval2tl_data() leading to heap
       out-of-bounds read. No fix available. The server does not use
@@ -476,11 +779,17 @@ vulnerabilities:
   # libgcrypt - Present in UBI9 base image as a GnuPG dependency; the
   # server uses Go's crypto/* stdlib, never libgcrypt.
   - id: CVE-2026-41989
+    purls:
+      - "pkg:rpm/redhat/libgcrypt@1.10.0-11.el9"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       DoS and buffer overflow via a crafted ECDH ciphertext. No fix
       available. The server does not call libgcrypt; it uses Go's
       crypto/ecdh.
   - id: CVE-2026-41990
+    purls:
+      - "pkg:rpm/redhat/libgcrypt@1.10.0-11.el9"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       DoS or data integrity issue from a missing bounds check during
       Dilithium signing. No fix available. The server does not use
@@ -490,11 +799,17 @@ vulnerabilities:
   # for package-metadata resolution; used only during image build, not
   # by the running server.
   - id: CVE-2026-9149
+    purls:
+      - "pkg:rpm/redhat/libsolv@0.7.24-6.el9_8"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       Heap buffer overflow in repo_add_solv via a crafted .solv file.
       No fix available. Only exercised by microdnf at build time
       against the repository's own trusted metadata.
   - id: CVE-2026-9150
+    purls:
+      - "pkg:rpm/redhat/libsolv@0.7.24-6.el9_8"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       Stack-based buffer overflow in libsolv's Debian metadata parser.
       No fix available. This image uses RPM repos only; the Debian
@@ -503,6 +818,10 @@ vulnerabilities:
   # ncurses - Present in UBI9 base image; the server does not use a
   # terminal UI and does not link ncurses.
   - id: CVE-2023-50495
+    purls:
+      - "pkg:rpm/redhat/ncurses-base@6.2-12.20210508.el9"
+      - "pkg:rpm/redhat/ncurses-libs@6.2-12.20210508.el9"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       Segmentation fault via _nc_wrap_entry(). No fix available. The
       server does not use ncurses.
@@ -511,10 +830,16 @@ vulnerabilities:
   # Dockerfile.server; the running server process does not perform
   # PAM authentication or interact with sssd.
   - id: CVE-2026-12610
+    purls:
+      - "pkg:rpm/redhat/pam@1.5.1-28.el9"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       Use-after-free crash in SSSD's sssd_pam process. No fix
       available. The container does not run sssd.
   - id: CVE-2026-54411
+    purls:
+      - "pkg:rpm/redhat/pam@1.5.1-28.el9"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       Plaintext password recovery via timing discrepancy in
       pam_userdb. No fix available. The server does not authenticate
@@ -523,6 +848,10 @@ vulnerabilities:
   # pcre2 - Present in UBI9 base image; the server uses Go's regexp
   # package (RE2), not PCRE2.
   - id: CVE-2022-41409
+    purls:
+      - "pkg:rpm/redhat/pcre2@10.40-6.el9"
+      - "pkg:rpm/redhat/pcre2-syntax@10.40-6.el9"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       Infinite loop from a negative repeat value in pcre2test. No fix
       available. The server does not invoke pcre2test and does not
@@ -532,12 +861,20 @@ vulnerabilities:
   # running server process never invokes rpm and processes no RPM or
   # archive files at runtime.
   - id: CVE-2026-44604
+    purls:
+      - "pkg:rpm/redhat/rpm@4.16.1.3-40.el9"
+      - "pkg:rpm/redhat/rpm-libs@4.16.1.3-40.el9"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       Command injection in rpmuncompress's doUntar() via an unescaped
       archive directory name. No fix available. Only exercised by
       microdnf at build time against packages from the pgEdge and
       UBI9 repos, not attacker-controlled archives.
   - id: CVE-2026-44605
+    purls:
+      - "pkg:rpm/redhat/rpm@4.16.1.3-40.el9"
+      - "pkg:rpm/redhat/rpm-libs@4.16.1.3-40.el9"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       Heap buffer overflow in NDB slot table parsing. No fix
       available. The running server never invokes rpm.
@@ -545,6 +882,9 @@ vulnerabilities:
   # sed - Present in UBI9 base image; the server does not shell out
   # to sed.
   - id: CVE-2026-5958
+    purls:
+      - "pkg:rpm/redhat/sed@4.8-10.el9"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       GNU sed TOCTOU race condition. No fix available. The server
       never invokes sed.
@@ -553,11 +893,17 @@ vulnerabilities:
   # (a pure-Go, CGO-free SQLite implementation), not the system
   # sqlite-libs package.
   - id: CVE-2024-0232
+    purls:
+      - "pkg:rpm/redhat/sqlite-libs@3.34.1-10.el9_8"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       Use-after-free in jsonParseAddNodeArray. No fix available. The
       server's SQLite access is via modernc.org/sqlite, a separate
       pure-Go implementation; it does not link system sqlite-libs.
   - id: CVE-2025-70873
+    purls:
+      - "pkg:rpm/redhat/sqlite-libs@3.34.1-10.el9_8"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       Information disclosure via a crafted ZIP file. No fix
       available. The server does not use SQLite's ZIP archive
@@ -569,11 +915,29 @@ vulnerabilities:
   # never calls mount, losetup, or any block-device/partition-probing
   # API.
   - id: CVE-2026-13595
+    purls:
+      - "pkg:rpm/redhat/libblkid@2.37.4-25.el9"
+      - "pkg:rpm/redhat/libfdisk@2.37.4-25.el9"
+      - "pkg:rpm/redhat/libmount@2.37.4-25.el9"
+      - "pkg:rpm/redhat/libsmartcols@2.37.4-25.el9"
+      - "pkg:rpm/redhat/libuuid@2.37.4-25.el9"
+      - "pkg:rpm/redhat/util-linux@2.37.4-25.el9"
+      - "pkg:rpm/redhat/util-linux-core@2.37.4-25.el9"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       Heap use-after-free in libblkid nested partition probing. No
       fix available. The server never probes block devices or
       partitions.
   - id: CVE-2026-27456
+    purls:
+      - "pkg:rpm/redhat/libblkid@2.37.4-25.el9"
+      - "pkg:rpm/redhat/libfdisk@2.37.4-25.el9"
+      - "pkg:rpm/redhat/libmount@2.37.4-25.el9"
+      - "pkg:rpm/redhat/libsmartcols@2.37.4-25.el9"
+      - "pkg:rpm/redhat/libuuid@2.37.4-25.el9"
+      - "pkg:rpm/redhat/util-linux@2.37.4-25.el9"
+      - "pkg:rpm/redhat/util-linux-core@2.37.4-25.el9"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       TOCTOU race in the mount program when setting up loop devices.
       No fix available. The server never invokes mount or sets up
@@ -582,6 +946,9 @@ vulnerabilities:
   # xz-libs - Present in UBI9 base image; the server does not
   # decompress .xz streams.
   - id: CVE-2026-34743
+    purls:
+      - "pkg:rpm/redhat/xz-libs@5.2.5-8.el9_0"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       Buffer overflow in XZ Utils index decoding. No fix available.
       The server never decompresses XZ-compressed data.
@@ -589,12 +956,18 @@ vulnerabilities:
   # zlib - Present in UBI9 base image as a transitive dependency; the
   # Go binary uses the stdlib's compress/* packages, not system zlib.
   - id: CVE-2026-27171
+    purls:
+      - "pkg:rpm/redhat/zlib@1.2.11-40.el9"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       DoS via an infinite loop in zlib's CRC32 combine functions. No
       fix available. The server never calls system zlib directly.
 
   # golang.org/x/crypto - Go module compiled into the server binary.
   - id: GO-2026-5932
+    purls:
+      - "pkg:golang/golang.org/x/crypto@v0.54.0"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       golang.org/x/crypto/openpgp is flagged unmaintained and unsafe by
       design; no fix exists because the package itself is deprecated,
