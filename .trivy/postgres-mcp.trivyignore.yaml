@@ -1,35 +1,78 @@
 vulnerabilities:
-  # glib2 - Not used by the Go binary; present in UBI9 base image.
-  # No fix available from Red Hat.
-  - id: CVE-2025-14087
-    statement: >-
-      glib2 buffer underflow in GVariant parser. Will not fix per Red Hat.
-      Not exploitable in this context; the MCP server does not parse
-      GVariant data.
-  - id: CVE-2025-14512
-    statement: >-
-      glib2 integer overflow in GIO attribute escaping. No fix available.
-      The server does not use GIO attribute APIs.
+  # glib2 - Not used by the Go binary; present in UBI9 base image as a
+  # transitive dependency of other RPM packages (util-linux, rpm/dnf
+  # itself). The server is built with CGO_ENABLED=0 and never links
+  # against or calls into libglib-2.0.so. No fix available from Red Hat
+  # for any of these.
   - id: CVE-2026-1484
     statement: >-
-      glib2 integer overflow leading to buffer underflow. No fix
-      available. Not exploitable; the server does not call affected APIs.
+      glib2 integer overflow leading to buffer underflow in
+      g_base64_encode(). No fix available. Not exploitable; the
+      CGO_ENABLED=0 Go binary never calls glib2 APIs.
   - id: CVE-2026-1489
     statement: >-
       glib2 memory corruption in Unicode case conversion. No fix
       available. Risk accepted; server does not perform locale-dependent
       Unicode case conversion via glib2.
-
-  # glibc - Core C library in UBI9 base image.
-  - id: CVE-2026-4046
+  - id: CVE-2026-1485
     statement: >-
-      glibc DoS via iconv() with specific character sets. Under
-      investigation by Red Hat. Risk accepted; the server does not call
-      iconv() directly.
-  - id: CVE-2026-4437
+      glib2 local DoS via buffer underflow in content type parsing. No
+      fix available. Not exploitable; the server never calls glib2
+      content-type APIs.
+  - id: CVE-2026-15588
     statement: >-
-      glibc incorrect DNS response parsing. No fix available. Risk
-      accepted; DNS resolution is handled by the Go runtime, not glibc.
+      GDBusServer pre-authentication DoS via unbounded SASL line
+      buffering. No fix available. Not exploitable; the server does not
+      run a D-Bus server or use GDBusServer.
+  - id: CVE-2026-16118
+    statement: >-
+      Heap buffer overflow in xdgmime magic-line parsing. No fix
+      available. Not exploitable; the server never invokes glib2 MIME
+      detection.
+  - id: CVE-2026-58010
+    statement: >-
+      Buffer over-read in GVariant tuple normalisation. No fix available.
+      Not exploitable; the server does not parse GVariant data.
+  - id: CVE-2026-58011
+    statement: >-
+      Out-of-bounds read in g_date_time_get_ymd() on an invalid
+      GDateTime. No fix available. The server uses Go's time package,
+      not glib2 GDateTime.
+  - id: CVE-2026-58012
+    statement: >-
+      Buffer over-read in g_regex_replace(). No fix available. The
+      server uses Go's regexp package, not glib2 GRegex.
+  - id: CVE-2026-58013
+    statement: >-
+      Buffer over-read in g_io_channel_read_line_backend(). No fix
+      available. The server uses Go's bufio/io packages, not GIOChannel.
+  - id: CVE-2026-58014
+    statement: >-
+      Off-by-one in g_key_file_get_locale_string_list(). No fix
+      available. The server does not read GLib key files.
+  - id: CVE-2026-58015
+    statement: >-
+      Path traversal in the D-Bus SHA1 auth mechanism's keyring lookup.
+      No fix available. Not exploitable; the server does not run a
+      D-Bus server or use SASL/SHA1 D-Bus authentication.
+  - id: CVE-2023-32636
+    statement: >-
+      Timeout in the GVariant text-format fuzz harness. No fix
+      available. Not exploitable; this affects glib2's own fuzz tooling,
+      not a code path the server reaches.
+  - id: CVE-2025-3360
+    statement: >-
+      Integer overflow and buffer under-read parsing an invalid ISO 8601
+      timestamp in g_date_time_new_from_iso8601(). No fix available. The
+      server parses timestamps with Go's time package, not glib2.
+  - id: CVE-2025-7039
+    statement: >-
+      Buffer under-read in glib2's get_tmp_file(). No fix available. The
+      server uses Go's os.CreateTemp, not glib2 temp-file helpers.
+  - id: CVE-2026-0988
+    statement: >-
+      Integer overflow DoS in g_buffered_input_stream_peek(). No fix
+      available. The server does not use GLib's GIO input streams.
 
   # gnupg2 - Present in UBI9 base image but not used by the server.
   - id: CVE-2025-68972
@@ -59,29 +102,37 @@ vulnerabilities:
       libarchive integer overflow on 32-bit systems. No fix available.
       Server runs on 64-bit only and does not use libarchive.
 
-  # curl / libcurl-minimal - Only installed when KB_SOURCE is a URL.
-  # Used only during image build, not at runtime.
-  - id: CVE-2025-14017
+  # curl / libcurl-minimal - Only installed when KB_SOURCE is a URL, used
+  # for exactly one invocation: `curl -fsSL -o kb.db "${KB_SOURCE}"` in
+  # Dockerfile.server, a plain HTTPS GET with no proxy, no alternative
+  # auth scheme, and no QUIC/WebSocket/SCP negotiation. No fix available
+  # from Red Hat for curl-minimal 7.76.1 for any of the below.
+  - id: CVE-2026-11352
     statement: >-
-      curl TLS option changes in multi-threaded use. No fix available.
-      curl is only used at build time to download the knowledgebase; it
-      is not invoked at runtime.
-  - id: CVE-2026-1965
+      Remote DoS via the QUIC UDP receive function. No fix available.
+      Not exploitable; the single curl invocation is a plain HTTPS GET
+      and never negotiates HTTP/3 or QUIC.
+  - id: CVE-2026-11586
     statement: >-
-      curl authentication bypass with Negotiate auth. No fix available.
-      curl is only used at build time; Negotiate auth is not used.
-  - id: CVE-2026-3783
+      DoS via WebSocket PING flood. No fix available. Not exploitable;
+      curl is invoked for a plain file download, never with WebSocket
+      options.
+  - id: CVE-2026-8286
     statement: >-
-      curl OAuth2 bearer token leakage during redirect. No fix
-      available. curl is only used at build time for simple downloads.
-  - id: CVE-2026-3784
+      Insecure connection establishment from a TLS configuration
+      mismatch. No fix available. Not exploitable; the invocation passes
+      no custom TLS flags, so the mismatched-configuration precondition
+      does not arise.
+  - id: CVE-2026-8925
     statement: >-
-      curl improper HTTP proxy connection reuse. No fix available.
-      curl is only used at build time without proxies.
-  - id: CVE-2026-3805
+      Double-free in SASL authentication. No fix available. Not
+      exploitable; the download is an unauthenticated HTTPS GET and
+      never triggers curl's SASL auth path.
+  - id: CVE-2026-9547
     statement: >-
-      curl use-after-free vulnerability. No fix available. curl is
-      only used at build time for a single download operation.
+      MITM via SSH host key bypass. No fix available. Not exploitable;
+      KB_SOURCE is validated to be an http(s):// URL before curl runs,
+      so curl's SCP/SFTP/SSH code path is never reached.
 
   # libnghttp2 - HTTP/2 library in UBI9 base image.
   - id: CVE-2026-27135
@@ -105,6 +156,41 @@ vulnerabilities:
       OpenLDAP LMDB heap buffer overflow. No fix available. The server
       does not use LDAP or LMDB.
 
+  # openssl / openssl-libs - Present in UBI9 base image as a dependency
+  # of curl-minimal, rpm, and dnf. The server is built with
+  # CGO_ENABLED=0 and uses Go's native crypto/tls and crypto/x509, never
+  # linking against or calling into libssl.so/libcrypto.so. No fix
+  # available from Red Hat for any of these.
+  - id: CVE-2025-9232
+    statement: >-
+      Out-of-bounds read in OpenSSL's built-in HTTP client no_proxy
+      handling. No fix available. Not exploitable; the server never
+      invokes OpenSSL's HTTP client.
+  - id: CVE-2026-2673
+    statement: >-
+      OpenSSL TLS 1.3 server may choose an unexpected key agreement
+      group. No fix available. Not exploitable; TLS is terminated by
+      Go's crypto/tls, not OpenSSL.
+  - id: CVE-2026-28387
+    statement: >-
+      Use-after-free in OpenSSL DANE TLSA authentication. No fix
+      available. The server does not use DANE/TLSA and does not call
+      OpenSSL directly.
+  - id: CVE-2026-28388
+    statement: >-
+      NULL pointer dereference in OpenSSL delta CRL processing. No fix
+      available. The server does not process CRLs via OpenSSL.
+  - id: CVE-2026-28389
+    statement: >-
+      DoS in OpenSSL CMS processing. No fix available. The server does
+      not use CMS and does not call OpenSSL directly.
+  - id: CVE-2026-31789
+    statement: >-
+      Heap buffer overflow on 32-bit systems from large X.509
+      certificate processing in OpenSSL. No fix available. The server
+      runs on 64-bit only and validates certificates with Go's
+      crypto/x509, not OpenSSL.
+
   # p11-kit - PKCS#11 library in UBI9 base image.
   - id: CVE-2026-2100
     statement: >-
@@ -120,3 +206,12 @@ vulnerabilities:
     statement: >-
       systemd privilege escalation via RegisterMachine D-Bus method.
       No fix available. The container does not run systemd or use D-Bus.
+
+  # golang.org/x/crypto - Go module compiled into the server binary.
+  - id: GO-2026-5932
+    statement: >-
+      golang.org/x/crypto/openpgp is flagged unmaintained and unsafe by
+      design; no fix exists because the package itself is deprecated,
+      not because of a specific bug. Not exploitable; govulncheck
+      confirms only golang.org/x/crypto/bcrypt is imported anywhere in
+      this codebase. openpgp is never imported or called.
