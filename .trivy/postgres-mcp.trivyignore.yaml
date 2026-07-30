@@ -74,17 +74,62 @@ vulnerabilities:
       Integer overflow DoS in g_buffered_input_stream_peek(). No fix
       available. The server does not use GLib's GIO input streams.
 
-  # gnupg2 - Present in UBI9 base image but not used by the server.
+  # gnupg2 - Present in UBI9 base image but not used by the server; it
+  # does not verify GPG signatures or process OpenPGP data at runtime
+  # (the pgedge RPM repo's GPG key is only checked by rpm/microdnf
+  # during image build, not by the running server).
   - id: CVE-2025-68972
     statement: >-
       GnuPG signature bypass via form feed character. No fix available.
       The server does not verify GPG signatures.
-
-  # libarchive - Present in UBI9 base image but not used by the server.
-  - id: CVE-2026-4424
+  - id: CVE-2022-3219
     statement: >-
-      libarchive heap out-of-bounds read in RAR processing. No fix
-      available. The server does not process archive files.
+      DoS via resource consumption using compressed packets. No fix
+      available. The server does not invoke gpg at runtime.
+  - id: CVE-2025-30258
+    statement: >-
+      Verification DoS due to a malicious subkey in the keyring. No
+      fix available. The server does not verify GPG signatures at
+      runtime.
+  - id: CVE-2026-24883
+    statement: >-
+      DoS due to a specially crafted signature packet. No fix
+      available. The server does not process GPG signature packets.
+  - id: CVE-2026-57062
+    statement: >-
+      Incorrect cryptographic message parsing. No fix available. The
+      server does not invoke gpg's message parser.
+
+  # libarchive - Present in UBI9 base image but not used by the server;
+  # it does not extract or create tar/zip/RAR/WARC/ISO archives.
+  - id: CVE-2026-14164
+    statement: >-
+      Double-free in RAR5 decompression. No fix available. The server
+      does not process archive files.
+  - id: CVE-2026-5745
+    statement: >-
+      NULL pointer dereference in the ACL parser. No fix available.
+      The server does not process archive ACLs.
+  - id: CVE-2025-1632
+    statement: >-
+      NULL pointer dereference in bsdunzip. No fix available. The
+      server does not invoke bsdunzip or libarchive APIs.
+  - id: CVE-2025-5915
+    statement: >-
+      Heap buffer over-read in RAR LZSS window decompression. No fix
+      available. The server does not process RAR archives.
+  - id: CVE-2025-5916
+    statement: >-
+      Integer overflow reading WARC files. No fix available. The
+      server does not process WARC files.
+  - id: CVE-2025-5917
+    statement: >-
+      Off-by-one error building a ustar/pax entry name. No fix
+      available. The server does not create tar archives.
+  - id: CVE-2025-5918
+    statement: >-
+      Reading past EOF on piped file streams. No fix available. The
+      server does not pipe data through libarchive.
   - id: CVE-2023-30571
     statement: >-
       libarchive race condition. Will not fix per Red Hat. The server
@@ -97,10 +142,15 @@ vulnerabilities:
     statement: >-
       libarchive DoS via malformed ISO file. No fix available. The
       server does not process ISO files.
-  - id: CVE-2026-5121
+  - id: CVE-2026-15028
     statement: >-
-      libarchive integer overflow on 32-bit systems. No fix available.
-      Server runs on 64-bit only and does not use libarchive.
+      Heap overflow OOB read parsing a PAX extended header in a tar
+      archive. No fix available. The server does not process tar
+      archives.
+  - id: CVE-2026-16517
+    statement: >-
+      Signed integer overflow in archive_write_zip_header. No fix
+      available. The server does not create zip archives.
 
   # curl / libcurl-minimal - Only installed when KB_SOURCE is a URL, used
   # for exactly one invocation: `curl -fsSL -o kb.db "${KB_SOURCE}"` in
@@ -134,11 +184,126 @@ vulnerabilities:
       KB_SOURCE is validated to be an http(s):// URL before curl runs,
       so curl's SCP/SFTP/SSH code path is never reached.
 
-  # libnghttp2 - HTTP/2 library in UBI9 base image.
-  - id: CVE-2026-27135
+  # The remaining curl-minimal/libcurl-minimal CVEs are all triggered by
+  # a feature this invocation never uses: a configured proxy (-x), an
+  # auth scheme (Negotiate/Digest/.netrc), a cookie jar, LDAPS, SMB, or
+  # a redirect chain that carries credentials. The one call site passes
+  # none of these: it is `curl -fsSL -o kb.db "${KB_SOURCE}"` against an
+  # operator-supplied http(s):// URL with no proxy, no -u/--user, no
+  # -c/-b cookie flags, and no Authorization header. No fix available
+  # from Red Hat for curl-minimal 7.76.1 for any of the below.
+  - id: CVE-2025-13034
     statement: >-
-      nghttp2 DoS via malformed HTTP/2 frames. No fix available. The
-      MCP server uses the Go HTTP stack, not libnghttp2.
+      Public key pinning bypass via QUIC and GnuTLS. No fix available.
+      Not exploitable; the invocation never negotiates QUIC or uses
+      public key pinning.
+  - id: CVE-2025-14017
+    statement: >-
+      Global TLS option changes in multi-threaded LDAPS transfers. No
+      fix available. Not exploitable; the invocation is a single-
+      threaded HTTPS GET, not LDAPS.
+  - id: CVE-2026-11856
+    statement: >-
+      Information disclosure via incorrect Digest auth header reuse.
+      No fix available. Not exploitable; no Digest auth credentials
+      are ever supplied to this invocation.
+  - id: CVE-2026-1965
+    statement: >-
+      Authentication bypass via incorrect connection reuse with
+      Negotiate authentication. No fix available. Not exploitable; the
+      invocation supplies no Negotiate/Kerberos credentials.
+  - id: CVE-2026-3783
+    statement: >-
+      OAuth2 bearer token leakage during an HTTP(S) redirect. No fix
+      available. Not exploitable; no OAuth2 bearer token is ever
+      supplied to this invocation, so there is nothing to leak.
+  - id: CVE-2026-3784
+    statement: >-
+      Improper HTTP proxy connection reuse. No fix available. Not
+      exploitable; the invocation is run without a proxy configured.
+  - id: CVE-2026-4873
+    statement: >-
+      Information disclosure via incorrect TLS connection reuse. No
+      fix available. Not exploitable; this is a single one-shot
+      request with nothing session-sensitive to leak across reuse.
+  - id: CVE-2026-5545
+    statement: >-
+      Authentication bypass via incorrect HTTP Negotiate connection
+      reuse. No fix available. Not exploitable; no Negotiate auth is
+      configured for this invocation.
+  - id: CVE-2026-5773
+    statement: >-
+      Wrong file transfer due to incorrect SMB connection reuse. No
+      fix available. Not exploitable; KB_SOURCE is validated as
+      http(s):// before curl runs, so the smb:// scheme is never used.
+  - id: CVE-2026-6253
+    statement: >-
+      Proxy credential disclosure via redirects to unauthenticated
+      proxies. No fix available. Not exploitable; no proxy or proxy
+      credentials are configured for this invocation.
+  - id: CVE-2026-6429
+    statement: >-
+      Credential leak via reused proxy connection during HTTP
+      redirects. No fix available. Not exploitable; no proxy is
+      configured for this invocation.
+  - id: CVE-2026-7168
+    statement: >-
+      Information disclosure via incorrect Proxy-Authorization header
+      reuse. No fix available. Not exploitable; no proxy is configured
+      for this invocation.
+  - id: CVE-2026-8924
+    statement: >-
+      Cookie injection via a malicious HTTP server using super cookies.
+      No fix available. Not exploitable; the invocation uses no cookie
+      jar (-c/-b) and discards response headers, keeping only the body.
+  - id: CVE-2026-8926
+    statement: >-
+      Information disclosure via incorrect .netrc password lookup. No
+      fix available. Not exploitable; the invocation does not pass
+      --netrc, and no .netrc file exists in this minimal image.
+  - id: CVE-2024-11053
+    statement: >-
+      curl netrc password leak. No fix available. Not exploitable; the
+      invocation does not use --netrc and no .netrc file is present.
+  - id: CVE-2024-7264
+    statement: >-
+      ASN.1 date parser overread validating a certificate. No fix
+      available. KB_SOURCE is an operator-supplied build-time value,
+      not attacker-controlled, and the finding is a bounded overread.
+  - id: CVE-2024-9681
+    statement: >-
+      HSTS subdomain overwrites parent cache entry. No fix available.
+      Not exploitable; this is a single one-shot invocation in a
+      throwaway build container with no persistent HSTS store.
+  - id: CVE-2025-14524
+    statement: >-
+      Information disclosure via cross-protocol redirect with an
+      OAuth2 bearer token. No fix available. Not exploitable; no
+      OAuth2 token is ever supplied to this invocation.
+  - id: CVE-2025-15079
+    statement: >-
+      Host verification bypass during SSH transfers. No fix available.
+      Not exploitable; KB_SOURCE is validated as http(s):// before
+      curl runs, so the SSH/SCP/SFTP code path is never reached.
+  - id: CVE-2025-15224
+    statement: >-
+      libssh key passphrase bypass without an agent set. No fix
+      available. Not exploitable; SSH-based transfers are never
+      reached from this http(s)-only invocation.
+  - id: CVE-2026-6276
+    statement: >-
+      Cookie leak via connection reuse with custom Host headers. No
+      fix available. Not exploitable; the invocation sets no custom
+      Host header and uses no cookie jar.
+
+  # libnghttp2 - HTTP/2 library in UBI9 base image; the MCP server uses
+  # the Go HTTP stack, not libnghttp2.
+  - id: CVE-2026-58055
+    statement: >-
+      HTTP request/response smuggling via ambiguous HTTP/1.1 Upgrade
+      requests. No fix available. The MCP server uses the Go HTTP
+      stack, not libnghttp2, and does not proxy HTTP/1.1 Upgrade
+      requests through it.
 
   # libxml2 - Present in UBI9 base image but not used by the server.
   - id: CVE-2026-0990
@@ -149,6 +314,35 @@ vulnerabilities:
     statement: >-
       libxml2 memory leak in xmllint interactive mode. No fix available.
       The server does not invoke xmllint.
+  - id: CVE-2026-11979
+    statement: >-
+      Arbitrary code execution in the xmlcatalog utility via buffer
+      overflow. No fix available. The server does not invoke xmlcatalog.
+  - id: CVE-2026-6653
+    statement: >-
+      DoS via crafted XML input due to a use-after-free. No fix
+      available. The server does not parse XML.
+  - id: CVE-2026-6732
+    statement: >-
+      DoS via a crafted XSD-validated document. No fix available. The
+      server does not validate XML against XSD schemas.
+  - id: CVE-2023-45322
+    statement: >-
+      Use-after-free in xmlUnlinkNode(). No fix available. The server
+      does not parse or manipulate XML DOM trees.
+  - id: CVE-2025-27113
+    statement: >-
+      NULL pointer dereference in xmlPatMatch. No fix available. The
+      server does not use libxml2 pattern matching.
+  - id: CVE-2026-0989
+    statement: >-
+      Unbounded RelaxNG include recursion leading to stack overflow.
+      No fix available. The server does not validate XML against
+      RelaxNG schemas.
+  - id: CVE-2026-0992
+    statement: >-
+      DoS via crafted XML catalogs. No fix available. The server does
+      not use XML catalogs.
 
   # openldap - Present in UBI9 base image but not used by the server.
   - id: CVE-2026-22185
@@ -190,22 +384,214 @@ vulnerabilities:
       certificate processing in OpenSSL. No fix available. The server
       runs on 64-bit only and validates certificates with Go's
       crypto/x509, not OpenSSL.
-
-  # p11-kit - PKCS#11 library in UBI9 base image.
-  - id: CVE-2026-2100
+  - id: CVE-2024-13176
     statement: >-
-      p11-kit NULL dereference via C_DeriveKey. No fix available. The
-      server does not use PKCS#11 key derivation.
+      Timing side-channel in ECDSA signature computation. No fix
+      available. The server signs nothing with OpenSSL; Go's
+      crypto/ecdsa is unaffected by this OpenSSL-specific issue.
+  - id: CVE-2024-41996
+    statement: >-
+      Expensive server-side DHE modular-exponentiation triggerable by
+      a client. No fix available. Not exploitable; the server's TLS
+      stack is Go's crypto/tls, which does not use OpenSSL DHE code.
+
+  # p11-kit / p11-kit-trust - PKCS#11 library in UBI9 base image; the
+  # server does not use PKCS#11 for key derivation, trust storage, or
+  # anything else. Go's crypto/x509 has its own certificate handling.
+  - id: CVE-2026-13757
+    statement: >-
+      Stack exhaustion via unbounded recursion in RPC attribute
+      parsing. No fix available. The server does not use p11-kit's
+      RPC protocol or attribute parsing.
 
   # systemd-libs - Present in UBI9 base image.
-  - id: CVE-2026-29111
-    statement: >-
-      systemd arbitrary code execution via spurious IPC. No fix
-      available. Risk accepted; the container does not run systemd.
   - id: CVE-2026-4105
     statement: >-
       systemd privilege escalation via RegisterMachine D-Bus method.
       No fix available. The container does not run systemd or use D-Bus.
+
+  # libattr - Present in UBI9 base image but not used by the server.
+  - id: CVE-2026-54371
+    statement: >-
+      Symlink traversal privilege escalation via getfattr and setfattr.
+      No fix available. The server does not invoke getfattr/setfattr
+      or use extended attribute APIs.
+
+  # bzip2-libs - Present in UBI9 base image; the server does not shell
+  # out to bzip2/bzip2recover and does not decompress bzip2 streams.
+  - id: CVE-2026-42250
+    statement: >-
+      DoS in bzip2recover via a specially crafted file. No fix
+      available. The server never invokes bzip2recover.
+
+  # coreutils-single - Present in UBI9 base image; the server does not
+  # shell out to uniq/unexpand or any other coreutils utility.
+  - id: CVE-2026-56391
+    statement: >-
+      DoS and information disclosure in coreutils uniq via
+      out-of-bounds read with multibyte input. No fix available. The
+      server never invokes uniq.
+  - id: CVE-2026-56392
+    statement: >-
+      DoS via crafted tab stop values in coreutils unexpand. No fix
+      available. The server never invokes unexpand.
+
+  # gawk - Present in UBI9 base image; the server does not shell out
+  # to awk/gawk.
+  - id: CVE-2023-4156
+    statement: >-
+      Heap out-of-bounds read in gawk's builtin.c. No fix available.
+      The server never invokes gawk.
+
+  # gcc/binutils (libgcc, libstdc++) - Rust-demangling code in
+  # libiberty, present transitively in the UBI9 base image. The Go
+  # binary does not link the C++ runtime's demangler and never
+  # demangles Rust symbol names.
+  - id: CVE-2021-46195
+    statement: >-
+      Uncontrolled recursion in libiberty's Rust demangler. No fix
+      available. Not exploitable; the Go binary never demangles Rust
+      symbols.
+  - id: CVE-2022-27943
+    statement: >-
+      Stack exhaustion in libiberty's Rust demangler
+      (demangle_const). No fix available. Not exploitable; the Go
+      binary never demangles Rust symbols.
+
+  # gzip - Present in UBI9 base image; the server does not shell out
+  # to gzip/gzexe.
+  - id: CVE-2026-41991
+    statement: >-
+      Arbitrary file overwrite via insecure temp file handling in
+      gzexe. No fix available. The server never invokes gzexe.
+
+  # krb5-libs - Present in UBI9 base image; the server does not use
+  # Kerberos authentication.
+  - id: CVE-2026-11850
+    statement: >-
+      Integer underflow in berval2tl_data() leading to heap
+      out-of-bounds read. No fix available. The server does not use
+      Kerberos/GSSAPI authentication.
+
+  # libgcrypt - Present in UBI9 base image as a GnuPG dependency; the
+  # server uses Go's crypto/* stdlib, never libgcrypt.
+  - id: CVE-2026-41989
+    statement: >-
+      DoS and buffer overflow via a crafted ECDH ciphertext. No fix
+      available. The server does not call libgcrypt; it uses Go's
+      crypto/ecdh.
+  - id: CVE-2026-41990
+    statement: >-
+      DoS or data integrity issue from a missing bounds check during
+      Dilithium signing. No fix available. The server does not use
+      libgcrypt or post-quantum signing.
+
+  # libsolv - Present in UBI9 base image as a dnf/microdnf dependency
+  # for package-metadata resolution; used only during image build, not
+  # by the running server.
+  - id: CVE-2026-9149
+    statement: >-
+      Heap buffer overflow in repo_add_solv via a crafted .solv file.
+      No fix available. Only exercised by microdnf at build time
+      against the repository's own trusted metadata.
+  - id: CVE-2026-9150
+    statement: >-
+      Stack-based buffer overflow in libsolv's Debian metadata parser.
+      No fix available. This image uses RPM repos only; the Debian
+      metadata parser is never exercised.
+
+  # ncurses - Present in UBI9 base image; the server does not use a
+  # terminal UI and does not link ncurses.
+  - id: CVE-2023-50495
+    statement: >-
+      Segmentation fault via _nc_wrap_entry(). No fix available. The
+      server does not use ncurses.
+
+  # pam - Present in UBI9 base image for the useradd step in
+  # Dockerfile.server; the running server process does not perform
+  # PAM authentication or interact with sssd.
+  - id: CVE-2026-12610
+    statement: >-
+      Use-after-free crash in SSSD's sssd_pam process. No fix
+      available. The container does not run sssd.
+  - id: CVE-2026-54411
+    statement: >-
+      Plaintext password recovery via timing discrepancy in
+      pam_userdb. No fix available. The server does not authenticate
+      via PAM; its own auth is implemented in Go.
+
+  # pcre2 - Present in UBI9 base image; the server uses Go's regexp
+  # package (RE2), not PCRE2.
+  - id: CVE-2022-41409
+    statement: >-
+      Infinite loop from a negative repeat value in pcre2test. No fix
+      available. The server does not invoke pcre2test and does not
+      link PCRE2.
+
+  # rpm / rpm-libs - Used only by microdnf during image build; the
+  # running server process never invokes rpm and processes no RPM or
+  # archive files at runtime.
+  - id: CVE-2026-44604
+    statement: >-
+      Command injection in rpmuncompress's doUntar() via an unescaped
+      archive directory name. No fix available. Only exercised by
+      microdnf at build time against packages from the pgEdge and
+      UBI9 repos, not attacker-controlled archives.
+  - id: CVE-2026-44605
+    statement: >-
+      Heap buffer overflow in NDB slot table parsing. No fix
+      available. The running server never invokes rpm.
+
+  # sed - Present in UBI9 base image; the server does not shell out
+  # to sed.
+  - id: CVE-2026-5958
+    statement: >-
+      GNU sed TOCTOU race condition. No fix available. The server
+      never invokes sed.
+
+  # sqlite-libs - The knowledgebase feature uses modernc.org/sqlite
+  # (a pure-Go, CGO-free SQLite implementation), not the system
+  # sqlite-libs package.
+  - id: CVE-2024-0232
+    statement: >-
+      Use-after-free in jsonParseAddNodeArray. No fix available. The
+      server's SQLite access is via modernc.org/sqlite, a separate
+      pure-Go implementation; it does not link system sqlite-libs.
+  - id: CVE-2025-70873
+    statement: >-
+      Information disclosure via a crafted ZIP file. No fix
+      available. The server does not use SQLite's ZIP archive
+      support, and its SQLite access is via modernc.org/sqlite.
+
+  # util-linux (util-linux, util-linux-core, libblkid, libfdisk,
+  # libmount, libsmartcols, libuuid) - Installed for the runuser
+  # command used by the init script's user-switching step. The server
+  # never calls mount, losetup, or any block-device/partition-probing
+  # API.
+  - id: CVE-2026-13595
+    statement: >-
+      Heap use-after-free in libblkid nested partition probing. No
+      fix available. The server never probes block devices or
+      partitions.
+  - id: CVE-2026-27456
+    statement: >-
+      TOCTOU race in the mount program when setting up loop devices.
+      No fix available. The server never invokes mount or sets up
+      loop devices.
+
+  # xz-libs - Present in UBI9 base image; the server does not
+  # decompress .xz streams.
+  - id: CVE-2026-34743
+    statement: >-
+      Buffer overflow in XZ Utils index decoding. No fix available.
+      The server never decompresses XZ-compressed data.
+
+  # zlib - Present in UBI9 base image as a transitive dependency; the
+  # Go binary uses the stdlib's compress/* packages, not system zlib.
+  - id: CVE-2026-27171
+    statement: >-
+      DoS via an infinite loop in zlib's CRC32 combine functions. No
+      fix available. The server never calls system zlib directly.
 
   # golang.org/x/crypto - Go module compiled into the server binary.
   - id: GO-2026-5932
