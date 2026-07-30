@@ -4,43 +4,93 @@ vulnerabilities:
   # no mail{}/stream{} block, no mp4/image-filter/xslt/perl module
   # directives, and no OCSP configuration.
   - id: CVE-2025-23419
+    purls:
+      - "pkg:rpm/redhat/nginx@1.24.0-7.module%2Bel9.8.0%2B24502%2Bc9b9ab67.3"
+      - "pkg:rpm/redhat/nginx-core@1.24.0-7.module%2Bel9.8.0%2B24502%2Bc9b9ab67.3"
+      - "pkg:rpm/redhat/nginx-filesystem@1.24.0-7.module%2Bel9.8.0%2B24502%2Bc9b9ab67.3"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       TLS session resumption vulnerability. Risk accepted; TLS termination
       is handled by an upstream load balancer, not by nginx directly.
   - id: CVE-2026-28755
+    purls:
+      - "pkg:rpm/redhat/nginx@1.24.0-7.module%2Bel9.8.0%2B24502%2Bc9b9ab67.3"
+      - "pkg:rpm/redhat/nginx-core@1.24.0-7.module%2Bel9.8.0%2B24502%2Bc9b9ab67.3"
+      - "pkg:rpm/redhat/nginx-filesystem@1.24.0-7.module%2Bel9.8.0%2B24502%2Bc9b9ab67.3"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       Certificate revocation bypass when OCSP stapling is enabled. Not
       exploitable; OCSP is not configured in this deployment.
   - id: CVE-2025-53859
+    purls:
+      - "pkg:rpm/redhat/nginx@1.24.0-7.module%2Bel9.8.0%2B24502%2Bc9b9ab67.3"
+      - "pkg:rpm/redhat/nginx-core@1.24.0-7.module%2Bel9.8.0%2B24502%2Bc9b9ab67.3"
+      - "pkg:rpm/redhat/nginx-filesystem@1.24.0-7.module%2Bel9.8.0%2B24502%2Bc9b9ab67.3"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       nginx vulnerability. No fix available. docker/nginx.conf serves
       static files and one reverse-proxy location; no request-smuggling
       or upstream-parsing feature this depends on is configured here.
   - id: CVE-2026-28753
+    purls:
+      - "pkg:rpm/redhat/nginx@1.24.0-7.module%2Bel9.8.0%2B24502%2Bc9b9ab67.3"
+      - "pkg:rpm/redhat/nginx-core@1.24.0-7.module%2Bel9.8.0%2B24502%2Bc9b9ab67.3"
+      - "pkg:rpm/redhat/nginx-filesystem@1.24.0-7.module%2Bel9.8.0%2B24502%2Bc9b9ab67.3"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       nginx vulnerability. No fix available. Not exploitable via this
       deployment's single plain-http proxy_pass location.
   - id: CVE-2026-40460
+    purls:
+      - "pkg:rpm/redhat/nginx@1.24.0-7.module%2Bel9.8.0%2B24502%2Bc9b9ab67.3"
+      - "pkg:rpm/redhat/nginx-core@1.24.0-7.module%2Bel9.8.0%2B24502%2Bc9b9ab67.3"
+      - "pkg:rpm/redhat/nginx-filesystem@1.24.0-7.module%2Bel9.8.0%2B24502%2Bc9b9ab67.3"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       nginx vulnerability. No fix available. Not exploitable via this
       deployment's single plain-http proxy_pass location.
   - id: CVE-2026-40701
+    purls:
+      - "pkg:rpm/redhat/nginx@1.24.0-7.module%2Bel9.8.0%2B24502%2Bc9b9ab67.3"
+      - "pkg:rpm/redhat/nginx-core@1.24.0-7.module%2Bel9.8.0%2B24502%2Bc9b9ab67.3"
+      - "pkg:rpm/redhat/nginx-filesystem@1.24.0-7.module%2Bel9.8.0%2B24502%2Bc9b9ab67.3"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       nginx vulnerability. No fix available. Not exploitable via this
       deployment's single plain-http proxy_pass location.
   - id: CVE-2026-42533
+    purls:
+      - "pkg:rpm/redhat/nginx@1.24.0-7.module%2Bel9.8.0%2B24502%2Bc9b9ab67.3"
+      - "pkg:rpm/redhat/nginx-core@1.24.0-7.module%2Bel9.8.0%2B24502%2Bc9b9ab67.3"
+      - "pkg:rpm/redhat/nginx-filesystem@1.24.0-7.module%2Bel9.8.0%2B24502%2Bc9b9ab67.3"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       nginx vulnerability. No fix available. Not exploitable via this
       deployment's single plain-http proxy_pass location.
   - id: CVE-2026-42934
+    purls:
+      - "pkg:rpm/redhat/nginx@1.24.0-7.module%2Bel9.8.0%2B24502%2Bc9b9ab67.3"
+      - "pkg:rpm/redhat/nginx-core@1.24.0-7.module%2Bel9.8.0%2B24502%2Bc9b9ab67.3"
+      - "pkg:rpm/redhat/nginx-filesystem@1.24.0-7.module%2Bel9.8.0%2B24502%2Bc9b9ab67.3"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       nginx vulnerability. No fix available. Not exploitable via this
       deployment's single plain-http proxy_pass location.
   - id: CVE-2026-42946
+    purls:
+      - "pkg:rpm/redhat/nginx@1.24.0-7.module%2Bel9.8.0%2B24502%2Bc9b9ab67.3"
+      - "pkg:rpm/redhat/nginx-core@1.24.0-7.module%2Bel9.8.0%2B24502%2Bc9b9ab67.3"
+      - "pkg:rpm/redhat/nginx-filesystem@1.24.0-7.module%2Bel9.8.0%2B24502%2Bc9b9ab67.3"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       nginx vulnerability. No fix available. Not exploitable via this
       deployment's single plain-http proxy_pass location.
   - id: CVE-2026-48142
+    purls:
+      - "pkg:rpm/redhat/nginx@1.24.0-7.module%2Bel9.8.0%2B24502%2Bc9b9ab67.3"
+      - "pkg:rpm/redhat/nginx-core@1.24.0-7.module%2Bel9.8.0%2B24502%2Bc9b9ab67.3"
+      - "pkg:rpm/redhat/nginx-filesystem@1.24.0-7.module%2Bel9.8.0%2B24502%2Bc9b9ab67.3"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       nginx vulnerability. No fix available. Not exploitable via this
       deployment's single plain-http proxy_pass location.
@@ -50,106 +100,210 @@ vulnerabilities:
   # bypassing dnf's own package protection; it is never invoked at
   # runtime by nginx. No fix available from Red Hat for any of these.
   - id: CVE-2025-13034
+    purls:
+      - "pkg:rpm/redhat/curl-minimal@7.76.1-40.el9"
+      - "pkg:rpm/redhat/libcurl-minimal@7.76.1-40.el9"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       Public key pinning bypass via QUIC and GnuTLS. Not exploitable;
       curl is never invoked at runtime by the web server.
   - id: CVE-2025-14017
+    purls:
+      - "pkg:rpm/redhat/curl-minimal@7.76.1-40.el9"
+      - "pkg:rpm/redhat/libcurl-minimal@7.76.1-40.el9"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       curl TLS option changes in multi-threaded LDAPS transfers. Not
       exploitable; curl is never invoked at runtime.
   - id: CVE-2026-11856
+    purls:
+      - "pkg:rpm/redhat/curl-minimal@7.76.1-40.el9"
+      - "pkg:rpm/redhat/libcurl-minimal@7.76.1-40.el9"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       Digest auth header reuse information disclosure. Not exploitable;
       curl is never invoked at runtime.
   - id: CVE-2026-1965
+    purls:
+      - "pkg:rpm/redhat/curl-minimal@7.76.1-40.el9"
+      - "pkg:rpm/redhat/libcurl-minimal@7.76.1-40.el9"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       Negotiate authentication connection-reuse bypass. Not exploitable;
       curl is never invoked at runtime.
   - id: CVE-2026-3783
+    purls:
+      - "pkg:rpm/redhat/curl-minimal@7.76.1-40.el9"
+      - "pkg:rpm/redhat/libcurl-minimal@7.76.1-40.el9"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       OAuth2 bearer token leakage during redirect. Not exploitable; curl
       is never invoked at runtime.
   - id: CVE-2026-3784
+    purls:
+      - "pkg:rpm/redhat/curl-minimal@7.76.1-40.el9"
+      - "pkg:rpm/redhat/libcurl-minimal@7.76.1-40.el9"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       Improper HTTP proxy connection reuse. Not exploitable; curl is
       never invoked at runtime.
   - id: CVE-2026-4873
+    purls:
+      - "pkg:rpm/redhat/curl-minimal@7.76.1-40.el9"
+      - "pkg:rpm/redhat/libcurl-minimal@7.76.1-40.el9"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       TLS connection reuse information disclosure. Not exploitable; curl
       is never invoked at runtime.
   - id: CVE-2026-5545
+    purls:
+      - "pkg:rpm/redhat/curl-minimal@7.76.1-40.el9"
+      - "pkg:rpm/redhat/libcurl-minimal@7.76.1-40.el9"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       HTTP Negotiate connection-reuse authentication bypass. Not
       exploitable; curl is never invoked at runtime.
   - id: CVE-2026-5773
+    purls:
+      - "pkg:rpm/redhat/curl-minimal@7.76.1-40.el9"
+      - "pkg:rpm/redhat/libcurl-minimal@7.76.1-40.el9"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       Wrong file transfer via incorrect SMB connection reuse. Not
       exploitable; curl is never invoked at runtime.
   - id: CVE-2026-6253
+    purls:
+      - "pkg:rpm/redhat/curl-minimal@7.76.1-40.el9"
+      - "pkg:rpm/redhat/libcurl-minimal@7.76.1-40.el9"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       Proxy credential disclosure via redirects to unauthenticated
       proxies. Not exploitable; curl is never invoked at runtime.
   - id: CVE-2026-6429
+    purls:
+      - "pkg:rpm/redhat/curl-minimal@7.76.1-40.el9"
+      - "pkg:rpm/redhat/libcurl-minimal@7.76.1-40.el9"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       Credential leak via reused proxy connection during redirects. Not
       exploitable; curl is never invoked at runtime.
   - id: CVE-2026-7168
+    purls:
+      - "pkg:rpm/redhat/curl-minimal@7.76.1-40.el9"
+      - "pkg:rpm/redhat/libcurl-minimal@7.76.1-40.el9"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       Proxy-Authorization header reuse information disclosure. Not
       exploitable; curl is never invoked at runtime.
   - id: CVE-2026-8924
+    purls:
+      - "pkg:rpm/redhat/curl-minimal@7.76.1-40.el9"
+      - "pkg:rpm/redhat/libcurl-minimal@7.76.1-40.el9"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       Cookie injection via a malicious server using super cookies. Not
       exploitable; curl is never invoked at runtime.
   - id: CVE-2026-8925
+    purls:
+      - "pkg:rpm/redhat/curl-minimal@7.76.1-40.el9"
+      - "pkg:rpm/redhat/libcurl-minimal@7.76.1-40.el9"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       Double-free in SASL authentication. Not exploitable; curl is never
       invoked at runtime.
   - id: CVE-2026-8926
+    purls:
+      - "pkg:rpm/redhat/curl-minimal@7.76.1-40.el9"
+      - "pkg:rpm/redhat/libcurl-minimal@7.76.1-40.el9"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       Information disclosure via incorrect .netrc password lookup. Not
       exploitable; curl is never invoked at runtime.
   - id: CVE-2026-11352
+    purls:
+      - "pkg:rpm/redhat/curl-minimal@7.76.1-40.el9"
+      - "pkg:rpm/redhat/libcurl-minimal@7.76.1-40.el9"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       DoS via the QUIC UDP receive function. Not exploitable; curl is
       never invoked at runtime.
   - id: CVE-2026-11586
+    purls:
+      - "pkg:rpm/redhat/curl-minimal@7.76.1-40.el9"
+      - "pkg:rpm/redhat/libcurl-minimal@7.76.1-40.el9"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       DoS via WebSocket PING flood. Not exploitable; curl is never
       invoked at runtime.
   - id: CVE-2026-8286
+    purls:
+      - "pkg:rpm/redhat/curl-minimal@7.76.1-40.el9"
+      - "pkg:rpm/redhat/libcurl-minimal@7.76.1-40.el9"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       Insecure connection establishment from a TLS configuration
       mismatch. Not exploitable; curl is never invoked at runtime.
   - id: CVE-2026-9547
+    purls:
+      - "pkg:rpm/redhat/curl-minimal@7.76.1-40.el9"
+      - "pkg:rpm/redhat/libcurl-minimal@7.76.1-40.el9"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       MITM via SSH host key bypass. Not exploitable; curl is never
       invoked at runtime and no SCP/SFTP transfer is ever attempted.
   - id: CVE-2024-11053
+    purls:
+      - "pkg:rpm/redhat/curl-minimal@7.76.1-40.el9"
+      - "pkg:rpm/redhat/libcurl-minimal@7.76.1-40.el9"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       curl netrc password leak. Not exploitable; curl is never invoked
       at runtime.
   - id: CVE-2024-7264
+    purls:
+      - "pkg:rpm/redhat/curl-minimal@7.76.1-40.el9"
+      - "pkg:rpm/redhat/libcurl-minimal@7.76.1-40.el9"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       ASN.1 date parser overread. Not exploitable; curl is never
       invoked at runtime.
   - id: CVE-2024-9681
+    purls:
+      - "pkg:rpm/redhat/curl-minimal@7.76.1-40.el9"
+      - "pkg:rpm/redhat/libcurl-minimal@7.76.1-40.el9"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       HSTS subdomain overwrites parent cache entry. Not exploitable;
       curl is never invoked at runtime.
   - id: CVE-2025-14524
+    purls:
+      - "pkg:rpm/redhat/curl-minimal@7.76.1-40.el9"
+      - "pkg:rpm/redhat/libcurl-minimal@7.76.1-40.el9"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       Cross-protocol redirect OAuth2 bearer token disclosure. Not
       exploitable; curl is never invoked at runtime.
   - id: CVE-2025-15079
+    purls:
+      - "pkg:rpm/redhat/curl-minimal@7.76.1-40.el9"
+      - "pkg:rpm/redhat/libcurl-minimal@7.76.1-40.el9"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       Host verification bypass during SSH transfers. Not exploitable;
       curl is never invoked at runtime.
   - id: CVE-2025-15224
+    purls:
+      - "pkg:rpm/redhat/curl-minimal@7.76.1-40.el9"
+      - "pkg:rpm/redhat/libcurl-minimal@7.76.1-40.el9"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       libssh key passphrase bypass without an agent set. Not
       exploitable; curl is never invoked at runtime.
   - id: CVE-2026-6276
+    purls:
+      - "pkg:rpm/redhat/curl-minimal@7.76.1-40.el9"
+      - "pkg:rpm/redhat/libcurl-minimal@7.76.1-40.el9"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       Cookie leak via connection reuse with custom Host headers. Not
       exploitable; curl is never invoked at runtime.
@@ -157,64 +311,109 @@ vulnerabilities:
   # glib2 - Transitive dependency of dnf/dbus tooling; not used by
   # nginx or the built React app.
   - id: CVE-2026-1484
+    purls:
+      - "pkg:rpm/redhat/glib2@2.68.4-19.el9_8.2"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       glib2 integer overflow leading to buffer underflow. Not
       exploitable; the web server does not call glib2 APIs.
   - id: CVE-2026-1489
+    purls:
+      - "pkg:rpm/redhat/glib2@2.68.4-19.el9_8.2"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       glib2 memory corruption in Unicode case conversion. Not
       exploitable; the web server does not use glib2 Unicode APIs.
   - id: CVE-2026-1485
+    purls:
+      - "pkg:rpm/redhat/glib2@2.68.4-19.el9_8.2"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       glib2 local DoS via buffer underflow in content type parsing. Not
       exploitable; the web server does not call glib2 content-type APIs.
   - id: CVE-2026-15588
+    purls:
+      - "pkg:rpm/redhat/glib2@2.68.4-19.el9_8.2"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       GDBusServer pre-authentication DoS via unbounded SASL line
       buffering. Not exploitable; the web server does not run a D-Bus
       server.
   - id: CVE-2026-16118
+    purls:
+      - "pkg:rpm/redhat/glib2@2.68.4-19.el9_8.2"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       Heap buffer overflow in xdgmime magic-line parsing. Not
       exploitable; the web server never invokes glib2 MIME detection.
   - id: CVE-2026-58010
+    purls:
+      - "pkg:rpm/redhat/glib2@2.68.4-19.el9_8.2"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       Buffer over-read in GVariant tuple normalisation. Not
       exploitable; the web server does not parse GVariant data.
   - id: CVE-2026-58011
+    purls:
+      - "pkg:rpm/redhat/glib2@2.68.4-19.el9_8.2"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       Out-of-bounds read in GDateTime. Not exploitable; the web server
       does not use glib2 GDateTime.
   - id: CVE-2026-58012
+    purls:
+      - "pkg:rpm/redhat/glib2@2.68.4-19.el9_8.2"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       Buffer over-read in g_regex_replace(). Not exploitable; nginx
       uses PCRE directly for its own config parsing, not via glib2.
   - id: CVE-2026-58013
+    purls:
+      - "pkg:rpm/redhat/glib2@2.68.4-19.el9_8.2"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       Buffer over-read in g_io_channel_read_line_backend(). Not
       exploitable; the web server does not use GIOChannel.
   - id: CVE-2026-58014
+    purls:
+      - "pkg:rpm/redhat/glib2@2.68.4-19.el9_8.2"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       Off-by-one in g_key_file_get_locale_string_list(). Not
       exploitable; the web server does not read GLib key files.
   - id: CVE-2026-58015
+    purls:
+      - "pkg:rpm/redhat/glib2@2.68.4-19.el9_8.2"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       Path traversal in the D-Bus SHA1 auth mechanism's keyring
       lookup. Not exploitable; the web server does not run a D-Bus
       server.
   - id: CVE-2023-32636
+    purls:
+      - "pkg:rpm/redhat/glib2@2.68.4-19.el9_8.2"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       Timeout in the GVariant text-format fuzz harness. Not
       exploitable; this affects glib2's own fuzz tooling.
   - id: CVE-2025-3360
+    purls:
+      - "pkg:rpm/redhat/glib2@2.68.4-19.el9_8.2"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       Integer overflow parsing an invalid ISO 8601 timestamp. Not
       exploitable; the web server does not use glib2 GDateTime.
   - id: CVE-2025-7039
+    purls:
+      - "pkg:rpm/redhat/glib2@2.68.4-19.el9_8.2"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       Buffer under-read in glib2's get_tmp_file(). Not exploitable;
       the web server does not use glib2 temp-file helpers.
   - id: CVE-2026-0988
+    purls:
+      - "pkg:rpm/redhat/glib2@2.68.4-19.el9_8.2"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       Integer overflow DoS in g_buffered_input_stream_peek(). Not
       exploitable; the web server does not use GLib's GIO input
@@ -224,34 +423,68 @@ vulnerabilities:
   # this deployment (TLS is handled upstream, per docker/nginx.conf,
   # which listens on plain HTTP 8081 only).
   - id: CVE-2024-13176
+    purls:
+      - "pkg:rpm/redhat/openssl@3.5.5-6.el9_8"
+      - "pkg:rpm/redhat/openssl-libs@3.5.5-6.el9_8"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       Timing side-channel in ECDSA signature computation. Not
       exploitable; this deployment does not terminate TLS in nginx.
   - id: CVE-2024-41996
+    purls:
+      - "pkg:rpm/redhat/openssl@3.5.5-6.el9_8"
+      - "pkg:rpm/redhat/openssl-libs@3.5.5-6.el9_8"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       Expensive server-side DHE modular-exponentiation triggerable by
       a client. Not exploitable; nginx does not terminate TLS here.
   - id: CVE-2025-9232
+    purls:
+      - "pkg:rpm/redhat/openssl@3.5.5-6.el9_8"
+      - "pkg:rpm/redhat/openssl-libs@3.5.5-6.el9_8"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       Out-of-bounds read in OpenSSL's built-in HTTP client no_proxy
       handling. Not exploitable; nginx does not invoke OpenSSL's HTTP
       client.
   - id: CVE-2026-2673
+    purls:
+      - "pkg:rpm/redhat/openssl@3.5.5-6.el9_8"
+      - "pkg:rpm/redhat/openssl-fips-provider@3.0.7-11.el9_8"
+      - "pkg:rpm/redhat/openssl-fips-provider-so@3.0.7-11.el9_8"
+      - "pkg:rpm/redhat/openssl-libs@3.5.5-6.el9_8"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       OpenSSL TLS 1.3 server may choose an unexpected key agreement
       group. Not exploitable; nginx does not terminate TLS here.
   - id: CVE-2026-28387
+    purls:
+      - "pkg:rpm/redhat/openssl@3.5.5-6.el9_8"
+      - "pkg:rpm/redhat/openssl-libs@3.5.5-6.el9_8"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       Use-after-free in OpenSSL DANE TLSA authentication. Not
       exploitable; DANE/TLSA is not used.
   - id: CVE-2026-28388
+    purls:
+      - "pkg:rpm/redhat/openssl@3.5.5-6.el9_8"
+      - "pkg:rpm/redhat/openssl-libs@3.5.5-6.el9_8"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       NULL pointer dereference in OpenSSL delta CRL processing. Not
       exploitable; CRLs are not processed here.
   - id: CVE-2026-28389
+    purls:
+      - "pkg:rpm/redhat/openssl@3.5.5-6.el9_8"
+      - "pkg:rpm/redhat/openssl-libs@3.5.5-6.el9_8"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       DoS in OpenSSL CMS processing. Not exploitable; CMS is not used.
   - id: CVE-2026-31789
+    purls:
+      - "pkg:rpm/redhat/openssl@3.5.5-6.el9_8"
+      - "pkg:rpm/redhat/openssl-libs@3.5.5-6.el9_8"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       Heap buffer overflow on 32-bit systems from large X.509
       certificate processing. Not exploitable; nginx does not
@@ -263,106 +496,204 @@ vulnerabilities:
   # be removed without bypassing dnf's own protection. Never invoked
   # by nginx or the built static React app at runtime.
   - id: CVE-2025-11468
+    purls:
+      - "pkg:rpm/redhat/python3@3.9.25-7.el9_8.2"
+      - "pkg:rpm/redhat/python3-libs@3.9.25-7.el9_8.2"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       Python vulnerability. Not exploitable; Python is never invoked
       at runtime by the web server.
   - id: CVE-2025-12781
+    purls:
+      - "pkg:rpm/redhat/python3@3.9.25-7.el9_8.2"
+      - "pkg:rpm/redhat/python3-libs@3.9.25-7.el9_8.2"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       Python vulnerability. Not exploitable; Python is never invoked
       at runtime.
   - id: CVE-2025-13837
+    purls:
+      - "pkg:rpm/redhat/python3@3.9.25-7.el9_8.2"
+      - "pkg:rpm/redhat/python3-libs@3.9.25-7.el9_8.2"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       Python vulnerability. Not exploitable; Python is never invoked
       at runtime.
   - id: CVE-2025-15282
+    purls:
+      - "pkg:rpm/redhat/python3@3.9.25-7.el9_8.2"
+      - "pkg:rpm/redhat/python3-libs@3.9.25-7.el9_8.2"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       Python vulnerability. Not exploitable; Python is never invoked
       at runtime.
   - id: CVE-2025-4516
+    purls:
+      - "pkg:rpm/redhat/python3@3.9.25-7.el9_8.2"
+      - "pkg:rpm/redhat/python3-libs@3.9.25-7.el9_8.2"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       Python vulnerability. Not exploitable; Python is never invoked
       at runtime.
   - id: CVE-2026-0672
+    purls:
+      - "pkg:rpm/redhat/python3@3.9.25-7.el9_8.2"
+      - "pkg:rpm/redhat/python3-libs@3.9.25-7.el9_8.2"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       Python vulnerability. Not exploitable; Python is never invoked
       at runtime.
   - id: CVE-2026-3644
+    purls:
+      - "pkg:rpm/redhat/python3@3.9.25-7.el9_8.2"
+      - "pkg:rpm/redhat/python3-libs@3.9.25-7.el9_8.2"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       Python vulnerability. Not exploitable; Python is never invoked
       at runtime.
   - id: CVE-2026-4224
+    purls:
+      - "pkg:rpm/redhat/python3@3.9.25-7.el9_8.2"
+      - "pkg:rpm/redhat/python3-libs@3.9.25-7.el9_8.2"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       Python vulnerability. Not exploitable; Python is never invoked
       at runtime.
   - id: CVE-2025-13462
+    purls:
+      - "pkg:rpm/redhat/python3@3.9.25-7.el9_8.2"
+      - "pkg:rpm/redhat/python3-libs@3.9.25-7.el9_8.2"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       Python vulnerability. Not exploitable; Python is never invoked
       at runtime.
   - id: CVE-2025-1795
+    purls:
+      - "pkg:rpm/redhat/python3@3.9.25-7.el9_8.2"
+      - "pkg:rpm/redhat/python3-libs@3.9.25-7.el9_8.2"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       Python pip vulnerability. Not exploitable; pip is never invoked
       at runtime.
   - id: CVE-2026-11972
+    purls:
+      - "pkg:rpm/redhat/python3@3.9.25-7.el9_8.2"
+      - "pkg:rpm/redhat/python3-libs@3.9.25-7.el9_8.2"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       Python vulnerability. Not exploitable; Python is never invoked
       at runtime.
   - id: CVE-2026-1502
+    purls:
+      - "pkg:rpm/redhat/python3@3.9.25-7.el9_8.2"
+      - "pkg:rpm/redhat/python3-libs@3.9.25-7.el9_8.2"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       Python vulnerability. Not exploitable; Python is never invoked
       at runtime.
   - id: CVE-2026-2297
+    purls:
+      - "pkg:rpm/redhat/python3@3.9.25-7.el9_8.2"
+      - "pkg:rpm/redhat/python3-libs@3.9.25-7.el9_8.2"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       Python vulnerability. Not exploitable; Python is never invoked
       at runtime.
   - id: CVE-2026-3276
+    purls:
+      - "pkg:rpm/redhat/python3@3.9.25-7.el9_8.2"
+      - "pkg:rpm/redhat/python3-libs@3.9.25-7.el9_8.2"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       Python vulnerability. Not exploitable; Python is never invoked
       at runtime.
   - id: CVE-2026-3479
+    purls:
+      - "pkg:rpm/redhat/python3@3.9.25-7.el9_8.2"
+      - "pkg:rpm/redhat/python3-libs@3.9.25-7.el9_8.2"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       Python vulnerability. Not exploitable; Python is never invoked
       at runtime.
   - id: CVE-2026-42308
+    purls:
+      - "pkg:rpm/redhat/python3@3.9.25-7.el9_8.2"
+      - "pkg:rpm/redhat/python3-libs@3.9.25-7.el9_8.2"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       Python vulnerability. Not exploitable; Python is never invoked
       at runtime.
   - id: CVE-2026-5713
+    purls:
+      - "pkg:rpm/redhat/python3@3.9.25-7.el9_8.2"
+      - "pkg:rpm/redhat/python3-libs@3.9.25-7.el9_8.2"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       Python vulnerability. Not exploitable; Python is never invoked
       at runtime.
   - id: CVE-2026-6019
+    purls:
+      - "pkg:rpm/redhat/python3@3.9.25-7.el9_8.2"
+      - "pkg:rpm/redhat/python3-libs@3.9.25-7.el9_8.2"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       Python vulnerability. Not exploitable; Python is never invoked
       at runtime.
   - id: CVE-2026-7210
+    purls:
+      - "pkg:rpm/redhat/python3@3.9.25-7.el9_8.2"
+      - "pkg:rpm/redhat/python3-libs@3.9.25-7.el9_8.2"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       Python vulnerability. Not exploitable; Python is never invoked
       at runtime.
   - id: CVE-2023-45803
+    purls:
+      - "pkg:rpm/redhat/python3-pip-wheel@21.3.1-2.el9_8"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       urllib3 vulnerability bundled via python3-pip-wheel. Not
       exploitable; Python and pip are never invoked at runtime.
   - id: CVE-2025-50181
+    purls:
+      - "pkg:rpm/redhat/python3-pip-wheel@21.3.1-2.el9_8"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       Python pip-wheel vulnerability. Not exploitable; pip is never
       invoked at runtime.
   - id: CVE-2025-50182
+    purls:
+      - "pkg:rpm/redhat/python3-pip-wheel@21.3.1-2.el9_8"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       Python pip-wheel vulnerability. Not exploitable; pip is never
       invoked at runtime.
   - id: CVE-2026-25645
+    purls:
+      - "pkg:rpm/redhat/python3-pip-wheel@21.3.1-2.el9_8"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       Python pip-wheel vulnerability. Not exploitable; pip is never
       invoked at runtime.
   - id: CVE-2026-32284
+    purls:
+      - "pkg:rpm/redhat/python3-pip-wheel@21.3.1-2.el9_8"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       Python pip-wheel vulnerability. Not exploitable; pip is never
       invoked at runtime.
   - id: CVE-2021-3572
+    purls:
+      - "pkg:rpm/redhat/python3-pip-wheel@21.3.1-2.el9_8"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       Python pip-wheel vulnerability. Not exploitable; pip is never
       invoked at runtime.
   - id: CVE-2026-45409
+    purls:
+      - "pkg:rpm/redhat/python3-idna@2.10-7.el9_4.1"
+      - "pkg:rpm/redhat/python3-pip-wheel@21.3.1-2.el9_8"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       python3-idna DoS via specially crafted long inputs. Not
       exploitable; Python is never invoked at runtime.
@@ -370,22 +701,37 @@ vulnerabilities:
   # gnupg2 - Present for rpm/dnf package-signature verification during
   # image build; never invoked at runtime.
   - id: CVE-2025-68972
+    purls:
+      - "pkg:rpm/redhat/gnupg2@2.3.3-5.el9_7"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       GnuPG signature bypass via form feed character. Not exploitable;
       the web server does not verify GPG signatures at runtime.
   - id: CVE-2022-3219
+    purls:
+      - "pkg:rpm/redhat/gnupg2@2.3.3-5.el9_7"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       DoS via resource consumption using compressed packets. Not
       exploitable; gpg is never invoked at runtime.
   - id: CVE-2025-30258
+    purls:
+      - "pkg:rpm/redhat/gnupg2@2.3.3-5.el9_7"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       Verification DoS due to a malicious subkey in the keyring. Not
       exploitable; gpg is never invoked at runtime.
   - id: CVE-2026-24883
+    purls:
+      - "pkg:rpm/redhat/gnupg2@2.3.3-5.el9_7"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       DoS due to a specially crafted signature packet. Not
       exploitable; gpg is never invoked at runtime.
   - id: CVE-2026-57062
+    purls:
+      - "pkg:rpm/redhat/gnupg2@2.3.3-5.el9_7"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       Incorrect cryptographic message parsing. Not exploitable; gpg
       is never invoked at runtime.
@@ -393,39 +739,66 @@ vulnerabilities:
   # libxml2 - Not used; the web server serves static files and does
   # not parse XML.
   - id: CVE-2026-0990
+    purls:
+      - "pkg:rpm/redhat/libxml2@2.9.13-14.el9_8.2"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       libxml2 DoS via uncontrolled recursion in XML catalog
       processing. Not exploitable; the web server does not parse XML.
   - id: CVE-2026-1757
+    purls:
+      - "pkg:rpm/redhat/libxml2@2.9.13-14.el9_8.2"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       libxml2 memory leak in xmllint interactive mode. Not
       exploitable; xmllint is never invoked at runtime.
   - id: CVE-2026-11979
+    purls:
+      - "pkg:rpm/redhat/libxml2@2.9.13-14.el9_8.2"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       Arbitrary code execution in the xmlcatalog utility. Not
       exploitable; xmlcatalog is never invoked at runtime.
   - id: CVE-2026-6653
+    purls:
+      - "pkg:rpm/redhat/libxml2@2.9.13-14.el9_8.2"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       DoS via crafted XML input due to a use-after-free. Not
       exploitable; the web server does not parse XML.
   - id: CVE-2026-6732
+    purls:
+      - "pkg:rpm/redhat/libxml2@2.9.13-14.el9_8.2"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       DoS via a crafted XSD-validated document. Not exploitable; the
       web server does not validate XML against XSD schemas.
   - id: CVE-2023-45322
+    purls:
+      - "pkg:rpm/redhat/libxml2@2.9.13-14.el9_8.2"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       Use-after-free in xmlUnlinkNode(). Not exploitable; the web
       server does not parse or manipulate XML DOM trees.
   - id: CVE-2025-27113
+    purls:
+      - "pkg:rpm/redhat/libxml2@2.9.13-14.el9_8.2"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       NULL pointer dereference in xmlPatMatch. Not exploitable; the
       web server does not use libxml2 pattern matching.
   - id: CVE-2026-0989
+    purls:
+      - "pkg:rpm/redhat/libxml2@2.9.13-14.el9_8.2"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       Unbounded RelaxNG include recursion leading to stack overflow.
       Not exploitable; the web server does not validate XML against
       RelaxNG schemas.
   - id: CVE-2026-0992
+    purls:
+      - "pkg:rpm/redhat/libxml2@2.9.13-14.el9_8.2"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       DoS via crafted XML catalogs. Not exploitable; the web server
       does not use XML catalogs.
@@ -433,50 +806,86 @@ vulnerabilities:
   # expat - XML parser pulled in transitively (dbus, python3); the
   # web server does not parse XML.
   - id: CVE-2026-32776
+    purls:
+      - "pkg:rpm/redhat/expat@2.5.0-6.el9_8.1"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       expat XML parser vulnerability. Not exploitable; the web server
       does not parse XML directly.
   - id: CVE-2026-32777
+    purls:
+      - "pkg:rpm/redhat/expat@2.5.0-6.el9_8.1"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       expat XML parser vulnerability. Not exploitable; the web server
       does not parse XML directly.
   - id: CVE-2026-32778
+    purls:
+      - "pkg:rpm/redhat/expat@2.5.0-6.el9_8.1"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       expat XML parser vulnerability. Not exploitable; the web server
       does not parse XML directly.
   - id: CVE-2025-66382
+    purls:
+      - "pkg:rpm/redhat/expat@2.5.0-6.el9_8.1"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       expat XML parser vulnerability. Not exploitable; the web server
       does not parse XML directly.
   - id: CVE-2026-24515
+    purls:
+      - "pkg:rpm/redhat/expat@2.5.0-6.el9_8.1"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       expat XML parser vulnerability. Not exploitable; the web server
       does not parse XML directly.
   - id: CVE-2026-41080
+    purls:
+      - "pkg:rpm/redhat/expat@2.5.0-6.el9_8.1"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       expat XML parser vulnerability. Not exploitable; the web server
       does not parse XML directly.
   - id: CVE-2026-50219
+    purls:
+      - "pkg:rpm/redhat/expat@2.5.0-6.el9_8.1"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       expat XML parser vulnerability. Not exploitable; the web server
       does not parse XML directly.
   - id: CVE-2026-56132
+    purls:
+      - "pkg:rpm/redhat/expat@2.5.0-6.el9_8.1"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       expat XML parser vulnerability. Not exploitable; the web server
       does not parse XML directly.
   - id: CVE-2026-56403
+    purls:
+      - "pkg:rpm/redhat/expat@2.5.0-6.el9_8.1"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       expat XML parser vulnerability. Not exploitable; the web server
       does not parse XML directly.
   - id: CVE-2026-56405
+    purls:
+      - "pkg:rpm/redhat/expat@2.5.0-6.el9_8.1"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       expat XML parser vulnerability. Not exploitable; the web server
       does not parse XML directly.
   - id: CVE-2026-56406
+    purls:
+      - "pkg:rpm/redhat/expat@2.5.0-6.el9_8.1"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       expat XML parser vulnerability. Not exploitable; the web server
       does not parse XML directly.
   - id: CVE-2026-56412
+    purls:
+      - "pkg:rpm/redhat/expat@2.5.0-6.el9_8.1"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       expat XML parser vulnerability. Not exploitable; the web server
       does not parse XML directly.
@@ -484,50 +893,98 @@ vulnerabilities:
   # libarchive / bsdtar - The web server does not process archive
   # files; bsdtar is present as a base-image convenience tool only.
   - id: CVE-2023-30571
+    purls:
+      - "pkg:rpm/redhat/bsdtar@3.5.3-9.el9_7"
+      - "pkg:rpm/redhat/libarchive@3.5.3-9.el9_7"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       libarchive race condition. Not exploitable; the web server does
       not process archive files.
   - id: CVE-2025-60753
+    purls:
+      - "pkg:rpm/redhat/bsdtar@3.5.3-9.el9_7"
+      - "pkg:rpm/redhat/libarchive@3.5.3-9.el9_7"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       bsdtar OOM with zero-length pattern matches. Not exploitable;
       bsdtar is never invoked at runtime.
   - id: CVE-2025-1632
+    purls:
+      - "pkg:rpm/redhat/bsdtar@3.5.3-9.el9_7"
+      - "pkg:rpm/redhat/libarchive@3.5.3-9.el9_7"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       NULL pointer dereference in bsdunzip. Not exploitable; bsdtar
       is never invoked at runtime.
   - id: CVE-2025-5915
+    purls:
+      - "pkg:rpm/redhat/bsdtar@3.5.3-9.el9_7"
+      - "pkg:rpm/redhat/libarchive@3.5.3-9.el9_7"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       Heap buffer over-read in RAR LZSS window decompression. Not
       exploitable; the web server does not process RAR archives.
   - id: CVE-2025-5916
+    purls:
+      - "pkg:rpm/redhat/bsdtar@3.5.3-9.el9_7"
+      - "pkg:rpm/redhat/libarchive@3.5.3-9.el9_7"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       Integer overflow reading WARC files. Not exploitable; the web
       server does not process WARC files.
   - id: CVE-2025-5917
+    purls:
+      - "pkg:rpm/redhat/bsdtar@3.5.3-9.el9_7"
+      - "pkg:rpm/redhat/libarchive@3.5.3-9.el9_7"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       Off-by-one error building a ustar/pax entry name. Not
       exploitable; the web server does not create tar archives.
   - id: CVE-2025-5918
+    purls:
+      - "pkg:rpm/redhat/bsdtar@3.5.3-9.el9_7"
+      - "pkg:rpm/redhat/libarchive@3.5.3-9.el9_7"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       Reading past EOF on piped file streams. Not exploitable; the
       web server does not pipe data through libarchive.
   - id: CVE-2026-14164
+    purls:
+      - "pkg:rpm/redhat/bsdtar@3.5.3-9.el9_7"
+      - "pkg:rpm/redhat/libarchive@3.5.3-9.el9_7"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       Double-free in RAR5 decompression. Not exploitable; the web
       server does not process archive files.
   - id: CVE-2026-15028
+    purls:
+      - "pkg:rpm/redhat/bsdtar@3.5.3-9.el9_7"
+      - "pkg:rpm/redhat/libarchive@3.5.3-9.el9_7"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       Heap overflow OOB read parsing a PAX extended header. Not
       exploitable; the web server does not process tar archives.
   - id: CVE-2026-16517
+    purls:
+      - "pkg:rpm/redhat/bsdtar@3.5.3-9.el9_7"
+      - "pkg:rpm/redhat/libarchive@3.5.3-9.el9_7"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       Signed integer overflow in archive_write_zip_header. Not
       exploitable; the web server does not create zip archives.
   - id: CVE-2026-5745
+    purls:
+      - "pkg:rpm/redhat/bsdtar@3.5.3-9.el9_7"
+      - "pkg:rpm/redhat/libarchive@3.5.3-9.el9_7"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       NULL pointer dereference in the ACL parser. Not exploitable; the
       web server does not process archive ACLs.
   - id: CVE-2026-4426
+    purls:
+      - "pkg:rpm/redhat/bsdtar@3.5.3-9.el9_7"
+      - "pkg:rpm/redhat/libarchive@3.5.3-9.el9_7"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       libarchive DoS via malformed ISO file processing. Not
       exploitable; the web server does not process ISO files.
@@ -536,11 +993,25 @@ vulnerabilities:
   # Used only by dnf during image build; never invoked by the running
   # nginx process.
   - id: CVE-2026-44604
+    purls:
+      - "pkg:rpm/redhat/python3-rpm@4.16.1.3-40.el9"
+      - "pkg:rpm/redhat/rpm@4.16.1.3-40.el9"
+      - "pkg:rpm/redhat/rpm-build-libs@4.16.1.3-40.el9"
+      - "pkg:rpm/redhat/rpm-libs@4.16.1.3-40.el9"
+      - "pkg:rpm/redhat/rpm-sign-libs@4.16.1.3-40.el9"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       Command injection in rpmuncompress's doUntar(). Not exploitable
       at runtime; rpm is never invoked by the running container, only
       by dnf during image build against the base image's own repos.
   - id: CVE-2026-44605
+    purls:
+      - "pkg:rpm/redhat/python3-rpm@4.16.1.3-40.el9"
+      - "pkg:rpm/redhat/rpm@4.16.1.3-40.el9"
+      - "pkg:rpm/redhat/rpm-build-libs@4.16.1.3-40.el9"
+      - "pkg:rpm/redhat/rpm-libs@4.16.1.3-40.el9"
+      - "pkg:rpm/redhat/rpm-sign-libs@4.16.1.3-40.el9"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       Heap buffer overflow in NDB slot table parsing. Not exploitable;
       rpm is never invoked at runtime.
@@ -549,10 +1020,28 @@ vulnerabilities:
   # libfdisk, libmount, libsmartcols, libuuid) - The web server never
   # calls mount, losetup, or any block-device/partition-probing API.
   - id: CVE-2026-13595
+    purls:
+      - "pkg:rpm/redhat/libblkid@2.37.4-25.el9"
+      - "pkg:rpm/redhat/libfdisk@2.37.4-25.el9"
+      - "pkg:rpm/redhat/libmount@2.37.4-25.el9"
+      - "pkg:rpm/redhat/libsmartcols@2.37.4-25.el9"
+      - "pkg:rpm/redhat/libuuid@2.37.4-25.el9"
+      - "pkg:rpm/redhat/util-linux@2.37.4-25.el9"
+      - "pkg:rpm/redhat/util-linux-core@2.37.4-25.el9"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       Heap use-after-free in libblkid nested partition probing. Not
       exploitable; the web server never probes block devices.
   - id: CVE-2026-27456
+    purls:
+      - "pkg:rpm/redhat/libblkid@2.37.4-25.el9"
+      - "pkg:rpm/redhat/libfdisk@2.37.4-25.el9"
+      - "pkg:rpm/redhat/libmount@2.37.4-25.el9"
+      - "pkg:rpm/redhat/libsmartcols@2.37.4-25.el9"
+      - "pkg:rpm/redhat/libuuid@2.37.4-25.el9"
+      - "pkg:rpm/redhat/util-linux@2.37.4-25.el9"
+      - "pkg:rpm/redhat/util-linux-core@2.37.4-25.el9"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       TOCTOU race in the mount program when setting up loop devices.
       Not exploitable; the web server never invokes mount.
@@ -560,6 +1049,10 @@ vulnerabilities:
   # p11-kit / p11-kit-trust - PKCS#11 library; the web server does not
   # use PKCS#11 for anything.
   - id: CVE-2026-13757
+    purls:
+      - "pkg:rpm/redhat/p11-kit@0.26.2-1.el9"
+      - "pkg:rpm/redhat/p11-kit-trust@0.26.2-1.el9"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       Stack exhaustion via unbounded recursion in RPC attribute
       parsing. Not exploitable; the web server does not use p11-kit's
@@ -567,16 +1060,26 @@ vulnerabilities:
 
   # sqlite-libs - No component of this image uses SQLite.
   - id: CVE-2024-0232
+    purls:
+      - "pkg:rpm/redhat/sqlite-libs@3.34.1-10.el9_8"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       Use-after-free in jsonParseAddNodeArray. Not exploitable; no
       component of this image uses SQLite.
   - id: CVE-2025-70873
+    purls:
+      - "pkg:rpm/redhat/sqlite-libs@3.34.1-10.el9_8"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       Information disclosure via a crafted ZIP file. Not exploitable;
       no component of this image uses SQLite.
 
   # ncurses-base / ncurses-libs - No terminal UI is used at runtime.
   - id: CVE-2023-50495
+    purls:
+      - "pkg:rpm/redhat/ncurses-base@6.2-12.20210508.el9"
+      - "pkg:rpm/redhat/ncurses-libs@6.2-12.20210508.el9"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       Segmentation fault via _nc_wrap_entry(). Not exploitable; the
       web server does not use ncurses.
@@ -585,12 +1088,19 @@ vulnerabilities:
   # configuration-parsing code, and the built React app is static
   # JS/HTML with no server-side regex evaluation.
   - id: CVE-2022-41409
+    purls:
+      - "pkg:rpm/redhat/pcre2@10.40-6.el9"
+      - "pkg:rpm/redhat/pcre2-syntax@10.40-6.el9"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       Infinite loop from a negative repeat value in pcre2test. Not
       exploitable; pcre2test is never invoked at runtime.
 
   # krb5-libs - No component of this image uses Kerberos.
   - id: CVE-2026-11850
+    purls:
+      - "pkg:rpm/redhat/krb5-libs@1.21.1-10.el9_8"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       Integer underflow in berval2tl_data() leading to heap
       out-of-bounds read. Not exploitable; the web server does not
@@ -599,10 +1109,16 @@ vulnerabilities:
   # pam - Present for the base image's own user/session tooling;
   # nginx does not authenticate via PAM.
   - id: CVE-2026-12610
+    purls:
+      - "pkg:rpm/redhat/pam@1.5.1-28.el9"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       Use-after-free crash in SSSD's sssd_pam process. Not
       exploitable; the container does not run sssd.
   - id: CVE-2026-54411
+    purls:
+      - "pkg:rpm/redhat/pam@1.5.1-28.el9"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       Plaintext password recovery via timing discrepancy in
       pam_userdb. Not exploitable; the web server does not
@@ -612,20 +1128,36 @@ vulnerabilities:
   # present transitively; nginx and the static React app never
   # demangle Rust symbol names.
   - id: CVE-2021-46195
+    purls:
+      - "pkg:rpm/redhat/libgcc@11.5.0-14.el9"
+      - "pkg:rpm/redhat/libgomp@11.5.0-14.el9"
+      - "pkg:rpm/redhat/libstdc%2B%2B@11.5.0-14.el9"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       Uncontrolled recursion in libiberty's Rust demangler. Not
       exploitable; nothing in this image demangles Rust symbols.
   - id: CVE-2022-27943
+    purls:
+      - "pkg:rpm/redhat/libgcc@11.5.0-14.el9"
+      - "pkg:rpm/redhat/libgomp@11.5.0-14.el9"
+      - "pkg:rpm/redhat/libstdc%2B%2B@11.5.0-14.el9"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       Stack exhaustion in libiberty's Rust demangler. Not exploitable;
       nothing in this image demangles Rust symbols.
 
   # libgcrypt - Present as a GnuPG dependency; not used by nginx.
   - id: CVE-2026-41989
+    purls:
+      - "pkg:rpm/redhat/libgcrypt@1.10.0-11.el9"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       DoS and buffer overflow via a crafted ECDH ciphertext. Not
       exploitable; the web server does not call libgcrypt.
   - id: CVE-2026-41990
+    purls:
+      - "pkg:rpm/redhat/libgcrypt@1.10.0-11.el9"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       DoS or data integrity issue from a missing bounds check during
       Dilithium signing. Not exploitable; the web server does not use
@@ -634,11 +1166,17 @@ vulnerabilities:
   # libsolv - dnf/microdnf dependency for package-metadata resolution
   # at build time only.
   - id: CVE-2026-9149
+    purls:
+      - "pkg:rpm/redhat/libsolv@0.7.24-6.el9_8"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       Heap buffer overflow in repo_add_solv via a crafted .solv file.
       Not exploitable at runtime; only exercised by dnf at build time
       against the base image's own trusted repository metadata.
   - id: CVE-2026-9150
+    purls:
+      - "pkg:rpm/redhat/libsolv@0.7.24-6.el9_8"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       Stack-based buffer overflow in libsolv's Debian metadata parser.
       Not exploitable; this image uses RPM repos only.
@@ -646,18 +1184,38 @@ vulnerabilities:
   # elfutils - Debugging/introspection library; nothing in this image
   # inspects ELF binaries or debug symbols at runtime.
   - id: CVE-2024-25260
+    purls:
+      - "pkg:rpm/redhat/elfutils-default-yama-scope@0.194-1.el9"
+      - "pkg:rpm/redhat/elfutils-libelf@0.194-1.el9"
+      - "pkg:rpm/redhat/elfutils-libs@0.194-1.el9"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       elfutils vulnerability. Not exploitable; nothing in this image
       inspects ELF binaries at runtime.
   - id: CVE-2025-1371
+    purls:
+      - "pkg:rpm/redhat/elfutils-default-yama-scope@0.194-1.el9"
+      - "pkg:rpm/redhat/elfutils-libelf@0.194-1.el9"
+      - "pkg:rpm/redhat/elfutils-libs@0.194-1.el9"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       elfutils vulnerability. Not exploitable; nothing in this image
       inspects ELF binaries at runtime.
   - id: CVE-2025-1376
+    purls:
+      - "pkg:rpm/redhat/elfutils-default-yama-scope@0.194-1.el9"
+      - "pkg:rpm/redhat/elfutils-libelf@0.194-1.el9"
+      - "pkg:rpm/redhat/elfutils-libs@0.194-1.el9"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       elfutils vulnerability. Not exploitable; nothing in this image
       inspects ELF binaries at runtime.
   - id: CVE-2025-1377
+    purls:
+      - "pkg:rpm/redhat/elfutils-default-yama-scope@0.194-1.el9"
+      - "pkg:rpm/redhat/elfutils-libelf@0.194-1.el9"
+      - "pkg:rpm/redhat/elfutils-libs@0.194-1.el9"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       elfutils vulnerability. Not exploitable; nothing in this image
       inspects ELF binaries at runtime.
@@ -665,6 +1223,9 @@ vulnerabilities:
   # dbus-broker - Present as a system service dependency; the
   # container does not run D-Bus or systemd.
   - id: CVE-2026-16730
+    purls:
+      - "pkg:rpm/redhat/dbus-broker@28-7.el9"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       dbus-broker vulnerability. Not exploitable; the container does
       not run D-Bus or systemd.
@@ -672,14 +1233,23 @@ vulnerabilities:
   # unzip - Present as a base-image convenience tool; never invoked
   # at runtime by nginx or the built static React app.
   - id: CVE-2021-4217
+    purls:
+      - "pkg:rpm/redhat/unzip@6.0-60.el9"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       unzip vulnerability. Not exploitable; unzip is never invoked at
       runtime.
   - id: CVE-2022-0529
+    purls:
+      - "pkg:rpm/redhat/unzip@6.0-60.el9"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       unzip vulnerability. Not exploitable; unzip is never invoked at
       runtime.
   - id: CVE-2022-0530
+    purls:
+      - "pkg:rpm/redhat/unzip@6.0-60.el9"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       unzip vulnerability. Not exploitable; unzip is never invoked at
       runtime.
@@ -688,33 +1258,56 @@ vulnerabilities:
   # utilities; nginx never shells out to any of them, and the static
   # React app has no server-side processing at all.
   - id: CVE-2023-4156
+    purls:
+      - "pkg:rpm/redhat/gawk@5.1.0-6.el9"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       gawk vulnerability. Not exploitable; gawk is never invoked at
       runtime.
   - id: CVE-2026-5958
+    purls:
+      - "pkg:rpm/redhat/sed@4.8-10.el9"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       GNU sed TOCTOU race condition. Not exploitable; sed is never
       invoked at runtime.
   - id: CVE-2026-41991
+    purls:
+      - "pkg:rpm/redhat/gzip@1.12-1.el9"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       Arbitrary file overwrite via insecure temp file handling in
       gzexe. Not exploitable; gzexe is never invoked at runtime.
   - id: CVE-2026-42250
+    purls:
+      - "pkg:rpm/redhat/bzip2-libs@1.0.8-11.el9"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       DoS in bzip2recover via a specially crafted file. Not
       exploitable; bzip2recover is never invoked at runtime.
   - id: CVE-2026-34743
+    purls:
+      - "pkg:rpm/redhat/xz@5.2.5-8.el9_0"
+      - "pkg:rpm/redhat/xz-libs@5.2.5-8.el9_0"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       Buffer overflow in XZ Utils index decoding. Not exploitable;
       nothing in this image decompresses XZ-compressed data at
       runtime.
   - id: CVE-2026-27171
+    purls:
+      - "pkg:rpm/redhat/zlib@1.2.11-40.el9"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       DoS via an infinite loop in zlib's CRC32 combine functions. Not
       exploitable; nginx's gzip module does not call this function.
 
   # attr / libattr - Extended-attribute tooling; not used by nginx.
   - id: CVE-2026-54371
+    purls:
+      - "pkg:rpm/redhat/attr@2.5.1-3.el9"
+      - "pkg:rpm/redhat/libattr@2.5.1-3.el9"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       Symlink traversal privilege escalation via getfattr and
       setfattr. Not exploitable; the web server does not invoke
@@ -723,6 +1316,9 @@ vulnerabilities:
   # libnghttp2 - nginx has its own bundled HTTP/2 implementation and
   # does not link libnghttp2.
   - id: CVE-2026-58055
+    purls:
+      - "pkg:rpm/redhat/libnghttp2@1.43.0-6.el9_8.1"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       HTTP request/response smuggling via ambiguous HTTP/1.1 Upgrade
       requests. Not exploitable; nginx uses its own HTTP/2
@@ -730,18 +1326,30 @@ vulnerabilities:
 
   # openldap - LDAP is not used anywhere in this deployment.
   - id: CVE-2026-22185
+    purls:
+      - "pkg:rpm/redhat/openldap@2.6.8-4.el9"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       OpenLDAP LMDB heap buffer overflow. Not exploitable; the web
       server does not use LDAP or LMDB.
 
   # systemd - The container does not run systemd.
   - id: CVE-2026-4105
+    purls:
+      - "pkg:rpm/redhat/systemd@252-67.el9_8.4"
+      - "pkg:rpm/redhat/systemd-libs@252-67.el9_8.4"
+      - "pkg:rpm/redhat/systemd-pam@252-67.el9_8.4"
+      - "pkg:rpm/redhat/systemd-rpm-macros@252-67.el9_8.4"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       systemd privilege escalation via RegisterMachine D-Bus method.
       Not exploitable; the container does not run systemd or D-Bus.
 
   # tpm2-tss - No component of this image uses a TPM.
   - id: CVE-2024-29040
+    purls:
+      - "pkg:rpm/redhat/tpm2-tss@3.2.3-1.el9"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       tpm2-tss vulnerability. Not exploitable; TPM is not used in this
       container.
@@ -749,11 +1357,17 @@ vulnerabilities:
   # coreutils-single - nginx never shells out to uniq/unexpand or any
   # other coreutils utility.
   - id: CVE-2026-56391
+    purls:
+      - "pkg:rpm/redhat/coreutils-single@8.32-41.el9_8"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       DoS and information disclosure in coreutils uniq via
       out-of-bounds read with multibyte input. Not exploitable;
       coreutils utilities are never invoked at runtime.
   - id: CVE-2026-56392
+    purls:
+      - "pkg:rpm/redhat/coreutils-single@8.32-41.el9_8"
+    expired_at: 2026-10-29T00:00:00Z
     statement: >-
       DoS via crafted tab stop values in coreutils unexpand. Not
       exploitable; coreutils utilities are never invoked at runtime.
