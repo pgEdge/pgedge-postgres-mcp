@@ -1,314 +1,437 @@
 vulnerabilities:
-  # nginx - Runtime web server; serves static HTML/JS/CSS files only.
+  # nginx - Runtime web server; serves static HTML/JS/CSS files and
+  # proxies /mcp/v1 only. docker/nginx.conf uses a plain http block:
+  # no mail{}/stream{} block, no mp4/image-filter/xslt/perl module
+  # directives, and no OCSP configuration.
   - id: CVE-2025-23419
     statement: >-
       TLS session resumption vulnerability. Risk accepted; TLS termination
       is handled by an upstream load balancer, not by nginx directly.
-  - id: CVE-2026-27651
-    statement: >-
-      DoS via ngx_mail_auth_http module. Not exploitable; the mail module
-      is not loaded or configured in this image.
-  - id: CVE-2026-27654
-    statement: >-
-      DoS and file modification via ngx_mp4_module. Not exploitable; the
-      MP4 module is not loaded or configured.
-  - id: CVE-2026-27784
-    statement: >-
-      Memory corruption via crafted MP4 file in ngx_mp4_module. Not
-      exploitable; the MP4 module is not loaded or configured.
   - id: CVE-2026-28755
     statement: >-
       Certificate revocation bypass when OCSP stapling is enabled. Not
       exploitable; OCSP is not configured in this deployment.
-  - id: CVE-2026-32647
+  - id: CVE-2025-53859
     statement: >-
-      DoS or code execution via crafted MP4 in ngx_mp4_module. Not
-      exploitable; the MP4 module is not loaded or configured.
+      nginx vulnerability. No fix available. docker/nginx.conf serves
+      static files and one reverse-proxy location; no request-smuggling
+      or upstream-parsing feature this depends on is configured here.
+  - id: CVE-2026-28753
+    statement: >-
+      nginx vulnerability. No fix available. Not exploitable via this
+      deployment's single plain-http proxy_pass location.
+  - id: CVE-2026-40460
+    statement: >-
+      nginx vulnerability. No fix available. Not exploitable via this
+      deployment's single plain-http proxy_pass location.
+  - id: CVE-2026-40701
+    statement: >-
+      nginx vulnerability. No fix available. Not exploitable via this
+      deployment's single plain-http proxy_pass location.
+  - id: CVE-2026-42533
+    statement: >-
+      nginx vulnerability. No fix available. Not exploitable via this
+      deployment's single plain-http proxy_pass location.
+  - id: CVE-2026-42934
+    statement: >-
+      nginx vulnerability. No fix available. Not exploitable via this
+      deployment's single plain-http proxy_pass location.
+  - id: CVE-2026-42946
+    statement: >-
+      nginx vulnerability. No fix available. Not exploitable via this
+      deployment's single plain-http proxy_pass location.
+  - id: CVE-2026-48142
+    statement: >-
+      nginx vulnerability. No fix available. Not exploitable via this
+      deployment's single plain-http proxy_pass location.
 
-  # glibc - Core C library in UBI9 base image.
-  - id: CVE-2026-4046
+  # curl / libcurl-minimal - Required by rpm (dnf's protected-package
+  # dependency chain), so it cannot be removed from the image without
+  # bypassing dnf's own package protection; it is never invoked at
+  # runtime by nginx. No fix available from Red Hat for any of these.
+  - id: CVE-2025-13034
     statement: >-
-      glibc DoS via iconv() with specific character sets. Under
-      investigation by Red Hat; no fix available. Risk accepted; nginx
-      does not call iconv() directly.
-  - id: CVE-2026-4437
-    statement: >-
-      Incorrect DNS response parsing in glibc resolver. No fix available.
-      Risk accepted; DNS resolution in nginx is minimal and controlled.
-
-  # curl / libcurl-minimal - Not invoked at runtime by the web server.
+      Public key pinning bypass via QUIC and GnuTLS. Not exploitable;
+      curl is never invoked at runtime by the web server.
   - id: CVE-2025-14017
     statement: >-
-      curl vulnerability. Not exploitable; curl is not invoked at runtime
-      by the web server.
+      curl TLS option changes in multi-threaded LDAPS transfers. Not
+      exploitable; curl is never invoked at runtime.
+  - id: CVE-2026-11856
+    statement: >-
+      Digest auth header reuse information disclosure. Not exploitable;
+      curl is never invoked at runtime.
   - id: CVE-2026-1965
     statement: >-
-      curl vulnerability. Not exploitable; curl is not invoked at runtime
-      by the web server.
+      Negotiate authentication connection-reuse bypass. Not exploitable;
+      curl is never invoked at runtime.
   - id: CVE-2026-3783
     statement: >-
-      curl vulnerability. Not exploitable; curl is not invoked at runtime
-      by the web server.
+      OAuth2 bearer token leakage during redirect. Not exploitable; curl
+      is never invoked at runtime.
   - id: CVE-2026-3784
     statement: >-
-      curl vulnerability. Not exploitable; curl is not invoked at runtime
-      by the web server.
-  - id: CVE-2026-3805
+      Improper HTTP proxy connection reuse. Not exploitable; curl is
+      never invoked at runtime.
+  - id: CVE-2026-4873
     statement: >-
-      curl vulnerability. Not exploitable; curl is not invoked at runtime
-      by the web server.
+      TLS connection reuse information disclosure. Not exploitable; curl
+      is never invoked at runtime.
+  - id: CVE-2026-5545
+    statement: >-
+      HTTP Negotiate connection-reuse authentication bypass. Not
+      exploitable; curl is never invoked at runtime.
+  - id: CVE-2026-5773
+    statement: >-
+      Wrong file transfer via incorrect SMB connection reuse. Not
+      exploitable; curl is never invoked at runtime.
+  - id: CVE-2026-6253
+    statement: >-
+      Proxy credential disclosure via redirects to unauthenticated
+      proxies. Not exploitable; curl is never invoked at runtime.
+  - id: CVE-2026-6429
+    statement: >-
+      Credential leak via reused proxy connection during redirects. Not
+      exploitable; curl is never invoked at runtime.
+  - id: CVE-2026-7168
+    statement: >-
+      Proxy-Authorization header reuse information disclosure. Not
+      exploitable; curl is never invoked at runtime.
+  - id: CVE-2026-8924
+    statement: >-
+      Cookie injection via a malicious server using super cookies. Not
+      exploitable; curl is never invoked at runtime.
+  - id: CVE-2026-8925
+    statement: >-
+      Double-free in SASL authentication. Not exploitable; curl is never
+      invoked at runtime.
+  - id: CVE-2026-8926
+    statement: >-
+      Information disclosure via incorrect .netrc password lookup. Not
+      exploitable; curl is never invoked at runtime.
+  - id: CVE-2026-11352
+    statement: >-
+      DoS via the QUIC UDP receive function. Not exploitable; curl is
+      never invoked at runtime.
+  - id: CVE-2026-11586
+    statement: >-
+      DoS via WebSocket PING flood. Not exploitable; curl is never
+      invoked at runtime.
+  - id: CVE-2026-8286
+    statement: >-
+      Insecure connection establishment from a TLS configuration
+      mismatch. Not exploitable; curl is never invoked at runtime.
+  - id: CVE-2026-9547
+    statement: >-
+      MITM via SSH host key bypass. Not exploitable; curl is never
+      invoked at runtime and no SCP/SFTP transfer is ever attempted.
+  - id: CVE-2024-11053
+    statement: >-
+      curl netrc password leak. Not exploitable; curl is never invoked
+      at runtime.
+  - id: CVE-2024-7264
+    statement: >-
+      ASN.1 date parser overread. Not exploitable; curl is never
+      invoked at runtime.
+  - id: CVE-2024-9681
+    statement: >-
+      HSTS subdomain overwrites parent cache entry. Not exploitable;
+      curl is never invoked at runtime.
+  - id: CVE-2025-14524
+    statement: >-
+      Cross-protocol redirect OAuth2 bearer token disclosure. Not
+      exploitable; curl is never invoked at runtime.
+  - id: CVE-2025-15079
+    statement: >-
+      Host verification bypass during SSH transfers. Not exploitable;
+      curl is never invoked at runtime.
+  - id: CVE-2025-15224
+    statement: >-
+      libssh key passphrase bypass without an agent set. Not
+      exploitable; curl is never invoked at runtime.
+  - id: CVE-2026-6276
+    statement: >-
+      Cookie leak via connection reuse with custom Host headers. Not
+      exploitable; curl is never invoked at runtime.
 
-  # libarchive / bsdtar - The web server does not process archive files.
-  - id: CVE-2023-30571
-    statement: >-
-      libarchive vulnerability. Not exploitable; the web server does not
-      process archive files.
-  - id: CVE-2025-60753
-    statement: >-
-      libarchive vulnerability. Not exploitable; the web server does not
-      process archive files.
-  - id: CVE-2026-4424
-    statement: >-
-      libarchive vulnerability. Not exploitable; the web server does not
-      process archive files.
-  - id: CVE-2026-4426
-    statement: >-
-      libarchive vulnerability. Not exploitable; the web server does not
-      process archive files.
-  - id: CVE-2026-5121
-    statement: >-
-      libarchive vulnerability. Not exploitable; the web server does not
-      process archive files.
-
-  # glib2 - Transitive dependency; not used by the web server.
-  - id: CVE-2025-14087
-    statement: >-
-      glib2 buffer underflow in GVariant parser. Not exploitable; the web
-      server does not use GVariant, GIO, or glib Unicode APIs.
-  - id: CVE-2025-14512
-    statement: >-
-      glib2 integer overflow in GIO attribute escaping. Not exploitable;
-      the web server does not use GIO APIs.
+  # glib2 - Transitive dependency of dnf/dbus tooling; not used by
+  # nginx or the built React app.
   - id: CVE-2026-1484
     statement: >-
-      glib2 integer overflow leading to buffer underflow. Not exploitable;
-      the web server does not call affected glib2 APIs.
+      glib2 integer overflow leading to buffer underflow. Not
+      exploitable; the web server does not call glib2 APIs.
   - id: CVE-2026-1489
     statement: >-
-      glib2 memory corruption in Unicode case conversion. Not exploitable;
-      the web server does not use glib2 Unicode APIs.
+      glib2 memory corruption in Unicode case conversion. Not
+      exploitable; the web server does not use glib2 Unicode APIs.
+  - id: CVE-2026-1485
+    statement: >-
+      glib2 local DoS via buffer underflow in content type parsing. Not
+      exploitable; the web server does not call glib2 content-type APIs.
+  - id: CVE-2026-15588
+    statement: >-
+      GDBusServer pre-authentication DoS via unbounded SASL line
+      buffering. Not exploitable; the web server does not run a D-Bus
+      server.
+  - id: CVE-2026-16118
+    statement: >-
+      Heap buffer overflow in xdgmime magic-line parsing. Not
+      exploitable; the web server never invokes glib2 MIME detection.
+  - id: CVE-2026-58010
+    statement: >-
+      Buffer over-read in GVariant tuple normalisation. Not
+      exploitable; the web server does not parse GVariant data.
+  - id: CVE-2026-58011
+    statement: >-
+      Out-of-bounds read in GDateTime. Not exploitable; the web server
+      does not use glib2 GDateTime.
+  - id: CVE-2026-58012
+    statement: >-
+      Buffer over-read in g_regex_replace(). Not exploitable; nginx
+      uses PCRE directly for its own config parsing, not via glib2.
+  - id: CVE-2026-58013
+    statement: >-
+      Buffer over-read in g_io_channel_read_line_backend(). Not
+      exploitable; the web server does not use GIOChannel.
+  - id: CVE-2026-58014
+    statement: >-
+      Off-by-one in g_key_file_get_locale_string_list(). Not
+      exploitable; the web server does not read GLib key files.
+  - id: CVE-2026-58015
+    statement: >-
+      Path traversal in the D-Bus SHA1 auth mechanism's keyring
+      lookup. Not exploitable; the web server does not run a D-Bus
+      server.
+  - id: CVE-2023-32636
+    statement: >-
+      Timeout in the GVariant text-format fuzz harness. Not
+      exploitable; this affects glib2's own fuzz tooling.
+  - id: CVE-2025-3360
+    statement: >-
+      Integer overflow parsing an invalid ISO 8601 timestamp. Not
+      exploitable; the web server does not use glib2 GDateTime.
+  - id: CVE-2025-7039
+    statement: >-
+      Buffer under-read in glib2's get_tmp_file(). Not exploitable;
+      the web server does not use glib2 temp-file helpers.
+  - id: CVE-2026-0988
+    statement: >-
+      Integer overflow DoS in g_buffered_input_stream_peek(). Not
+      exploitable; the web server does not use GLib's GIO input
+      streams.
 
-  # libpng - Present in image but not used server-side.
-  - id: CVE-2025-28164
+  # openssl / openssl-libs - nginx's TLS termination is not enabled in
+  # this deployment (TLS is handled upstream, per docker/nginx.conf,
+  # which listens on plain HTTP 8081 only).
+  - id: CVE-2024-13176
     statement: >-
-      libpng vulnerability. Not exploitable; the web server does not
-      process PNG files server-side.
-  - id: CVE-2025-64505
+      Timing side-channel in ECDSA signature computation. Not
+      exploitable; this deployment does not terminate TLS in nginx.
+  - id: CVE-2024-41996
     statement: >-
-      libpng vulnerability. Not exploitable; the web server does not
-      process PNG files server-side.
-  - id: CVE-2025-64506
+      Expensive server-side DHE modular-exponentiation triggerable by
+      a client. Not exploitable; nginx does not terminate TLS here.
+  - id: CVE-2025-9232
     statement: >-
-      libpng vulnerability. Not exploitable; the web server does not
-      process PNG files server-side.
-  - id: CVE-2026-33416
+      Out-of-bounds read in OpenSSL's built-in HTTP client no_proxy
+      handling. Not exploitable; nginx does not invoke OpenSSL's HTTP
+      client.
+  - id: CVE-2026-2673
     statement: >-
-      libpng vulnerability. Not exploitable; the web server does not
-      process PNG files server-side.
-  - id: CVE-2026-33636
+      OpenSSL TLS 1.3 server may choose an unexpected key agreement
+      group. Not exploitable; nginx does not terminate TLS here.
+  - id: CVE-2026-28387
     statement: >-
-      libpng vulnerability. Not exploitable; the web server does not
-      process PNG files server-side.
+      Use-after-free in OpenSSL DANE TLSA authentication. Not
+      exploitable; DANE/TLSA is not used.
+  - id: CVE-2026-28388
+    statement: >-
+      NULL pointer dereference in OpenSSL delta CRL processing. Not
+      exploitable; CRLs are not processed here.
+  - id: CVE-2026-28389
+    statement: >-
+      DoS in OpenSSL CMS processing. Not exploitable; CMS is not used.
+  - id: CVE-2026-31789
+    statement: >-
+      Heap buffer overflow on 32-bit systems from large X.509
+      certificate processing. Not exploitable; nginx does not
+      terminate TLS here, and this image runs on 64-bit only.
 
-  # libtiff - Not used; the web server serves static files only.
-  - id: CVE-2023-25433
-    statement: >-
-      libtiff vulnerability. Not exploitable; libtiff is not used by the
-      web server.
-  - id: CVE-2023-25434
-    statement: >-
-      libtiff vulnerability. Not exploitable; libtiff is not used by the
-      web server.
-  - id: CVE-2023-25435
-    statement: >-
-      libtiff vulnerability. Not exploitable; libtiff is not used by the
-      web server.
-  - id: CVE-2023-3164
-    statement: >-
-      libtiff vulnerability. Not exploitable; libtiff is not used by the
-      web server.
-  - id: CVE-2023-6277
-    statement: >-
-      libtiff vulnerability. Not exploitable; libtiff is not used by the
-      web server.
-  - id: CVE-2025-61143
-    statement: >-
-      libtiff vulnerability. Not exploitable; libtiff is not used by the
-      web server.
-  - id: CVE-2025-61144
-    statement: >-
-      libtiff vulnerability. Not exploitable; libtiff is not used by the
-      web server.
-  - id: CVE-2025-61145
-    statement: >-
-      libtiff vulnerability. Not exploitable; libtiff is not used by the
-      web server.
-  - id: CVE-2025-8851
-    statement: >-
-      libtiff vulnerability. Not exploitable; libtiff is not used by the
-      web server.
-  - id: CVE-2026-4775
-    statement: >-
-      libtiff vulnerability. Not exploitable; libtiff is not used by the
-      web server.
-
-  # libxml2 - The web server does not parse XML.
-  - id: CVE-2026-0990
-    statement: >-
-      libxml2 vulnerability. Not exploitable; the web server does not
-      parse XML documents.
-  - id: CVE-2026-1757
-    statement: >-
-      libxml2 vulnerability. Not exploitable; the web server does not
-      parse XML documents.
-
-  # libxslt - Not used at runtime; XSLT filter module not configured.
-  - id: CVE-2025-10911
-    statement: >-
-      libxslt use-after-free vulnerability. Not exploitable; the nginx
-      XSLT filter module is not loaded or configured.
-
-  # vim (vim-minimal, vim-filesystem) - Not invoked at runtime.
-  - id: CVE-2025-29768
-    statement: >-
-      vim vulnerability. Not exploitable; vim is not invoked at runtime
-      and is present in the base image for maintenance only.
-  - id: CVE-2026-28417
-    statement: >-
-      vim vulnerability. Not exploitable; vim is not invoked at runtime
-      and is present in the base image for maintenance only.
-  - id: CVE-2026-28418
-    statement: >-
-      vim vulnerability. Not exploitable; vim is not invoked at runtime
-      and is present in the base image for maintenance only.
-  - id: CVE-2026-28419
-    statement: >-
-      vim vulnerability. Not exploitable; vim is not invoked at runtime
-      and is present in the base image for maintenance only.
-  - id: CVE-2026-28420
-    statement: >-
-      vim vulnerability. Not exploitable; vim is not invoked at runtime
-      and is present in the base image for maintenance only.
-  - id: CVE-2026-28421
-    statement: >-
-      vim vulnerability. Not exploitable; vim is not invoked at runtime
-      and is present in the base image for maintenance only.
-  - id: CVE-2026-33412
-    statement: >-
-      vim vulnerability. Not exploitable; vim is not invoked at runtime
-      and is present in the base image for maintenance only.
-  - id: CVE-2026-34714
-    statement: >-
-      vim vulnerability. Not exploitable; vim is not invoked at runtime
-      and is present in the base image for maintenance only.
-
-  # python3 (python3, python3-libs, python3-pip-wheel) - Not invoked
-  # at runtime; present from the Node.js build layer.
+  # python3 / python3-libs / python3-* - Part of the base image's
+  # package-management stack (dnf, subscription-manager); dnf and yum
+  # are RHEL-protected packages that depend on python3, so it cannot
+  # be removed without bypassing dnf's own protection. Never invoked
+  # by nginx or the built static React app at runtime.
   - id: CVE-2025-11468
     statement: >-
-      Python vulnerability. Not exploitable; Python is not invoked at
-      runtime and is present from the Node.js build layer.
+      Python vulnerability. Not exploitable; Python is never invoked
+      at runtime by the web server.
   - id: CVE-2025-12781
     statement: >-
-      Python vulnerability. Not exploitable; Python is not invoked at
-      runtime and is present from the Node.js build layer.
+      Python vulnerability. Not exploitable; Python is never invoked
+      at runtime.
   - id: CVE-2025-13837
     statement: >-
-      Python vulnerability. Not exploitable; Python is not invoked at
-      runtime and is present from the Node.js build layer.
+      Python vulnerability. Not exploitable; Python is never invoked
+      at runtime.
   - id: CVE-2025-15282
     statement: >-
-      Python vulnerability. Not exploitable; Python is not invoked at
-      runtime and is present from the Node.js build layer.
+      Python vulnerability. Not exploitable; Python is never invoked
+      at runtime.
   - id: CVE-2025-4516
     statement: >-
-      Python vulnerability. Not exploitable; Python is not invoked at
-      runtime and is present from the Node.js build layer.
+      Python vulnerability. Not exploitable; Python is never invoked
+      at runtime.
   - id: CVE-2026-0672
     statement: >-
-      Python vulnerability. Not exploitable; Python is not invoked at
-      runtime and is present from the Node.js build layer.
+      Python vulnerability. Not exploitable; Python is never invoked
+      at runtime.
   - id: CVE-2026-3644
     statement: >-
-      Python vulnerability. Not exploitable; Python is not invoked at
-      runtime and is present from the Node.js build layer.
+      Python vulnerability. Not exploitable; Python is never invoked
+      at runtime.
   - id: CVE-2026-4224
     statement: >-
-      Python vulnerability. Not exploitable; Python is not invoked at
-      runtime and is present from the Node.js build layer.
-  - id: CVE-2026-4519
+      Python vulnerability. Not exploitable; Python is never invoked
+      at runtime.
+  - id: CVE-2025-13462
     statement: >-
-      Python vulnerability. Not exploitable; Python is not invoked at
-      runtime and is present from the Node.js build layer.
+      Python vulnerability. Not exploitable; Python is never invoked
+      at runtime.
+  - id: CVE-2025-1795
+    statement: >-
+      Python pip vulnerability. Not exploitable; pip is never invoked
+      at runtime.
+  - id: CVE-2026-11972
+    statement: >-
+      Python vulnerability. Not exploitable; Python is never invoked
+      at runtime.
+  - id: CVE-2026-1502
+    statement: >-
+      Python vulnerability. Not exploitable; Python is never invoked
+      at runtime.
+  - id: CVE-2026-2297
+    statement: >-
+      Python vulnerability. Not exploitable; Python is never invoked
+      at runtime.
+  - id: CVE-2026-3276
+    statement: >-
+      Python vulnerability. Not exploitable; Python is never invoked
+      at runtime.
+  - id: CVE-2026-3479
+    statement: >-
+      Python vulnerability. Not exploitable; Python is never invoked
+      at runtime.
+  - id: CVE-2026-42308
+    statement: >-
+      Python vulnerability. Not exploitable; Python is never invoked
+      at runtime.
+  - id: CVE-2026-5713
+    statement: >-
+      Python vulnerability. Not exploitable; Python is never invoked
+      at runtime.
+  - id: CVE-2026-6019
+    statement: >-
+      Python vulnerability. Not exploitable; Python is never invoked
+      at runtime.
+  - id: CVE-2026-7210
+    statement: >-
+      Python vulnerability. Not exploitable; Python is never invoked
+      at runtime.
   - id: CVE-2023-45803
     statement: >-
-      urllib3 vulnerability in python3-pip-wheel. Not exploitable; Python
-      and pip are not invoked at runtime.
+      urllib3 vulnerability bundled via python3-pip-wheel. Not
+      exploitable; Python and pip are never invoked at runtime.
   - id: CVE-2025-50181
     statement: >-
-      Python pip-wheel vulnerability. Not exploitable; Python and pip are
-      not invoked at runtime.
+      Python pip-wheel vulnerability. Not exploitable; pip is never
+      invoked at runtime.
   - id: CVE-2025-50182
     statement: >-
-      Python pip-wheel vulnerability. Not exploitable; Python and pip are
-      not invoked at runtime.
+      Python pip-wheel vulnerability. Not exploitable; pip is never
+      invoked at runtime.
   - id: CVE-2026-25645
     statement: >-
-      Python pip-wheel vulnerability. Not exploitable; Python and pip are
-      not invoked at runtime.
+      Python pip-wheel vulnerability. Not exploitable; pip is never
+      invoked at runtime.
   - id: CVE-2026-32284
     statement: >-
-      Python pip-wheel vulnerability. Not exploitable; Python and pip are
-      not invoked at runtime.
+      Python pip-wheel vulnerability. Not exploitable; pip is never
+      invoked at runtime.
+  - id: CVE-2021-3572
+    statement: >-
+      Python pip-wheel vulnerability. Not exploitable; pip is never
+      invoked at runtime.
+  - id: CVE-2026-45409
+    statement: >-
+      python3-idna DoS via specially crafted long inputs. Not
+      exploitable; Python is never invoked at runtime.
 
-  # perl (perl-* packages) - Not invoked at runtime; present as an
-  # nginx build dependency in the base image.
-  - id: CVE-2026-4176
+  # gnupg2 - Present for rpm/dnf package-signature verification during
+  # image build; never invoked at runtime.
+  - id: CVE-2025-68972
     statement: >-
-      Perl heap buffer overflow. Not exploitable; Perl is not invoked at
-      runtime and is present as an nginx dependency in the base image.
+      GnuPG signature bypass via form feed character. Not exploitable;
+      the web server does not verify GPG signatures at runtime.
+  - id: CVE-2022-3219
+    statement: >-
+      DoS via resource consumption using compressed packets. Not
+      exploitable; gpg is never invoked at runtime.
+  - id: CVE-2025-30258
+    statement: >-
+      Verification DoS due to a malicious subkey in the keyring. Not
+      exploitable; gpg is never invoked at runtime.
+  - id: CVE-2026-24883
+    statement: >-
+      DoS due to a specially crafted signature packet. Not
+      exploitable; gpg is never invoked at runtime.
+  - id: CVE-2026-57062
+    statement: >-
+      Incorrect cryptographic message parsing. Not exploitable; gpg
+      is never invoked at runtime.
 
-  # gdb-gdbserver / binutils - Not used at runtime.
-  - id: CVE-2025-11081
+  # libxml2 - Not used; the web server serves static files and does
+  # not parse XML.
+  - id: CVE-2026-0990
     statement: >-
-      binutils vulnerability. Not exploitable; gdb and binutils are not
-      used at runtime.
-  - id: CVE-2025-11082
+      libxml2 DoS via uncontrolled recursion in XML catalog
+      processing. Not exploitable; the web server does not parse XML.
+  - id: CVE-2026-1757
     statement: >-
-      binutils vulnerability. Not exploitable; gdb and binutils are not
-      used at runtime.
-  - id: CVE-2025-11083
+      libxml2 memory leak in xmllint interactive mode. Not
+      exploitable; xmllint is never invoked at runtime.
+  - id: CVE-2026-11979
     statement: >-
-      binutils vulnerability. Not exploitable; gdb and binutils are not
-      used at runtime.
-  - id: CVE-2025-5245
+      Arbitrary code execution in the xmlcatalog utility. Not
+      exploitable; xmlcatalog is never invoked at runtime.
+  - id: CVE-2026-6653
     statement: >-
-      gdb-gdbserver vulnerability. Not exploitable; gdb is not used at
-      runtime.
-  - id: CVE-2026-3441
+      DoS via crafted XML input due to a use-after-free. Not
+      exploitable; the web server does not parse XML.
+  - id: CVE-2026-6732
     statement: >-
-      binutils vulnerability. Not exploitable; gdb and binutils are not
-      used at runtime.
-  - id: CVE-2026-3442
+      DoS via a crafted XSD-validated document. Not exploitable; the
+      web server does not validate XML against XSD schemas.
+  - id: CVE-2023-45322
     statement: >-
-      binutils vulnerability. Not exploitable; gdb and binutils are not
-      used at runtime.
-  - id: CVE-2026-4647
+      Use-after-free in xmlUnlinkNode(). Not exploitable; the web
+      server does not parse or manipulate XML DOM trees.
+  - id: CVE-2025-27113
     statement: >-
-      binutils vulnerability. Not exploitable; gdb and binutils are not
-      used at runtime.
+      NULL pointer dereference in xmlPatMatch. Not exploitable; the
+      web server does not use libxml2 pattern matching.
+  - id: CVE-2026-0989
+    statement: >-
+      Unbounded RelaxNG include recursion leading to stack overflow.
+      Not exploitable; the web server does not validate XML against
+      RelaxNG schemas.
+  - id: CVE-2026-0992
+    statement: >-
+      DoS via crafted XML catalogs. Not exploitable; the web server
+      does not use XML catalogs.
 
-  # expat - XML parser not directly used by the web server.
+  # expat - XML parser pulled in transitively (dbus, python3); the
+  # web server does not parse XML.
   - id: CVE-2026-32776
     statement: >-
       expat XML parser vulnerability. Not exploitable; the web server
@@ -321,68 +444,316 @@ vulnerabilities:
     statement: >-
       expat XML parser vulnerability. Not exploitable; the web server
       does not parse XML directly.
+  - id: CVE-2025-66382
+    statement: >-
+      expat XML parser vulnerability. Not exploitable; the web server
+      does not parse XML directly.
+  - id: CVE-2026-24515
+    statement: >-
+      expat XML parser vulnerability. Not exploitable; the web server
+      does not parse XML directly.
+  - id: CVE-2026-41080
+    statement: >-
+      expat XML parser vulnerability. Not exploitable; the web server
+      does not parse XML directly.
+  - id: CVE-2026-50219
+    statement: >-
+      expat XML parser vulnerability. Not exploitable; the web server
+      does not parse XML directly.
+  - id: CVE-2026-56132
+    statement: >-
+      expat XML parser vulnerability. Not exploitable; the web server
+      does not parse XML directly.
+  - id: CVE-2026-56403
+    statement: >-
+      expat XML parser vulnerability. Not exploitable; the web server
+      does not parse XML directly.
+  - id: CVE-2026-56405
+    statement: >-
+      expat XML parser vulnerability. Not exploitable; the web server
+      does not parse XML directly.
+  - id: CVE-2026-56406
+    statement: >-
+      expat XML parser vulnerability. Not exploitable; the web server
+      does not parse XML directly.
+  - id: CVE-2026-56412
+    statement: >-
+      expat XML parser vulnerability. Not exploitable; the web server
+      does not parse XML directly.
 
-  # Other packages - miscellaneous base image dependencies not used
-  # at runtime.
-  - id: CVE-2025-68972
+  # libarchive / bsdtar - The web server does not process archive
+  # files; bsdtar is present as a base-image convenience tool only.
+  - id: CVE-2023-30571
     statement: >-
-      gnupg2 vulnerability. Not exploitable; GPG signature verification
-      is not performed at runtime.
-  - id: CVE-2026-22693
+      libarchive race condition. Not exploitable; the web server does
+      not process archive files.
+  - id: CVE-2025-60753
     statement: >-
-      harfbuzz text shaping vulnerability. Not exploitable; harfbuzz is
-      not used at runtime by the web server.
-  - id: CVE-2026-27135
+      bsdtar OOM with zero-length pattern matches. Not exploitable;
+      bsdtar is never invoked at runtime.
+  - id: CVE-2025-1632
     statement: >-
-      libnghttp2 vulnerability. Not exploitable; the web server uses the
-      nginx HTTP stack, not libnghttp2 directly.
+      NULL pointer dereference in bsdunzip. Not exploitable; bsdtar
+      is never invoked at runtime.
+  - id: CVE-2025-5915
+    statement: >-
+      Heap buffer over-read in RAR LZSS window decompression. Not
+      exploitable; the web server does not process RAR archives.
+  - id: CVE-2025-5916
+    statement: >-
+      Integer overflow reading WARC files. Not exploitable; the web
+      server does not process WARC files.
+  - id: CVE-2025-5917
+    statement: >-
+      Off-by-one error building a ustar/pax entry name. Not
+      exploitable; the web server does not create tar archives.
+  - id: CVE-2025-5918
+    statement: >-
+      Reading past EOF on piped file streams. Not exploitable; the
+      web server does not pipe data through libarchive.
+  - id: CVE-2026-14164
+    statement: >-
+      Double-free in RAR5 decompression. Not exploitable; the web
+      server does not process archive files.
+  - id: CVE-2026-15028
+    statement: >-
+      Heap overflow OOB read parsing a PAX extended header. Not
+      exploitable; the web server does not process tar archives.
+  - id: CVE-2026-16517
+    statement: >-
+      Signed integer overflow in archive_write_zip_header. Not
+      exploitable; the web server does not create zip archives.
+  - id: CVE-2026-5745
+    statement: >-
+      NULL pointer dereference in the ACL parser. Not exploitable; the
+      web server does not process archive ACLs.
+  - id: CVE-2026-4426
+    statement: >-
+      libarchive DoS via malformed ISO file processing. Not
+      exploitable; the web server does not process ISO files.
+
+  # rpm / rpm-libs / rpm-build-libs / rpm-sign-libs / python3-rpm -
+  # Used only by dnf during image build; never invoked by the running
+  # nginx process.
+  - id: CVE-2026-44604
+    statement: >-
+      Command injection in rpmuncompress's doUntar(). Not exploitable
+      at runtime; rpm is never invoked by the running container, only
+      by dnf during image build against the base image's own repos.
+  - id: CVE-2026-44605
+    statement: >-
+      Heap buffer overflow in NDB slot table parsing. Not exploitable;
+      rpm is never invoked at runtime.
+
+  # util-linux family (util-linux, util-linux-core, libblkid,
+  # libfdisk, libmount, libsmartcols, libuuid) - The web server never
+  # calls mount, losetup, or any block-device/partition-probing API.
+  - id: CVE-2026-13595
+    statement: >-
+      Heap use-after-free in libblkid nested partition probing. Not
+      exploitable; the web server never probes block devices.
+  - id: CVE-2026-27456
+    statement: >-
+      TOCTOU race in the mount program when setting up loop devices.
+      Not exploitable; the web server never invokes mount.
+
+  # p11-kit / p11-kit-trust - PKCS#11 library; the web server does not
+  # use PKCS#11 for anything.
+  - id: CVE-2026-13757
+    statement: >-
+      Stack exhaustion via unbounded recursion in RPC attribute
+      parsing. Not exploitable; the web server does not use p11-kit's
+      RPC protocol.
+
+  # sqlite-libs - No component of this image uses SQLite.
+  - id: CVE-2024-0232
+    statement: >-
+      Use-after-free in jsonParseAddNodeArray. Not exploitable; no
+      component of this image uses SQLite.
+  - id: CVE-2025-70873
+    statement: >-
+      Information disclosure via a crafted ZIP file. Not exploitable;
+      no component of this image uses SQLite.
+
+  # ncurses-base / ncurses-libs - No terminal UI is used at runtime.
+  - id: CVE-2023-50495
+    statement: >-
+      Segmentation fault via _nc_wrap_entry(). Not exploitable; the
+      web server does not use ncurses.
+
+  # pcre2 / pcre2-syntax - nginx uses its own bundled PCRE
+  # configuration-parsing code, and the built React app is static
+  # JS/HTML with no server-side regex evaluation.
+  - id: CVE-2022-41409
+    statement: >-
+      Infinite loop from a negative repeat value in pcre2test. Not
+      exploitable; pcre2test is never invoked at runtime.
+
+  # krb5-libs - No component of this image uses Kerberos.
+  - id: CVE-2026-11850
+    statement: >-
+      Integer underflow in berval2tl_data() leading to heap
+      out-of-bounds read. Not exploitable; the web server does not
+      use Kerberos/GSSAPI authentication.
+
+  # pam - Present for the base image's own user/session tooling;
+  # nginx does not authenticate via PAM.
+  - id: CVE-2026-12610
+    statement: >-
+      Use-after-free crash in SSSD's sssd_pam process. Not
+      exploitable; the container does not run sssd.
+  - id: CVE-2026-54411
+    statement: >-
+      Plaintext password recovery via timing discrepancy in
+      pam_userdb. Not exploitable; the web server does not
+      authenticate via PAM.
+
+  # libgcc / libgomp / libstdc++ - Rust-demangling code in libiberty,
+  # present transitively; nginx and the static React app never
+  # demangle Rust symbol names.
+  - id: CVE-2021-46195
+    statement: >-
+      Uncontrolled recursion in libiberty's Rust demangler. Not
+      exploitable; nothing in this image demangles Rust symbols.
+  - id: CVE-2022-27943
+    statement: >-
+      Stack exhaustion in libiberty's Rust demangler. Not exploitable;
+      nothing in this image demangles Rust symbols.
+
+  # libgcrypt - Present as a GnuPG dependency; not used by nginx.
+  - id: CVE-2026-41989
+    statement: >-
+      DoS and buffer overflow via a crafted ECDH ciphertext. Not
+      exploitable; the web server does not call libgcrypt.
+  - id: CVE-2026-41990
+    statement: >-
+      DoS or data integrity issue from a missing bounds check during
+      Dilithium signing. Not exploitable; the web server does not use
+      libgcrypt or post-quantum signing.
+
+  # libsolv - dnf/microdnf dependency for package-metadata resolution
+  # at build time only.
+  - id: CVE-2026-9149
+    statement: >-
+      Heap buffer overflow in repo_add_solv via a crafted .solv file.
+      Not exploitable at runtime; only exercised by dnf at build time
+      against the base image's own trusted repository metadata.
+  - id: CVE-2026-9150
+    statement: >-
+      Stack-based buffer overflow in libsolv's Debian metadata parser.
+      Not exploitable; this image uses RPM repos only.
+
+  # elfutils - Debugging/introspection library; nothing in this image
+  # inspects ELF binaries or debug symbols at runtime.
+  - id: CVE-2024-25260
+    statement: >-
+      elfutils vulnerability. Not exploitable; nothing in this image
+      inspects ELF binaries at runtime.
+  - id: CVE-2025-1371
+    statement: >-
+      elfutils vulnerability. Not exploitable; nothing in this image
+      inspects ELF binaries at runtime.
+  - id: CVE-2025-1376
+    statement: >-
+      elfutils vulnerability. Not exploitable; nothing in this image
+      inspects ELF binaries at runtime.
+  - id: CVE-2025-1377
+    statement: >-
+      elfutils vulnerability. Not exploitable; nothing in this image
+      inspects ELF binaries at runtime.
+
+  # dbus-broker - Present as a system service dependency; the
+  # container does not run D-Bus or systemd.
+  - id: CVE-2026-16730
+    statement: >-
+      dbus-broker vulnerability. Not exploitable; the container does
+      not run D-Bus or systemd.
+
+  # unzip - Present as a base-image convenience tool; never invoked
+  # at runtime by nginx or the built static React app.
+  - id: CVE-2021-4217
+    statement: >-
+      unzip vulnerability. Not exploitable; unzip is never invoked at
+      runtime.
+  - id: CVE-2022-0529
+    statement: >-
+      unzip vulnerability. Not exploitable; unzip is never invoked at
+      runtime.
+  - id: CVE-2022-0530
+    statement: >-
+      unzip vulnerability. Not exploitable; unzip is never invoked at
+      runtime.
+
+  # gawk / sed / gzip / bzip2-libs / xz / xz-libs / zlib - Base-image
+  # utilities; nginx never shells out to any of them, and the static
+  # React app has no server-side processing at all.
+  - id: CVE-2023-4156
+    statement: >-
+      gawk vulnerability. Not exploitable; gawk is never invoked at
+      runtime.
+  - id: CVE-2026-5958
+    statement: >-
+      GNU sed TOCTOU race condition. Not exploitable; sed is never
+      invoked at runtime.
+  - id: CVE-2026-41991
+    statement: >-
+      Arbitrary file overwrite via insecure temp file handling in
+      gzexe. Not exploitable; gzexe is never invoked at runtime.
+  - id: CVE-2026-42250
+    statement: >-
+      DoS in bzip2recover via a specially crafted file. Not
+      exploitable; bzip2recover is never invoked at runtime.
+  - id: CVE-2026-34743
+    statement: >-
+      Buffer overflow in XZ Utils index decoding. Not exploitable;
+      nothing in this image decompresses XZ-compressed data at
+      runtime.
+  - id: CVE-2026-27171
+    statement: >-
+      DoS via an infinite loop in zlib's CRC32 combine functions. Not
+      exploitable; nginx's gzip module does not call this function.
+
+  # attr / libattr - Extended-attribute tooling; not used by nginx.
+  - id: CVE-2026-54371
+    statement: >-
+      Symlink traversal privilege escalation via getfattr and
+      setfattr. Not exploitable; the web server does not invoke
+      getfattr/setfattr.
+
+  # libnghttp2 - nginx has its own bundled HTTP/2 implementation and
+  # does not link libnghttp2.
+  - id: CVE-2026-58055
+    statement: >-
+      HTTP request/response smuggling via ambiguous HTTP/1.1 Upgrade
+      requests. Not exploitable; nginx uses its own HTTP/2
+      implementation, not libnghttp2.
+
+  # openldap - LDAP is not used anywhere in this deployment.
   - id: CVE-2026-22185
     statement: >-
-      openldap vulnerability. Not exploitable; LDAP is not used by the
-      web server.
-  - id: CVE-2026-2100
-    statement: >-
-      p11-kit PKCS#11 vulnerability. Not exploitable; the web server does
-      not use PKCS#11 modules.
-  - id: CVE-2026-29111
-    statement: >-
-      systemd vulnerability. Not exploitable; the container does not run
-      systemd.
+      OpenLDAP LMDB heap buffer overflow. Not exploitable; the web
+      server does not use LDAP or LMDB.
+
+  # systemd - The container does not run systemd.
   - id: CVE-2026-4105
     statement: >-
-      systemd vulnerability. Not exploitable; the container does not run
-      systemd.
-  - id: CVE-2005-2541
-    statement: >-
-      tar vulnerability regarding file permissions. Not exploitable; tar
-      is not invoked at runtime.
-  - id: CVE-2025-64118
-    statement: >-
-      tar vulnerability. Not exploitable; tar is not invoked at runtime.
-  - id: CVE-2026-33056
-    statement: >-
-      tar vulnerability. Not exploitable; tar is not invoked at runtime.
+      systemd privilege escalation via RegisterMachine D-Bus method.
+      Not exploitable; the container does not run systemd or D-Bus.
+
+  # tpm2-tss - No component of this image uses a TPM.
   - id: CVE-2024-29040
     statement: >-
       tpm2-tss vulnerability. Not exploitable; TPM is not used in this
       container.
-  - id: CVE-2024-12086
+
+  # coreutils-single - nginx never shells out to uniq/unexpand or any
+  # other coreutils utility.
+  - id: CVE-2026-56391
     statement: >-
-      rsync vulnerability. Not exploitable; rsync is not invoked at
-      runtime.
-  - id: CVE-2025-10158
+      DoS and information disclosure in coreutils uniq via
+      out-of-bounds read with multibyte input. Not exploitable;
+      coreutils utilities are never invoked at runtime.
+  - id: CVE-2026-56392
     statement: >-
-      rsync vulnerability. Not exploitable; rsync is not invoked at
-      runtime.
-  - id: CVE-2025-5278
-    statement: >-
-      coreutils sort buffer overflow. Not exploitable; sort is not
-      invoked with untrusted input at runtime.
-  - id: CVE-2026-23865
-    statement: >-
-      freetype vulnerability. Not exploitable; freetype is not used at
-      runtime by the web server.
-  - id: CVE-2026-34085
-    statement: >-
-      fontconfig vulnerability. Not exploitable; fontconfig is not used
-      at runtime by the web server.
+      DoS via crafted tab stop values in coreutils unexpand. Not
+      exploitable; coreutils utilities are never invoked at runtime.

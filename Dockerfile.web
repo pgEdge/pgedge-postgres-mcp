@@ -37,6 +37,21 @@ USER root
 RUN dnf update -y && dnf clean all \
     && chown -R 1001:0 /var/log/nginx \
     && chmod -R g+w /var/log/nginx
+
+# Remove packages this image never uses at runtime: nginx-all-modules
+# pulls in the image-filter, perl, xslt, mail and stream nginx
+# modules, none of which docker/nginx.conf loads or references (it
+# only uses the plain http block); vim/gdb/rsync/tar are
+# interactive/admin tooling with no runtime role in a static file
+# server. Each of these carries a large, largely unfixed CVE backlog
+# in RHEL's packaging (vim alone accounts for 260+ findings), so
+# removing them shrinks the actual attack surface rather than just
+# suppressing scan noise. python3 is deliberately left in place: dnf
+# and yum are RHEL-protected packages that depend on it, so removing
+# it means bypassing dnf's own protection mechanism, a meaningfully
+# bigger risk for a smaller win; it gets a trivyignore entry instead.
+RUN dnf remove -y nginx-all-modules vim-minimal vim-filesystem \
+      gdb-gdbserver rsync tar && dnf clean all
 USER 1001
 
 # Copy built application from builder
