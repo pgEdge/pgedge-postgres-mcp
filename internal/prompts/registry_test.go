@@ -85,6 +85,35 @@ func TestList(t *testing.T) {
 	}
 }
 
+func TestList_DeterministicOrder(t *testing.T) {
+	registry := NewRegistry()
+	registry.Register("setup-semantic-search", SetupSemanticSearch())
+	registry.Register("explore-database", ExploreDatabase())
+	registry.Register("diagnose-query-issue", DiagnoseQueryIssue())
+	registry.Register("design-schema", DesignSchema())
+
+	first := registry.List()
+	for i := 1; i < len(first); i++ {
+		if first[i-1].Name > first[i].Name {
+			t.Fatalf("List() is not sorted: %q appears before %q", first[i-1].Name, first[i].Name)
+		}
+	}
+
+	// A single call cannot detect nondeterministic map iteration on its
+	// own; call repeatedly and require every call to match the first.
+	for i := 0; i < 50; i++ {
+		next := registry.List()
+		if len(next) != len(first) {
+			t.Fatalf("List() length changed between calls: %d vs %d", len(first), len(next))
+		}
+		for j := range first {
+			if first[j].Name != next[j].Name {
+				t.Fatalf("List() order changed between calls at index %d: %q vs %q", j, first[j].Name, next[j].Name)
+			}
+		}
+	}
+}
+
 func TestExecute(t *testing.T) {
 	registry := NewRegistry()
 	registry.Register("setup-semantic-search", SetupSemanticSearch())

@@ -13,6 +13,7 @@ package resources
 import (
 	"context"
 	"fmt"
+	"sort"
 
 	"pgedge-postgres-mcp/internal/auth"
 	"pgedge-postgres-mcp/internal/config"
@@ -68,6 +69,14 @@ func (r *ContextAwareRegistry) List() []mcp.Resource {
 	for _, customRes := range r.customResources {
 		resources = append(resources, customRes.definition)
 	}
+
+	// Sort by URI for a deterministic order across calls: customResources
+	// above is a map, so its iteration order is randomised per call, and an
+	// unsorted list changes on every tools/list, invalidating the
+	// provider-side prompt cache and any client-side diffing of the set.
+	sort.Slice(resources, func(i, j int) bool {
+		return resources[i].URI < resources[j].URI
+	})
 
 	return resources
 }

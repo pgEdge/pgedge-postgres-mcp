@@ -12,6 +12,7 @@ package tools
 
 import (
 	"context"
+	"sort"
 
 	"pgedge-postgres-mcp/internal/mcp"
 )
@@ -48,12 +49,19 @@ func (r *Registry) Get(name string) (Tool, bool) {
 	return tool, exists
 }
 
-// List returns all registered tool definitions
+// List returns all registered tool definitions, sorted by name for a
+// deterministic order across calls. tools/list feeds the front of the
+// prompt sent to the model, so a reshuffled list invalidates the
+// provider-side prompt cache and defeats client-side diffing of the
+// advertised set, even when it has not actually changed.
 func (r *Registry) List() []mcp.Tool {
 	tools := make([]mcp.Tool, 0, len(r.tools))
 	for _, tool := range r.tools {
 		tools = append(tools, tool.Definition)
 	}
+	sort.Slice(tools, func(i, j int) bool {
+		return tools[i].Name < tools[j].Name
+	})
 	return tools
 }
 

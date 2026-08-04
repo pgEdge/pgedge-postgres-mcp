@@ -12,6 +12,7 @@ package resources
 
 import (
 	"context"
+	"sort"
 
 	"pgedge-postgres-mcp/internal/mcp"
 )
@@ -48,12 +49,17 @@ func (r *Registry) Get(uri string) (Resource, bool) {
 	return resource, exists
 }
 
-// List returns all registered resource definitions
+// List returns all registered resource definitions, sorted by URI for a
+// deterministic order across calls; see the tool registry's List for why
+// this matters for prompt caching.
 func (r *Registry) List() []mcp.Resource {
 	resources := make([]mcp.Resource, 0, len(r.resources))
 	for _, resource := range r.resources {
 		resources = append(resources, resource.Definition)
 	}
+	sort.Slice(resources, func(i, j int) bool {
+		return resources[i].URI < resources[j].URI
+	})
 	return resources
 }
 

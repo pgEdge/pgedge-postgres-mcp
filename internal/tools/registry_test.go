@@ -149,6 +149,57 @@ func TestList(t *testing.T) {
 	})
 }
 
+func TestList_DeterministicOrder(t *testing.T) {
+	registry := NewRegistry()
+
+	names := []string{"zebra", "apple", "mango", "banana", "cherry", "date", "elder", "fig", "grape", "honey"}
+	for _, name := range names {
+		registry.Register(name, Tool{
+			Definition: mcp.Tool{Name: name},
+			Handler: func(args map[string]interface{}) (mcp.ToolResponse, error) {
+				return mcp.ToolResponse{}, nil
+			},
+		})
+	}
+
+	first := registry.List()
+	for i := 1; i < len(first); i++ {
+		if first[i-1].Name > first[i].Name {
+			t.Fatalf("List() is not sorted: %q appears before %q", first[i-1].Name, first[i].Name)
+		}
+	}
+
+	// A single call cannot detect nondeterministic map iteration on its
+	// own, since any one iteration order looks fine in isolation; call
+	// repeatedly and require every call to match the first exactly.
+	for i := 0; i < 50; i++ {
+		next := registry.List()
+		if !toolNamesEqual(first, next) {
+			t.Fatalf("List() order changed between calls: %v vs %v", toolNames(first), toolNames(next))
+		}
+	}
+}
+
+func toolNames(tools []mcp.Tool) []string {
+	names := make([]string, len(tools))
+	for i, tool := range tools {
+		names[i] = tool.Name
+	}
+	return names
+}
+
+func toolNamesEqual(a, b []mcp.Tool) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i].Name != b[i].Name {
+			return false
+		}
+	}
+	return true
+}
+
 func TestExecute(t *testing.T) {
 	registry := NewRegistry()
 

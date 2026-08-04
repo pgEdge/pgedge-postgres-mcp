@@ -46,12 +46,17 @@ func (r *Registry) Get(name string) (Prompt, bool) {
 	return prompt, exists
 }
 
-// List returns all registered prompt definitions
+// List returns all registered prompt definitions, sorted by name for a
+// deterministic order across calls; see the tool registry's List for why
+// this matters for prompt caching.
 func (r *Registry) List() []mcp.Prompt {
 	prompts := make([]mcp.Prompt, 0, len(r.prompts))
 	for _, prompt := range r.prompts {
 		prompts = append(prompts, prompt.Definition)
 	}
+	sort.Slice(prompts, func(i, j int) bool {
+		return prompts[i].Name < prompts[j].Name
+	})
 	return prompts
 }
 

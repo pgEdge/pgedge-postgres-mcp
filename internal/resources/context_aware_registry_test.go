@@ -18,6 +18,7 @@ import (
 	"pgedge-postgres-mcp/internal/auth"
 	conf "pgedge-postgres-mcp/internal/config"
 	"pgedge-postgres-mcp/internal/database"
+	"pgedge-postgres-mcp/internal/definitions"
 )
 
 // skipIfNoDatabase skips the test if no test database connection is available.
@@ -112,6 +113,56 @@ func TestContextAwareRegistry_List(t *testing.T) {
 			t.Error("expected URISystemInfo to be disabled")
 		}
 	})
+}
+
+func TestContextAwareRegistry_List_DeterministicOrder(t *testing.T) {
+	cm := database.NewClientManager([]conf.NamedDatabaseConfig{
+		{Name: "db1", Host: "localhost", Port: 5432, Database: "test1"},
+	})
+	cfg := &conf.Config{
+		Builtins: conf.BuiltinsConfig{
+			Resources: conf.ResourcesConfig{
+				SystemInfo: boolPtr(true),
+			},
+		},
+	}
+
+	registry := NewContextAwareRegistry(cm, false, nil, cfg)
+
+	uris := []string{"pg://custom/zebra", "pg://custom/apple", "pg://custom/mango", "pg://custom/banana", "pg://custom/cherry"}
+	for _, uri := range uris {
+		def := definitions.ResourceDefinition{
+			URI:      uri,
+			Name:     uri,
+			Type:     "static",
+			MimeType: "application/json",
+			Data:     map[string]interface{}{"key": "value"},
+		}
+		if err := registry.RegisterStatic(def); err != nil {
+			t.Fatalf("RegisterStatic(%q) failed: %v", uri, err)
+		}
+	}
+
+	first := registry.List()
+	for i := 1; i < len(first); i++ {
+		if first[i-1].URI > first[i].URI {
+			t.Fatalf("List() is not sorted: %q appears before %q", first[i-1].URI, first[i].URI)
+		}
+	}
+
+	// A single call cannot detect nondeterministic map iteration on its
+	// own; call repeatedly and require every call to match the first.
+	for i := 0; i < 50; i++ {
+		next := registry.List()
+		if len(next) != len(first) {
+			t.Fatalf("List() length changed between calls: %d vs %d", len(first), len(next))
+		}
+		for j := range first {
+			if first[j].URI != next[j].URI {
+				t.Fatalf("List() order changed between calls at index %d: %q vs %q", j, first[j].URI, next[j].URI)
+			}
+		}
+	}
 }
 
 func TestContextAwareRegistry_Read_DisabledResource(t *testing.T) {

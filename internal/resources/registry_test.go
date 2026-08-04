@@ -157,6 +157,41 @@ func TestList(t *testing.T) {
 	})
 }
 
+func TestList_DeterministicOrder(t *testing.T) {
+	registry := NewRegistry()
+
+	uris := []string{"resource://zebra", "resource://apple", "resource://mango", "resource://banana", "resource://cherry"}
+	for _, uri := range uris {
+		registry.Register(uri, Resource{
+			Definition: mcp.Resource{URI: uri},
+			Handler: func() (mcp.ResourceContent, error) {
+				return mcp.ResourceContent{}, nil
+			},
+		})
+	}
+
+	first := registry.List()
+	for i := 1; i < len(first); i++ {
+		if first[i-1].URI > first[i].URI {
+			t.Fatalf("List() is not sorted: %q appears before %q", first[i-1].URI, first[i].URI)
+		}
+	}
+
+	// A single call cannot detect nondeterministic map iteration on its
+	// own; call repeatedly and require every call to match the first.
+	for i := 0; i < 50; i++ {
+		next := registry.List()
+		if len(next) != len(first) {
+			t.Fatalf("List() length changed between calls: %d vs %d", len(first), len(next))
+		}
+		for j := range first {
+			if first[j].URI != next[j].URI {
+				t.Fatalf("List() order changed between calls at index %d: %q vs %q", j, first[j].URI, next[j].URI)
+			}
+		}
+	}
+}
+
 func TestRead(t *testing.T) {
 	registry := NewRegistry()
 
