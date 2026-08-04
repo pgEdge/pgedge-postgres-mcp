@@ -189,8 +189,12 @@ func TestList_DeterministicOrder(t *testing.T) {
 // by construction.
 func TestList_DeterministicOrder_EqualNames(t *testing.T) {
 	registry := NewRegistry()
-	registry.tools["key_b"] = Tool{Definition: mcp.Tool{Name: "dup", Description: "second"}}
-	registry.tools["key_a"] = Tool{Definition: mcp.Tool{Name: "dup", Description: "first"}}
+	// Descriptions are deliberately the inverse of key order ("key_a" <
+	// "key_b", but its Description, "second", sorts after "first"), so a
+	// tiebreak that accidentally used Description instead of the
+	// registration key would produce the opposite -- and wrong -- order.
+	registry.tools["key_b"] = Tool{Definition: mcp.Tool{Name: "dup", Description: "first"}}
+	registry.tools["key_a"] = Tool{Definition: mcp.Tool{Name: "dup", Description: "second"}}
 	registry.tools["zzz"] = Tool{Definition: mcp.Tool{Name: "zzz"}}
 
 	descOrder := func(tools []mcp.Tool) []string {
@@ -203,13 +207,11 @@ func TestList_DeterministicOrder_EqualNames(t *testing.T) {
 		return out
 	}
 
-	first := registry.List()
-	firstOrder := descOrder(first)
+	want := []string{"second", "first"} // key_a, key_b
 	for i := 0; i < 50; i++ {
-		next := registry.List()
-		nextOrder := descOrder(next)
-		if len(nextOrder) != 2 || nextOrder[0] != firstOrder[0] || nextOrder[1] != firstOrder[1] {
-			t.Fatalf("relative order of equal-Name entries changed between calls: %v vs %v", firstOrder, nextOrder)
+		got := descOrder(registry.List())
+		if len(got) != len(want) || got[0] != want[0] || got[1] != want[1] {
+			t.Fatalf("relative order of equal-Name entries: got %v, want %v (key-sorted)", got, want)
 		}
 	}
 }

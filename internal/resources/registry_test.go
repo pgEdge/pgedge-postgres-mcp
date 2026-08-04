@@ -201,8 +201,12 @@ func TestList_DeterministicOrder(t *testing.T) {
 // by construction.
 func TestList_DeterministicOrder_EqualURIs(t *testing.T) {
 	registry := NewRegistry()
-	registry.resources["key_b"] = Resource{Definition: mcp.Resource{URI: "dup", Description: "second"}}
-	registry.resources["key_a"] = Resource{Definition: mcp.Resource{URI: "dup", Description: "first"}}
+	// Descriptions are deliberately the inverse of key order ("key_a" <
+	// "key_b", but its Description, "second", sorts after "first"), so a
+	// tiebreak that accidentally used Description instead of the
+	// registration key would produce the opposite -- and wrong -- order.
+	registry.resources["key_b"] = Resource{Definition: mcp.Resource{URI: "dup", Description: "first"}}
+	registry.resources["key_a"] = Resource{Definition: mcp.Resource{URI: "dup", Description: "second"}}
 	registry.resources["zzz"] = Resource{Definition: mcp.Resource{URI: "zzz"}}
 
 	descOrder := func(resources []mcp.Resource) []string {
@@ -215,13 +219,11 @@ func TestList_DeterministicOrder_EqualURIs(t *testing.T) {
 		return out
 	}
 
-	first := registry.List()
-	firstOrder := descOrder(first)
+	want := []string{"second", "first"} // key_a, key_b
 	for i := 0; i < 50; i++ {
-		next := registry.List()
-		nextOrder := descOrder(next)
-		if len(nextOrder) != 2 || nextOrder[0] != firstOrder[0] || nextOrder[1] != firstOrder[1] {
-			t.Fatalf("relative order of equal-URI entries changed between calls: %v vs %v", firstOrder, nextOrder)
+		got := descOrder(registry.List())
+		if len(got) != len(want) || got[0] != want[0] || got[1] != want[1] {
+			t.Fatalf("relative order of equal-URI entries: got %v, want %v (key-sorted)", got, want)
 		}
 	}
 }
