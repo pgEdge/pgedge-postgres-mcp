@@ -54,14 +54,33 @@ func (r *Registry) Get(name string) (Tool, bool) {
 // prompt sent to the model, so a reshuffled list invalidates the
 // provider-side prompt cache and defeats client-side diffing of the
 // advertised set, even when it has not actually changed.
+//
+// The registration key breaks ties, since it is unique by construction
+// (it is a map key) even in the case, not exercised by any caller
+// today, of two entries advertising the same Definition.Name under
+// different keys: sort.Slice gives no ordering guarantee for elements
+// that compare equal, so relying on Name alone would leave those two
+// entries' relative order exactly as nondeterministic as before this
+// fix.
 func (r *Registry) List() []mcp.Tool {
-	tools := make([]mcp.Tool, 0, len(r.tools))
-	for _, tool := range r.tools {
-		tools = append(tools, tool.Definition)
+	type keyed struct {
+		key  string
+		tool mcp.Tool
 	}
-	sort.Slice(tools, func(i, j int) bool {
-		return tools[i].Name < tools[j].Name
+	entries := make([]keyed, 0, len(r.tools))
+	for key, tool := range r.tools {
+		entries = append(entries, keyed{key, tool.Definition})
+	}
+	sort.Slice(entries, func(i, j int) bool {
+		if entries[i].tool.Name != entries[j].tool.Name {
+			return entries[i].tool.Name < entries[j].tool.Name
+		}
+		return entries[i].key < entries[j].key
 	})
+	tools := make([]mcp.Tool, len(entries))
+	for i, e := range entries {
+		tools[i] = e.tool
+	}
 	return tools
 }
 

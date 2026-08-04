@@ -192,6 +192,40 @@ func TestList_DeterministicOrder(t *testing.T) {
 	}
 }
 
+// TestList_DeterministicOrder_EqualURIs covers a case no current caller
+// triggers: two registrations under different keys whose Definitions both
+// advertise the same URI. sort.Slice gives no ordering guarantee between
+// elements that compare equal, so relying on URI alone would leave these
+// two entries' relative order exactly as nondeterministic as before the
+// fix. List() breaks the tie with the registration key, which is unique
+// by construction.
+func TestList_DeterministicOrder_EqualURIs(t *testing.T) {
+	registry := NewRegistry()
+	registry.resources["key_b"] = Resource{Definition: mcp.Resource{URI: "dup", Description: "second"}}
+	registry.resources["key_a"] = Resource{Definition: mcp.Resource{URI: "dup", Description: "first"}}
+	registry.resources["zzz"] = Resource{Definition: mcp.Resource{URI: "zzz"}}
+
+	descOrder := func(resources []mcp.Resource) []string {
+		out := []string{}
+		for _, resource := range resources {
+			if resource.URI == "dup" {
+				out = append(out, resource.Description)
+			}
+		}
+		return out
+	}
+
+	first := registry.List()
+	firstOrder := descOrder(first)
+	for i := 0; i < 50; i++ {
+		next := registry.List()
+		nextOrder := descOrder(next)
+		if len(nextOrder) != 2 || nextOrder[0] != firstOrder[0] || nextOrder[1] != firstOrder[1] {
+			t.Fatalf("relative order of equal-URI entries changed between calls: %v vs %v", firstOrder, nextOrder)
+		}
+	}
+}
+
 func TestRead(t *testing.T) {
 	registry := NewRegistry()
 

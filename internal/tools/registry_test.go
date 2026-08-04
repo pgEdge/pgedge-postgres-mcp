@@ -180,6 +180,40 @@ func TestList_DeterministicOrder(t *testing.T) {
 	}
 }
 
+// TestList_DeterministicOrder_EqualNames covers a case no current caller
+// triggers: two registrations under different keys whose Definitions both
+// advertise the same Name. sort.Slice gives no ordering guarantee between
+// elements that compare equal, so relying on Name alone would leave these
+// two entries' relative order exactly as nondeterministic as before the
+// fix. List() breaks the tie with the registration key, which is unique
+// by construction.
+func TestList_DeterministicOrder_EqualNames(t *testing.T) {
+	registry := NewRegistry()
+	registry.tools["key_b"] = Tool{Definition: mcp.Tool{Name: "dup", Description: "second"}}
+	registry.tools["key_a"] = Tool{Definition: mcp.Tool{Name: "dup", Description: "first"}}
+	registry.tools["zzz"] = Tool{Definition: mcp.Tool{Name: "zzz"}}
+
+	descOrder := func(tools []mcp.Tool) []string {
+		out := []string{}
+		for _, tool := range tools {
+			if tool.Name == "dup" {
+				out = append(out, tool.Description)
+			}
+		}
+		return out
+	}
+
+	first := registry.List()
+	firstOrder := descOrder(first)
+	for i := 0; i < 50; i++ {
+		next := registry.List()
+		nextOrder := descOrder(next)
+		if len(nextOrder) != 2 || nextOrder[0] != firstOrder[0] || nextOrder[1] != firstOrder[1] {
+			t.Fatalf("relative order of equal-Name entries changed between calls: %v vs %v", firstOrder, nextOrder)
+		}
+	}
+}
+
 func toolNames(tools []mcp.Tool) []string {
 	names := make([]string, len(tools))
 	for i, tool := range tools {

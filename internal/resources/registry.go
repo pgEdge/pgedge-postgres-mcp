@@ -52,14 +52,30 @@ func (r *Registry) Get(uri string) (Resource, bool) {
 // List returns all registered resource definitions, sorted by URI for a
 // deterministic order across calls; see the tool registry's List for why
 // this matters for prompt caching.
+//
+// The registration key breaks ties, since it is unique by construction
+// even in the case, not exercised by any caller today, of two entries
+// advertising the same Definition.URI under different keys: sort.Slice
+// gives no ordering guarantee for elements that compare equal.
 func (r *Registry) List() []mcp.Resource {
-	resources := make([]mcp.Resource, 0, len(r.resources))
-	for _, resource := range r.resources {
-		resources = append(resources, resource.Definition)
+	type keyed struct {
+		key      string
+		resource mcp.Resource
 	}
-	sort.Slice(resources, func(i, j int) bool {
-		return resources[i].URI < resources[j].URI
+	entries := make([]keyed, 0, len(r.resources))
+	for key, resource := range r.resources {
+		entries = append(entries, keyed{key, resource.Definition})
+	}
+	sort.Slice(entries, func(i, j int) bool {
+		if entries[i].resource.URI != entries[j].resource.URI {
+			return entries[i].resource.URI < entries[j].resource.URI
+		}
+		return entries[i].key < entries[j].key
 	})
+	resources := make([]mcp.Resource, len(entries))
+	for i, e := range entries {
+		resources[i] = e.resource
+	}
 	return resources
 }
 

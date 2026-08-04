@@ -174,7 +174,15 @@ and this project adheres to
   `internal/prompts`, and `internal/resources` now sorts by name (tools,
   prompts) or URI (resources) before returning; `ContextAwareRegistry.List()`
   in `internal/resources`, which merges a fixed built-in entry with a map
-  of custom resources, sorts its combined result the same way. Fixes #211.
+  of custom resources, sorts its combined result the same way. Every
+  registration is keyed by its own name or URI in this codebase today,
+  so the sort has no ties to break in practice, but the comparison also
+  falls back to the registration key, which is unique by construction:
+  `sort.Slice` gives no ordering guarantee between two entries that
+  compare equal, so a future entry whose Definition happened to
+  advertise the same name or URI as another under a different key would
+  otherwise be exactly as nondeterministic as before this fix. Fixes
+  #211.
 
 ### Added
 

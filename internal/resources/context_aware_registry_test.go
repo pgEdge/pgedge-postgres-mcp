@@ -19,6 +19,7 @@ import (
 	conf "pgedge-postgres-mcp/internal/config"
 	"pgedge-postgres-mcp/internal/database"
 	"pgedge-postgres-mcp/internal/definitions"
+	"pgedge-postgres-mcp/internal/mcp"
 )
 
 // skipIfNoDatabase skips the test if no test database connection is available.
@@ -161,6 +162,49 @@ func TestContextAwareRegistry_List_DeterministicOrder(t *testing.T) {
 			if first[j].URI != next[j].URI {
 				t.Fatalf("List() order changed between calls at index %d: %q vs %q", j, first[j].URI, next[j].URI)
 			}
+		}
+	}
+}
+
+// TestContextAwareRegistry_List_DeterministicOrder_EqualURIs covers a case
+// no current caller triggers: two custom resources registered under
+// different keys whose Definitions both advertise the same URI.
+// sort.Slice gives no ordering guarantee between elements that compare
+// equal, so relying on URI alone would leave these two entries' relative
+// order exactly as nondeterministic as before the fix. List() breaks the
+// tie with the registration key, which is unique by construction.
+func TestContextAwareRegistry_List_DeterministicOrder_EqualURIs(t *testing.T) {
+	cm := database.NewClientManager([]conf.NamedDatabaseConfig{})
+	cfg := &conf.Config{
+		Builtins: conf.BuiltinsConfig{
+			Resources: conf.ResourcesConfig{
+				SystemInfo: boolPtr(false),
+			},
+		},
+	}
+
+	registry := NewContextAwareRegistry(cm, false, nil, cfg)
+	registry.customResources["key_b"] = customResource{definition: mcp.Resource{URI: "dup", Description: "second"}}
+	registry.customResources["key_a"] = customResource{definition: mcp.Resource{URI: "dup", Description: "first"}}
+	registry.customResources["zzz"] = customResource{definition: mcp.Resource{URI: "zzz"}}
+
+	descOrder := func(resources []mcp.Resource) []string {
+		out := []string{}
+		for _, resource := range resources {
+			if resource.URI == "dup" {
+				out = append(out, resource.Description)
+			}
+		}
+		return out
+	}
+
+	first := registry.List()
+	firstOrder := descOrder(first)
+	for i := 0; i < 50; i++ {
+		next := registry.List()
+		nextOrder := descOrder(next)
+		if len(nextOrder) != 2 || nextOrder[0] != firstOrder[0] || nextOrder[1] != firstOrder[1] {
+			t.Fatalf("relative order of equal-URI entries changed between calls: %v vs %v", firstOrder, nextOrder)
 		}
 	}
 }

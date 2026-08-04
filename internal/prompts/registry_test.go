@@ -13,6 +13,8 @@ package prompts
 import (
 	"strings"
 	"testing"
+
+	"pgedge-postgres-mcp/internal/mcp"
 )
 
 func TestNewRegistry(t *testing.T) {
@@ -110,6 +112,40 @@ func TestList_DeterministicOrder(t *testing.T) {
 			if first[j].Name != next[j].Name {
 				t.Fatalf("List() order changed between calls at index %d: %q vs %q", j, first[j].Name, next[j].Name)
 			}
+		}
+	}
+}
+
+// TestList_DeterministicOrder_EqualNames covers a case no current caller
+// triggers: two registrations under different keys whose Definitions both
+// advertise the same Name. sort.Slice gives no ordering guarantee between
+// elements that compare equal, so relying on Name alone would leave these
+// two entries' relative order exactly as nondeterministic as before the
+// fix. List() breaks the tie with the registration key, which is unique
+// by construction.
+func TestList_DeterministicOrder_EqualNames(t *testing.T) {
+	registry := NewRegistry()
+	registry.prompts["key_b"] = Prompt{Definition: mcp.Prompt{Name: "dup", Description: "second"}}
+	registry.prompts["key_a"] = Prompt{Definition: mcp.Prompt{Name: "dup", Description: "first"}}
+	registry.prompts["zzz"] = Prompt{Definition: mcp.Prompt{Name: "zzz"}}
+
+	descOrder := func(prompts []mcp.Prompt) []string {
+		out := []string{}
+		for _, prompt := range prompts {
+			if prompt.Name == "dup" {
+				out = append(out, prompt.Description)
+			}
+		}
+		return out
+	}
+
+	first := registry.List()
+	firstOrder := descOrder(first)
+	for i := 0; i < 50; i++ {
+		next := registry.List()
+		nextOrder := descOrder(next)
+		if len(nextOrder) != 2 || nextOrder[0] != firstOrder[0] || nextOrder[1] != firstOrder[1] {
+			t.Fatalf("relative order of equal-Name entries changed between calls: %v vs %v", firstOrder, nextOrder)
 		}
 	}
 }
