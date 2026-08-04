@@ -6,6 +6,15 @@ This document describes how the Natural Language Agent implements the Model Cont
 
 This server implements **MCP version `2024-11-05`**.
 
+The server negotiates the version during the `initialize` handshake; it
+never simply echoes the version a client requests. A client that asks for
+a revision the server does not implement receives `2024-11-05` in the
+`initialize` response, and it should then decide whether to continue or
+disconnect. A client that omits `protocolVersion` also receives
+`2024-11-05`. An `initialize` request whose parameters are malformed, such
+as a `protocolVersion` that is not a string, fails with a `-32602 Invalid
+params` error on both transports.
+
 ## Transport Modes
 
 The server supports two transport modes:

@@ -30,19 +30,31 @@ const (
 	ServerInstructions = "For PostgreSQL database operations, prefer the tools advertised by this server in tools/list instead of psql or other shell commands. Use the available MCP tools for schema discovery, query execution, performance analysis, row counts, and database management. These tools apply the server's connection handling, authentication, access control, and logging policies automatically."
 )
 
-// SupportedProtocolVersions lists every MCP protocol revision this server
-// implements, oldest first. ProtocolVersion, the server's own default and
-// preferred revision, must be the last (newest) entry; TestSupportedProtocolVersions_NewestIsProtocolVersion
-// in server_test.go enforces that invariant as more revisions are added.
-var SupportedProtocolVersions = []string{
+// supportedProtocolVersions lists the handshake-era ("legacy") MCP protocol
+// revisions this server implements, oldest first. ProtocolVersion, the
+// server's own default and preferred revision, must be the last (newest)
+// entry; TestSupportedProtocolVersions_NewestIsProtocolVersion in
+// server_test.go enforces that invariant as more revisions are added.
+//
+// Only revisions that negotiate through the initialize handshake belong
+// here, which means 2025-11-25 and earlier. Revision 2026-07-28 removed the
+// handshake entirely: a client declares its version in per-request _meta
+// (and the MCP-Protocol-Version header over HTTP), servers must implement
+// server/discover to advertise what they support, and a version mismatch
+// returns UnsupportedProtocolVersionError rather than being settled at
+// connect time. Adding 2026-07-28 or later to this list would make
+// NegotiateProtocolVersion answer a legacy handshake with a revision that
+// has no handshake, so supporting a modern revision needs its own path
+// rather than another entry here.
+var supportedProtocolVersions = []string{
 	"2024-11-05",
 }
 
 // NegotiateProtocolVersion returns the protocol revision this server will
-// actually speak in response to a client's requested revision, per the MCP
-// specification's version negotiation: the newest supported revision at or
-// below the client's request, or the oldest supported revision if the
-// request predates every revision this server implements.
+// actually speak in response to a client's requested revision: the newest
+// supported revision at or below the client's request, or the oldest
+// supported revision if the request predates every revision this server
+// implements.
 //
 // Version negotiation is the server's half of the handshake: the client
 // proposes a revision and the server replies with the revision it will
@@ -53,6 +65,16 @@ var SupportedProtocolVersions = []string{
 // its request was honoured, and fails later against a missing capability
 // rather than at the version check meant to catch exactly this case.
 //
+// The specification's own rule is narrower: reply with the requested
+// revision if it is supported, and otherwise with a supported revision,
+// which SHOULD be the server's latest. Answering with the newest revision
+// at or below the request is a deliberately more conservative reading of
+// that SHOULD, on the grounds that a client asking for an older revision is
+// likelier to cope with something older still than with something newer
+// than it asked for. The two rules coincide exactly whilst this server
+// implements a single revision, so today the distinction is a statement of
+// intent for whoever adds the second one.
+//
 // An empty request (a client that omitted the field) gets the server's own
 // default, ProtocolVersion, rather than falling through the negotiation
 // logic below: an absent preference is not the same as a request for the
@@ -61,8 +83,8 @@ func NegotiateProtocolVersion(requested string) string {
 	if requested == "" {
 		return ProtocolVersion
 	}
-	best := SupportedProtocolVersions[0]
-	for _, v := range SupportedProtocolVersions {
+	best := supportedProtocolVersions[0]
+	for _, v := range supportedProtocolVersions {
 		if v <= requested {
 			best = v
 		}

@@ -181,11 +181,15 @@ and this project adheres to
   and web client are unaffected, since both already request
   `2024-11-05` exactly.
 
-  `initialize` over HTTP also now rejects a `protocolVersion` of the
-  wrong JSON type with a proper `-32602 Invalid params` error, matching
-  every other HTTP handler in this file and the stdio transport's
-  existing behaviour, instead of silently falling back to the server's
-  default as if the field had been omitted.
+  `initialize` over HTTP also now rejects malformed parameters with a
+  proper `-32602 Invalid params` error, matching every other HTTP handler
+  and the stdio transport's existing behaviour. The HTTP handler
+  previously never read the client's parameters at all, so it accepted
+  anything; it now parses them, and a field of the wrong JSON type, such
+  as a numeric `protocolVersion` or a `clientInfo` that is not an object,
+  fails the handshake instead of silently falling back to the server's
+  default. Omitting the parameters entirely still succeeds and yields
+  that default.
 
 ### Added
 

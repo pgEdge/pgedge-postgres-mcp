@@ -194,23 +194,46 @@ func TestServerConstants(t *testing.T) {
 }
 
 // TestSupportedProtocolVersions_NewestIsProtocolVersion enforces the
-// invariant documented on SupportedProtocolVersions: ProtocolVersion, the
+// invariant documented on supportedProtocolVersions: ProtocolVersion, the
 // server's own default, must be its last (newest) entry. NegotiateProtocolVersion
 // relies on this to answer an empty request with the server's actual
 // newest supported revision rather than a stale one left behind when a
 // newer revision was appended.
 func TestSupportedProtocolVersions_NewestIsProtocolVersion(t *testing.T) {
-	if len(SupportedProtocolVersions) == 0 {
-		t.Fatal("SupportedProtocolVersions must not be empty")
+	if len(supportedProtocolVersions) == 0 {
+		t.Fatal("supportedProtocolVersions must not be empty")
 	}
-	newest := SupportedProtocolVersions[len(SupportedProtocolVersions)-1]
+	newest := supportedProtocolVersions[len(supportedProtocolVersions)-1]
 	if newest != ProtocolVersion {
-		t.Errorf("last entry of SupportedProtocolVersions = %q, want ProtocolVersion %q", newest, ProtocolVersion)
+		t.Errorf("last entry of supportedProtocolVersions = %q, want ProtocolVersion %q", newest, ProtocolVersion)
 	}
-	for i := 1; i < len(SupportedProtocolVersions); i++ {
-		if SupportedProtocolVersions[i-1] >= SupportedProtocolVersions[i] {
-			t.Errorf("SupportedProtocolVersions is not strictly ascending at index %d: %q >= %q",
-				i, SupportedProtocolVersions[i-1], SupportedProtocolVersions[i])
+	for i := 1; i < len(supportedProtocolVersions); i++ {
+		if supportedProtocolVersions[i-1] >= supportedProtocolVersions[i] {
+			t.Errorf("supportedProtocolVersions is not strictly ascending at index %d: %q >= %q",
+				i, supportedProtocolVersions[i-1], supportedProtocolVersions[i])
+		}
+	}
+}
+
+// firstModernProtocolVersion is the earliest MCP revision that abandoned the
+// initialize handshake in favour of per-request version metadata and
+// server/discover. Revisions from here onwards cannot be negotiated through
+// initialize at all, so they must not appear in supportedProtocolVersions.
+const firstModernProtocolVersion = "2026-07-28"
+
+// TestSupportedProtocolVersions_AreAllLegacy guards the boundary documented
+// on supportedProtocolVersions. NegotiateProtocolVersion answers the
+// initialize handshake, which revision 2026-07-28 removed, so appending a
+// modern revision to that list would have the server reply to a legacy
+// handshake with a revision that has no handshake. Supporting a modern
+// revision needs its own path, and this test fails if one is added here
+// instead.
+func TestSupportedProtocolVersions_AreAllLegacy(t *testing.T) {
+	for _, v := range supportedProtocolVersions {
+		if v >= firstModernProtocolVersion {
+			t.Errorf("supportedProtocolVersions contains %q, which is revision %q or later: "+
+				"those negotiate through per-request metadata and server/discover, not the initialize handshake",
+				v, firstModernProtocolVersion)
 		}
 	}
 }
@@ -237,9 +260,13 @@ func TestNegotiateProtocolVersion(t *testing.T) {
 			want:      ProtocolVersion,
 		},
 		{
+			// Deliberately more conservative than the specification, which
+			// says a server SHOULD answer an unsupported request with its
+			// latest revision; see NegotiateProtocolVersion's comment. The
+			// two coincide whilst this server implements one revision.
 			name:      "a revision older than anything supported falls back to the oldest supported",
 			requested: "2020-01-01",
-			want:      SupportedProtocolVersions[0],
+			want:      supportedProtocolVersions[0],
 		},
 	}
 	for _, tt := range tests {
@@ -258,14 +285,14 @@ func TestNegotiateProtocolVersion(t *testing.T) {
 // asks for.
 func TestNegotiateProtocolVersion_NeverEchoesUnsupported(t *testing.T) {
 	requested := []string{"2025-03-26", "2025-06-18", "2025-11-25", "2026-07-28", "not-even-a-date", ""}
-	supported := make(map[string]bool, len(SupportedProtocolVersions))
-	for _, v := range SupportedProtocolVersions {
+	supported := make(map[string]bool, len(supportedProtocolVersions))
+	for _, v := range supportedProtocolVersions {
 		supported[v] = true
 	}
 	for _, r := range requested {
 		got := NegotiateProtocolVersion(r)
 		if !supported[got] {
-			t.Errorf("NegotiateProtocolVersion(%q) = %q, which is not in SupportedProtocolVersions", r, got)
+			t.Errorf("NegotiateProtocolVersion(%q) = %q, which is not in supportedProtocolVersions", r, got)
 		}
 	}
 }
