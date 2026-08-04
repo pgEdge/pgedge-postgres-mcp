@@ -178,3 +178,96 @@ type PromptMessage struct {
 type PromptsListResult struct {
 	Prompts []Prompt `json:"prompts"`
 }
+
+// --- MCP spec 2026-07-28: stateless, per-request protocol fields ---
+//
+// Revision 2026-07-28 removed the initialize/notifications/initialized
+// handshake in favor of per-request metadata: every request carries its
+// own protocol version and client capabilities in a reserved `_meta`
+// object, and the server includes its own identity in every result's
+// `_meta`. This server is dual-era: a request carrying
+// io.modelcontextprotocol/protocolVersion in `_meta` is served under
+// this (modern) model; a request without it -- including every
+// `initialize` handshake -- is served under the pre-2026-07-28 (legacy)
+// model this server already implemented. See docs/mcp-spec-compliance.md
+// for the full compliance decision record, including what was
+// deliberately not adopted and why.
+
+// RequestMeta holds the io.modelcontextprotocol/* keys a modern request
+// carries in its `_meta` object. ClientCapabilities is a required field
+// on every modern request per spec; validateModernRequestStdio and
+// validateModernRequestHTTP reject a nil value with -32602 before
+// dispatch. This server does not otherwise inspect its contents or
+// require any specific client capability to process any request it
+// currently supports (it never uses sampling, elicitation, or roots) --
+// only bare presence is checked, an empty object (`{}`) is accepted.
+type RequestMeta struct {
+	ProtocolVersion    string                 `json:"io.modelcontextprotocol/protocolVersion,omitempty"`
+	ClientInfo         *ClientInfo            `json:"io.modelcontextprotocol/clientInfo,omitempty"`
+	ClientCapabilities map[string]interface{} `json:"io.modelcontextprotocol/clientCapabilities,omitempty"`
+	LogLevel           string                 `json:"io.modelcontextprotocol/logLevel,omitempty"`
+}
+
+// ResponseMeta holds the io.modelcontextprotocol/* keys this server
+// includes in a modern result's `_meta` object.
+type ResponseMeta struct {
+	ServerInfo Implementation `json:"io.modelcontextprotocol/serverInfo"`
+}
+
+// metaHolder is used only to extract `_meta` from an arbitrary request's
+// params without needing to know the rest of that request's shape.
+type metaHolder struct {
+	Meta *RequestMeta `json:"_meta,omitempty"`
+}
+
+// CacheableResult holds the fields the 2026-07-28 revision requires on
+// every result returned by tools/list, resources/list, prompts/list, and
+// resources/read: resultType (required on every result, not just
+// cacheable ones), ttlMs, and cacheScope. This server's registries are
+// populated once at startup and never change at runtime (custom
+// tools/resources/prompts load from a definitions file read once during
+// initialization), so every list is valid for the life of the process;
+// TTLPermanent reflects that rather than an arbitrary guess.
+type CacheableResult struct {
+	ResultType string `json:"resultType"`
+	TTLMs      int    `json:"ttlMs"`
+	CacheScope string `json:"cacheScope"`
+}
+
+// ResultTypeComplete and CacheScopePublic/Private are the only values
+// this server ever produces: it does not implement Multi Round-Trip
+// Requests (no sampling/elicitation/roots), so no result is ever
+// "input_required".
+const (
+	ResultTypeComplete = "complete"
+	CacheScopePublic   = "public"
+	CacheScopePrivate  = "private"
+	// TTLPermanent is used for every cacheable result this server
+	// returns: its registries never change after startup, so there is
+	// no meaningful expiry.
+	TTLPermanent = 24 * 60 * 60 * 1000 // 24h in ms; see cacheScope note above
+)
+
+// DiscoverResult is the response to server/discover.
+type DiscoverResult struct {
+	CacheableResult
+	SupportedVersions []string               `json:"supportedVersions"`
+	Capabilities      map[string]interface{} `json:"capabilities"`
+	Meta              ResponseMeta           `json:"_meta"`
+	Instructions      string                 `json:"instructions,omitempty"`
+}
+
+// UnsupportedProtocolVersionErrorData is the `error.data` payload for a
+// -32022 UnsupportedProtocolVersion error.
+type UnsupportedProtocolVersionErrorData struct {
+	Supported []string `json:"supported"`
+	Requested string   `json:"requested"`
+}
+
+// MissingRequiredClientCapabilityErrorData is the `error.data` payload
+// for a -32021 MissingRequiredClientCapability error. This server never
+// emits this error today (see RequestMeta), but the type exists so a
+// future request type that does need a client capability has it ready.
+type MissingRequiredClientCapabilityErrorData struct {
+	RequiredCapabilities map[string]interface{} `json:"requiredCapabilities"`
+}

@@ -117,6 +117,7 @@ nav:
   - For Developers:
       - For Developers - Overview: developers/overview.md
       - MCP Protocol: developers/mcp-protocol.md
+      - MCP Specification Compliance: developers/mcp-spec-compliance.md
       - API Reference: developers/api-reference.md
       - API Browser: api/browser.md
       - Client Examples: developers/client-examples.md

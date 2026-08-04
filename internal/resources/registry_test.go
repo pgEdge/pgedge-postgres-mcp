@@ -12,6 +12,7 @@ package resources
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"pgedge-postgres-mcp/internal/mcp"
@@ -280,21 +281,17 @@ func TestRead(t *testing.T) {
 	})
 
 	t.Run("non-existent resource", func(t *testing.T) {
-		content, err := registry.Read(context.Background(), "non://existent")
-		if err != nil {
-			t.Errorf("Read() unexpected error: %v", err)
-		}
-
-		if content.URI != "non://existent" {
-			t.Errorf("Content URI = %q, want %q", content.URI, "non://existent")
-		}
-
-		if len(content.Contents) == 0 {
-			t.Fatal("Content should have items")
-		}
-
-		if content.Contents[0].Text != "Resource not found: non://existent" {
-			t.Errorf("Content text = %q, want %q", content.Contents[0].Text, "Resource not found: non://existent")
+		// A protocol-level error (mcp.ErrResourceNotFound), not a
+		// disguised success: an unknown resource URI is a JSON-RPC
+		// error per the MCP spec (-32002 for legacy clients, -32602 for
+		// modern -- see resourceNotFoundCode in internal/mcp), and this
+		// registry's Read must let the MCP layer distinguish that case
+		// from an actual resource whose content happens to describe an
+		// error, which handleResourceRead/handleResourceReadHTTP do by
+		// checking errors.Is(err, mcp.ErrResourceNotFound).
+		_, err := registry.Read(context.Background(), "non://existent")
+		if !errors.Is(err, mcp.ErrResourceNotFound) {
+			t.Errorf("Read() error = %v, want mcp.ErrResourceNotFound", err)
 		}
 	})
 

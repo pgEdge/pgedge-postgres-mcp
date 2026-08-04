@@ -103,11 +103,18 @@ func (r *ContextAwareRegistry) List() []mcp.Resource {
 	return resources
 }
 
-// Read retrieves a resource by URI with the appropriate database client
+// Read retrieves a resource by URI with the appropriate database client.
+//
+// Whether uri names a resource this registry knows about at all is
+// checked first, before ever acquiring a database client: an unknown
+// URI is a protocol-level error (mcp.ErrResourceNotFound, which the MCP
+// layer translates to a JSON-RPC error per the spec) that has nothing
+// to do with database connectivity, so it must not depend on a
+// database connection succeeding first. Get the client only once the
+// resource is confirmed to exist.
 func (r *ContextAwareRegistry) Read(ctx context.Context, uri string) (mcp.ResourceContent, error) {
 	// Check if this is a custom resource first
 	if customRes, exists := r.customResources[uri]; exists {
-		// Get database client for custom resource
 		dbClient, err := r.getClient(ctx)
 		if err != nil {
 			return mcp.ResourceContent{
@@ -121,6 +128,23 @@ func (r *ContextAwareRegistry) Read(ctx context.Context, uri string) (mcp.Resour
 			}, nil
 		}
 		return customRes.handler(ctx, dbClient)
+	}
+
+	if uri != URISystemInfo {
+		return mcp.ResourceContent{}, mcp.ErrResourceNotFound
+	}
+
+	// Check if the built-in resource is enabled
+	if !r.cfg.Builtins.Resources.IsResourceEnabled(uri) {
+		return mcp.ResourceContent{
+			URI: uri,
+			Contents: []mcp.ContentItem{
+				{
+					Type: "text",
+					Text: fmt.Sprintf("Resource '%s' is not available", uri),
+				},
+			},
+		}, nil
 	}
 
 	// Get the appropriate database client for built-in resources
@@ -137,35 +161,7 @@ func (r *ContextAwareRegistry) Read(ctx context.Context, uri string) (mcp.Resour
 		}, nil
 	}
 
-	// Check if the built-in resource is enabled
-	if uri == URISystemInfo && !r.cfg.Builtins.Resources.IsResourceEnabled(uri) {
-		return mcp.ResourceContent{
-			URI: uri,
-			Contents: []mcp.ContentItem{
-				{
-					Type: "text",
-					Text: fmt.Sprintf("Resource '%s' is not available", uri),
-				},
-			},
-		}, nil
-	}
-
-	// Create resource handler with the correct client
-	var resource Resource
-	switch uri {
-	case URISystemInfo:
-		resource = PGSystemInfoResource(dbClient)
-	default:
-		return mcp.ResourceContent{
-			URI: uri,
-			Contents: []mcp.ContentItem{
-				{
-					Type: "text",
-					Text: "Resource not found: " + uri,
-				},
-			},
-		}, nil
-	}
+	resource := PGSystemInfoResource(dbClient)
 
 	return resource.Handler()
 }

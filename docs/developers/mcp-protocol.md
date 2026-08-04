@@ -4,16 +4,28 @@ This document describes how the Natural Language Agent implements the Model Cont
 
 ## Protocol Version
 
-This server implements **MCP version `2024-11-05`**.
+This server is **dual-era**: it implements both `2024-11-05` (a
+connection-scoped `initialize` handshake) and the current revision,
+`2026-07-28` (stateless, per-request negotiation), on both transports at
+the same time.
 
-The server negotiates the version during the `initialize` handshake; it
-never simply echoes the version a client requests. A client that asks for
-a revision the server does not implement receives `2024-11-05` in the
-`initialize` response, and it should then decide whether to continue or
-disconnect. A client that omits `protocolVersion` also receives
-`2024-11-05`. An `initialize` request whose parameters are malformed, such
-as a `protocolVersion` that is not a string, fails with a `-32602 Invalid
-params` error on both transports.
+A request whose `params._meta` carries
+`io.modelcontextprotocol/protocolVersion` is served under the modern,
+`2026-07-28` model: see [MCP Specification
+Compliance](mcp-spec-compliance.md) for the full negotiation rules,
+required Streamable HTTP headers, and what was deliberately not adopted
+from that revision.
+
+Every other request, including every `initialize` handshake, is served
+under this server's original, legacy behavior, unchanged: the server
+negotiates the version during the handshake and never simply echoes the
+version a client requests. A client that asks for a revision the server
+does not implement receives `2024-11-05` in the `initialize` response,
+and it should then decide whether to continue or disconnect. A client
+that omits `protocolVersion` also receives `2024-11-05`. An `initialize`
+request whose parameters are malformed, such as a `protocolVersion` that
+is not a string, fails with a `-32602 Invalid params` error on both
+transports.
 
 ## Transport Modes
 
@@ -336,18 +348,25 @@ Standard JSON-RPC error codes:
 | Code | Message | Meaning |
 |------|---------|---------|
 | -32700 | Parse error | Invalid JSON |
-| -32600 | Invalid Request | Invalid JSON-RPC request |
 | -32601 | Method not found | Method doesn't exist |
-| -32602 | Invalid params | Invalid method parameters |
+| -32602 | Invalid params | Invalid method parameters, or (modern requests only) an unknown resource URI in `resources/read` |
 | -32603 | Internal error | Server error |
 
-Custom error codes:
+Codes specific to a resource lookup:
 
 | Code | Message | Meaning |
 |------|---------|---------|
-| -32001 | Database not ready | Database still initializing |
-| -32002 | Tool not found | Requested tool doesn't exist |
-| -32003 | Resource not found | Requested resource doesn't exist |
+| -32002 | Resource not found | Unknown resource URI in `resources/read`, on a **legacy** (pre-`2026-07-28`) request |
+
+Codes specific to the modern (`2026-07-28`) protocol, defined by the
+spec's reserved range for protocol-level errors; see [MCP Specification
+Compliance](mcp-spec-compliance.md):
+
+| Code | Message | Meaning |
+|------|---------|---------|
+| -32020 | HeaderMismatch | A Streamable HTTP header does not match the request body, or a required one is missing |
+| -32021 | MissingRequiredClientCapability | The request needs a client capability not declared in `_meta.clientCapabilities` (not currently reachable: this server requires no client capability for anything it implements) |
+| -32022 | UnsupportedProtocolVersion | The requested `_meta.protocolVersion` is not one this server implements |
 
 ## Streaming (HTTP Mode)
 

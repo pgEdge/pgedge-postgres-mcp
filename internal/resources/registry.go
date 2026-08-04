@@ -84,15 +84,7 @@ func (r *Registry) List() []mcp.Resource {
 func (r *Registry) Read(ctx context.Context, uri string) (mcp.ResourceContent, error) {
 	resource, exists := r.Get(uri)
 	if !exists {
-		return mcp.ResourceContent{
-			URI: uri,
-			Contents: []mcp.ContentItem{
-				{
-					Type: "text",
-					Text: "Resource not found: " + uri,
-				},
-			},
-		}, nil
+		return mcp.ResourceContent{}, mcp.ErrResourceNotFound
 	}
 
 	return resource.Handler()

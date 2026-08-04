@@ -10,7 +10,19 @@
 
 package mcp
 
-import "encoding/json"
+import (
+	"encoding/json"
+	"errors"
+)
+
+// ErrResourceNotFound is returned by a ResourceProvider's Read when the
+// requested URI does not match any registered resource. Per the MCP
+// spec, an unknown resource URI is a protocol-level JSON-RPC error, not
+// a successful result -- this sentinel lets handleResourceRead and
+// handleResourceReadHTTP translate it to the correct error code for the
+// requesting era (-32602 for a modern (2026-07-28) request, -32002 for
+// legacy, per the spec's own renumbering of this exact error).
+var ErrResourceNotFound = errors.New("resource not found")
 
 // ResourceError represents a JSON-formatted error response for resources
 type ResourceError struct {

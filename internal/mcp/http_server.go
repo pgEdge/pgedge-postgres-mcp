@@ -319,11 +319,42 @@ func (s *Server) handleHTTPRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Handle the request and capture the response (pass context with IP address)
-	response := s.handleRequestHTTP(ctx, req)
+	// A request carrying io.modelcontextprotocol/protocolVersion in its
+	// _meta is modern (2026-07-28, stateless per-request negotiation); a
+	// request without it, including every initialize handshake, is
+	// legacy and reaches handleRequestHTTP exactly as before this
+	// server added modern support. See modern.go.
+	//
+	// preflightRejected distinguishes a rejection at this stage (header
+	// mismatch, missing required _meta field, unsupported version) from
+	// one a handler itself produces after dispatch: every preflight
+	// rejection is spec-mandated HTTP 400 for a modern request, while a
+	// handler's own -32602 (e.g. a tool call's own argument validation)
+	// keeps this server's existing HTTP 200 convention. Both can carry
+	// the same JSON-RPC code, so the code alone cannot distinguish them.
+	meta, isModern := isModernRequest(req.Params)
+	var response JSONRPCResponse
+	preflightRejected := false
+	if isModern {
+		if rpcErr := validateModernRequestHTTP(r, req, meta); rpcErr != nil {
+			response = JSONRPCResponse{JSONRPC: "2.0", ID: req.ID, Error: rpcErr}
+			preflightRejected = true
+		}
+	}
+	if !preflightRejected {
+		response = s.handleRequestHTTP(ctx, req)
+		if isModern && response.Error == nil {
+			response.Result = wrapModernResultForMethod(req.Method, response.Result)
+		}
+	}
+
+	statusCode := http.StatusOK
+	if isModern && preflightRejected {
+		statusCode = http.StatusBadRequest
+	}
 
 	tracing.LogHTTPResponse(sessionID, tokenHash, requestID,
-		r.Method, "/mcp/v1", http.StatusOK, nil,
+		r.Method, "/mcp/v1", statusCode, nil,
 		time.Since(httpStart))
 
 	// Debug logging: log outgoing response
@@ -335,7 +366,7 @@ func (s *Server) handleHTTPRequest(w http.ResponseWriter, r *http.Request) {
 
 	// Send response
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
+	w.WriteHeader(statusCode)
 
 	if err := json.NewEncoder(w).Encode(response); err != nil {
 		fmt.Fprintf(os.Stderr, "ERROR: Failed to encode response: %v\n", err)
@@ -352,6 +383,8 @@ func (s *Server) handleRequestHTTP(ctx context.Context, req JSONRPCRequest) JSON
 	switch req.Method {
 	case "initialize":
 		return s.handleInitializeHTTP(req)
+	case "server/discover":
+		return s.handleDiscoverHTTP(req)
 	case "ping":
 		return JSONRPCResponse{
 			JSONRPC: "2.0",
@@ -391,23 +424,9 @@ func (s *Server) handleInitializeHTTP(req JSONRPCRequest) JSONRPCResponse {
 		return createErrorResponse(req.ID, -32602, "Invalid params", err.Error())
 	}
 
-	capabilities := map[string]interface{}{
-		"tools": map[string]interface{}{},
-	}
-
-	// Add resources capability if resource provider is set
-	if s.resources != nil {
-		capabilities["resources"] = map[string]interface{}{}
-	}
-
-	// Add prompts capability if prompt provider is set
-	if s.prompts != nil {
-		capabilities["prompts"] = map[string]interface{}{}
-	}
-
 	result := InitializeResult{
 		ProtocolVersion: NegotiateProtocolVersion(params.ProtocolVersion),
-		Capabilities:    capabilities,
+		Capabilities:    s.buildCapabilities(),
 		ServerInfo: Implementation{
 			Name:    ServerName,
 			Version: ServerVersion,
@@ -415,6 +434,23 @@ func (s *Server) handleInitializeHTTP(req JSONRPCRequest) JSONRPCResponse {
 		Instructions: ServerInstructions,
 	}
 
+	return JSONRPCResponse{
+		JSONRPC: "2.0",
+		ID:      req.ID,
+		Result:  result,
+	}
+}
+
+// handleDiscoverHTTP implements server/discover over HTTP; see
+// handleDiscover (server.go) for the stdio equivalent and rationale.
+func (s *Server) handleDiscoverHTTP(req JSONRPCRequest) JSONRPCResponse {
+	result := DiscoverResult{
+		CacheableResult:   cacheableResult(),
+		SupportedVersions: SupportedModernProtocolVersions,
+		Capabilities:      s.buildCapabilities(),
+		Meta:              responseMetaFor(),
+		Instructions:      ServerInstructions,
+	}
 	return JSONRPCResponse{
 		JSONRPC: "2.0",
 		ID:      req.ID,
@@ -515,6 +551,9 @@ func (s *Server) handleResourceReadHTTP(ctx context.Context, req JSONRPCRequest)
 	tracing.LogResourceResult(sessionID, tokenHash, resRequestID,
 		params.URI, content, err, time.Since(start))
 
+	if errors.Is(err, ErrResourceNotFound) {
+		return createErrorResponse(req.ID, resourceNotFoundCode(req), "Resource not found", params.URI)
+	}
 	if err != nil {
 		return createErrorResponse(req.ID, -32603, "Failed to read resource", err.Error())
 	}

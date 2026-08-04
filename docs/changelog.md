@@ -153,7 +153,37 @@ and this project adheres to
   configured with, so it is a safety net rather than a guarantee. See
   [Security](guide/security.md) for the limits.
 
+- A malformed `Mcp-Name` header could crash the request handler with a
+  panic instead of being rejected cleanly. The Streamable HTTP transport's
+  Base64 sentinel encoding (`=?base64?<encoded>?=`) is unwrapped by
+  checking for a matching prefix and suffix before slicing out the
+  encoded middle; the prefix and suffix share a `?`, so a value shorter
+  than their combined length (e.g. the literal `=?base64?=`) could match
+  both checks by overlapping on that character, producing a
+  negative-length slice. `recoveryMiddleware` catches the panic and
+  returns a `500` rather than taking the server down, but the correct
+  response to a malformed header is the spec-mandated `400
+  HeaderMismatch`, not an internal error with a stack trace logged for
+  every occurrence. `decodeHeaderValue` (`internal/mcp/modern.go`) now
+  checks the value is at least as long as the two delimiters combined
+  before matching against them.
+
 ### Fixed
+
+- `resources/read` on an unknown URI now returns a real JSON-RPC error
+  instead of a disguised success. Both resource registries
+  (`internal/resources/registry.go` and the `ContextAwareRegistry`
+  actually wired into the server) returned a "successful" result whose
+  content was a `"Resource not found: ..."` text block, on every
+  revision this server has ever shipped; per the MCP spec, an unknown
+  resource URI is a protocol-level error (`-32002` for a legacy
+  request, `-32602` for a modern one -- see the `Added` entry below).
+  `ContextAwareRegistry.Read` also now checks whether a URI is even a
+  recognised resource *before* acquiring a database client, rather
+  than after: previously, reading an unknown URI without a working
+  database connection returned a database-error message instead of a
+  not-found one, since acquiring a client came first regardless of
+  whether the resource existed at all.
 
 - `make test` now runs every package that has tests. Ten packages were absent
   from the server target and so were never exercised by the suite or by
@@ -215,6 +245,27 @@ and this project adheres to
   that default. Fixes #212.
 
 ### Added
+
+- The server now implements the current MCP specification revision,
+  `2026-07-28`, alongside its original revision, `2024-11-05`, on both
+  transports at once (dual-era, per the versioning spec's own
+  guidance). A request whose `params._meta` carries
+  `io.modelcontextprotocol/protocolVersion` is served under the new,
+  stateless model: `server/discover` (required by the spec for every
+  server), per-request `_meta` negotiation in place of the removed
+  `initialize` handshake, `resultType`/`ttlMs`/`cacheScope` on results,
+  and the Streamable HTTP transport's required
+  `MCP-Protocol-Version`/`Mcp-Method`/`Mcp-Name` headers. A request
+  without that `_meta` field, including every `initialize` handshake
+  -- which covers the bundled CLI and web client, and every existing
+  integration test -- is served exactly as before this change, with no
+  observable difference. See [MCP Specification
+  Compliance](developers/mcp-spec-compliance.md) for the full
+  negotiation rules and, importantly, what was deliberately not
+  adopted from this revision and why (`subscriptions/listen`, Multi
+  Round-Trip Requests/Roots/Sampling/Elicitation, `x-mcp-header`,
+  OAuth-related changes, and icons): none of them have anything for
+  this server to attach to today.
 
 - A `make vulncheck` target runs `govulncheck` over the module, using
   call-graph analysis to prioritize known vulnerabilities that this code can

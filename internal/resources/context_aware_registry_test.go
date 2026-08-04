@@ -12,6 +12,7 @@ package resources
 
 import (
 	"context"
+	"errors"
 	"os"
 	"testing"
 
@@ -242,11 +243,12 @@ func TestContextAwareRegistry_Read_DisabledResource(t *testing.T) {
 }
 
 func TestContextAwareRegistry_Read_NotFound(t *testing.T) {
-	skipIfNoDatabase(t)
-
-	cm := database.NewClientManager([]conf.NamedDatabaseConfig{
-		{Name: "db1", Host: "localhost", Port: 5432, Database: "test1"},
-	})
+	// Deliberately no database configured and no skipIfNoDatabase: an
+	// unknown URI must be recognized as not-found before any database
+	// client is ever requested, so this case does not depend on a live
+	// database at all (unlike the pre-fix code, which called getClient
+	// before checking whether the URI was even a recognized resource).
+	cm := database.NewClientManager(nil)
 
 	cfg := &conf.Config{
 		Builtins: conf.BuiltinsConfig{
@@ -258,18 +260,12 @@ func TestContextAwareRegistry_Read_NotFound(t *testing.T) {
 
 	registry := NewContextAwareRegistry(cm, false, nil, cfg)
 
-	// Reading non-existent resource should return not found content
-	content, err := registry.Read(context.Background(), "pg://nonexistent")
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-
-	// Check the content indicates resource not found
-	if len(content.Contents) == 0 {
-		t.Fatal("expected content")
-	}
-	if content.Contents[0].Text != "Resource not found: pg://nonexistent" {
-		t.Errorf("unexpected content: %s", content.Contents[0].Text)
+	// A protocol-level error (mcp.ErrResourceNotFound), not a disguised
+	// success -- see the identical rationale on registry_test.go's
+	// "non-existent resource" case.
+	_, err := registry.Read(context.Background(), "pg://nonexistent")
+	if !errors.Is(err, mcp.ErrResourceNotFound) {
+		t.Errorf("Read() error = %v, want mcp.ErrResourceNotFound", err)
 	}
 }
 
