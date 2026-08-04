@@ -32,6 +32,7 @@ func BuildSpec() map[string]interface{} {
 		"components": M{
 			"securitySchemes": buildSecuritySchemes(),
 			"schemas":         buildSchemas(),
+			"parameters":      buildParameters(),
 		},
 		"tags": buildTags(),
 	}
@@ -87,6 +88,52 @@ func bearerSecurity() A {
 // ref returns a JSON reference object pointing to a component schema.
 func ref(name string) M {
 	return M{"$ref": "#/components/schemas/" + name}
+}
+
+// refParam returns a JSON reference object pointing to a reusable
+// component parameter.
+func refParam(name string) M {
+	return M{"$ref": "#/components/parameters/" + name}
+}
+
+// buildParameters returns the reusable header parameters the
+// Streamable HTTP transport requires on a modern (2026-07-28) MCP
+// request. They are optional at the OpenAPI level -- a legacy request
+// (one whose body carries no _meta.protocolVersion) must not send
+// them at all -- but conditionally required once a request carries
+// them: see internal/mcp/modern.go's validateModernHeaders, which
+// this documents.
+func buildParameters() M {
+	return M{
+		"MCPProtocolVersionHeader": M{
+			"name":        "MCP-Protocol-Version",
+			"in":          "header",
+			"required":    false,
+			"description": "Required on a modern (2026-07-28) request; omit entirely for a legacy request. Must equal the request body's _meta.io.modelcontextprotocol/protocolVersion field, or the request is rejected with 400 and a HeaderMismatch (-32020) JSON-RPC error.",
+			"schema": M{
+				"type":    "string",
+				"example": "2026-07-28",
+			},
+		},
+		"McpMethodHeader": M{
+			"name":        "Mcp-Method",
+			"in":          "header",
+			"required":    false,
+			"description": "Required alongside MCP-Protocol-Version on a modern request. Must equal the JSON-RPC request body's method field, or the request is rejected with 400 and a HeaderMismatch (-32020) JSON-RPC error.",
+			"schema": M{
+				"type": "string",
+			},
+		},
+		"McpNameHeader": M{
+			"name":        "Mcp-Name",
+			"in":          "header",
+			"required":    false,
+			"description": "Required on a modern tools/call, resources/read, or prompts/get request; not sent for any other method. Must equal the body's params.name (tools/call, prompts/get) or params.uri (resources/read), Base64-sentinel-encoded (\"=?base64?<value>?=\") if the raw value is not safely representable as a plain ASCII header.",
+			"schema": M{
+				"type": "string",
+			},
+		},
+	}
 }
 
 // authErrorResponses returns the standard 401 and 403 error responses
@@ -169,9 +216,14 @@ func buildMCPPath() M {
 		"post": M{
 			"tags":        A{"MCP"},
 			"summary":     "Send an MCP JSON-RPC 2.0 request",
-			"description": "Accepts a JSON-RPC 2.0 request implementing the Model Context Protocol. Supported methods are initialize, server/discover, ping, tools/list, tools/call, resources/list, resources/read, prompts/list, prompts/get, pgedge/listDatabases, and pgedge/selectDatabase. Bearer token authentication is required when auth is enabled.",
+			"description": "Accepts a JSON-RPC 2.0 request implementing the Model Context Protocol. Supported methods are initialize, server/discover, ping, tools/list, tools/call, resources/list, resources/read, prompts/list, prompts/get, pgedge/listDatabases, and pgedge/selectDatabase. Bearer token authentication is required when auth is enabled. Two protocol revisions are served on this same endpoint: a request whose body carries _meta.io.modelcontextprotocol/protocolVersion (or, on HTTP, a present MCP-Protocol-Version header) is served under the current, stateless revision (2026-07-28), which requires the MCP-Protocol-Version, Mcp-Method, and (for tools/call, resources/read, prompts/get) Mcp-Name headers described below; any other request is served under the original, handshake-based revision (2024-11-05), which sends none of those headers and negotiates via initialize instead. initialize itself exists only under that original revision: it is not a method the current revision recognizes.",
 			"operationId": "postMCP",
 			"security":    bearerSecurity(),
+			"parameters": A{
+				refParam("MCPProtocolVersionHeader"),
+				refParam("McpMethodHeader"),
+				refParam("McpNameHeader"),
+			},
 			"requestBody": M{
 				"required":    true,
 				"description": "A JSON-RPC 2.0 request object.",
@@ -179,7 +231,15 @@ func buildMCPPath() M {
 			},
 			"responses": mergeResponses(M{
 				"200": M{
-					"description": "JSON-RPC 2.0 response.",
+					"description": "JSON-RPC 2.0 response. This includes a JSON-RPC-level error (for example, a tool's own argument validation failure) that is not one of the two rejections documented below.",
+					"content":     jsonContent(ref("JSONRPCResponse")),
+				},
+				"400": M{
+					"description": "The request identified itself as the current (2026-07-28) revision -- via body _meta or the MCP-Protocol-Version header -- and failed validation before dispatch: a required header is missing or does not match the request body (HeaderMismatch, -32020), a required _meta field is missing (-32602), or the requested protocol version is not supported (UnsupportedProtocolVersion, -32022).",
+					"content":     jsonContent(ref("JSONRPCResponse")),
+				},
+				"404": M{
+					"description": "The request identified itself as the current (2026-07-28) revision and named a method that revision does not recognize (-32601, Method not found). This includes initialize, which exists only under the original (2024-11-05) revision.",
 					"content":     jsonContent(ref("JSONRPCResponse")),
 				},
 			}),

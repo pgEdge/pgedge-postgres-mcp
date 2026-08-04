@@ -116,6 +116,41 @@ func TestBuildSpec_MCPEndpoint(t *testing.T) {
 	if _, hasBody := post["requestBody"]; !hasBody {
 		t.Error("/mcp/v1 should have a request body")
 	}
+
+	// Should document the three Streamable HTTP header parameters a
+	// modern (2026-07-28) request needs, via the reusable components.
+	params, ok := post["parameters"].(A)
+	if !ok {
+		t.Fatal("/mcp/v1 should have parameters")
+	}
+	wantRefs := map[string]bool{
+		"#/components/parameters/MCPProtocolVersionHeader": false,
+		"#/components/parameters/McpMethodHeader":          false,
+		"#/components/parameters/McpNameHeader":            false,
+	}
+	for _, p := range params {
+		if ref, ok := p.(M)["$ref"].(string); ok {
+			wantRefs[ref] = true
+		}
+	}
+	for ref, found := range wantRefs {
+		if !found {
+			t.Errorf("/mcp/v1 parameters missing %s", ref)
+		}
+	}
+
+	// Should document the modern-era response codes alongside the
+	// existing 200/401/403: 400 for preflight validation failures and
+	// 404 for a modern request naming an unimplemented method.
+	responses, ok := post["responses"].(M)
+	if !ok {
+		t.Fatal("/mcp/v1 should have responses")
+	}
+	for _, code := range []string{"200", "400", "401", "403", "404"} {
+		if _, ok := responses[code]; !ok {
+			t.Errorf("/mcp/v1 should have a %s response", code)
+		}
+	}
 }
 
 func TestBuildSpec_ConversationsEndpoint(t *testing.T) {
@@ -271,16 +306,24 @@ func TestBuildSpec_DatabasesSelectResponses(t *testing.T) {
 }
 
 func TestBuildSpec_Refs(t *testing.T) {
-	// Verify all $ref values point to existing schemas
 	spec := BuildSpec()
-	components := spec["components"].(M)
-	schemas := components["schemas"].(M)
-
 	data, _ := json.Marshal(spec)
 	specStr := string(data)
+	components := spec["components"].(M)
 
-	// Find all $ref values
-	prefix := "#/components/schemas/"
+	// Verify all $ref values point to existing schemas.
+	checkRefs(t, specStr, "#/components/schemas/", components["schemas"].(M))
+
+	// Verify all $ref values point to existing parameters (e.g. the
+	// MCP-Protocol-Version/Mcp-Method/Mcp-Name header parameters
+	// buildMCPPath references).
+	checkRefs(t, specStr, "#/components/parameters/", components["parameters"].(M))
+}
+
+// checkRefs scans specStr for every occurrence of prefix and asserts
+// the name that follows it exists as a key in components.
+func checkRefs(t *testing.T, specStr, prefix string, components M) {
+	t.Helper()
 	idx := 0
 	for {
 		pos := strings.Index(specStr[idx:], prefix)
@@ -292,10 +335,10 @@ func TestBuildSpec_Refs(t *testing.T) {
 		for end < len(specStr) && specStr[end] != '"' {
 			end++
 		}
-		schemaName := specStr[start:end]
+		name := specStr[start:end]
 
-		if _, exists := schemas[schemaName]; !exists {
-			t.Errorf("$ref points to non-existent schema: %s", schemaName)
+		if _, exists := components[name]; !exists {
+			t.Errorf("$ref %s%s points to a non-existent component", prefix, name)
 		}
 		idx = end
 	}
