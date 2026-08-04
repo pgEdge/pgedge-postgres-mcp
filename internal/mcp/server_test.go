@@ -660,6 +660,43 @@ func TestServerDiscover_ModernRequestMissingClientCapabilities_Rejected(t *testi
 	}
 }
 
+// TestHandleRequest_ModernInitialize_RejectedAsMethodNotFound covers a
+// CodeRabbit review finding on PR #215: "initialize" does not exist as
+// a method under the modern (2026-07-28) era, which removed the
+// handshake entirely, so a modern-shaped request naming it must be
+// rejected the same way any other method the modern era doesn't
+// recognize would be (-32601), not answered with a legacy
+// InitializeResult. Uses fully valid modern _meta (matching protocol
+// version, non-nil clientCapabilities) so the rejection is specifically
+// about the method, not an incidental preflight failure.
+func TestHandleRequest_ModernInitialize_RejectedAsMethodNotFound(t *testing.T) {
+	server := NewServer(&mockToolProvider{})
+	req := JSONRPCRequest{
+		JSONRPC: "2.0",
+		ID:      float64(1),
+		Method:  "initialize",
+		Params: map[string]interface{}{
+			"protocolVersion": "2024-11-05",
+			"_meta": map[string]interface{}{
+				"io.modelcontextprotocol/protocolVersion":    "2026-07-28",
+				"io.modelcontextprotocol/clientCapabilities": map[string]interface{}{},
+			},
+		},
+	}
+
+	out := captureStdout(t, func() {
+		server.handleRequest(req)
+	})
+
+	var resp JSONRPCResponse
+	if err := json.Unmarshal([]byte(out), &resp); err != nil {
+		t.Fatalf("failed to decode response %q: %v", out, err)
+	}
+	if resp.Error == nil || resp.Error.Code != -32601 {
+		t.Fatalf("error = %+v, want code -32601 (Method not found)", resp.Error)
+	}
+}
+
 // TestHandleInitialize_Stdio_NegotiatesProtocolVersion is the regression
 // test for issue #212 on the stdio transport: a client requesting a
 // revision this server does not implement must get back a revision the

@@ -219,10 +219,11 @@ func (s *Server) handleRequest(req JSONRPCRequest) {
 	// that does not yet know what to send can simply omit _meta
 	// entirely -- handleDiscover answers a request shaped that way
 	// exactly as fully as a validated modern one (see
-	// TestServerDiscover_LegacyShapedRequestAlsoWorks). initialize is
-	// always legacy (a modern client has no reason to call it) and so
-	// never carries this _meta field in the first place.
-	if meta, isModern := isModernRequest(req.Params); isModern {
+	// TestServerDiscover_LegacyShapedRequestAlsoWorks). A real modern
+	// client never sends "initialize" (2026-07-28 has no handshake), so
+	// this is the same check below.
+	meta, isModern := isModernRequest(req.Params)
+	if isModern {
 		if rpcErr := validateModernRequestStdio(meta); rpcErr != nil {
 			sendError(req.ID, rpcErr.Code, rpcErr.Message, rpcErr.Data)
 			return
@@ -231,6 +232,15 @@ func (s *Server) handleRequest(req JSONRPCRequest) {
 
 	switch req.Method {
 	case "initialize":
+		// "initialize" does not exist as a method in the modern era
+		// (2026-07-28 removed the handshake entirely), so a
+		// modern-shaped request naming it is treated exactly like any
+		// other method the modern era doesn't recognize: -32601, not
+		// a legacy InitializeResult.
+		if isModern {
+			sendError(req.ID, -32601, "Method not found", nil)
+			return
+		}
 		s.handleInitialize(req)
 	case "server/discover":
 		s.handleDiscover(req)

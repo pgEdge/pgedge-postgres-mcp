@@ -259,7 +259,10 @@ and this project adheres to
   without that `_meta` field, including every `initialize` handshake
   -- which covers the bundled CLI and web client, and every existing
   integration test -- is served exactly as before this change, with no
-  observable difference. See [MCP Specification
+  observable difference. Conversely, an `initialize` request that does
+  carry that `_meta` field is rejected with `-32601 Method not found`
+  on both transports, matching the modern era's method set, which has
+  no handshake to answer. See [MCP Specification
   Compliance](developers/mcp-spec-compliance.md) for the full
   negotiation rules and, importantly, what was deliberately not
   adopted from this revision and why (`subscriptions/listen`, Multi

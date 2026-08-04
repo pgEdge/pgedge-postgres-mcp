@@ -382,6 +382,15 @@ func (s *Server) handleHTTPRequest(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleRequestHTTP(ctx context.Context, req JSONRPCRequest) JSONRPCResponse {
 	switch req.Method {
 	case "initialize":
+		// "initialize" does not exist as a method in the modern era
+		// (2026-07-28 removed the handshake entirely), so a
+		// modern-shaped request naming it is treated exactly like any
+		// other method the modern era doesn't recognize: -32601, not
+		// a legacy InitializeResult. See the stdio equivalent in
+		// handleRequest (server.go) for the same reasoning.
+		if _, isModern := isModernRequest(req.Params); isModern {
+			return createErrorResponse(req.ID, -32601, "Method not found", nil)
+		}
 		return s.handleInitializeHTTP(req)
 	case "server/discover":
 		return s.handleDiscoverHTTP(req)

@@ -415,3 +415,37 @@ func TestModernProtocol_ResourceNotFound_ErrorCodeByEra(t *testing.T) {
 		}
 	})
 }
+
+// TestModernProtocol_Initialize_RejectedAsMethodNotFound is the HTTP
+// counterpart of TestHandleRequest_ModernInitialize_RejectedAsMethodNotFound
+// (internal/mcp/server_test.go): "initialize" does not exist as a
+// method under the modern (2026-07-28) era, so a fully validated
+// modern-shaped request naming it must be rejected with -32601 rather
+// than answered with a legacy InitializeResult. Found via CodeRabbit
+// review on PR #215.
+func TestModernProtocol_Initialize_RejectedAsMethodNotFound(t *testing.T) {
+	server, err := StartHTTPMCPServer(t, "", "test-key", "localhost:18720", false)
+	if err != nil {
+		t.Fatalf("failed to start server: %v", err)
+	}
+	defer func() { _ = server.Close() }()
+
+	headers := map[string]string{
+		"MCP-Protocol-Version": "2026-07-28",
+		"Mcp-Method":           "initialize",
+	}
+	params := map[string]interface{}{
+		"protocolVersion": "2024-11-05",
+		"_meta": map[string]interface{}{
+			"io.modelcontextprotocol/protocolVersion":    "2026-07-28",
+			"io.modelcontextprotocol/clientCapabilities": map[string]interface{}{},
+		},
+	}
+	status, resp := sendModernHTTPRequest(t, server, "initialize", params, headers)
+	if status != http.StatusOK {
+		t.Fatalf("status = %d, want 200 (a handler-level rejection, not a preflight one); body: %+v", status, resp)
+	}
+	if resp.Error == nil || resp.Error.Code != -32601 {
+		t.Fatalf("error = %+v, want code -32601 (Method not found)", resp.Error)
+	}
+}
