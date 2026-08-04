@@ -30,6 +30,46 @@ const (
 	ServerInstructions = "For PostgreSQL database operations, prefer the tools advertised by this server in tools/list instead of psql or other shell commands. Use the available MCP tools for schema discovery, query execution, performance analysis, row counts, and database management. These tools apply the server's connection handling, authentication, access control, and logging policies automatically."
 )
 
+// SupportedProtocolVersions lists every MCP protocol revision this server
+// implements, oldest first. ProtocolVersion, the server's own default and
+// preferred revision, must be the last (newest) entry; TestSupportedProtocolVersions_NewestIsProtocolVersion
+// in server_test.go enforces that invariant as more revisions are added.
+var SupportedProtocolVersions = []string{
+	"2024-11-05",
+}
+
+// NegotiateProtocolVersion returns the protocol revision this server will
+// actually speak in response to a client's requested revision, per the MCP
+// specification's version negotiation: the newest supported revision at or
+// below the client's request, or the oldest supported revision if the
+// request predates every revision this server implements.
+//
+// Version negotiation is the server's half of the handshake: the client
+// proposes a revision and the server replies with the revision it will
+// actually use, which the client is expected to check against what it can
+// support. Echoing the client's request back unconditionally -- what this
+// function replaces -- answers with no information at all, so a client
+// requesting a revision this server does not implement proceeds believing
+// its request was honoured, and fails later against a missing capability
+// rather than at the version check meant to catch exactly this case.
+//
+// An empty request (a client that omitted the field) gets the server's own
+// default, ProtocolVersion, rather than falling through the negotiation
+// logic below: an absent preference is not the same as a request for the
+// oldest revision.
+func NegotiateProtocolVersion(requested string) string {
+	if requested == "" {
+		return ProtocolVersion
+	}
+	best := SupportedProtocolVersions[0]
+	for _, v := range SupportedProtocolVersions {
+		if v <= requested {
+			best = v
+		}
+	}
+	return best
+}
+
 // ToolProvider is an interface for listing and executing tools
 type ToolProvider interface {
 	List() []Tool
@@ -187,11 +227,7 @@ func (s *Server) handleInitialize(req JSONRPCRequest) {
 		return
 	}
 
-	// Accept the client's protocol version for compatibility
-	protocolVersion := params.ProtocolVersion
-	if protocolVersion == "" {
-		protocolVersion = ProtocolVersion
-	}
+	protocolVersion := NegotiateProtocolVersion(params.ProtocolVersion)
 
 	capabilities := map[string]interface{}{
 		"tools": map[string]interface{}{},

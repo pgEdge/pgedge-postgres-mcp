@@ -235,6 +235,121 @@ func TestHandleInitializeHTTP_WithProviders(t *testing.T) {
 	}
 }
 
+// TestHandleInitializeHTTP_NegotiatesProtocolVersion is the regression test
+// for issue #212 on the HTTP transport: a client requesting a revision this
+// server does not implement must get back a revision the server actually
+// speaks, not its own request echoed unchanged.
+func TestHandleInitializeHTTP_NegotiatesProtocolVersion(t *testing.T) {
+	tools := &mockToolProvider{}
+	server := NewServer(tools)
+
+	rpcReq := JSONRPCRequest{
+		JSONRPC: "2.0",
+		ID:      1,
+		Method:  "initialize",
+		Params: map[string]interface{}{
+			"protocolVersion": "2099-01-01",
+			"clientInfo": map[string]interface{}{
+				"name":    "test-client",
+				"version": "1.0.0",
+			},
+		},
+	}
+
+	body, _ := json.Marshal(rpcReq)
+	req := httptest.NewRequest(http.MethodPost, "/mcp/v1", bytes.NewReader(body))
+	w := httptest.NewRecorder()
+
+	server.handleHTTPRequest(w, req)
+
+	var response JSONRPCResponse
+	if err := json.NewDecoder(w.Body).Decode(&response); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+	if response.Error != nil {
+		t.Fatalf("unexpected error: %v", response.Error)
+	}
+
+	result, ok := response.Result.(map[string]interface{})
+	if !ok {
+		t.Fatalf("expected result to be a map, got %T", response.Result)
+	}
+	if result["protocolVersion"] == "2099-01-01" {
+		t.Fatal("server echoed back an unsupported protocolVersion instead of negotiating")
+	}
+	if result["protocolVersion"] != ProtocolVersion {
+		t.Errorf("protocolVersion = %v, want %q", result["protocolVersion"], ProtocolVersion)
+	}
+}
+
+// TestHandleInitializeHTTP_MalformedProtocolVersion checks that a
+// protocolVersion of the wrong JSON type is rejected with a proper
+// JSON-RPC error, matching every other *HTTP handler in this file and
+// the stdio transport's handleInitialize -- not silently negotiated as
+// if the field had been omitted.
+func TestHandleInitializeHTTP_MalformedProtocolVersion(t *testing.T) {
+	tools := &mockToolProvider{}
+	server := NewServer(tools)
+
+	rpcReq := JSONRPCRequest{
+		JSONRPC: "2.0",
+		ID:      1,
+		Method:  "initialize",
+		Params: map[string]interface{}{
+			"protocolVersion": 12345, // wrong type: InitializeParams wants a string
+		},
+	}
+
+	body, _ := json.Marshal(rpcReq)
+	req := httptest.NewRequest(http.MethodPost, "/mcp/v1", bytes.NewReader(body))
+	w := httptest.NewRecorder()
+
+	server.handleHTTPRequest(w, req)
+
+	var response JSONRPCResponse
+	if err := json.NewDecoder(w.Body).Decode(&response); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+	if response.Error == nil {
+		t.Fatal("expected an Invalid params error, got a successful result")
+	}
+	if response.Error.Code != -32602 {
+		t.Errorf("error code = %d, want -32602", response.Error.Code)
+	}
+}
+
+// TestHandleInitializeHTTP_NilParams checks that omitting params
+// entirely -- the common case for a minimal initialize call -- still
+// succeeds and negotiates the server's default, rather than being
+// mistaken for the malformed-params case above.
+func TestHandleInitializeHTTP_NilParams(t *testing.T) {
+	tools := &mockToolProvider{}
+	server := NewServer(tools)
+
+	rpcReq := JSONRPCRequest{JSONRPC: "2.0", ID: 1, Method: "initialize"}
+
+	body, _ := json.Marshal(rpcReq)
+	req := httptest.NewRequest(http.MethodPost, "/mcp/v1", bytes.NewReader(body))
+	w := httptest.NewRecorder()
+
+	server.handleHTTPRequest(w, req)
+
+	var response JSONRPCResponse
+	if err := json.NewDecoder(w.Body).Decode(&response); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+	if response.Error != nil {
+		t.Fatalf("unexpected error for omitted params: %v", response.Error)
+	}
+	result, ok := response.Result.(map[string]interface{})
+	if !ok {
+		t.Fatalf("expected result to be a map, got %T", response.Result)
+	}
+	if result["protocolVersion"] != ProtocolVersion {
+		t.Errorf("protocolVersion = %v, want %q", result["protocolVersion"], ProtocolVersion)
+	}
+}
+
 func TestHandleToolsListHTTP(t *testing.T) {
 	tools := &mockToolProvider{
 		tools: []Tool{

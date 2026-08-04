@@ -161,6 +161,32 @@ and this project adheres to
   `httperror`, `llmtracing`, `logging`, `prompts`, `search` and `tsv`. All of
   them pass; they were simply never run.
 
+- `initialize` no longer echoes back whatever `protocolVersion` a client
+  requests. Version negotiation is the server's half of the MCP
+  handshake: the client proposes a revision, and the server is supposed
+  to reply with the revision it will actually speak, which the client
+  then checks against what it supports. Echoing the request answers
+  with no information at all, so a client asking for a revision this
+  server does not implement was told that revision was accepted, and
+  found out otherwise later, against a missing capability, rather than
+  at the version check meant to catch exactly this case. `initialize`
+  (stdio) and `initialize` over HTTP now both call a shared
+  `NegotiateProtocolVersion`, which returns the newest revision this
+  server supports at or below the client's request, or the oldest
+  supported revision if the request predates everything the server
+  implements. This server currently implements one revision,
+  `2024-11-05`, so today every negotiation converges on that value
+  regardless of what a client asked for; the function is structured to
+  extend cleanly if a second revision is added later. The bundled CLI
+  and web client are unaffected, since both already request
+  `2024-11-05` exactly.
+
+  `initialize` over HTTP also now rejects a `protocolVersion` of the
+  wrong JSON type with a proper `-32602 Invalid params` error, matching
+  every other HTTP handler in this file and the stdio transport's
+  existing behaviour, instead of silently falling back to the server's
+  default as if the field had been omitted.
+
 ### Added
 
 - A `make vulncheck` target runs `govulncheck` over the module, using

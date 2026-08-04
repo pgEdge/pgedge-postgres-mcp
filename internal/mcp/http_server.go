@@ -382,6 +382,15 @@ func (s *Server) handleRequestHTTP(ctx context.Context, req JSONRPCRequest) JSON
 // HTTP-specific handlers that return responses instead of sending them
 
 func (s *Server) handleInitializeHTTP(req JSONRPCRequest) JSONRPCResponse {
+	var params InitializeParams
+	paramsJSON, err := json.Marshal(req.Params)
+	if err != nil {
+		return createErrorResponse(req.ID, -32602, "Invalid params", err.Error())
+	}
+	if err := json.Unmarshal(paramsJSON, &params); err != nil {
+		return createErrorResponse(req.ID, -32602, "Invalid params", err.Error())
+	}
+
 	capabilities := map[string]interface{}{
 		"tools": map[string]interface{}{},
 	}
@@ -397,7 +406,7 @@ func (s *Server) handleInitializeHTTP(req JSONRPCRequest) JSONRPCResponse {
 	}
 
 	result := InitializeResult{
-		ProtocolVersion: ProtocolVersion,
+		ProtocolVersion: NegotiateProtocolVersion(params.ProtocolVersion),
 		Capabilities:    capabilities,
 		ServerInfo: Implementation{
 			Name:    ServerName,

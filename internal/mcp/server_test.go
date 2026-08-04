@@ -193,6 +193,83 @@ func TestServerConstants(t *testing.T) {
 	}
 }
 
+// TestSupportedProtocolVersions_NewestIsProtocolVersion enforces the
+// invariant documented on SupportedProtocolVersions: ProtocolVersion, the
+// server's own default, must be its last (newest) entry. NegotiateProtocolVersion
+// relies on this to answer an empty request with the server's actual
+// newest supported revision rather than a stale one left behind when a
+// newer revision was appended.
+func TestSupportedProtocolVersions_NewestIsProtocolVersion(t *testing.T) {
+	if len(SupportedProtocolVersions) == 0 {
+		t.Fatal("SupportedProtocolVersions must not be empty")
+	}
+	newest := SupportedProtocolVersions[len(SupportedProtocolVersions)-1]
+	if newest != ProtocolVersion {
+		t.Errorf("last entry of SupportedProtocolVersions = %q, want ProtocolVersion %q", newest, ProtocolVersion)
+	}
+	for i := 1; i < len(SupportedProtocolVersions); i++ {
+		if SupportedProtocolVersions[i-1] >= SupportedProtocolVersions[i] {
+			t.Errorf("SupportedProtocolVersions is not strictly ascending at index %d: %q >= %q",
+				i, SupportedProtocolVersions[i-1], SupportedProtocolVersions[i])
+		}
+	}
+}
+
+func TestNegotiateProtocolVersion(t *testing.T) {
+	tests := []struct {
+		name      string
+		requested string
+		want      string
+	}{
+		{
+			name:      "empty request gets the server's own default",
+			requested: "",
+			want:      ProtocolVersion,
+		},
+		{
+			name:      "exact match",
+			requested: ProtocolVersion,
+			want:      ProtocolVersion,
+		},
+		{
+			name:      "a revision newer than anything supported falls back to the newest supported",
+			requested: "2099-01-01",
+			want:      ProtocolVersion,
+		},
+		{
+			name:      "a revision older than anything supported falls back to the oldest supported",
+			requested: "2020-01-01",
+			want:      SupportedProtocolVersions[0],
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := NegotiateProtocolVersion(tt.requested)
+			if got != tt.want {
+				t.Errorf("NegotiateProtocolVersion(%q) = %q, want %q", tt.requested, got, tt.want)
+			}
+		})
+	}
+}
+
+// TestNegotiateProtocolVersion_NeverEchoesUnsupported is the regression
+// test for issue #212: the server must never claim to speak a protocol
+// revision it does not actually implement, regardless of what a client
+// asks for.
+func TestNegotiateProtocolVersion_NeverEchoesUnsupported(t *testing.T) {
+	requested := []string{"2025-03-26", "2025-06-18", "2025-11-25", "2026-07-28", "not-even-a-date", ""}
+	supported := make(map[string]bool, len(SupportedProtocolVersions))
+	for _, v := range SupportedProtocolVersions {
+		supported[v] = true
+	}
+	for _, r := range requested {
+		got := NegotiateProtocolVersion(r)
+		if !supported[got] {
+			t.Errorf("NegotiateProtocolVersion(%q) = %q, which is not in SupportedProtocolVersions", r, got)
+		}
+	}
+}
+
 func TestScannerConstants(t *testing.T) {
 	// Verify buffer size constants are reasonable
 	if ScannerInitialBufferSize <= 0 {
@@ -487,6 +564,79 @@ func TestHandlePing_Stdio_WithID(t *testing.T) {
 	}
 	if len(result) != 0 {
 		t.Errorf("expected empty object result, got %v", result)
+	}
+}
+
+// TestHandleInitialize_Stdio_NegotiatesProtocolVersion is the regression
+// test for issue #212 on the stdio transport: a client requesting a
+// revision this server does not implement must get back a revision the
+// server actually speaks, not its own request echoed unchanged.
+func TestHandleInitialize_Stdio_NegotiatesProtocolVersion(t *testing.T) {
+	server := NewServer(&mockToolProvider{})
+	req := JSONRPCRequest{
+		JSONRPC: "2.0",
+		ID:      float64(1),
+		Method:  "initialize",
+		Params: map[string]interface{}{
+			"protocolVersion": "2099-01-01",
+			"clientInfo":      map[string]interface{}{"name": "test-client", "version": "1.0.0"},
+		},
+	}
+
+	out := captureStdout(t, func() {
+		server.handleInitialize(req)
+	})
+
+	var resp JSONRPCResponse
+	if err := json.Unmarshal([]byte(out), &resp); err != nil {
+		t.Fatalf("failed to decode response %q: %v", out, err)
+	}
+	if resp.Error != nil {
+		t.Fatalf("unexpected error in response: %v", resp.Error)
+	}
+	result, ok := resp.Result.(map[string]interface{})
+	if !ok {
+		t.Fatalf("expected map result, got %T", resp.Result)
+	}
+	if result["protocolVersion"] == "2099-01-01" {
+		t.Fatal("server echoed back an unsupported protocolVersion instead of negotiating")
+	}
+	if result["protocolVersion"] != ProtocolVersion {
+		t.Errorf("protocolVersion = %v, want %q", result["protocolVersion"], ProtocolVersion)
+	}
+}
+
+// TestHandleInitialize_Stdio_MalformedProtocolVersion checks that a
+// protocolVersion of the wrong JSON type is rejected with a proper
+// JSON-RPC error, matching the HTTP transport's handleInitializeHTTP --
+// not silently negotiated as if the field had been omitted. This
+// behavior predates issue #212's fix and is unchanged by it; the test
+// pins it down explicitly since the equivalent HTTP behavior was added
+// as part of that fix and the two transports must stay consistent.
+func TestHandleInitialize_Stdio_MalformedProtocolVersion(t *testing.T) {
+	server := NewServer(&mockToolProvider{})
+	req := JSONRPCRequest{
+		JSONRPC: "2.0",
+		ID:      float64(1),
+		Method:  "initialize",
+		Params: map[string]interface{}{
+			"protocolVersion": 12345, // wrong type: InitializeParams wants a string
+		},
+	}
+
+	out := captureStdout(t, func() {
+		server.handleInitialize(req)
+	})
+
+	var resp JSONRPCResponse
+	if err := json.Unmarshal([]byte(out), &resp); err != nil {
+		t.Fatalf("failed to decode response %q: %v", out, err)
+	}
+	if resp.Error == nil {
+		t.Fatal("expected an Invalid params error, got a successful result")
+	}
+	if resp.Error.Code != -32602 {
+		t.Errorf("error code = %d, want -32602", resp.Error.Code)
 	}
 }
 
