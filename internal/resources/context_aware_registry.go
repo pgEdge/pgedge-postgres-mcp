@@ -13,6 +13,7 @@ package resources
 import (
 	"context"
 	"fmt"
+	"sort"
 
 	"pgedge-postgres-mcp/internal/auth"
 	"pgedge-postgres-mcp/internal/config"
@@ -51,22 +52,52 @@ func NewContextAwareRegistry(clientManager *database.ClientManager, authEnabled 
 }
 
 // List returns all available resource definitions
+//
+// Sorted by URI for a deterministic order across calls: customResources
+// below is a map, so its iteration order is randomised per call, and an
+// unsorted list changes on every tools/list, invalidating the
+// provider-side prompt cache and any client-side diffing of the set.
+//
+// The registration key (the built-in entry's own URI, or a custom
+// resource's map key) breaks ties, since it is unique by construction
+// even in the case, not exercised by any caller today, of two entries
+// advertising the same URI under different keys: sort.Slice gives no
+// ordering guarantee for elements that compare equal.
 func (r *ContextAwareRegistry) List() []mcp.Resource {
-	// Start with static built-in resources (only include enabled ones)
-	resources := []mcp.Resource{}
+	type keyed struct {
+		key      string
+		resource mcp.Resource
+	}
+	entries := []keyed{}
 
+	// Start with static built-in resources (only include enabled ones)
 	if r.cfg.Builtins.Resources.IsResourceEnabled(URISystemInfo) {
-		resources = append(resources, mcp.Resource{
-			URI:         URISystemInfo,
-			Name:        "postgresql_system_info",
-			Description: "Returns PostgreSQL version, operating system, and build architecture information. Provides a quick way to check server version and platform details.",
-			MimeType:    "application/json",
+		entries = append(entries, keyed{
+			key: URISystemInfo,
+			resource: mcp.Resource{
+				URI:         URISystemInfo,
+				Name:        "postgresql_system_info",
+				Description: "Returns PostgreSQL version, operating system, and build architecture information. Provides a quick way to check server version and platform details.",
+				MimeType:    "application/json",
+			},
 		})
 	}
 
 	// Add custom resources
-	for _, customRes := range r.customResources {
-		resources = append(resources, customRes.definition)
+	for key, customRes := range r.customResources {
+		entries = append(entries, keyed{key: key, resource: customRes.definition})
+	}
+
+	sort.Slice(entries, func(i, j int) bool {
+		if entries[i].resource.URI != entries[j].resource.URI {
+			return entries[i].resource.URI < entries[j].resource.URI
+		}
+		return entries[i].key < entries[j].key
+	})
+
+	resources := make([]mcp.Resource, len(entries))
+	for i, e := range entries {
+		resources[i] = e.resource
 	}
 
 	return resources

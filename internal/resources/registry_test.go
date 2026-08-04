@@ -157,6 +157,77 @@ func TestList(t *testing.T) {
 	})
 }
 
+func TestList_DeterministicOrder(t *testing.T) {
+	registry := NewRegistry()
+
+	uris := []string{"resource://zebra", "resource://apple", "resource://mango", "resource://banana", "resource://cherry"}
+	for _, uri := range uris {
+		registry.Register(uri, Resource{
+			Definition: mcp.Resource{URI: uri},
+			Handler: func() (mcp.ResourceContent, error) {
+				return mcp.ResourceContent{}, nil
+			},
+		})
+	}
+
+	first := registry.List()
+	for i := 1; i < len(first); i++ {
+		if first[i-1].URI > first[i].URI {
+			t.Fatalf("List() is not sorted: %q appears before %q", first[i-1].URI, first[i].URI)
+		}
+	}
+
+	// A single call cannot detect nondeterministic map iteration on its
+	// own; call repeatedly and require every call to match the first.
+	for i := 0; i < 50; i++ {
+		next := registry.List()
+		if len(next) != len(first) {
+			t.Fatalf("List() length changed between calls: %d vs %d", len(first), len(next))
+		}
+		for j := range first {
+			if first[j].URI != next[j].URI {
+				t.Fatalf("List() order changed between calls at index %d: %q vs %q", j, first[j].URI, next[j].URI)
+			}
+		}
+	}
+}
+
+// TestList_DeterministicOrder_EqualURIs covers a case no current caller
+// triggers: two registrations under different keys whose Definitions both
+// advertise the same URI. sort.Slice gives no ordering guarantee between
+// elements that compare equal, so relying on URI alone would leave these
+// two entries' relative order exactly as nondeterministic as before the
+// fix. List() breaks the tie with the registration key, which is unique
+// by construction.
+func TestList_DeterministicOrder_EqualURIs(t *testing.T) {
+	registry := NewRegistry()
+	// Descriptions are deliberately the inverse of key order ("key_a" <
+	// "key_b", but its Description, "second", sorts after "first"), so a
+	// tiebreak that accidentally used Description instead of the
+	// registration key would produce the opposite -- and wrong -- order.
+	registry.resources["key_b"] = Resource{Definition: mcp.Resource{URI: "dup", Description: "first"}}
+	registry.resources["key_a"] = Resource{Definition: mcp.Resource{URI: "dup", Description: "second"}}
+	registry.resources["zzz"] = Resource{Definition: mcp.Resource{URI: "zzz"}}
+
+	descOrder := func(resources []mcp.Resource) []string {
+		out := []string{}
+		for _, resource := range resources {
+			if resource.URI == "dup" {
+				out = append(out, resource.Description)
+			}
+		}
+		return out
+	}
+
+	want := []string{"second", "first"} // key_a, key_b
+	for i := 0; i < 50; i++ {
+		got := descOrder(registry.List())
+		if len(got) != len(want) || got[0] != want[0] || got[1] != want[1] {
+			t.Fatalf("relative order of equal-URI entries: got %v, want %v (key-sorted)", got, want)
+		}
+	}
+}
+
 func TestRead(t *testing.T) {
 	registry := NewRegistry()
 

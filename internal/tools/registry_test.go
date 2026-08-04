@@ -149,6 +149,93 @@ func TestList(t *testing.T) {
 	})
 }
 
+func TestList_DeterministicOrder(t *testing.T) {
+	registry := NewRegistry()
+
+	names := []string{"zebra", "apple", "mango", "banana", "cherry", "date", "elder", "fig", "grape", "honey"}
+	for _, name := range names {
+		registry.Register(name, Tool{
+			Definition: mcp.Tool{Name: name},
+			Handler: func(args map[string]interface{}) (mcp.ToolResponse, error) {
+				return mcp.ToolResponse{}, nil
+			},
+		})
+	}
+
+	first := registry.List()
+	for i := 1; i < len(first); i++ {
+		if first[i-1].Name > first[i].Name {
+			t.Fatalf("List() is not sorted: %q appears before %q", first[i-1].Name, first[i].Name)
+		}
+	}
+
+	// A single call cannot detect nondeterministic map iteration on its
+	// own, since any one iteration order looks fine in isolation; call
+	// repeatedly and require every call to match the first exactly.
+	for i := 0; i < 50; i++ {
+		next := registry.List()
+		if !toolNamesEqual(first, next) {
+			t.Fatalf("List() order changed between calls: %v vs %v", toolNames(first), toolNames(next))
+		}
+	}
+}
+
+// TestList_DeterministicOrder_EqualNames covers a case no current caller
+// triggers: two registrations under different keys whose Definitions both
+// advertise the same Name. sort.Slice gives no ordering guarantee between
+// elements that compare equal, so relying on Name alone would leave these
+// two entries' relative order exactly as nondeterministic as before the
+// fix. List() breaks the tie with the registration key, which is unique
+// by construction.
+func TestList_DeterministicOrder_EqualNames(t *testing.T) {
+	registry := NewRegistry()
+	// Descriptions are deliberately the inverse of key order ("key_a" <
+	// "key_b", but its Description, "second", sorts after "first"), so a
+	// tiebreak that accidentally used Description instead of the
+	// registration key would produce the opposite -- and wrong -- order.
+	registry.tools["key_b"] = Tool{Definition: mcp.Tool{Name: "dup", Description: "first"}}
+	registry.tools["key_a"] = Tool{Definition: mcp.Tool{Name: "dup", Description: "second"}}
+	registry.tools["zzz"] = Tool{Definition: mcp.Tool{Name: "zzz"}}
+
+	descOrder := func(tools []mcp.Tool) []string {
+		out := []string{}
+		for _, tool := range tools {
+			if tool.Name == "dup" {
+				out = append(out, tool.Description)
+			}
+		}
+		return out
+	}
+
+	want := []string{"second", "first"} // key_a, key_b
+	for i := 0; i < 50; i++ {
+		got := descOrder(registry.List())
+		if len(got) != len(want) || got[0] != want[0] || got[1] != want[1] {
+			t.Fatalf("relative order of equal-Name entries: got %v, want %v (key-sorted)", got, want)
+		}
+	}
+}
+
+func toolNames(tools []mcp.Tool) []string {
+	names := make([]string, len(tools))
+	for i, tool := range tools {
+		names[i] = tool.Name
+	}
+	return names
+}
+
+func toolNamesEqual(a, b []mcp.Tool) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i].Name != b[i].Name {
+			return false
+		}
+	}
+	return true
+}
+
 func TestExecute(t *testing.T) {
 	registry := NewRegistry()
 

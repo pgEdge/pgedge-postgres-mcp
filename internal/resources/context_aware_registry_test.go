@@ -18,6 +18,8 @@ import (
 	"pgedge-postgres-mcp/internal/auth"
 	conf "pgedge-postgres-mcp/internal/config"
 	"pgedge-postgres-mcp/internal/database"
+	"pgedge-postgres-mcp/internal/definitions"
+	"pgedge-postgres-mcp/internal/mcp"
 )
 
 // skipIfNoDatabase skips the test if no test database connection is available.
@@ -112,6 +114,101 @@ func TestContextAwareRegistry_List(t *testing.T) {
 			t.Error("expected URISystemInfo to be disabled")
 		}
 	})
+}
+
+func TestContextAwareRegistry_List_DeterministicOrder(t *testing.T) {
+	cm := database.NewClientManager([]conf.NamedDatabaseConfig{
+		{Name: "db1", Host: "localhost", Port: 5432, Database: "test1"},
+	})
+	cfg := &conf.Config{
+		Builtins: conf.BuiltinsConfig{
+			Resources: conf.ResourcesConfig{
+				SystemInfo: boolPtr(true),
+			},
+		},
+	}
+
+	registry := NewContextAwareRegistry(cm, false, nil, cfg)
+
+	uris := []string{"pg://custom/zebra", "pg://custom/apple", "pg://custom/mango", "pg://custom/banana", "pg://custom/cherry"}
+	for _, uri := range uris {
+		def := definitions.ResourceDefinition{
+			URI:      uri,
+			Name:     uri,
+			Type:     "static",
+			MimeType: "application/json",
+			Data:     map[string]interface{}{"key": "value"},
+		}
+		if err := registry.RegisterStatic(def); err != nil {
+			t.Fatalf("RegisterStatic(%q) failed: %v", uri, err)
+		}
+	}
+
+	first := registry.List()
+	for i := 1; i < len(first); i++ {
+		if first[i-1].URI > first[i].URI {
+			t.Fatalf("List() is not sorted: %q appears before %q", first[i-1].URI, first[i].URI)
+		}
+	}
+
+	// A single call cannot detect nondeterministic map iteration on its
+	// own; call repeatedly and require every call to match the first.
+	for i := 0; i < 50; i++ {
+		next := registry.List()
+		if len(next) != len(first) {
+			t.Fatalf("List() length changed between calls: %d vs %d", len(first), len(next))
+		}
+		for j := range first {
+			if first[j].URI != next[j].URI {
+				t.Fatalf("List() order changed between calls at index %d: %q vs %q", j, first[j].URI, next[j].URI)
+			}
+		}
+	}
+}
+
+// TestContextAwareRegistry_List_DeterministicOrder_EqualURIs covers a case
+// no current caller triggers: two custom resources registered under
+// different keys whose Definitions both advertise the same URI.
+// sort.Slice gives no ordering guarantee between elements that compare
+// equal, so relying on URI alone would leave these two entries' relative
+// order exactly as nondeterministic as before the fix. List() breaks the
+// tie with the registration key, which is unique by construction.
+func TestContextAwareRegistry_List_DeterministicOrder_EqualURIs(t *testing.T) {
+	cm := database.NewClientManager([]conf.NamedDatabaseConfig{})
+	cfg := &conf.Config{
+		Builtins: conf.BuiltinsConfig{
+			Resources: conf.ResourcesConfig{
+				SystemInfo: boolPtr(false),
+			},
+		},
+	}
+
+	registry := NewContextAwareRegistry(cm, false, nil, cfg)
+	// Descriptions are deliberately the inverse of key order ("key_a" <
+	// "key_b", but its Description, "second", sorts after "first"), so a
+	// tiebreak that accidentally used Description instead of the
+	// registration key would produce the opposite -- and wrong -- order.
+	registry.customResources["key_b"] = customResource{definition: mcp.Resource{URI: "dup", Description: "first"}}
+	registry.customResources["key_a"] = customResource{definition: mcp.Resource{URI: "dup", Description: "second"}}
+	registry.customResources["zzz"] = customResource{definition: mcp.Resource{URI: "zzz"}}
+
+	descOrder := func(resources []mcp.Resource) []string {
+		out := []string{}
+		for _, resource := range resources {
+			if resource.URI == "dup" {
+				out = append(out, resource.Description)
+			}
+		}
+		return out
+	}
+
+	want := []string{"second", "first"} // key_a, key_b
+	for i := 0; i < 50; i++ {
+		got := descOrder(registry.List())
+		if len(got) != len(want) || got[0] != want[0] || got[1] != want[1] {
+			t.Fatalf("relative order of equal-URI entries: got %v, want %v (key-sorted)", got, want)
+		}
+	}
 }
 
 func TestContextAwareRegistry_Read_DisabledResource(t *testing.T) {

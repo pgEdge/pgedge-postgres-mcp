@@ -161,6 +161,29 @@ and this project adheres to
   `httperror`, `llmtracing`, `logging`, `prompts`, `search` and `tsv`. All of
   them pass; they were simply never run.
 
+- `tools/list`, `prompts/list`, and `resources/list` now return their
+  entries in a stable, sorted order on every call. Each registry stored
+  its entries in a Go map and built the response by iterating it
+  directly, so the order was randomised by the runtime and changed from
+  one call to the next even when the underlying set was unchanged. Tool,
+  prompt, and resource definitions sit at the front of the prompt sent to
+  the model, so the reshuffling invalidated the provider-side prompt
+  cache on every request rather than only when the set actually changed,
+  and it defeated client-side diffing of the advertised list for the
+  same reason. `Registry.List()` in each of `internal/tools`,
+  `internal/prompts`, and `internal/resources` now sorts by name (tools,
+  prompts) or URI (resources) before returning; `ContextAwareRegistry.List()`
+  in `internal/resources`, which merges a fixed built-in entry with a map
+  of custom resources, sorts its combined result the same way. Every
+  registration is keyed by its own name or URI in this codebase today,
+  so the sort has no ties to break in practice, but the comparison also
+  falls back to the registration key, which is unique by construction:
+  `sort.Slice` gives no ordering guarantee between two entries that
+  compare equal, so a future entry whose Definition happened to
+  advertise the same name or URI as another under a different key would
+  otherwise be exactly as nondeterministic as before this fix. Fixes
+  #211.
+
 - `initialize` no longer echoes back whatever `protocolVersion` a client
   requests. Version negotiation is the server's half of the MCP
   handshake: the client proposes a revision, and the server is supposed
@@ -189,7 +212,7 @@ and this project adheres to
   as a numeric `protocolVersion` or a `clientInfo` that is not an object,
   fails the handshake instead of silently falling back to the server's
   default. Omitting the parameters entirely still succeeds and yields
-  that default.
+  that default. Fixes #212.
 
 ### Added
 

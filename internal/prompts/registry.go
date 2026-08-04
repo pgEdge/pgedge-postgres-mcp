@@ -46,11 +46,32 @@ func (r *Registry) Get(name string) (Prompt, bool) {
 	return prompt, exists
 }
 
-// List returns all registered prompt definitions
+// List returns all registered prompt definitions, sorted by name for a
+// deterministic order across calls; see the tool registry's List for why
+// this matters for prompt caching.
+//
+// The registration key breaks ties, since it is unique by construction
+// even in the case, not exercised by any caller today, of two entries
+// advertising the same Definition.Name under different keys: sort.Slice
+// gives no ordering guarantee for elements that compare equal.
 func (r *Registry) List() []mcp.Prompt {
-	prompts := make([]mcp.Prompt, 0, len(r.prompts))
-	for _, prompt := range r.prompts {
-		prompts = append(prompts, prompt.Definition)
+	type keyed struct {
+		key    string
+		prompt mcp.Prompt
+	}
+	entries := make([]keyed, 0, len(r.prompts))
+	for key, prompt := range r.prompts {
+		entries = append(entries, keyed{key, prompt.Definition})
+	}
+	sort.Slice(entries, func(i, j int) bool {
+		if entries[i].prompt.Name != entries[j].prompt.Name {
+			return entries[i].prompt.Name < entries[j].prompt.Name
+		}
+		return entries[i].key < entries[j].key
+	})
+	prompts := make([]mcp.Prompt, len(entries))
+	for i, e := range entries {
+		prompts[i] = e.prompt
 	}
 	return prompts
 }

@@ -13,6 +13,8 @@ package prompts
 import (
 	"strings"
 	"testing"
+
+	"pgedge-postgres-mcp/internal/mcp"
 )
 
 func TestNewRegistry(t *testing.T) {
@@ -81,6 +83,71 @@ func TestList(t *testing.T) {
 		}
 		if prompt.Description == "" {
 			t.Errorf("Prompt %q is missing description", prompt.Name)
+		}
+	}
+}
+
+func TestList_DeterministicOrder(t *testing.T) {
+	registry := NewRegistry()
+	registry.Register("setup-semantic-search", SetupSemanticSearch())
+	registry.Register("explore-database", ExploreDatabase())
+	registry.Register("diagnose-query-issue", DiagnoseQueryIssue())
+	registry.Register("design-schema", DesignSchema())
+
+	first := registry.List()
+	for i := 1; i < len(first); i++ {
+		if first[i-1].Name > first[i].Name {
+			t.Fatalf("List() is not sorted: %q appears before %q", first[i-1].Name, first[i].Name)
+		}
+	}
+
+	// A single call cannot detect nondeterministic map iteration on its
+	// own; call repeatedly and require every call to match the first.
+	for i := 0; i < 50; i++ {
+		next := registry.List()
+		if len(next) != len(first) {
+			t.Fatalf("List() length changed between calls: %d vs %d", len(first), len(next))
+		}
+		for j := range first {
+			if first[j].Name != next[j].Name {
+				t.Fatalf("List() order changed between calls at index %d: %q vs %q", j, first[j].Name, next[j].Name)
+			}
+		}
+	}
+}
+
+// TestList_DeterministicOrder_EqualNames covers a case no current caller
+// triggers: two registrations under different keys whose Definitions both
+// advertise the same Name. sort.Slice gives no ordering guarantee between
+// elements that compare equal, so relying on Name alone would leave these
+// two entries' relative order exactly as nondeterministic as before the
+// fix. List() breaks the tie with the registration key, which is unique
+// by construction.
+func TestList_DeterministicOrder_EqualNames(t *testing.T) {
+	registry := NewRegistry()
+	// Descriptions are deliberately the inverse of key order ("key_a" <
+	// "key_b", but its Description, "second", sorts after "first"), so a
+	// tiebreak that accidentally used Description instead of the
+	// registration key would produce the opposite -- and wrong -- order.
+	registry.prompts["key_b"] = Prompt{Definition: mcp.Prompt{Name: "dup", Description: "first"}}
+	registry.prompts["key_a"] = Prompt{Definition: mcp.Prompt{Name: "dup", Description: "second"}}
+	registry.prompts["zzz"] = Prompt{Definition: mcp.Prompt{Name: "zzz"}}
+
+	descOrder := func(prompts []mcp.Prompt) []string {
+		out := []string{}
+		for _, prompt := range prompts {
+			if prompt.Name == "dup" {
+				out = append(out, prompt.Description)
+			}
+		}
+		return out
+	}
+
+	want := []string{"second", "first"} // key_a, key_b
+	for i := 0; i < 50; i++ {
+		got := descOrder(registry.List())
+		if len(got) != len(want) || got[0] != want[0] || got[1] != want[1] {
+			t.Fatalf("relative order of equal-Name entries: got %v, want %v (key-sorted)", got, want)
 		}
 	}
 }
