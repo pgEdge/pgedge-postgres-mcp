@@ -1,10 +1,16 @@
 vulnerabilities:
   # coreutils-single - Present in UBI9 micro base image.
   - id: CVE-2026-56391
+    purls:
+      - "pkg:rpm/redhat/coreutils-single@8.32-41.el9_8"
+    expired_at: 2026-11-02T00:00:00Z
     statement: >-
       GNU coreutils uniq out-of-bounds read with multibyte input via -w.
       No fix available. The CLI does not invoke coreutils uniq.
   - id: CVE-2026-56392
+    purls:
+      - "pkg:rpm/redhat/coreutils-single@8.32-41.el9_8"
+    expired_at: 2026-11-02T00:00:00Z
     statement: >-
       GNU coreutils unexpand heap buffer overflow via crafted -t tab stop
       values. No fix available. The CLI does not invoke coreutils
@@ -12,6 +18,9 @@ vulnerabilities:
 
   # libattr - Present in UBI9 micro base image.
   - id: CVE-2026-54371
+    purls:
+      - "pkg:rpm/redhat/libattr@2.5.1-3.el9"
+    expired_at: 2026-11-02T00:00:00Z
     statement: >-
       attr symlink traversal privilege escalation via getfattr/setfattr.
       No fix available. The CLI does not invoke getfattr or setfattr and
@@ -20,11 +29,17 @@ vulnerabilities:
 
   # libgcc - Present in UBI9 micro base image.
   - id: CVE-2021-46195
+    purls:
+      - "pkg:rpm/redhat/libgcc@11.5.0-14.el9"
+    expired_at: 2026-11-02T00:00:00Z
     statement: >-
       GCC libiberty uncontrolled recursion in rust-demangle.c. No fix
       available. The CLI is a statically linked Go binary and does not
       invoke libiberty demangling.
   - id: CVE-2022-27943
+    purls:
+      - "pkg:rpm/redhat/libgcc@11.5.0-14.el9"
+    expired_at: 2026-11-02T00:00:00Z
     statement: >-
       GCC libiberty stack exhaustion in demangle_const. No fix available.
       The CLI is a statically linked Go binary and does not invoke
@@ -32,12 +47,20 @@ vulnerabilities:
 
   # ncurses-base / ncurses-libs - Present in UBI9 micro base image.
   - id: CVE-2023-50495
+    purls:
+      - "pkg:rpm/redhat/ncurses-base@6.2-12.20210508.el9"
+      - "pkg:rpm/redhat/ncurses-libs@6.2-12.20210508.el9"
+    expired_at: 2026-11-02T00:00:00Z
     statement: >-
       ncurses segmentation fault via _nc_wrap_entry(). No fix available.
       The CLI does not use ncurses or terminfo APIs.
 
   # pcre2 / pcre2-syntax - Present in UBI9 micro base image.
   - id: CVE-2022-41409
+    purls:
+      - "pkg:rpm/redhat/pcre2@10.40-6.el9"
+      - "pkg:rpm/redhat/pcre2-syntax@10.40-6.el9"
+    expired_at: 2026-11-02T00:00:00Z
     statement: >-
       pcre2test integer overflow via negative repeat value. No fix
       available. The CLI does not invoke pcre2test or link against
@@ -47,6 +70,7 @@ vulnerabilities:
   - id: GO-2026-5932
     purls:
       - "pkg:golang/golang.org/x/crypto@v0.54.0"
+    expired_at: 2026-11-02T00:00:00Z
     statement: >-
       golang.org/x/crypto/openpgp is unmaintained and flagged unsafe by
       design. Not a CVE with a fix version; it is an advisory against the
