@@ -169,7 +169,7 @@ func buildMCPPath() M {
 		"post": M{
 			"tags":        A{"MCP"},
 			"summary":     "Send an MCP JSON-RPC 2.0 request",
-			"description": "Accepts a JSON-RPC 2.0 request implementing the Model Context Protocol. Supported methods include initialize, tools/list, tools/call, resources/list, resources/read, prompts/list, and prompts/get. Bearer token authentication is required when auth is enabled.",
+			"description": "Accepts a JSON-RPC 2.0 request implementing the Model Context Protocol. Supported methods are initialize, server/discover, ping, tools/list, tools/call, resources/list, resources/read, prompts/list, prompts/get, pgedge/listDatabases, and pgedge/selectDatabase. Bearer token authentication is required when auth is enabled.",
 			"operationId": "postMCP",
 			"security":    bearerSecurity(),
 			"requestBody": M{
@@ -672,12 +672,16 @@ func schemaJSONRPCRequest() M {
 				"description": "The MCP method to invoke.",
 				"enum": A{
 					"initialize",
+					"server/discover",
+					"ping",
 					"tools/list",
 					"tools/call",
 					"resources/list",
 					"resources/read",
 					"prompts/list",
 					"prompts/get",
+					"pgedge/listDatabases",
+					"pgedge/selectDatabase",
 				},
 			},
 			"params": M{

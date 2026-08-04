@@ -340,7 +340,7 @@ func (s *Server) handleDiscover(req JSONRPCRequest) {
 // arrives here is a request requiring a response — including one whose
 // id is explicitly null.
 func (s *Server) handlePing(req JSONRPCRequest) {
-	sendResponse(req.ID, map[string]interface{}{})
+	sendResponseFor(req, map[string]interface{}{}, false)
 }
 
 func (s *Server) handleToolsList(req JSONRPCRequest) {

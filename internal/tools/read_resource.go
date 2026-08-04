@@ -12,6 +12,8 @@ package tools
 
 import (
 	"context"
+	"errors"
+	"fmt"
 
 	"pgedge-postgres-mcp/internal/mcp"
 )
@@ -110,6 +112,9 @@ Native resources/read: Use if your client supports it
 			}
 
 			resourceContent, err := resourceProvider.Read(ctx, uri)
+			if errors.Is(err, mcp.ErrResourceNotFound) {
+				return mcp.NewToolError(fmt.Sprintf("Resource not found: %s", uri))
+			}
 			if err != nil {
 				return mcp.NewToolError("Error reading resource: " + err.Error())
 			}

@@ -262,7 +262,16 @@ and this project adheres to
   observable difference. Conversely, an `initialize` request that does
   carry that `_meta` field is rejected with `-32601 Method not found`
   on both transports, matching the modern era's method set, which has
-  no handshake to answer. See [MCP Specification
+  no handshake to answer -- and, on HTTP, this and every other
+  `-32601` for a modern request now pairs with HTTP `404`, per the
+  transport spec's own reasoning: it is what lets a client tell this
+  server apart from a legacy HTTP+SSE server that doesn't host the
+  endpoint at all. A present `MCP-Protocol-Version` header now also
+  marks an HTTP request modern even when its body doesn't, since no
+  client older than `2025-06-18` ever sends that header; a modern
+  `ping` over stdio now carries `resultType` like every other modern
+  result, matching what it already carried over HTTP. See [MCP
+  Specification
   Compliance](developers/mcp-spec-compliance.md) for the full
   negotiation rules and, importantly, what was deliberately not
   adopted from this revision and why (`subscriptions/listen`, Multi

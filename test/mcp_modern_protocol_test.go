@@ -422,7 +422,12 @@ func TestModernProtocol_ResourceNotFound_ErrorCodeByEra(t *testing.T) {
 // method under the modern (2026-07-28) era, so a fully validated
 // modern-shaped request naming it must be rejected with -32601 rather
 // than answered with a legacy InitializeResult. Found via CodeRabbit
-// review on PR #215.
+// review on PR #215; the 404 status (rather than the usual 200 for a
+// handler-level rejection) was flagged in human review on the same PR
+// -- the transport spec pairs -32601 with 404 specifically so a
+// client can tell a modern server that doesn't implement a method
+// apart from a legacy HTTP+SSE server that doesn't host this endpoint
+// at all.
 func TestModernProtocol_Initialize_RejectedAsMethodNotFound(t *testing.T) {
 	server, err := StartHTTPMCPServer(t, "", "test-key", "localhost:18720", false)
 	if err != nil {
@@ -442,10 +447,140 @@ func TestModernProtocol_Initialize_RejectedAsMethodNotFound(t *testing.T) {
 		},
 	}
 	status, resp := sendModernHTTPRequest(t, server, "initialize", params, headers)
-	if status != http.StatusOK {
-		t.Fatalf("status = %d, want 200 (a handler-level rejection, not a preflight one); body: %+v", status, resp)
+	if status != http.StatusNotFound {
+		t.Fatalf("status = %d, want 404 (spec-mandated pairing with -32601); body: %+v", status, resp)
 	}
 	if resp.Error == nil || resp.Error.Code != -32601 {
 		t.Fatalf("error = %+v, want code -32601 (Method not found)", resp.Error)
+	}
+}
+
+// TestModernProtocol_UnknownMethod_RejectedWith404 covers the general
+// case behind the fix above: any method the modern era doesn't
+// recognize -- not just "initialize" -- gets -32601 paired with 404,
+// per dpage's review on PR #215 ("Worth adding a case for a genuinely
+// unknown method under modern _meta at the same time, since nothing
+// covers that path today").
+func TestModernProtocol_UnknownMethod_RejectedWith404(t *testing.T) {
+	server, err := StartHTTPMCPServer(t, "", "test-key", "localhost:18721", false)
+	if err != nil {
+		t.Fatalf("failed to start server: %v", err)
+	}
+	defer func() { _ = server.Close() }()
+
+	headers := map[string]string{
+		"MCP-Protocol-Version": "2026-07-28",
+		"Mcp-Method":           "totally/bogus",
+	}
+	status, resp := sendModernHTTPRequest(t, server, "totally/bogus", modernMeta("2026-07-28"), headers)
+	if status != http.StatusNotFound {
+		t.Fatalf("status = %d, want 404 (spec-mandated pairing with -32601); body: %+v", status, resp)
+	}
+	if resp.Error == nil || resp.Error.Code != -32601 {
+		t.Fatalf("error = %+v, want code -32601 (Method not found)", resp.Error)
+	}
+}
+
+// TestModernProtocol_HeaderOnlySignal_MissingBodyMeta_RejectedWith400
+// is the regression test for a human review finding on PR #215: era
+// detection looked only at the body's _meta, so a request that sent
+// the MCP-Protocol-Version header but omitted _meta entirely -- or
+// misspelled its long, easily-mistyped protocolVersion key -- was
+// silently served as legacy, with no indication that the header was
+// ignored. No pre-2025-06-18 client, including this server's own
+// legacy revision, ever sends that header, so its mere presence now
+// also marks a request modern, closing the trap without touching any
+// genuinely legacy client.
+func TestModernProtocol_HeaderOnlySignal_MissingBodyMeta_RejectedWith400(t *testing.T) {
+	server, err := StartHTTPMCPServer(t, "", "test-key", "localhost:18722", false)
+	if err != nil {
+		t.Fatalf("failed to start server: %v", err)
+	}
+	defer func() { _ = server.Close() }()
+
+	headers := map[string]string{
+		"MCP-Protocol-Version": "2026-07-28",
+		"Mcp-Method":           "tools/list",
+	}
+	// No _meta at all in the body -- previously indistinguishable from
+	// a genuinely legacy request once the header was ignored.
+	status, resp := sendModernHTTPRequest(t, server, "tools/list", nil, headers)
+	if status != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400; body: %+v", status, resp)
+	}
+	if resp.Error == nil || resp.Error.Code != -32602 {
+		t.Fatalf("error = %+v, want code -32602 (Invalid params)", resp.Error)
+	}
+}
+
+// TestModernProtocol_HeaderOnlySignal_MisspelledProtocolVersionKey_RejectedWith400
+// covers the other half of the same finding: _meta is present, but
+// its protocolVersion key is misspelled, so the body genuinely has no
+// usable io.modelcontextprotocol/protocolVersion value. isModernRequest
+// discards a parsed _meta entirely (returns a nil meta) whenever
+// ProtocolVersion is empty, regardless of whether other fields parsed
+// fine, so this collapses to exactly the same "no usable body _meta"
+// state as the fully-absent case above, and gets the same -32602: there
+// is no actual value to compare the header against, so this is not a
+// header/body mismatch (-32020), just a missing required field.
+func TestModernProtocol_HeaderOnlySignal_MisspelledProtocolVersionKey_RejectedWith400(t *testing.T) {
+	server, err := StartHTTPMCPServer(t, "", "test-key", "localhost:18723", false)
+	if err != nil {
+		t.Fatalf("failed to start server: %v", err)
+	}
+	defer func() { _ = server.Close() }()
+
+	headers := map[string]string{
+		"MCP-Protocol-Version": "2026-07-28",
+		"Mcp-Method":           "tools/list",
+	}
+	params := map[string]interface{}{
+		"_meta": map[string]interface{}{
+			// Deliberately misspelled: "protocolVersoin".
+			"io.modelcontextprotocol/protocolVersoin":    "2026-07-28",
+			"io.modelcontextprotocol/clientCapabilities": map[string]interface{}{},
+		},
+	}
+	status, resp := sendModernHTTPRequest(t, server, "tools/list", params, headers)
+	if status != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400; body: %+v", status, resp)
+	}
+	if resp.Error == nil || resp.Error.Code != -32602 {
+		t.Fatalf("error = %+v, want code -32602 (Invalid params)", resp.Error)
+	}
+}
+
+// TestModernProtocol_Ping_HasResultType is the HTTP-side parity check
+// for TestHandlePing_Stdio_Modern_HasResultType (internal/mcp/server_test.go):
+// a modern ping over HTTP was already wrapped, since handleHTTPRequest
+// wraps centrally by method name, so this pins down that the two
+// transports agree on an identical request now that stdio's handlePing
+// was fixed too.
+func TestModernProtocol_Ping_HasResultType(t *testing.T) {
+	server, err := StartHTTPMCPServer(t, "", "test-key", "localhost:18724", false)
+	if err != nil {
+		t.Fatalf("failed to start server: %v", err)
+	}
+	defer func() { _ = server.Close() }()
+
+	headers := map[string]string{
+		"MCP-Protocol-Version": "2026-07-28",
+		"Mcp-Method":           "ping",
+	}
+	status, resp := sendModernHTTPRequest(t, server, "ping", modernMeta("2026-07-28"), headers)
+	if status != http.StatusOK {
+		t.Fatalf("status = %d, want 200; body: %+v", status, resp)
+	}
+	if resp.Error != nil {
+		t.Fatalf("unexpected error: %+v", resp.Error)
+	}
+	var result struct {
+		ResultType string `json:"resultType"`
+	}
+	if err := json.Unmarshal(resp.Result, &result); err != nil {
+		t.Fatalf("failed to decode result: %v", err)
+	}
+	if result.ResultType != "complete" {
+		t.Errorf("resultType = %q, want %q", result.ResultType, "complete")
 	}
 }

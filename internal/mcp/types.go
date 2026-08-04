@@ -227,7 +227,7 @@ type metaHolder struct {
 // populated once at startup and never change at runtime (custom
 // tools/resources/prompts load from a definitions file read once during
 // initialization), so every list is valid for the life of the process;
-// TTLPermanent reflects that rather than an arbitrary guess.
+// TTLOneDay reflects that rather than an arbitrary guess.
 type CacheableResult struct {
 	ResultType string `json:"resultType"`
 	TTLMs      int    `json:"ttlMs"`
@@ -242,10 +242,11 @@ const (
 	ResultTypeComplete = "complete"
 	CacheScopePublic   = "public"
 	CacheScopePrivate  = "private"
-	// TTLPermanent is used for every cacheable result this server
+	// TTLOneDay is used for every cacheable result this server
 	// returns: its registries never change after startup, so there is
-	// no meaningful expiry.
-	TTLPermanent = 24 * 60 * 60 * 1000 // 24h in ms; see cacheScope note above
+	// no meaningful expiry, and this is a concrete number to report
+	// rather than an unbounded one.
+	TTLOneDay = 24 * 60 * 60 * 1000 // 24h in ms; see cacheScope note above
 )
 
 // DiscoverResult is the response to server/discover.

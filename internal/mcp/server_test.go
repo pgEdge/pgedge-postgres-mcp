@@ -594,6 +594,48 @@ func TestHandlePing_Stdio_WithID(t *testing.T) {
 	}
 }
 
+// TestHandlePing_Stdio_Modern_HasResultType is the regression test for
+// a human review finding on PR #215: every other stdio handler was
+// moved onto sendResponseFor, but handlePing was left calling the bare
+// sendResponse, so a modern ping returned {} with no resultType --
+// the base specification is unconditional that every modern result
+// must carry one. Goes through handleRequest (not handlePing directly)
+// so the dispatch path -- including the modern preflight gate -- is
+// exercised too.
+func TestHandlePing_Stdio_Modern_HasResultType(t *testing.T) {
+	server := NewServer(&mockToolProvider{})
+	req := JSONRPCRequest{
+		JSONRPC: "2.0",
+		ID:      float64(1),
+		Method:  "ping",
+		Params: map[string]interface{}{
+			"_meta": map[string]interface{}{
+				"io.modelcontextprotocol/protocolVersion":    "2026-07-28",
+				"io.modelcontextprotocol/clientCapabilities": map[string]interface{}{},
+			},
+		},
+	}
+
+	out := captureStdout(t, func() {
+		server.handleRequest(req)
+	})
+
+	var resp JSONRPCResponse
+	if err := json.Unmarshal([]byte(out), &resp); err != nil {
+		t.Fatalf("failed to decode response %q: %v", out, err)
+	}
+	if resp.Error != nil {
+		t.Fatalf("unexpected error in response: %v", resp.Error)
+	}
+	result, ok := resp.Result.(map[string]interface{})
+	if !ok {
+		t.Fatalf("expected map result, got %T", resp.Result)
+	}
+	if result["resultType"] != "complete" {
+		t.Errorf("resultType = %v, want %q -- modern ping must carry it like every other modern result", result["resultType"], "complete")
+	}
+}
+
 // TestServerDiscover_LegacyShapedRequestAlsoWorks is the regression test
 // for a self-audit finding: handleRequest once special-cased
 // server/discover, skipping modern validation for it on the theory that

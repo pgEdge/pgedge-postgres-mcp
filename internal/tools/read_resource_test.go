@@ -229,6 +229,41 @@ func TestReadResourceTool(t *testing.T) {
 		}
 	})
 
+	// TestReadResourceTool/unknown_resource_names_the_URI is a
+	// regression test for a human review finding on PR #215: once
+	// resources/read on an unknown URI was fixed to return the real
+	// mcp.ErrResourceNotFound sentinel instead of a disguised success,
+	// this tool's own generic "Error reading resource: " + err.Error()
+	// fallback lost the URI (the sentinel's message is just "resource
+	// not found", with nothing to interpolate), where the old
+	// disguised-success path used to at least say "Resource not
+	// found: pg://whatever". Since this tool exists specifically for
+	// LLM clients, the URI is worth keeping in the message.
+	t.Run("unknown resource names the URI", func(t *testing.T) {
+		mockReader := &mockResourceReader{
+			readFunc: func(ctx context.Context, uri string) (mcp.ResourceContent, error) {
+				return mcp.ResourceContent{}, mcp.ErrResourceNotFound
+			},
+		}
+
+		tool := ReadResourceTool(mockReader)
+		response, err := tool.Handler(map[string]interface{}{
+			"uri": "pg://does-not-exist",
+		})
+
+		if err != nil {
+			t.Errorf("Handler returned error: %v", err)
+		}
+		if !response.IsError {
+			t.Error("Expected IsError=true for an unknown resource")
+		}
+
+		content := response.Content[0].Text
+		if !strings.Contains(content, "pg://does-not-exist") {
+			t.Errorf("expected the URI in the error message, got: %s", content)
+		}
+	})
+
 	t.Run("list parameter false uses uri", func(t *testing.T) {
 		mockReader := &mockResourceReader{
 			readFunc: func(ctx context.Context, uri string) (mcp.ResourceContent, error) {

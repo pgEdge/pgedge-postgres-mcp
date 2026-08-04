@@ -66,6 +66,29 @@ func isModernRequest(params interface{}) (*RequestMeta, bool) {
 	return meta, true
 }
 
+// isModernHTTP is isModernRequest for the HTTP transport, which also
+// treats a present MCP-Protocol-Version header as marking a request
+// modern, even when the body's _meta does not (because it is missing
+// entirely, or because its protocolVersion key is missing or
+// misspelled -- these long, easily-mistyped reserved keys make that a
+// real failure mode, not just a hypothetical one). No pre-2025-06-18
+// client -- including this server's own legacy revision, 2024-11-05 --
+// ever sends this header at all, so its mere presence, regardless of
+// value, is already a reliable modern signal on its own; the exact
+// version match is left to validateModernHeaders. Returns a nil meta
+// when the header is the only modern signal, which validateModernHeaders
+// and validateModernRequestHTTP both treat as "no usable body _meta",
+// not as "no _meta was expected."
+func isModernHTTP(r *http.Request, params interface{}) (*RequestMeta, bool) {
+	if meta, isModern := isModernRequest(params); isModern {
+		return meta, true
+	}
+	if r.Header.Get("MCP-Protocol-Version") != "" {
+		return nil, true
+	}
+	return nil, false
+}
+
 // isModernVersionSupported reports whether this server implements the
 // given modern protocol revision. Unlike legacy negotiation
 // (NegotiateProtocolVersion), there is no nearest-version fallback: the
@@ -100,7 +123,7 @@ func responseMetaFor() ResponseMeta {
 func cacheableResult() CacheableResult {
 	return CacheableResult{
 		ResultType: ResultTypeComplete,
-		TTLMs:      TTLPermanent,
+		TTLMs:      TTLOneDay,
 		CacheScope: CacheScopePublic,
 	}
 }
@@ -239,6 +262,17 @@ func validateModernHeaders(r *http.Request, req JSONRPCRequest, meta *RequestMet
 	protocolHeader := r.Header.Get("MCP-Protocol-Version")
 	if protocolHeader == "" {
 		return headerMismatch("MCP-Protocol-Version header is required")
+	}
+	// meta is nil here exactly when the request is only modern because
+	// of the header (see isModernHTTP): the body carries no usable
+	// _meta.protocolVersion at all, whether because _meta is absent
+	// entirely or because its protocolVersion key is missing or
+	// misspelled. Either way there is nothing to compare the header
+	// against, and the missing body field -- not a header/body
+	// mismatch -- is the actual problem.
+	if meta == nil {
+		return &RPCError{Code: -32602, Message: "Invalid params",
+			Data: "io.modelcontextprotocol/protocolVersion is required in _meta when the MCP-Protocol-Version header is present"}
 	}
 	if protocolHeader != meta.ProtocolVersion {
 		return headerMismatch("MCP-Protocol-Version header value '" + protocolHeader +

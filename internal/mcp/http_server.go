@@ -320,10 +320,12 @@ func (s *Server) handleHTTPRequest(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// A request carrying io.modelcontextprotocol/protocolVersion in its
-	// _meta is modern (2026-07-28, stateless per-request negotiation); a
-	// request without it, including every initialize handshake, is
-	// legacy and reaches handleRequestHTTP exactly as before this
-	// server added modern support. See modern.go.
+	// _meta -- or, on this transport, just an MCP-Protocol-Version
+	// header, which no pre-2025-06-18 client ever sends -- is modern
+	// (2026-07-28, stateless per-request negotiation); a request with
+	// neither, including every initialize handshake, is legacy and
+	// reaches handleRequestHTTP exactly as before this server added
+	// modern support. See isModernHTTP in modern.go.
 	//
 	// preflightRejected distinguishes a rejection at this stage (header
 	// mismatch, missing required _meta field, unsupported version) from
@@ -332,7 +334,7 @@ func (s *Server) handleHTTPRequest(w http.ResponseWriter, r *http.Request) {
 	// handler's own -32602 (e.g. a tool call's own argument validation)
 	// keeps this server's existing HTTP 200 convention. Both can carry
 	// the same JSON-RPC code, so the code alone cannot distinguish them.
-	meta, isModern := isModernRequest(req.Params)
+	meta, isModern := isModernHTTP(r, req.Params)
 	var response JSONRPCResponse
 	preflightRejected := false
 	if isModern {
@@ -348,9 +350,20 @@ func (s *Server) handleHTTPRequest(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// A modern request answered with -32601 (Method not found) gets
+	// 404, not the usual 200: the transport spec is explicit that this
+	// pairing is what lets a client tell a modern server that simply
+	// doesn't implement a method apart from a legacy HTTP+SSE server
+	// that doesn't host this endpoint at all (both could otherwise
+	// produce a bare 404). This is a handler-level rejection like any
+	// other -32601, not a preflight one, so it is checked independently
+	// of preflightRejected.
 	statusCode := http.StatusOK
-	if isModern && preflightRejected {
+	switch {
+	case isModern && preflightRejected:
 		statusCode = http.StatusBadRequest
+	case isModern && response.Error != nil && response.Error.Code == -32601:
+		statusCode = http.StatusNotFound
 	}
 
 	tracing.LogHTTPResponse(sessionID, tokenHash, requestID,

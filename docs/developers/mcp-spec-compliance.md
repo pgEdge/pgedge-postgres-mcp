@@ -16,9 +16,17 @@ served under whichever model it uses:
 
 * A request whose `params._meta` carries
   `io.modelcontextprotocol/protocolVersion` is served under the
-  `2026-07-28` model.
-* A request without it, including every `initialize` handshake, is
-  served exactly as this server has always served it.
+  `2026-07-28` model. On HTTP, a present `MCP-Protocol-Version` header
+  also marks a request modern even when the body doesn't, since no
+  client speaking a revision older than `2025-06-18` -- including this
+  server's own legacy revision -- ever sends that header; this closes
+  the gap for a client that means to be modern but sends a body with
+  no usable `_meta.protocolVersion` (omitted, or the reserved key
+  misspelled), which otherwise would have been silently served as
+  legacy with no indication the header was ignored. See `isModernHTTP`
+  in `internal/mcp/modern.go`.
+* A request without either signal, including every `initialize`
+  handshake, is served exactly as this server has always served it.
 
 This matches the versioning specification's own guidance: *"A dual-era
 server MAY serve both eras concurrently on the same endpoint or
@@ -76,6 +84,19 @@ request that does not opt into the modern one.
   to, to align with the JSON-RPC specification). See
   `mcp.ErrResourceNotFound`, `resourceNotFoundCode`, and
   `ContextAwareRegistry.Read` in `internal/resources/`.
+* **`404` alongside `-32601` for a modern request naming a method
+  this server doesn't implement**, on HTTP. The transport spec pairs
+  the two specifically so a client can tell a modern server that
+  simply doesn't implement a method apart from a legacy HTTP+SSE
+  server that doesn't host this endpoint at all -- both could
+  otherwise return a bare `404` with nothing to distinguish them. This
+  is a handler-level rejection like any other `-32601`, so it is
+  checked independently of the preflight-vs-handler distinction the
+  general `400` handling below relies on. `initialize` itself is one
+  instance of this: it isn't a method the modern era recognizes at
+  all (`2026-07-28` removed the handshake entirely), so a
+  modern-shaped request naming it gets this same treatment rather
+  than a legacy `InitializeResult`.
 
 ## What was deliberately not adopted, and why
 
@@ -125,6 +146,20 @@ request that does not opt into the modern one.
   server would then have to maintain forever, for a set of clients that
   can transparently use the stateless model instead by sending
   `_meta.io.modelcontextprotocol/protocolVersion` on their requests.
+
+## Known gaps
+
+Unlike the section above, these are not deliberate choices -- they are
+gaps found during review that this pass did not set out to fix, recorded
+here so nobody has to re-derive them:
+
+* **`Origin` header validation.** The Streamable HTTP transport's
+  security section requires servers to validate the `Origin` header on
+  every incoming connection, to prevent DNS rebinding attacks, and to
+  respond `403 Forbidden` when it is present and invalid. This server
+  does not currently do so anywhere in `internal/mcp`. This predates
+  the `2026-07-28` work and applies equally to the legacy transport;
+  it needs its own fix.
 
 ## Where the implementation lives
 

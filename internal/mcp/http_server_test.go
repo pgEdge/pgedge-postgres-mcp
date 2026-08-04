@@ -1376,6 +1376,89 @@ func TestBuildHandler_PanicRecoveryReturnsJSON500(t *testing.T) {
 	}
 }
 
+// modernRequestBody builds a JSON-RPC request body carrying valid
+// modern _meta, for tests that need a fully validated modern request
+// without going through the full sendModernHTTPRequest integration
+// harness in test/mcp_modern_protocol_test.go.
+func modernRequestBody(t *testing.T, method string, params map[string]interface{}) []byte {
+	t.Helper()
+	if params == nil {
+		params = map[string]interface{}{}
+	}
+	params["_meta"] = map[string]interface{}{
+		"io.modelcontextprotocol/protocolVersion":    "2026-07-28",
+		"io.modelcontextprotocol/clientCapabilities": map[string]interface{}{},
+	}
+	body, err := json.Marshal(map[string]interface{}{
+		"jsonrpc": "2.0",
+		"id":      1,
+		"method":  method,
+		"params":  params,
+	})
+	if err != nil {
+		t.Fatalf("failed to marshal request body: %v", err)
+	}
+	return body
+}
+
+// TestHandleHTTPRequest_PromptsNotSupported_Modern_Gets404 and its
+// database-management counterpart below cover a human review finding
+// on PR #215: the -32601 "not supported" branches for prompts and
+// database management (reached when no provider was registered -- not
+// currently possible via this server's own cmd/pgedge-pg-mcp-svr,
+// which always registers both, but a real code path for any other
+// caller of this package) must pair with HTTP 404 for a modern
+// request like every other -32601, not the usual 200.
+func TestHandleHTTPRequest_PromptsNotSupported_Modern_Gets404(t *testing.T) {
+	tools := &mockToolProvider{}
+	server := NewServer(tools) // no SetPromptProvider call
+
+	body := modernRequestBody(t, "prompts/list", nil)
+	req := httptest.NewRequest(http.MethodPost, "/mcp/v1", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("MCP-Protocol-Version", "2026-07-28")
+	req.Header.Set("Mcp-Method", "prompts/list")
+	w := httptest.NewRecorder()
+
+	server.handleHTTPRequest(w, req)
+
+	if w.Code != http.StatusNotFound {
+		t.Fatalf("status = %d, want 404; body: %s", w.Code, w.Body.String())
+	}
+	var resp JSONRPCResponse
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+	if resp.Error == nil || resp.Error.Code != -32601 {
+		t.Fatalf("error = %+v, want code -32601", resp.Error)
+	}
+}
+
+func TestHandleHTTPRequest_DatabaseManagementNotSupported_Modern_Gets404(t *testing.T) {
+	tools := &mockToolProvider{}
+	server := NewServer(tools) // no SetDatabaseProvider call
+
+	body := modernRequestBody(t, "pgedge/listDatabases", nil)
+	req := httptest.NewRequest(http.MethodPost, "/mcp/v1", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("MCP-Protocol-Version", "2026-07-28")
+	req.Header.Set("Mcp-Method", "pgedge/listDatabases")
+	w := httptest.NewRecorder()
+
+	server.handleHTTPRequest(w, req)
+
+	if w.Code != http.StatusNotFound {
+		t.Fatalf("status = %d, want 404; body: %s", w.Code, w.Body.String())
+	}
+	var resp JSONRPCResponse
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+	if resp.Error == nil || resp.Error.Code != -32601 {
+		t.Fatalf("error = %+v, want code -32601", resp.Error)
+	}
+}
+
 func TestBuildHandler_ErrAbortHandlerNotRecovered(t *testing.T) {
 	tools := &mockToolProvider{}
 	server := NewServer(tools)
