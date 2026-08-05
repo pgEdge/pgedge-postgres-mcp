@@ -155,6 +155,19 @@ and this project adheres to
 
 ### Fixed
 
+- Tool calls made over the streaming chat endpoint are no longer silently
+  dropped, which showed up in the web client as "No response received"
+  whenever a provider decided to call a tool. The terminating `done` frame
+  of that stream carries a chunk structure with no field for a stop
+  reason, so the client had nothing to read and fell back to assuming
+  `end_turn`; the agentic loop then looked only for text blocks and
+  ignored the `tool_use` block sitting alongside them. The OpenAI
+  provider hit this on every tool call, because it reports a distinct
+  `tool_calls` finish reason that had no way of reaching the client. The
+  client now infers `tool_use` when the assembled response contains a
+  `tool_use` block and the server reported `end_turn` or nothing at all,
+  leaving a more specific reason such as `max_tokens` untouched.
+
 - `make test` now runs every package that has tests. Ten packages were absent
   from the server target and so were never exercised by the suite or by
   continuous integration: `api`, `compactor`, `conversations`, `definitions`,
