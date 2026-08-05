@@ -53,17 +53,17 @@ type Client struct {
 	closed         bool                        // true after Close() has been called
 	mu             sync.RWMutex
 
-	// metadataReloads serialises metadata reloads per connection string,
-	// so that a burst of callers arriving after metadata_ttl expires
-	// issues one catalog query rather than one per caller. Guarded by mu;
-	// the mutexes it holds are taken without mu held. See
-	// EnsureMetadataFor.
-	metadataReloads map[string]*sync.Mutex
+	// metadataReloads holds the in-flight metadata reload per connection
+	// string, so that a burst of callers arriving after metadata_ttl
+	// expires shares one catalog query rather than issuing one each.
+	// Guarded by mu. See EnsureMetadataFor.
+	metadataReloads map[string]*metadataReload
 
-	// metadataLoadCount counts completed LoadMetadataFor calls. It exists
-	// so that tests can assert reloads were coalesced rather than merely
-	// assume it; nothing in the server's behaviour depends on it.
-	metadataLoadCount atomic.Uint64
+	// metadataLoadAttempts counts calls into LoadMetadataFor, successful
+	// or not. It exists so that tests can assert reloads were coalesced
+	// rather than merely assume it; nothing in the server's behaviour
+	// depends on it.
+	metadataLoadAttempts atomic.Uint64
 }
 
 // NewClient creates a new database client with optional database configuration
@@ -441,6 +441,7 @@ func (c *Client) LoadMetadata() error {
 //  4. Atomically swap the result in under the client's lock and log.
 func (c *Client) LoadMetadataFor(connStr string) error {
 	startTime := time.Now()
+	c.metadataLoadAttempts.Add(1)
 
 	c.mu.RLock()
 	conn, exists := c.connections[connStr]
@@ -492,8 +493,6 @@ func (c *Client) LoadMetadataFor(connStr string) error {
 	conn.MetadataLoaded = true
 	conn.MetadataLoadedAt = time.Now()
 	c.mu.Unlock()
-
-	c.metadataLoadCount.Add(1)
 
 	duration := time.Since(startTime)
 	LogMetadataLoad(connStr, len(newMetadata), duration, nil)
@@ -589,48 +588,84 @@ func (c *Client) EnsureMetadata() error {
 
 // EnsureMetadataFor is EnsureMetadata for a specific connection.
 //
-// Reloads are serialised per connection. Without that, every caller in a
-// burst arriving after the TTL expires passes the freshness check before
-// any of them has refreshed MetadataLoadedAt, and each then runs its own
-// catalog query; the status banner's periodic refresh makes such bursts
-// routine rather than hypothetical. The first caller through reloads and
-// the rest find fresh metadata on the recheck below, so the burst costs
-// one query. Note that a metadata_ttl of 0 means "always refresh", so
-// callers are serialised rather than coalesced in that configuration.
+// At most one reload per connection is in flight at a time, and callers
+// that arrive whilst one is running wait for it and share its outcome
+// rather than starting their own. Without that, every caller in a burst
+// arriving after the TTL expires passes the freshness check before any of
+// them has refreshed MetadataLoadedAt, and each then runs its own catalog
+// query; the status banner's periodic refresh of several resources makes
+// such bursts routine rather than hypothetical. Sharing the outcome
+// matters most when the reload fails: a serialised retry per caller would
+// queue one connect timeout each, so twenty callers could hold the path
+// open for twenty timeouts rather than one.
+//
+// The in-flight record is discarded once the attempt finishes, so a
+// failure is not cached: the next caller to arrive starts a fresh
+// attempt. Note that a metadata_ttl of 0 means "always refresh", so
+// sequential callers each reload in that configuration; only genuinely
+// concurrent ones are coalesced.
 func (c *Client) EnsureMetadataFor(connStr string) error {
 	if c.IsMetadataLoadedFor(connStr) {
 		return nil
 	}
 
-	reload := c.metadataReloadMutex(connStr)
-	reload.Lock()
-	defer reload.Unlock()
-
-	// Another caller may have reloaded whilst this one waited for the
-	// guard, in which case there is nothing left to do.
-	if c.IsMetadataLoadedFor(connStr) {
-		return nil
+	reload, leader := c.joinMetadataReload(connStr)
+	if !leader {
+		<-reload.done
+		return reload.err
 	}
 
-	return c.LoadMetadataFor(connStr)
+	// Another caller may have reloaded in the window between the check
+	// above and this one becoming the leader, in which case there is
+	// nothing left to do.
+	if !c.IsMetadataLoadedFor(connStr) {
+		reload.err = c.LoadMetadataFor(connStr)
+	}
+	c.finishMetadataReload(connStr, reload)
+
+	return reload.err
 }
 
-// metadataReloadMutex returns the mutex that serialises metadata reloads
-// for connStr, creating it on first use. The client lock is held only to
-// look the mutex up, never whilst it is held, so the two do not interact.
-func (c *Client) metadataReloadMutex(connStr string) *sync.Mutex {
+// metadataReload is one in-flight metadata reload. done is closed when
+// the attempt finishes, after which err holds its outcome and is safe to
+// read; the close is what publishes the write.
+type metadataReload struct {
+	done chan struct{}
+	err  error
+}
+
+// joinMetadataReload returns the in-flight reload for connStr, reporting
+// whether the caller is the leader and so responsible for performing it.
+// A caller that is not the leader must wait on the returned record rather
+// than reload anything itself.
+func (c *Client) joinMetadataReload(connStr string) (*metadataReload, bool) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
 	if c.metadataReloads == nil {
-		c.metadataReloads = make(map[string]*sync.Mutex)
+		c.metadataReloads = make(map[string]*metadataReload)
 	}
-	if m, exists := c.metadataReloads[connStr]; exists {
-		return m
+	if r, exists := c.metadataReloads[connStr]; exists {
+		return r, false
 	}
-	m := &sync.Mutex{}
-	c.metadataReloads[connStr] = m
-	return m
+	r := &metadataReload{done: make(chan struct{})}
+	c.metadataReloads[connStr] = r
+	return r, true
+}
+
+// finishMetadataReload publishes the leader's outcome to any waiters. The
+// record is removed from the map before the waiters are released, so a
+// caller arriving afterwards starts a fresh attempt instead of joining
+// one that has already finished.
+func (c *Client) finishMetadataReload(connStr string, r *metadataReload) {
+	c.mu.Lock()
+	// Close() clears the map wholesale, so only remove our own record.
+	if current, exists := c.metadataReloads[connStr]; exists && current == r {
+		delete(c.metadataReloads, connStr)
+	}
+	c.mu.Unlock()
+
+	close(r.done)
 }
 
 // GetPool returns the connection pool for the default connection

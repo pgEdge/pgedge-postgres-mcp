@@ -914,7 +914,7 @@ func TestEnsureMetadataFor_CoalescesConcurrentReloads(t *testing.T) {
 	client.connections[connStr].MetadataLoadedAt = time.Now().Add(-6 * time.Minute)
 	client.mu.Unlock()
 
-	before := client.metadataLoadCount.Load()
+	before := client.metadataLoadAttempts.Load()
 
 	const callers = 20
 	var wg sync.WaitGroup
@@ -937,7 +937,7 @@ func TestEnsureMetadataFor_CoalescesConcurrentReloads(t *testing.T) {
 		}
 	}
 
-	loads := client.metadataLoadCount.Load() - before
+	loads := client.metadataLoadAttempts.Load() - before
 	if loads != 1 {
 		t.Errorf("%d concurrent callers triggered %d metadata loads, want exactly 1; reloads are not being coalesced", callers, loads)
 	}
@@ -947,14 +947,14 @@ func TestEnsureMetadataFor_CoalescesConcurrentReloads(t *testing.T) {
 	}
 }
 
-// TestEnsureMetadataFor_RechecksUnderGuard covers the double check that
-// makes coalescing work, without needing a database. A caller that finds
-// stale metadata, waits on the reload guard, and is then handed fresh
-// metadata by the caller ahead of it must return without reloading. The
-// connection here has a nil pool, so a reload attempt would panic rather
-// than pass quietly: the test fails loudly if the recheck is dropped.
-func TestEnsureMetadataFor_RechecksUnderGuard(t *testing.T) {
-	const connStr = "postgres://localhost/recheck"
+// TestEnsureMetadataFor_SharesInFlightReload covers the sharing of an
+// in-flight reload without needing a database. A caller that arrives
+// whilst a reload is running must wait for it and take its outcome
+// rather than starting its own. The connection here has a nil pool, so a
+// reload attempt of its own would panic instead of passing quietly: the
+// test fails loudly if the caller does not join.
+func TestEnsureMetadataFor_SharesInFlightReload(t *testing.T) {
+	const connStr = "postgres://localhost/inflight"
 
 	client := NewClient(nil)
 	client.connections[connStr] = &ConnectionInfo{
@@ -964,26 +964,114 @@ func TestEnsureMetadataFor_RechecksUnderGuard(t *testing.T) {
 		MetadataLoadedAt: time.Now().Add(-6 * time.Minute), // stale
 	}
 
-	// Stand in for the caller that gets there first: hold the reload
-	// guard, then refresh the metadata before releasing it.
-	guard := client.metadataReloadMutex(connStr)
-	guard.Lock()
+	// Stand in for the caller that gets there first and becomes the
+	// leader, with its reload still running.
+	leader, isLeader := client.joinMetadataReload(connStr)
+	if !isLeader {
+		t.Fatal("joinMetadataReload() reported the first caller is not the leader")
+	}
 
-	released := make(chan struct{})
+	joined := make(chan error, 1)
 	go func() {
-		defer close(released)
-		client.mu.Lock()
-		client.connections[connStr].MetadataLoadedAt = time.Now()
-		client.mu.Unlock()
-		guard.Unlock()
+		joined <- client.EnsureMetadataFor(connStr)
 	}()
 
-	if err := client.EnsureMetadataFor(connStr); err != nil {
-		t.Errorf("EnsureMetadataFor() returned error after another caller refreshed the metadata: %v", err)
+	// The joining caller must still be waiting: nothing has published a
+	// result yet.
+	select {
+	case err := <-joined:
+		t.Fatalf("EnsureMetadataFor() returned %v whilst a reload was in flight; it did not join", err)
+	case <-time.After(50 * time.Millisecond):
 	}
-	<-released
 
-	if client.metadataLoadCount.Load() != 0 {
-		t.Errorf("EnsureMetadataFor() performed %d metadata loads, want 0; the recheck under the reload guard is missing", client.metadataLoadCount.Load())
+	// Finish the leader's reload successfully, as a real one would.
+	client.mu.Lock()
+	client.connections[connStr].MetadataLoadedAt = time.Now()
+	client.mu.Unlock()
+	leader.err = nil
+	client.finishMetadataReload(connStr, leader)
+
+	select {
+	case err := <-joined:
+		if err != nil {
+			t.Errorf("EnsureMetadataFor() returned error from a successful shared reload: %v", err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("EnsureMetadataFor() did not return after the in-flight reload finished")
+	}
+
+	if attempts := client.metadataLoadAttempts.Load(); attempts != 0 {
+		t.Errorf("EnsureMetadataFor() made %d load attempts, want 0; it did not share the in-flight reload", attempts)
+	}
+}
+
+// TestEnsureMetadataFor_SharesFailedReload asserts that a failing reload
+// is shared too. Metadata stays stale when a reload fails, so callers
+// waiting on it would each fail the freshness recheck and start their own
+// attempt; against an unreachable database that queues one connect
+// timeout per caller, turning a burst into a long serial stall. Every
+// caller should instead receive the outcome of the one attempt that ran.
+//
+// The connection here points at a port with nothing behind it, so the
+// reload fails quickly and no database is needed.
+func TestEnsureMetadataFor_SharesFailedReload(t *testing.T) {
+	// Port 1 is reserved and never listening, so connecting fails
+	// immediately rather than hanging.
+	const connStr = "postgres://someone@127.0.0.1:1/nothing?sslmode=disable&connect_timeout=1"
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	poolConfig, err := pgxpool.ParseConfig(connStr)
+	if err != nil {
+		t.Fatalf("failed to parse fixture connection string: %v", err)
+	}
+	pool, err := pgxpool.NewWithConfig(ctx, poolConfig)
+	if err != nil {
+		t.Fatalf("failed to build fixture pool: %v", err)
+	}
+	defer pool.Close()
+
+	client := NewClient(nil)
+	client.connections[connStr] = &ConnectionInfo{
+		ConnString:       connStr,
+		Pool:             pool,
+		Metadata:         make(map[string]TableInfo),
+		MetadataLoaded:   true,
+		MetadataLoadedAt: time.Now().Add(-6 * time.Minute), // stale
+	}
+
+	const callers = 10
+	var wg sync.WaitGroup
+	errs := make([]error, callers)
+	start := make(chan struct{})
+	for i := 0; i < callers; i++ {
+		wg.Add(1)
+		go func(idx int) {
+			defer wg.Done()
+			<-start
+			errs[idx] = client.EnsureMetadataFor(connStr)
+		}(i)
+	}
+	close(start)
+	wg.Wait()
+
+	for i, err := range errs {
+		if err == nil {
+			t.Errorf("caller %d: EnsureMetadataFor returned nil against an unreachable database", i)
+		}
+	}
+
+	if attempts := client.metadataLoadAttempts.Load(); attempts != 1 {
+		t.Errorf("%d concurrent callers made %d load attempts against an unreachable database, want exactly 1; a failing reload is not being shared", callers, attempts)
+	}
+
+	// A failure must not be cached: the next caller starts a fresh
+	// attempt rather than being handed the stale error for ever.
+	if err := client.EnsureMetadataFor(connStr); err == nil {
+		t.Error("EnsureMetadataFor returned nil on a later call against an unreachable database")
+	}
+	if attempts := client.metadataLoadAttempts.Load(); attempts != 2 {
+		t.Errorf("a later call brought the total to %d load attempts, want 2; the failed reload was cached rather than retried", attempts)
 	}
 }

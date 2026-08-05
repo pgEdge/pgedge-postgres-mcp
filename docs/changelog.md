@@ -182,10 +182,14 @@ and this project adheres to
   Both resource paths now reload expired metadata through a new
   `EnsureMetadata` helper, and report `DATABASE_NOT_READY` only when that
   reload genuinely fails. Raising `metadata_ttl` is no longer needed as a
-  workaround. Reloads are serialised per connection, so a burst of
-  callers arriving once the TTL has expired issues one catalog query
-  between them rather than one each; the status banner refreshing several
-  resources at once makes such bursts routine.
+  workaround. At most one reload per connection runs at a time, and
+  callers arriving whilst one is in flight wait for it and share its
+  outcome, so a burst arriving once the TTL has expired issues one catalog
+  query between them rather than one each; the status banner refreshing
+  several resources at once makes such bursts routine. Sharing the outcome
+  matters most when the database is unreachable, since a retry per caller
+  would queue one connect timeout each. Failures are not cached, so the
+  next caller to arrive starts a fresh attempt.
 
 - `make test` now runs every package that has tests. Ten packages were absent
   from the server target and so were never exercised by the suite or by
