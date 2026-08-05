@@ -17,6 +17,7 @@ import (
 	"os"
 	"reflect"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -879,5 +880,110 @@ func TestExecuteResourceQuery_StaleMetadataReloads(t *testing.T) {
 	// read is served from cache rather than reloading again.
 	if !client.IsMetadataLoaded() {
 		t.Error("metadata still reports as stale after ExecuteResourceQuery; the reload did not refresh MetadataLoadedAt")
+	}
+}
+
+// TestEnsureMetadataFor_CoalescesConcurrentReloads asserts that a burst
+// of callers arriving after metadata_ttl has expired produces one
+// catalog query rather than one per caller. Every caller passes the
+// freshness check before any of them refreshes MetadataLoadedAt, so
+// without the per-connection reload guard each one runs its own
+// LoadMetadataFor; the status banner's periodic refresh of several
+// resources makes such bursts routine. It is gated on
+// TEST_PGEDGE_POSTGRES_CONNECTION_STRING, since coalescing is only
+// observable when the reload actually succeeds.
+func TestEnsureMetadataFor_CoalescesConcurrentReloads(t *testing.T) {
+	connStr := os.Getenv("TEST_PGEDGE_POSTGRES_CONNECTION_STRING")
+	if connStr == "" {
+		t.Skip("TEST_PGEDGE_POSTGRES_CONNECTION_STRING not set; skipping live-DB concurrency test for issue #218")
+	}
+
+	client := NewClientWithConnectionString(connStr, nil)
+	defer client.Close()
+
+	if err := client.ConnectTo(connStr); err != nil {
+		t.Fatalf("ConnectTo failed: %v", err)
+	}
+	if err := client.LoadMetadataFor(connStr); err != nil {
+		t.Fatalf("LoadMetadataFor failed: %v", err)
+	}
+
+	// Age the metadata past the default 5 minute TTL so every caller
+	// below sees it as stale.
+	client.mu.Lock()
+	client.connections[connStr].MetadataLoadedAt = time.Now().Add(-6 * time.Minute)
+	client.mu.Unlock()
+
+	before := client.metadataLoadCount.Load()
+
+	const callers = 20
+	var wg sync.WaitGroup
+	errs := make([]error, callers)
+	start := make(chan struct{})
+	for i := 0; i < callers; i++ {
+		wg.Add(1)
+		go func(idx int) {
+			defer wg.Done()
+			<-start
+			errs[idx] = client.EnsureMetadataFor(connStr)
+		}(i)
+	}
+	close(start)
+	wg.Wait()
+
+	for i, err := range errs {
+		if err != nil {
+			t.Errorf("caller %d: EnsureMetadataFor returned error: %v", i, err)
+		}
+	}
+
+	loads := client.metadataLoadCount.Load() - before
+	if loads != 1 {
+		t.Errorf("%d concurrent callers triggered %d metadata loads, want exactly 1; reloads are not being coalesced", callers, loads)
+	}
+
+	if !client.IsMetadataLoadedFor(connStr) {
+		t.Error("metadata still reports as stale after the reload")
+	}
+}
+
+// TestEnsureMetadataFor_RechecksUnderGuard covers the double check that
+// makes coalescing work, without needing a database. A caller that finds
+// stale metadata, waits on the reload guard, and is then handed fresh
+// metadata by the caller ahead of it must return without reloading. The
+// connection here has a nil pool, so a reload attempt would panic rather
+// than pass quietly: the test fails loudly if the recheck is dropped.
+func TestEnsureMetadataFor_RechecksUnderGuard(t *testing.T) {
+	const connStr = "postgres://localhost/recheck"
+
+	client := NewClient(nil)
+	client.connections[connStr] = &ConnectionInfo{
+		ConnString:       connStr,
+		Metadata:         make(map[string]TableInfo),
+		MetadataLoaded:   true,
+		MetadataLoadedAt: time.Now().Add(-6 * time.Minute), // stale
+	}
+
+	// Stand in for the caller that gets there first: hold the reload
+	// guard, then refresh the metadata before releasing it.
+	guard := client.metadataReloadMutex(connStr)
+	guard.Lock()
+
+	released := make(chan struct{})
+	go func() {
+		defer close(released)
+		client.mu.Lock()
+		client.connections[connStr].MetadataLoadedAt = time.Now()
+		client.mu.Unlock()
+		guard.Unlock()
+	}()
+
+	if err := client.EnsureMetadataFor(connStr); err != nil {
+		t.Errorf("EnsureMetadataFor() returned error after another caller refreshed the metadata: %v", err)
+	}
+	<-released
+
+	if client.metadataLoadCount.Load() != 0 {
+		t.Errorf("EnsureMetadataFor() performed %d metadata loads, want 0; the recheck under the reload guard is missing", client.metadataLoadCount.Load())
 	}
 }

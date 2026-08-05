@@ -15,6 +15,7 @@ import (
 	"fmt"
 	"os"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"pgedge-postgres-mcp/internal/config"
@@ -51,6 +52,18 @@ type Client struct {
 	dbConfig       *config.NamedDatabaseConfig // database configuration for pool settings
 	closed         bool                        // true after Close() has been called
 	mu             sync.RWMutex
+
+	// metadataReloads serialises metadata reloads per connection string,
+	// so that a burst of callers arriving after metadata_ttl expires
+	// issues one catalog query rather than one per caller. Guarded by mu;
+	// the mutexes it holds are taken without mu held. See
+	// EnsureMetadataFor.
+	metadataReloads map[string]*sync.Mutex
+
+	// metadataLoadCount counts completed LoadMetadataFor calls. It exists
+	// so that tests can assert reloads were coalesced rather than merely
+	// assume it; nothing in the server's behaviour depends on it.
+	metadataLoadCount atomic.Uint64
 }
 
 // NewClient creates a new database client with optional database configuration
@@ -399,6 +412,7 @@ func (c *Client) Close() {
 		}
 	}
 	c.connections = make(map[string]*ConnectionInfo)
+	c.metadataReloads = nil
 }
 
 // IsClosed returns whether this client has been closed
@@ -478,6 +492,8 @@ func (c *Client) LoadMetadataFor(connStr string) error {
 	conn.MetadataLoaded = true
 	conn.MetadataLoadedAt = time.Now()
 	c.mu.Unlock()
+
+	c.metadataLoadCount.Add(1)
 
 	duration := time.Since(startTime)
 	LogMetadataLoad(connStr, len(newMetadata), duration, nil)
@@ -572,11 +588,49 @@ func (c *Client) EnsureMetadata() error {
 }
 
 // EnsureMetadataFor is EnsureMetadata for a specific connection.
+//
+// Reloads are serialised per connection. Without that, every caller in a
+// burst arriving after the TTL expires passes the freshness check before
+// any of them has refreshed MetadataLoadedAt, and each then runs its own
+// catalog query; the status banner's periodic refresh makes such bursts
+// routine rather than hypothetical. The first caller through reloads and
+// the rest find fresh metadata on the recheck below, so the burst costs
+// one query. Note that a metadata_ttl of 0 means "always refresh", so
+// callers are serialised rather than coalesced in that configuration.
 func (c *Client) EnsureMetadataFor(connStr string) error {
 	if c.IsMetadataLoadedFor(connStr) {
 		return nil
 	}
+
+	reload := c.metadataReloadMutex(connStr)
+	reload.Lock()
+	defer reload.Unlock()
+
+	// Another caller may have reloaded whilst this one waited for the
+	// guard, in which case there is nothing left to do.
+	if c.IsMetadataLoadedFor(connStr) {
+		return nil
+	}
+
 	return c.LoadMetadataFor(connStr)
+}
+
+// metadataReloadMutex returns the mutex that serialises metadata reloads
+// for connStr, creating it on first use. The client lock is held only to
+// look the mutex up, never whilst it is held, so the two do not interact.
+func (c *Client) metadataReloadMutex(connStr string) *sync.Mutex {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if c.metadataReloads == nil {
+		c.metadataReloads = make(map[string]*sync.Mutex)
+	}
+	if m, exists := c.metadataReloads[connStr]; exists {
+		return m
+	}
+	m := &sync.Mutex{}
+	c.metadataReloads[connStr] = m
+	return m
 }
 
 // GetPool returns the connection pool for the default connection
