@@ -556,6 +556,29 @@ func (c *Client) IsMetadataLoadedFor(connStr string) bool {
 	return time.Since(conn.MetadataLoadedAt) <= ttl
 }
 
+// EnsureMetadata guarantees that valid, non-stale metadata is available
+// for the default connection, reloading it when the configured
+// metadata_ttl has expired. It returns nil when metadata is already
+// valid or the reload succeeded, and the reload error otherwise.
+//
+// Callers that merely need to know whether the database is ready should
+// use this rather than IsMetadataLoaded: a false from the latter means
+// "no valid metadata right now", which covers both a connection that
+// has never loaded any and one whose metadata has simply aged past the
+// TTL. Treating the second case as a failure reports the database as
+// unavailable when nothing is wrong with it.
+func (c *Client) EnsureMetadata() error {
+	return c.EnsureMetadataFor(c.GetDefaultConnection())
+}
+
+// EnsureMetadataFor is EnsureMetadata for a specific connection.
+func (c *Client) EnsureMetadataFor(connStr string) error {
+	if c.IsMetadataLoadedFor(connStr) {
+		return nil
+	}
+	return c.LoadMetadataFor(connStr)
+}
+
 // GetPool returns the connection pool for the default connection
 func (c *Client) GetPool() *pgxpool.Pool {
 	c.mu.RLock()

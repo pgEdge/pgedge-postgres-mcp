@@ -168,6 +168,22 @@ and this project adheres to
   `tool_use` block and the server reported `end_turn` or nothing at all,
   leaving a more specific reason such as `max_tokens` untouched.
 
+- Reading an MCP resource after an idle period no longer reports the
+  database as unavailable. Metadata expires once it is older than
+  `metadata_ttl` (five minutes by default), and `IsMetadataLoaded()`
+  returns false both for a connection that has never loaded any metadata
+  and for one whose metadata has simply aged out. The resource path
+  treated the second case as a database that was not ready, so it
+  returned a retryable `DATABASE_NOT_READY` without attempting a reload;
+  the web client's status banner then showed "Database is switching",
+  retried five times, and settled on "Database switch taking longer than
+  expected", all against a perfectly healthy database. The MCP tools
+  already reloaded in this situation, so only resources were affected.
+  Both resource paths now reload expired metadata through a new
+  `EnsureMetadata` helper, and report `DATABASE_NOT_READY` only when that
+  reload genuinely fails. Raising `metadata_ttl` is no longer needed as a
+  workaround.
+
 - `make test` now runs every package that has tests. Ten packages were absent
   from the server target and so were never exercised by the suite or by
   continuous integration: `api`, `compactor`, `conversations`, `definitions`,

@@ -13,13 +13,17 @@ package database
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"os"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
 	"pgedge-postgres-mcp/internal/config"
+	"pgedge-postgres-mcp/internal/mcp"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -768,5 +772,112 @@ func TestAfterReleaseRestoresReadOnlyDefault(t *testing.T) {
 	if after != "on" {
 		t.Errorf("default_transaction_read_only = %q after release and reacquire, want \"on\"; "+
 			"AfterRelease did not restore the session default", after)
+	}
+}
+
+// TestEnsureMetadataFor covers the decision the helper makes without
+// touching a database: fresh metadata must not provoke a reload, and an
+// unknown connection must report the failure rather than silently
+// claiming success.
+func TestEnsureMetadataFor(t *testing.T) {
+	client := NewClient(nil)
+
+	// Fresh metadata: EnsureMetadataFor must return without attempting a
+	// reload. The connection has a nil pool, so an attempted reload
+	// would not survive this call.
+	client.connections["postgres://localhost/fresh"] = &ConnectionInfo{
+		ConnString:       "postgres://localhost/fresh",
+		Metadata:         make(map[string]TableInfo),
+		MetadataLoaded:   true,
+		MetadataLoadedAt: time.Now(),
+	}
+	if err := client.EnsureMetadataFor("postgres://localhost/fresh"); err != nil {
+		t.Errorf("EnsureMetadataFor() returned error for fresh metadata: %v", err)
+	}
+
+	// Unknown connection: the reload is attempted and fails, and the
+	// error is surfaced to the caller.
+	err := client.EnsureMetadataFor("postgres://localhost/unknown")
+	if err == nil {
+		t.Error("EnsureMetadataFor() returned nil for an unknown connection, want an error")
+	}
+}
+
+// TestExecuteResourceQuery_StaleMetadataReloads is a regression test for
+// issue #218. IsMetadataLoaded returns false both when metadata has
+// never been loaded and when it has aged past metadata_ttl (default 5m),
+// and ExecuteResourceQuery treated the second case as a database that
+// was not ready. A resource read after five idle minutes therefore
+// returned a retryable DATABASE_NOT_READY, which surfaced in the web
+// client as the "Database is switching" banner, followed by "Database
+// switch taking longer than expected" once the retries ran out; the
+// database itself was healthy throughout.
+//
+// This test loads metadata, backdates MetadataLoadedAt past the TTL, and
+// asserts that the resource query reloads and succeeds. It is gated on
+// TEST_PGEDGE_POSTGRES_CONNECTION_STRING, matching the other live-DB
+// regression tests here.
+func TestExecuteResourceQuery_StaleMetadataReloads(t *testing.T) {
+	connStr := os.Getenv("TEST_PGEDGE_POSTGRES_CONNECTION_STRING")
+	if connStr == "" {
+		t.Skip("TEST_PGEDGE_POSTGRES_CONNECTION_STRING not set; skipping live-DB regression test for issue #218")
+	}
+
+	client := NewClientWithConnectionString(connStr, nil)
+	defer client.Close()
+
+	if err := client.ConnectTo(connStr); err != nil {
+		t.Fatalf("ConnectTo failed: %v", err)
+	}
+	if err := client.SetDefaultConnection(connStr); err != nil {
+		t.Fatalf("SetDefaultConnection failed: %v", err)
+	}
+	if err := client.LoadMetadataFor(connStr); err != nil {
+		t.Fatalf("LoadMetadataFor failed: %v", err)
+	}
+
+	// Age the metadata past the default 5 minute TTL, exactly as five
+	// idle minutes would.
+	client.mu.Lock()
+	client.connections[connStr].MetadataLoadedAt = time.Now().Add(-6 * time.Minute)
+	client.mu.Unlock()
+
+	if client.IsMetadataLoaded() {
+		t.Fatal("metadata still reports as loaded after backdating past the TTL; the fixture is not exercising the stale path")
+	}
+
+	processor := func(rows pgx.Rows) (interface{}, error) {
+		var got int
+		for rows.Next() {
+			if err := rows.Scan(&got); err != nil {
+				return nil, err
+			}
+		}
+		return got, nil
+	}
+
+	content, err := ExecuteResourceQuery(client, "test://stale", "SELECT 218", processor)
+	if err != nil {
+		t.Fatalf("ExecuteResourceQuery returned error: %v", err)
+	}
+	if len(content.Contents) == 0 {
+		t.Fatal("ExecuteResourceQuery returned no content")
+	}
+
+	// A DATABASE_NOT_READY payload here is the regression: stale
+	// metadata was reported as an unready database.
+	var errorResponse mcp.ResourceError
+	if err := json.Unmarshal([]byte(content.Contents[0].Text), &errorResponse); err == nil && errorResponse.Error {
+		t.Fatalf("ExecuteResourceQuery reported %q for stale metadata; it should have reloaded (issue #218)", errorResponse.Code)
+	}
+
+	if strings.TrimSpace(content.Contents[0].Text) != "218" {
+		t.Errorf("ExecuteResourceQuery returned %q, want \"218\"", content.Contents[0].Text)
+	}
+
+	// The reload must also have refreshed the timestamp, so a second
+	// read is served from cache rather than reloading again.
+	if !client.IsMetadataLoaded() {
+		t.Error("metadata still reports as stale after ExecuteResourceQuery; the reload did not refresh MetadataLoadedAt")
 	}
 }
