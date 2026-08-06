@@ -54,9 +54,56 @@ func TestClassifyQuery(t *testing.T) {
 		{"commit", "COMMIT", QueryTypeOther, true},
 		{"set", "SET timezone TO 'UTC'", QueryTypeOther, true},
 
+		// Writes hiding behind a reading first keyword. Each of these runs a
+		// write on a writable connection, so each must raise the prompt.
+		{"select into", "SELECT * INTO backup FROM users", QueryTypeDDL, true},
+		{"select into lowercase", "select id into t2 from t1", QueryTypeDDL, true},
+		{"select into strict spacing", "SELECT 1 INTO\nnewtbl", QueryTypeDDL, true},
+		{"cte writing insert",
+			"WITH c AS (SELECT 1 AS n) INSERT INTO t SELECT n FROM c",
+			QueryTypeDML, true},
+		{"cte returning insert",
+			"WITH ins AS (INSERT INTO t VALUES (1) RETURNING *) SELECT * FROM ins",
+			QueryTypeDML, true},
+		{"cte returning update",
+			"WITH u AS (UPDATE t SET n = 1 RETURNING *) SELECT * FROM u",
+			QueryTypeDML, true},
+		{"cte returning delete",
+			"WITH d AS (DELETE FROM t RETURNING *) SELECT * FROM d",
+			QueryTypeDML, true},
+		{"cte select into", "WITH c AS (SELECT 1) SELECT * INTO t FROM c",
+			QueryTypeDDL, true},
+		{"explain analyze insert",
+			"EXPLAIN ANALYZE INSERT INTO t VALUES (1)", QueryTypeDML, true},
+		{"explain analyze options update",
+			"EXPLAIN (ANALYZE, BUFFERS) UPDATE t SET n = 1", QueryTypeDML, true},
+		{"comment hiding select into",
+			"/* harmless */ SELECT * INTO backup FROM users", QueryTypeDDL, true},
+
+		// Reads that must stay quiet, so that the prompt keeps its meaning.
+		{"explain insert without analyze",
+			"EXPLAIN INSERT INTO t VALUES (1)", QueryTypeSelect, false},
+		{"explain analyze select",
+			"EXPLAIN (ANALYZE, BUFFERS) SELECT * FROM t", QueryTypeSelect, false},
+		{"write keyword inside a literal",
+			"SELECT * FROM audit WHERE action = 'DELETE'", QueryTypeSelect, false},
+		{"write keyword inside a quoted identifier",
+			`SELECT "delete" FROM t`, QueryTypeSelect, false},
+		{"write keyword as part of an identifier",
+			"SELECT delete_flag, into_tray FROM t", QueryTypeSelect, false},
+		{"select for update", "SELECT * FROM t FOR UPDATE", QueryTypeSelect, false},
+		{"select for no key update",
+			"SELECT * FROM t FOR NO KEY UPDATE", QueryTypeSelect, false},
+		{"select for share", "SELECT * FROM t FOR SHARE", QueryTypeSelect, false},
+		{"comment before an ordinary select",
+			"-- counting rows\nSELECT count(*) FROM t", QueryTypeSelect, false},
+		{"subquery select", "SELECT * FROM t WHERE id IN (SELECT id FROM u)",
+			QueryTypeSelect, false},
+
 		// Edge cases
 		{"empty string", "", QueryTypeOther, true},
 		{"whitespace only", "   ", QueryTypeOther, true},
+		{"comment only", "-- nothing here", QueryTypeOther, true},
 	}
 
 	for _, tt := range tests {

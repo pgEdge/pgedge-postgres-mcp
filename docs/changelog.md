@@ -125,6 +125,26 @@ and this project adheres to
   ignored. See [Security](guide/security.md) and
   [Configuration](guide/configuration.md) for details. Fixes #231.
 
+- The write-confirmation prompt in both clients now recognises a write whose
+  first keyword reads. It classified a statement by that keyword alone, so
+  `SELECT ... INTO`, which creates and populates a table, a CTE carrying an
+  `INSERT`, `UPDATE` or `DELETE`, and `EXPLAIN ANALYZE` of any of those, were
+  all read as ordinary `SELECT`s and ran on a writable connection without the
+  user being asked. This completes the fix that made custom tools confirm
+  their writes: that change corrected which tools are gated, whilst this one
+  corrects which statements are. Classification now runs against the
+  statement's comment-stripped, literal-blanked code, so a keyword inside a
+  string can no longer be mistaken for the real thing and a comment can no
+  longer hide one; `SELECT ... FOR UPDATE` and `EXPLAIN` without `ANALYZE`
+  are still treated as the reads they are, so the prompt keeps its meaning.
+  The scanner the read-only guardrails already used has moved to
+  `internal/sqltext` and is now shared with the classifier, with
+  `web/src/utils/sqlText.js` mirroring it for the web client. Note that this
+  is a client-side prompt and not a security boundary: a statement whose
+  writes happen inside a function it calls still reads as a `SELECT`, and
+  nothing textual could tell otherwise. What prevents a write on a read-only
+  connection remains the transaction access mode set by the server.
+
 - Raised the `go.mod` floor from 1.26.1 to 1.26.5. Building this server
   with the actual go1.26.3 toolchain and running `govulncheck` in binary
   mode showed crypto/tls, net/textproto, and crypto/x509 stdlib

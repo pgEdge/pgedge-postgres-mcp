@@ -75,6 +75,112 @@ describe('isWriteQuery', () => {
         });
     });
 
+    describe('writes hiding behind a reading first keyword return true', () => {
+        it('classifies SELECT ... INTO as write', () => {
+            expect(isWriteQuery('SELECT * INTO backup FROM users')).toBe(true);
+        });
+
+        it('classifies lowercase select ... into as write', () => {
+            expect(isWriteQuery('select id into t2 from t1')).toBe(true);
+        });
+
+        it('classifies SELECT ... INTO split across lines as write', () => {
+            expect(isWriteQuery('SELECT 1 INTO\nnewtbl')).toBe(true);
+        });
+
+        it('classifies a CTE carrying an INSERT as write', () => {
+            expect(isWriteQuery(
+                'WITH c AS (SELECT 1 AS n) INSERT INTO t SELECT n FROM c',
+            )).toBe(true);
+        });
+
+        it('classifies a data-modifying CTE with RETURNING as write', () => {
+            expect(isWriteQuery(
+                'WITH ins AS (INSERT INTO t VALUES (1) RETURNING *) SELECT * FROM ins',
+            )).toBe(true);
+        });
+
+        it('classifies a CTE carrying an UPDATE as write', () => {
+            expect(isWriteQuery(
+                'WITH u AS (UPDATE t SET n = 1 RETURNING *) SELECT * FROM u',
+            )).toBe(true);
+        });
+
+        it('classifies a CTE carrying a DELETE as write', () => {
+            expect(isWriteQuery(
+                'WITH d AS (DELETE FROM t RETURNING *) SELECT * FROM d',
+            )).toBe(true);
+        });
+
+        it('classifies a CTE followed by SELECT ... INTO as write', () => {
+            expect(isWriteQuery('WITH c AS (SELECT 1) SELECT * INTO t FROM c'))
+                .toBe(true);
+        });
+
+        it('classifies EXPLAIN ANALYZE of an INSERT as write', () => {
+            expect(isWriteQuery('EXPLAIN ANALYZE INSERT INTO t VALUES (1)'))
+                .toBe(true);
+        });
+
+        it('classifies EXPLAIN (ANALYZE) of an UPDATE as write', () => {
+            expect(isWriteQuery('EXPLAIN (ANALYZE, BUFFERS) UPDATE t SET n = 1'))
+                .toBe(true);
+        });
+
+        it('sees through a leading comment', () => {
+            expect(isWriteQuery('/* harmless */ SELECT * INTO backup FROM users'))
+                .toBe(true);
+        });
+    });
+
+    describe('reads that must not prompt return false', () => {
+        it('classifies EXPLAIN without ANALYZE as read', () => {
+            expect(isWriteQuery('EXPLAIN INSERT INTO t VALUES (1)')).toBe(false);
+        });
+
+        it('classifies EXPLAIN ANALYZE of a SELECT as read', () => {
+            expect(isWriteQuery('EXPLAIN (ANALYZE, BUFFERS) SELECT * FROM t'))
+                .toBe(false);
+        });
+
+        it('ignores a write keyword inside a string literal', () => {
+            expect(isWriteQuery(
+                'SELECT * FROM audit WHERE action = \'DELETE\'',
+            )).toBe(false);
+        });
+
+        it('ignores a write keyword inside a quoted identifier', () => {
+            expect(isWriteQuery('SELECT "delete" FROM t')).toBe(false);
+        });
+
+        it('ignores a write keyword that is part of an identifier', () => {
+            expect(isWriteQuery('SELECT delete_flag, into_tray FROM t'))
+                .toBe(false);
+        });
+
+        it('classifies SELECT ... FOR UPDATE as read', () => {
+            expect(isWriteQuery('SELECT * FROM t FOR UPDATE')).toBe(false);
+        });
+
+        it('classifies SELECT ... FOR NO KEY UPDATE as read', () => {
+            expect(isWriteQuery('SELECT * FROM t FOR NO KEY UPDATE')).toBe(false);
+        });
+
+        it('classifies SELECT ... FOR SHARE as read', () => {
+            expect(isWriteQuery('SELECT * FROM t FOR SHARE')).toBe(false);
+        });
+
+        it('classifies a subquery SELECT as read', () => {
+            expect(isWriteQuery('SELECT * FROM t WHERE id IN (SELECT id FROM u)'))
+                .toBe(false);
+        });
+
+        it('sees past a leading line comment on an ordinary read', () => {
+            expect(isWriteQuery('-- counting rows\nSELECT count(*) FROM t'))
+                .toBe(false);
+        });
+    });
+
     describe('case insensitivity', () => {
         it('handles lowercase SELECT', () => {
             expect(isWriteQuery('select * from users')).toBe(false);
