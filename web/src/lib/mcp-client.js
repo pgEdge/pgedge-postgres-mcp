@@ -8,8 +8,13 @@
  *-------------------------------------------------------------------------
  */
 
-// Web client version - keep in sync with server releases
-export const CLIENT_VERSION = '1.0.0-alpha5';
+// Web client version, injected from web/package.json by the define in
+// vite.config.js and vitest.config.js. It is deliberately not a literal
+// here: this constant is shown in the help panel and sent as
+// clientInfo.version in the MCP initialize handshake, and as a literal it
+// sat at 1.0.0-alpha5 through five subsequent releases because nothing
+// tied it to anything that a release already had to touch.
+export const CLIENT_VERSION = __APP_VERSION__;
 
 /**
  * MCP Client for communicating with MCP server via JSON-RPC

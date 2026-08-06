@@ -207,6 +207,56 @@ At the end of each README:
 
 - Update `changelog.md` with notable changes since the last release.
 
+## Versioning
+
+A release must update the version in every place below. **Treat this list
+as a starting point and not as authoritative**; it records where versions
+lived when it was written, and a new one can appear at any time without
+this file being updated. Always finish with a manual check, searching the
+tree for the outgoing version string and reading what each hit means:
+
+```bash
+git grep -n "1\.2\.3"   # the version being replaced
+```
+
+The minimal set of places to update:
+
+- `web/package.json`, along with the `version` fields in
+  `web/package-lock.json`. Run `npm version <version> --no-git-tag-version`
+  in `web/` rather than editing them by hand.
+
+- `internal/mcp/server.go`, in the `ServerVersion` constant. The server
+  reports it over MCP `initialize`, on `/health`, and in the OpenAPI
+  specification.
+
+- `internal/chat/mcp_client.go`, in the `ClientVersion` constant. The CLI
+  reports it in `--version` and its welcome banner.
+
+- `docs/changelog.md`, which needs a new release heading with the date, and
+  the entries moved out of `[Unreleased]`.
+
+- `examples/helm/pgedge-nla/Chart.yaml`, in both `version` and
+  `appVersion`.
+
+- The git tag itself, which is what the release workflow and the RPM and
+  Debian packaging derive their version from: `pkg/build-rpm.sh` and
+  `pkg/build-deb.sh` read it out of the tag, so neither needs editing.
+  Note that `pkg/common.sh` carries a hardcoded fallback for when
+  `COMPONENT_VERSION` is unset, which affects local package builds only;
+  update it if you rely on those.
+
+Two things deliberately need no update, and should not be given one:
+
+- The web client's `CLIENT_VERSION` in `web/src/lib/mcp-client.js` is
+  injected from `web/package.json` by the `define` in `vite.config.js` and
+  `vitest.config.js`. Bumping the manifest is enough. It was previously a
+  literal, which is exactly how it came to sit at `1.0.0-alpha5` through
+  five subsequent releases whilst every other version moved on.
+
+- The `version` label in `Dockerfile.cli`, `Dockerfile.server`, and
+  `Dockerfile.web` carries only `major.minor`, so a patch release leaves it
+  alone.
+
 ## Tests
 
 - Provide unit and integration tests for Go packages.

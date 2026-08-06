@@ -78,6 +78,16 @@ and this project adheres to
   the leader join synchronously rather than being raced into place. The
   behaviour under test is unchanged, and no production code is touched.
 
+- The web client reports its real version again. `CLIENT_VERSION` was a
+  literal in `web/src/lib/mcp-client.js` and had sat at `1.0.0-alpha5`
+  since that release, through alpha6, beta1, beta2, beta3 and 1.0.0, so the
+  help panel showed `Web Client: v1.0.0-alpha5` alongside `Server: v1.0.0`.
+  The stale value also went out as `clientInfo.version` in every MCP
+  `initialize` handshake, which is what the server's logs and traces
+  recorded. It is now injected from `web/package.json`, the manifest a
+  release already has to bump, so the two cannot drift apart; a test
+  asserts the two agree.
+
 ### Security
 
 - `release.yml`'s `build-web`, `build-amd64`, and `build-arm64` jobs run on
