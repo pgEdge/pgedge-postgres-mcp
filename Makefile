@@ -1,4 +1,4 @@
-.PHONY: build build-server build-client clean clean-server clean-client test test-server test-client test-web run install help lint lint-server lint-client vulncheck fmt format gofmt openapi
+.PHONY: all build build-server build-client clean clean-server clean-client test test-server test-client test-web run install help lint lint-server lint-client vulncheck fmt format gofmt openapi
 
 # Binary names and directories
 SERVER_BINARY=pgedge-postgres-mcp
@@ -104,20 +104,26 @@ test-client:
 # rather than a package added to the Go lists above. Dependencies are installed
 # only when node_modules is absent, so a repeat run does not pay for it.
 # A missing npm is reported and skipped rather than failed, matching how the
-# lint targets treat a missing golangci-lint; the tests themselves failing is
-# still a hard failure.
+# lint targets treat a missing golangci-lint; a failing npm ci, and a failing
+# test, are both hard failures.
+#
+# The recipe changes directory exactly once and tests node_modules from inside
+# $(WEB_DIR). Doing the install with its own "cd $(WEB_DIR)" would leave the
+# shell there for the command after it, since make runs the whole recipe in one
+# shell, and the second cd would then fail on a clean checkout.
 test-web:
 	@echo "Running web client tests..."
-	@if command -v npm >/dev/null 2>&1; then \
-		if [ ! -d $(WEB_DIR)/node_modules ]; then \
-			echo "Installing web client dependencies..."; \
-			cd $(WEB_DIR) && npm ci; \
-		fi; \
-		cd $(WEB_DIR) && npm test -- --run; \
-	else \
+	@if ! command -v npm >/dev/null 2>&1; then \
 		echo "npm not found, skipping web client tests. Install Node.js from:"; \
 		echo "  https://nodejs.org/"; \
-	fi
+		exit 0; \
+	fi; \
+	cd $(WEB_DIR) || exit 1; \
+	if [ ! -d node_modules ]; then \
+		echo "Installing web client dependencies..."; \
+		npm ci || exit 1; \
+	fi; \
+	npm test -- --run
 
 # Run with example environment
 run:
