@@ -270,14 +270,73 @@ func TestClientManager_ListDatabaseNames(t *testing.T) {
 		t.Errorf("expected 3 names, got %d", len(names))
 	}
 
-	// Check all names are present (order may vary)
-	nameSet := make(map[string]bool)
-	for _, name := range names {
-		nameSet[name] = true
+	// Every name is present, in sorted order.
+	expected := []string{"db1", "db2", "db3"}
+	for i, want := range expected {
+		if names[i] != want {
+			t.Errorf("expected name %q at index %d, got %q", want, i, names[i])
+		}
 	}
-	for _, expected := range []string{"db1", "db2", "db3"} {
-		if !nameSet[expected] {
-			t.Errorf("expected name '%s' to be in list", expected)
+}
+
+// TestClientManager_ListDatabaseNames_DeterministicOrder asserts the sorted
+// order holds across repeated calls. dbConfigs is a map, so an unsorted
+// implementation returns a different rotation almost every call and this test
+// fails within the first few iterations.
+func TestClientManager_ListDatabaseNames_DeterministicOrder(t *testing.T) {
+	// Registered out of alphabetical order, so returning the insertion order
+	// would not accidentally pass.
+	cm := NewClientManager([]config.NamedDatabaseConfig{
+		{Name: "pg18-spock2", Host: "h", Port: 5432, Database: "pgedge"},
+		{Name: "pg14-node1", Host: "h", Port: 5432, Database: "pgedge"},
+		{Name: "pg16-primary", Host: "h", Port: 5432, Database: "pgedge"},
+		{Name: "pg15-standby1", Host: "h", Port: 5432, Database: "pgedge"},
+		{Name: "pg18-spock1", Host: "h", Port: 5432, Database: "pgedge"},
+	})
+
+	want := []string{
+		"pg14-node1", "pg15-standby1", "pg16-primary",
+		"pg18-spock1", "pg18-spock2",
+	}
+
+	for i := 0; i < 50; i++ {
+		got := cm.ListDatabaseNames()
+		if len(got) != len(want) {
+			t.Fatalf("call %d: expected %d names, got %d", i, len(want), len(got))
+		}
+		for j := range want {
+			if got[j] != want[j] {
+				t.Fatalf("call %d: expected %q at index %d, got %q",
+					i, want[j], j, got[j])
+			}
+		}
+	}
+}
+
+// TestClientManager_GetDatabaseConfigs_DeterministicOrder is the same
+// assertion for the config accessor, which is what the /api/databases
+// endpoint, the resource registry, and the LLM database-switching tools all
+// build their output from.
+func TestClientManager_GetDatabaseConfigs_DeterministicOrder(t *testing.T) {
+	cm := NewClientManager([]config.NamedDatabaseConfig{
+		{Name: "pg17-node3", Host: "h3", Port: 5432, Database: "pgedge"},
+		{Name: "pg14-node1", Host: "h1", Port: 5432, Database: "pgedge"},
+		{Name: "pg17-node1", Host: "h2", Port: 5432, Database: "pgedge"},
+	})
+
+	want := []string{"pg14-node1", "pg17-node1", "pg17-node3"}
+
+	for i := 0; i < 50; i++ {
+		configs := cm.GetDatabaseConfigs()
+		if len(configs) != len(want) {
+			t.Fatalf("call %d: expected %d configs, got %d",
+				i, len(want), len(configs))
+		}
+		for j := range want {
+			if configs[j].Name != want[j] {
+				t.Fatalf("call %d: expected %q at index %d, got %q",
+					i, want[j], j, configs[j].Name)
+			}
 		}
 	}
 }

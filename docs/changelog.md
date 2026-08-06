@@ -52,6 +52,20 @@ and this project adheres to
   Callers of the LLM proxy API may still pass a per-request `temperature`,
   which is forwarded only when present.
 
+### Fixed
+
+- The configured databases are now listed in a deterministic order, sorted
+  by name. `ClientManager` holds them in a map and both accessors iterated
+  it directly, so the order was randomised by the Go runtime on every call:
+  the web client's database selector reshuffled between sessions, which is
+  awkward to read with more than a handful of instances configured, and the
+  `list_database_connections` tool returned its entries in a fresh order
+  each time, invalidating the provider-side prompt cache on every request
+  in the same way that `tools/list` did before (#213). The
+  `/api/databases` endpoint and the database resources share the accessor,
+  so all of them are stable now. The sort key is the map key, so no two
+  entries can tie.
+
 ### Security
 
 - `release.yml`'s `build-web`, `build-amd64`, and `build-arm64` jobs run on

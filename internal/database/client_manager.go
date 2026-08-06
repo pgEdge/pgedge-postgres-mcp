@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"os"
 	"reflect"
+	"sort"
 	"sync"
 
 	"pgedge-postgres-mcp/internal/config"
@@ -224,7 +225,10 @@ func (cm *ClientManager) GetDatabaseConfig(name string) *config.NamedDatabaseCon
 	return cm.dbConfigs[name]
 }
 
-// ListDatabaseNames returns the names of all configured databases
+// ListDatabaseNames returns the names of all configured databases, sorted by
+// name. dbConfigs is a map, so iterating it yields a different order on every
+// call; the sort makes the result stable for callers that surface or compare
+// it. The sort key is the map key itself, so no two entries can tie.
 func (cm *ClientManager) ListDatabaseNames() []string {
 	cm.mu.RLock()
 	defer cm.mu.RUnlock()
@@ -233,10 +237,15 @@ func (cm *ClientManager) ListDatabaseNames() []string {
 	for name := range cm.dbConfigs {
 		names = append(names, name)
 	}
+	sort.Strings(names)
 	return names
 }
 
-// GetDatabaseConfigs returns all database configurations
+// GetDatabaseConfigs returns all database configurations, sorted by name, for
+// the same reason as ListDatabaseNames: every caller either shows this list to
+// a person or hands it to a model, and neither wants it reshuffled between
+// otherwise identical calls. Names are unique because they are the dbConfigs
+// keys, so sort.Slice has no tied elements to order arbitrarily.
 func (cm *ClientManager) GetDatabaseConfigs() []config.NamedDatabaseConfig {
 	cm.mu.RLock()
 	defer cm.mu.RUnlock()
@@ -245,6 +254,9 @@ func (cm *ClientManager) GetDatabaseConfigs() []config.NamedDatabaseConfig {
 	for _, cfg := range cm.dbConfigs {
 		configs = append(configs, *cfg)
 	}
+	sort.Slice(configs, func(i, j int) bool {
+		return configs[i].Name < configs[j].Name
+	})
 	return configs
 }
 
