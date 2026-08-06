@@ -1063,7 +1063,7 @@ func TestEnsureMetadataFor_SharesFailedReload(t *testing.T) {
 	// this goroutine, so each is known to have joined the leader's record
 	// before anything is published; only the waiting happens concurrently.
 	const joiners = 10
-	results := make(chan error, joiners+1)
+	results := make(chan error, joiners)
 	for i := 0; i < joiners; i++ {
 		r, joinedAsLeader := client.joinMetadataReload(connStr)
 		if joinedAsLeader {
@@ -1078,14 +1078,18 @@ func TestEnsureMetadataFor_SharesFailedReload(t *testing.T) {
 		}()
 	}
 
-	// One caller goes through the public entry point, to keep this test
-	// honest about EnsureMetadataFor() itself joining rather than
-	// reloading.
-	go func() {
-		results <- client.EnsureMetadataFor(connStr)
-	}()
+	// Note that no caller here goes through EnsureMetadataFor(): starting a
+	// goroutine does not prove it reached the join, and a timeout is not
+	// proof either, so such a caller could be scheduled after the outcome
+	// below is published, become a leader and run its own load, which is
+	// the very race this rewrite removes. That the public entry point joins
+	// an in-flight reload rather than reloading is covered by
+	// TestEnsureMetadataFor_SharesInFlightReload, whose assertions hold
+	// whenever its joining caller is scheduled; the call at the end of this
+	// test covers the public path for the retry-after-failure case.
 
-	// Nothing may return whilst the reload is in flight.
+	// The waiters are blocked on a channel that nothing has closed, so this
+	// is a guarantee rather than a timing assumption.
 	select {
 	case err := <-results:
 		t.Fatalf("a caller returned %v whilst a reload was in flight; it did not wait for the leader", err)
@@ -1098,7 +1102,7 @@ func TestEnsureMetadataFor_SharesFailedReload(t *testing.T) {
 	leader.err = wantErr
 	client.finishMetadataReload(connStr, leader)
 
-	for i := 0; i < joiners+1; i++ {
+	for i := 0; i < joiners; i++ {
 		select {
 		case err := <-results:
 			if !errors.Is(err, wantErr) {
@@ -1112,7 +1116,7 @@ func TestEnsureMetadataFor_SharesFailedReload(t *testing.T) {
 	// None of them ran a reload of its own: the leader's attempt is the
 	// only one there would have been, and this test never let it run.
 	if attempts := client.metadataLoadAttempts.Load(); attempts != 0 {
-		t.Errorf("%d callers sharing one failing reload made %d load attempts, want 0; a failing reload is not being shared", joiners+1, attempts)
+		t.Errorf("%d callers sharing one failing reload made %d load attempts, want 0; a failing reload is not being shared", joiners, attempts)
 	}
 
 	// A failure must not be cached: the next caller starts a fresh

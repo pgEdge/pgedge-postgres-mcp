@@ -74,9 +74,9 @@ and this project adheres to
   leaders themselves, and the count came out at two or three. The reload is
   now driven through the leader API, as
   `TestEnsureMetadataFor_SharesInFlightReload` already does, so the
-  in-flight window lasts as long as the test needs and every assertion is
-  deterministic. The behaviour under test is unchanged, and no production
-  code is touched.
+  in-flight window lasts as long as the test needs, and the callers behind
+  the leader join synchronously rather than being raced into place. The
+  behaviour under test is unchanged, and no production code is touched.
 
 ### Security
 
