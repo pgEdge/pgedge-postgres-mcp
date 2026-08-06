@@ -267,7 +267,9 @@ func TestClientManager_ListDatabaseNames(t *testing.T) {
 
 	names := cm.ListDatabaseNames()
 	if len(names) != 3 {
-		t.Errorf("expected 3 names, got %d", len(names))
+		// Fatal, not just an error: the ordering check below indexes names
+		// and would panic rather than report on a short result.
+		t.Fatalf("expected 3 names, got %d", len(names))
 	}
 
 	// Every name is present, in sorted order.
