@@ -440,7 +440,7 @@ const ConversationPanel = ({
             </Drawer>
 
             {/* Delete Single Conversation Dialog */}
-            <Dialog open={deleteDialogOpen} onClose={handleCancelDelete} PaperProps={dialogPaperProps}>
+            <Dialog open={deleteDialogOpen} onClose={handleCancelDelete} slotProps={{ paper: dialogPaperProps }}>
                 <DialogTitle sx={{ color: isDark ? '#F1F5F9' : '#1F2937' }}>
                     Delete Conversation?
                 </DialogTitle>
@@ -478,7 +478,7 @@ const ConversationPanel = ({
             </Dialog>
 
             {/* Delete All Conversations Dialog */}
-            <Dialog open={deleteAllDialogOpen} onClose={handleCancelDeleteAll} PaperProps={dialogPaperProps}>
+            <Dialog open={deleteAllDialogOpen} onClose={handleCancelDeleteAll} slotProps={{ paper: dialogPaperProps }}>
                 <DialogTitle sx={{ color: isDark ? '#F1F5F9' : '#1F2937' }}>
                     Delete All Conversations?
                 </DialogTitle>
@@ -516,7 +516,7 @@ const ConversationPanel = ({
             </Dialog>
 
             {/* Rename Conversation Dialog */}
-            <Dialog open={renameDialogOpen} onClose={handleCancelRename} PaperProps={dialogPaperProps}>
+            <Dialog open={renameDialogOpen} onClose={handleCancelRename} slotProps={{ paper: dialogPaperProps }}>
                 <DialogTitle sx={{ color: isDark ? '#F1F5F9' : '#1F2937' }}>
                     Rename Conversation
                 </DialogTitle>

@@ -188,15 +188,17 @@ const PromptExecutionDialog = ({
                                         helperText={validationErrors[arg.name] || arg.description}
                                         required={arg.required}
                                         disabled={executing}
-                                        InputProps={{
-                                            endAdornment: arg.required && (
-                                                <Chip
-                                                    label="Required"
-                                                    size="small"
-                                                    color="error"
-                                                    variant="outlined"
-                                                />
-                                            ),
+                                        slotProps={{
+                                            input: {
+                                                endAdornment: arg.required && (
+                                                    <Chip
+                                                        label="Required"
+                                                        size="small"
+                                                        color="error"
+                                                        variant="outlined"
+                                                    />
+                                                ),
+                                            },
                                         }}
                                     />
                                 )}

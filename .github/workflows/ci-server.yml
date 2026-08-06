@@ -31,16 +31,16 @@ jobs:
 
         steps:
             - name: Checkout code
-              uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+              uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
             - name: Set up Go
-              uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+              uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
               with:
                   go-version: '1.26'
                   cache: false
 
             - name: Cache Go modules
-              uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+              uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
               with:
                   path: |
                       ~/go/pkg/mod
@@ -57,9 +57,9 @@ jobs:
 
             - name: Lint server code
               if: matrix.postgres-version == '18'
-              uses: golangci/golangci-lint-action@9fae48acfc02a90574d7c304a1758ef9895495fa # v7
+              uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9
               with:
-                  version: v2.11.4
+                  version: v2.12.2
                   args: --timeout=5m ./internal/mcp/... ./internal/auth/... ./internal/config/... ./internal/crypto/... ./internal/database/... ./internal/resources/... ./internal/tools/... ./cmd/pgedge-pg-mcp-svr/...
 
             - name: Run go vet
@@ -117,7 +117,7 @@ jobs:
 
             - name: Upload build artifact
               if: matrix.postgres-version == '18'
-              uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+              uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
               with:
                   name: pgedge-postgres-mcp-linux-amd64
                   path: bin/pgedge-postgres-mcp
@@ -125,7 +125,7 @@ jobs:
 
             - name: Upload coverage artifact
               if: matrix.postgres-version == '18'
-              uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+              uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
               with:
                   name: coverage-server
                   path: |

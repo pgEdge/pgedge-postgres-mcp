@@ -67,7 +67,7 @@ jobs:
             apt_ts:     ${{ steps.detect.outputs.apt_ts }}
         steps:
             - name: Checkout code
-              uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+              uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
             - name: Checkout pgedge-detect-build-matrix
               env:
@@ -148,14 +148,14 @@ jobs:
         runs-on: ubuntu-latest
         steps:
             - name: Checkout code
-              uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+              uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
               with:
                   fetch-depth: 0
 
             - name: Set up Node.js
-              uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+              uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
               with:
-                  node-version: '20'
+                  node-version: '24'
                   cache: 'npm'
                   cache-dependency-path: web/package-lock.json
 
@@ -185,14 +185,14 @@ jobs:
                   echo "web.tar.gz contents:"; tar -tzf web.tar.gz | head
 
             - name: Upload Web UI dist (for Go embed)
-              uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+              uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
               with:
                   name: web-dist
                   path: web/dist/
                   retention-days: 1
 
             - name: Upload Web UI archive (for packaging + release)
-              uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+              uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
               with:
                   name: web-archive
                   path: web.tar.gz
@@ -207,7 +207,7 @@ jobs:
         needs: build-web
         steps:
             - name: Checkout code
-              uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+              uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
               with:
                   fetch-depth: 0
 
@@ -215,13 +215,13 @@ jobs:
               run: git fetch --force --tags
 
             - name: Set up Go
-              uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+              uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
               with:
                   go-version: '1.26'
                   cache: true
 
             - name: Download Web UI artifact
-              uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+              uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
               with:
                   name: web-dist
                   path: web/dist
@@ -234,7 +234,7 @@ jobs:
                   go test -v ./internal/mcp/... ./internal/auth/... ./internal/config/... ./internal/crypto/... ./internal/database/... ./internal/resources/... ./internal/tools/... ./internal/chat/... ./internal/llmproxy/... ./internal/search/... ./internal/prompts/... ./internal/conversations/...
 
             - name: Run GoReleaser (amd64 only)
-              uses: goreleaser/goreleaser-action@9a127d869fb706213d29cdf8eef3a4ea2b869415 # v7
+              uses: goreleaser/goreleaser-action@f06c13b6b1a9625abc9e6e439d9c05a8f2190e94 # v7
               with:
                   distribution: goreleaser
                   version: latest
@@ -243,7 +243,7 @@ jobs:
                   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
             - name: Upload amd64 artifacts
-              uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+              uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
               with:
                   name: release-artifacts-amd64
                   path: |
@@ -260,7 +260,7 @@ jobs:
         needs: build-web
         steps:
             - name: Checkout code
-              uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+              uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
               with:
                   fetch-depth: 0
 
@@ -268,13 +268,13 @@ jobs:
               run: git fetch --force --tags
 
             - name: Set up Go
-              uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+              uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
               with:
                   go-version: '1.26'
                   cache: true
 
             - name: Download Web UI artifact
-              uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+              uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
               with:
                   name: web-dist
                   path: web/dist
@@ -287,7 +287,7 @@ jobs:
                   go test -v ./internal/mcp/... ./internal/auth/... ./internal/config/... ./internal/crypto/... ./internal/database/... ./internal/resources/... ./internal/tools/... ./internal/chat/... ./internal/llmproxy/... ./internal/search/... ./internal/prompts/... ./internal/conversations/...
 
             - name: Run GoReleaser (arm64 only)
-              uses: goreleaser/goreleaser-action@9a127d869fb706213d29cdf8eef3a4ea2b869415 # v7
+              uses: goreleaser/goreleaser-action@f06c13b6b1a9625abc9e6e439d9c05a8f2190e94 # v7
               with:
                   distribution: goreleaser
                   version: latest
@@ -296,7 +296,7 @@ jobs:
                   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
             - name: Upload arm64 artifacts
-              uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+              uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
               with:
                   name: release-artifacts-arm64
                   path: |
@@ -316,19 +316,19 @@ jobs:
             contents: write
         steps:
             - name: Download amd64 artifacts
-              uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+              uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
               with:
                   name: release-artifacts-amd64
                   path: dist/
 
             - name: Download arm64 artifacts
-              uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+              uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
               with:
                   name: release-artifacts-arm64
                   path: dist/
 
             - name: Download Web UI archive
-              uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+              uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
               with:
                   name: web-archive
                   path: web-archive
@@ -344,7 +344,7 @@ jobs:
                   cat checksums.txt
 
             - name: Create GitHub Release
-              uses: softprops/action-gh-release@a06a81a03ee405af7f2048a818ed3f03bbf83c7b # v2
+              uses: softprops/action-gh-release@3d0d9888cb7fd7b750713d6e236d1fcb99157228 # v3
               with:
                   files: |
                       dist/*.tar.gz
@@ -387,7 +387,7 @@ jobs:
             COMPONENT_BRANCH:   ${{ needs.determine-repo-type.outputs.effective-tag }}
         steps:
             - name: Checkout code
-              uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+              uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
             - name: Derive os_version from image
               id: cell
@@ -483,7 +483,7 @@ jobs:
             RPM_MATRIX:        ${{ needs.detect-matrix.outputs.rpm_matrix }}
         steps:
             - name: Checkout code
-              uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+              uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
             - name: Download all RPM cell artifacts
               uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
@@ -584,7 +584,7 @@ jobs:
             COMPONENT_BRANCH:   ${{ needs.determine-repo-type.outputs.effective-tag }}
         steps:
             - name: Checkout code
-              uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+              uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
             - name: Derive distro from image
               id: cell
@@ -677,7 +677,7 @@ jobs:
             DEB_MATRIX:        ${{ needs.detect-matrix.outputs.deb_matrix }}
         steps:
             - name: Checkout code
-              uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+              uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
             - name: Download all DEB cell artifacts
               uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8

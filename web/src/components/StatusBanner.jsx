@@ -791,7 +791,7 @@ const StatusBanner = () => {
             <Dialog
                 open={clearDialogOpen}
                 onClose={handleCancelClear}
-                PaperProps={dialogPaperProps}
+                slotProps={{ paper: dialogPaperProps }}
             >
                 <DialogTitle sx={{ color: isDark ? '#F1F5F9' : '#1F2937' }}>
                     Clear conversation
