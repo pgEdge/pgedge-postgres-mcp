@@ -14,6 +14,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"os"
 	"reflect"
 	"strings"
@@ -1014,6 +1015,16 @@ func TestEnsureMetadataFor_SharesInFlightReload(t *testing.T) {
 //
 // The connection here points at a port with nothing behind it, so the
 // reload fails quickly and no database is needed.
+//
+// The reload is driven through the leader API rather than by racing a
+// burst of EnsureMetadataFor() calls, which is what the first version of
+// this test did. Connecting to a reserved port fails immediately, so the
+// leader's attempt regularly finished before the rest of the burst had
+// been scheduled; those callers then found no reload to join, became
+// leaders themselves and ran their own attempt, and the "exactly one
+// attempt" assertion saw two or three. Taking leadership explicitly makes
+// the in-flight window last as long as the test wants it to, which is the
+// same approach TestEnsureMetadataFor_SharesInFlightReload takes.
 func TestEnsureMetadataFor_SharesFailedReload(t *testing.T) {
 	// Port 1 is reserved and never listening, so connecting fails
 	// immediately rather than hanging.
@@ -1041,37 +1052,76 @@ func TestEnsureMetadataFor_SharesFailedReload(t *testing.T) {
 		MetadataLoadedAt: time.Now().Add(-6 * time.Minute), // stale
 	}
 
-	const callers = 10
-	var wg sync.WaitGroup
-	errs := make([]error, callers)
-	start := make(chan struct{})
-	for i := 0; i < callers; i++ {
-		wg.Add(1)
-		go func(idx int) {
-			defer wg.Done()
-			<-start
-			errs[idx] = client.EnsureMetadataFor(connStr)
-		}(i)
+	// Stand in for the caller that gets there first, with its reload still
+	// running, exactly as a real leader would be.
+	leader, isLeader := client.joinMetadataReload(connStr)
+	if !isLeader {
+		t.Fatal("joinMetadataReload() reported the first caller is not the leader")
 	}
-	close(start)
-	wg.Wait()
 
-	for i, err := range errs {
-		if err == nil {
-			t.Errorf("caller %d: EnsureMetadataFor returned nil against an unreachable database", i)
+	// The callers arriving behind it. joinMetadataReload() is called from
+	// this goroutine, so each is known to have joined the leader's record
+	// before anything is published; only the waiting happens concurrently.
+	const joiners = 10
+	results := make(chan error, joiners+1)
+	for i := 0; i < joiners; i++ {
+		r, joinedAsLeader := client.joinMetadataReload(connStr)
+		if joinedAsLeader {
+			t.Fatalf("caller %d became a second leader whilst a reload was in flight", i)
+		}
+		if r != leader {
+			t.Fatalf("caller %d joined a different reload record than the leader's", i)
+		}
+		go func() {
+			<-r.done
+			results <- r.err
+		}()
+	}
+
+	// One caller goes through the public entry point, to keep this test
+	// honest about EnsureMetadataFor() itself joining rather than
+	// reloading.
+	go func() {
+		results <- client.EnsureMetadataFor(connStr)
+	}()
+
+	// Nothing may return whilst the reload is in flight.
+	select {
+	case err := <-results:
+		t.Fatalf("a caller returned %v whilst a reload was in flight; it did not wait for the leader", err)
+	case <-time.After(50 * time.Millisecond):
+	}
+
+	// Finish the leader's reload as a failing one, which is the case this
+	// test exists for.
+	wantErr := errors.New("dial tcp 127.0.0.1:1: connect: connection refused")
+	leader.err = wantErr
+	client.finishMetadataReload(connStr, leader)
+
+	for i := 0; i < joiners+1; i++ {
+		select {
+		case err := <-results:
+			if !errors.Is(err, wantErr) {
+				t.Errorf("a caller received %v from the shared failing reload, want %v", err, wantErr)
+			}
+		case <-time.After(5 * time.Second):
+			t.Fatal("a caller did not return after the failed reload finished")
 		}
 	}
 
-	if attempts := client.metadataLoadAttempts.Load(); attempts != 1 {
-		t.Errorf("%d concurrent callers made %d load attempts against an unreachable database, want exactly 1; a failing reload is not being shared", callers, attempts)
+	// None of them ran a reload of its own: the leader's attempt is the
+	// only one there would have been, and this test never let it run.
+	if attempts := client.metadataLoadAttempts.Load(); attempts != 0 {
+		t.Errorf("%d callers sharing one failing reload made %d load attempts, want 0; a failing reload is not being shared", joiners+1, attempts)
 	}
 
 	// A failure must not be cached: the next caller starts a fresh
-	// attempt rather than being handed the stale error for ever.
+	// attempt rather than being handed the stale error for ever. This one
+	// runs the real load, against the unreachable port.
 	if err := client.EnsureMetadataFor(connStr); err == nil {
 		t.Error("EnsureMetadataFor returned nil on a later call against an unreachable database")
 	}
-	if attempts := client.metadataLoadAttempts.Load(); attempts != 2 {
-		t.Errorf("a later call brought the total to %d load attempts, want 2; the failed reload was cached rather than retried", attempts)
+	if attempts := client.metadataLoadAttempts.Load(); attempts != 1 {
+		t.Errorf("a later call made %d load attempts, want 1; the failed reload was cached rather than retried", attempts)
 	}
 }

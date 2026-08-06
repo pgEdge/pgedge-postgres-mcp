@@ -66,6 +66,18 @@ and this project adheres to
   so all of them are stable now. The sort key is the map key, so no two
   entries can tie.
 
+- `TestEnsureMetadataFor_SharesFailedReload` no longer fails at random. It
+  released ten goroutines at once and asserted that exactly one metadata
+  load attempt resulted, but the leader's attempt targets a reserved port
+  and so fails immediately; whenever it finished before the rest of the
+  burst had been scheduled, those callers found no reload to join, became
+  leaders themselves, and the count came out at two or three. The reload is
+  now driven through the leader API, as
+  `TestEnsureMetadataFor_SharesInFlightReload` already does, so the
+  in-flight window lasts as long as the test needs and every assertion is
+  deterministic. The behaviour under test is unchanged, and no production
+  code is touched.
+
 ### Security
 
 - `release.yml`'s `build-web`, `build-amd64`, and `build-arm64` jobs run on
