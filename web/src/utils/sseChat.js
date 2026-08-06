@@ -262,6 +262,21 @@ export async function sseChat(body, options = {}) {
         throw streamError;
     }
 
+    // The streaming done frame carries a StreamChunk, which has no
+    // stop_reason field, so the proxy cannot tell us why the model
+    // stopped; providers that report finish_reason "tool_calls" (such
+    // as OpenAI) therefore arrive here indistinguishable from a plain
+    // text turn. A response carrying tool_use blocks is by definition
+    // a tool_use turn, so infer that rather than leaving the default
+    // "end_turn", which would make callers ignore the tool call. A
+    // more specific server-reported reason (max_tokens, for instance)
+    // is left alone.
+    if (assembled.stop_reason === 'end_turn' &&
+        Array.isArray(assembled.content) &&
+        assembled.content.some((block) => block && block.type === 'tool_use')) {
+        assembled.stop_reason = 'tool_use';
+    }
+
     return assembled;
 }
 

@@ -13,13 +13,18 @@ package database
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"os"
 	"reflect"
+	"strings"
+	"sync"
 	"testing"
 	"time"
 
 	"pgedge-postgres-mcp/internal/config"
+	"pgedge-postgres-mcp/internal/mcp"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -768,5 +773,305 @@ func TestAfterReleaseRestoresReadOnlyDefault(t *testing.T) {
 	if after != "on" {
 		t.Errorf("default_transaction_read_only = %q after release and reacquire, want \"on\"; "+
 			"AfterRelease did not restore the session default", after)
+	}
+}
+
+// TestEnsureMetadataFor covers the decision the helper makes without
+// touching a database: fresh metadata must not provoke a reload, and an
+// unknown connection must report the failure rather than silently
+// claiming success.
+func TestEnsureMetadataFor(t *testing.T) {
+	client := NewClient(nil)
+
+	// Fresh metadata: EnsureMetadataFor must return without attempting a
+	// reload. The connection has a nil pool, so an attempted reload
+	// would not survive this call.
+	client.connections["postgres://localhost/fresh"] = &ConnectionInfo{
+		ConnString:       "postgres://localhost/fresh",
+		Metadata:         make(map[string]TableInfo),
+		MetadataLoaded:   true,
+		MetadataLoadedAt: time.Now(),
+	}
+	if err := client.EnsureMetadataFor("postgres://localhost/fresh"); err != nil {
+		t.Errorf("EnsureMetadataFor() returned error for fresh metadata: %v", err)
+	}
+
+	// Unknown connection: the reload is attempted and fails, and the
+	// error is surfaced to the caller.
+	err := client.EnsureMetadataFor("postgres://localhost/unknown")
+	if err == nil {
+		t.Error("EnsureMetadataFor() returned nil for an unknown connection, want an error")
+	}
+}
+
+// TestExecuteResourceQuery_StaleMetadataReloads is a regression test for
+// issue #218. IsMetadataLoaded returns false both when metadata has
+// never been loaded and when it has aged past metadata_ttl (default 5m),
+// and ExecuteResourceQuery treated the second case as a database that
+// was not ready. A resource read after five idle minutes therefore
+// returned a retryable DATABASE_NOT_READY, which surfaced in the web
+// client as the "Database is switching" banner, followed by "Database
+// switch taking longer than expected" once the retries ran out; the
+// database itself was healthy throughout.
+//
+// This test loads metadata, backdates MetadataLoadedAt past the TTL, and
+// asserts that the resource query reloads and succeeds. It is gated on
+// TEST_PGEDGE_POSTGRES_CONNECTION_STRING, matching the other live-DB
+// regression tests here.
+func TestExecuteResourceQuery_StaleMetadataReloads(t *testing.T) {
+	connStr := os.Getenv("TEST_PGEDGE_POSTGRES_CONNECTION_STRING")
+	if connStr == "" {
+		t.Skip("TEST_PGEDGE_POSTGRES_CONNECTION_STRING not set; skipping live-DB regression test for issue #218")
+	}
+
+	client := NewClientWithConnectionString(connStr, nil)
+	defer client.Close()
+
+	if err := client.ConnectTo(connStr); err != nil {
+		t.Fatalf("ConnectTo failed: %v", err)
+	}
+	if err := client.SetDefaultConnection(connStr); err != nil {
+		t.Fatalf("SetDefaultConnection failed: %v", err)
+	}
+	if err := client.LoadMetadataFor(connStr); err != nil {
+		t.Fatalf("LoadMetadataFor failed: %v", err)
+	}
+
+	// Age the metadata past the default 5 minute TTL, exactly as five
+	// idle minutes would.
+	client.mu.Lock()
+	client.connections[connStr].MetadataLoadedAt = time.Now().Add(-6 * time.Minute)
+	client.mu.Unlock()
+
+	if client.IsMetadataLoaded() {
+		t.Fatal("metadata still reports as loaded after backdating past the TTL; the fixture is not exercising the stale path")
+	}
+
+	processor := func(rows pgx.Rows) (interface{}, error) {
+		var got int
+		for rows.Next() {
+			if err := rows.Scan(&got); err != nil {
+				return nil, err
+			}
+		}
+		return got, nil
+	}
+
+	content, err := ExecuteResourceQuery(client, "test://stale", "SELECT 218", processor)
+	if err != nil {
+		t.Fatalf("ExecuteResourceQuery returned error: %v", err)
+	}
+	if len(content.Contents) == 0 {
+		t.Fatal("ExecuteResourceQuery returned no content")
+	}
+
+	// A DATABASE_NOT_READY payload here is the regression: stale
+	// metadata was reported as an unready database.
+	var errorResponse mcp.ResourceError
+	if err := json.Unmarshal([]byte(content.Contents[0].Text), &errorResponse); err == nil && errorResponse.Error {
+		t.Fatalf("ExecuteResourceQuery reported %q for stale metadata; it should have reloaded (issue #218)", errorResponse.Code)
+	}
+
+	if strings.TrimSpace(content.Contents[0].Text) != "218" {
+		t.Errorf("ExecuteResourceQuery returned %q, want \"218\"", content.Contents[0].Text)
+	}
+
+	// The reload must also have refreshed the timestamp, so a second
+	// read is served from cache rather than reloading again.
+	if !client.IsMetadataLoaded() {
+		t.Error("metadata still reports as stale after ExecuteResourceQuery; the reload did not refresh MetadataLoadedAt")
+	}
+}
+
+// TestEnsureMetadataFor_CoalescesConcurrentReloads asserts that a burst
+// of callers arriving after metadata_ttl has expired produces one
+// catalog query rather than one per caller. Every caller passes the
+// freshness check before any of them refreshes MetadataLoadedAt, so
+// without the per-connection reload guard each one runs its own
+// LoadMetadataFor; the status banner's periodic refresh of several
+// resources makes such bursts routine. It is gated on
+// TEST_PGEDGE_POSTGRES_CONNECTION_STRING, since coalescing is only
+// observable when the reload actually succeeds.
+func TestEnsureMetadataFor_CoalescesConcurrentReloads(t *testing.T) {
+	connStr := os.Getenv("TEST_PGEDGE_POSTGRES_CONNECTION_STRING")
+	if connStr == "" {
+		t.Skip("TEST_PGEDGE_POSTGRES_CONNECTION_STRING not set; skipping live-DB concurrency test for issue #218")
+	}
+
+	client := NewClientWithConnectionString(connStr, nil)
+	defer client.Close()
+
+	if err := client.ConnectTo(connStr); err != nil {
+		t.Fatalf("ConnectTo failed: %v", err)
+	}
+	if err := client.LoadMetadataFor(connStr); err != nil {
+		t.Fatalf("LoadMetadataFor failed: %v", err)
+	}
+
+	// Age the metadata past the default 5 minute TTL so every caller
+	// below sees it as stale.
+	client.mu.Lock()
+	client.connections[connStr].MetadataLoadedAt = time.Now().Add(-6 * time.Minute)
+	client.mu.Unlock()
+
+	before := client.metadataLoadAttempts.Load()
+
+	const callers = 20
+	var wg sync.WaitGroup
+	errs := make([]error, callers)
+	start := make(chan struct{})
+	for i := 0; i < callers; i++ {
+		wg.Add(1)
+		go func(idx int) {
+			defer wg.Done()
+			<-start
+			errs[idx] = client.EnsureMetadataFor(connStr)
+		}(i)
+	}
+	close(start)
+	wg.Wait()
+
+	for i, err := range errs {
+		if err != nil {
+			t.Errorf("caller %d: EnsureMetadataFor returned error: %v", i, err)
+		}
+	}
+
+	loads := client.metadataLoadAttempts.Load() - before
+	if loads != 1 {
+		t.Errorf("%d concurrent callers triggered %d metadata loads, want exactly 1; reloads are not being coalesced", callers, loads)
+	}
+
+	if !client.IsMetadataLoadedFor(connStr) {
+		t.Error("metadata still reports as stale after the reload")
+	}
+}
+
+// TestEnsureMetadataFor_SharesInFlightReload covers the sharing of an
+// in-flight reload without needing a database. A caller that arrives
+// whilst a reload is running must wait for it and take its outcome
+// rather than starting its own. The connection here has a nil pool, so a
+// reload attempt of its own would panic instead of passing quietly: the
+// test fails loudly if the caller does not join.
+func TestEnsureMetadataFor_SharesInFlightReload(t *testing.T) {
+	const connStr = "postgres://localhost/inflight"
+
+	client := NewClient(nil)
+	client.connections[connStr] = &ConnectionInfo{
+		ConnString:       connStr,
+		Metadata:         make(map[string]TableInfo),
+		MetadataLoaded:   true,
+		MetadataLoadedAt: time.Now().Add(-6 * time.Minute), // stale
+	}
+
+	// Stand in for the caller that gets there first and becomes the
+	// leader, with its reload still running.
+	leader, isLeader := client.joinMetadataReload(connStr)
+	if !isLeader {
+		t.Fatal("joinMetadataReload() reported the first caller is not the leader")
+	}
+
+	joined := make(chan error, 1)
+	go func() {
+		joined <- client.EnsureMetadataFor(connStr)
+	}()
+
+	// The joining caller must still be waiting: nothing has published a
+	// result yet.
+	select {
+	case err := <-joined:
+		t.Fatalf("EnsureMetadataFor() returned %v whilst a reload was in flight; it did not join", err)
+	case <-time.After(50 * time.Millisecond):
+	}
+
+	// Finish the leader's reload successfully, as a real one would.
+	client.mu.Lock()
+	client.connections[connStr].MetadataLoadedAt = time.Now()
+	client.mu.Unlock()
+	leader.err = nil
+	client.finishMetadataReload(connStr, leader)
+
+	select {
+	case err := <-joined:
+		if err != nil {
+			t.Errorf("EnsureMetadataFor() returned error from a successful shared reload: %v", err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("EnsureMetadataFor() did not return after the in-flight reload finished")
+	}
+
+	if attempts := client.metadataLoadAttempts.Load(); attempts != 0 {
+		t.Errorf("EnsureMetadataFor() made %d load attempts, want 0; it did not share the in-flight reload", attempts)
+	}
+}
+
+// TestEnsureMetadataFor_SharesFailedReload asserts that a failing reload
+// is shared too. Metadata stays stale when a reload fails, so callers
+// waiting on it would each fail the freshness recheck and start their own
+// attempt; against an unreachable database that queues one connect
+// timeout per caller, turning a burst into a long serial stall. Every
+// caller should instead receive the outcome of the one attempt that ran.
+//
+// The connection here points at a port with nothing behind it, so the
+// reload fails quickly and no database is needed.
+func TestEnsureMetadataFor_SharesFailedReload(t *testing.T) {
+	// Port 1 is reserved and never listening, so connecting fails
+	// immediately rather than hanging.
+	const connStr = "postgres://someone@127.0.0.1:1/nothing?sslmode=disable&connect_timeout=1"
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	poolConfig, err := pgxpool.ParseConfig(connStr)
+	if err != nil {
+		t.Fatalf("failed to parse fixture connection string: %v", err)
+	}
+	pool, err := pgxpool.NewWithConfig(ctx, poolConfig)
+	if err != nil {
+		t.Fatalf("failed to build fixture pool: %v", err)
+	}
+	defer pool.Close()
+
+	client := NewClient(nil)
+	client.connections[connStr] = &ConnectionInfo{
+		ConnString:       connStr,
+		Pool:             pool,
+		Metadata:         make(map[string]TableInfo),
+		MetadataLoaded:   true,
+		MetadataLoadedAt: time.Now().Add(-6 * time.Minute), // stale
+	}
+
+	const callers = 10
+	var wg sync.WaitGroup
+	errs := make([]error, callers)
+	start := make(chan struct{})
+	for i := 0; i < callers; i++ {
+		wg.Add(1)
+		go func(idx int) {
+			defer wg.Done()
+			<-start
+			errs[idx] = client.EnsureMetadataFor(connStr)
+		}(i)
+	}
+	close(start)
+	wg.Wait()
+
+	for i, err := range errs {
+		if err == nil {
+			t.Errorf("caller %d: EnsureMetadataFor returned nil against an unreachable database", i)
+		}
+	}
+
+	if attempts := client.metadataLoadAttempts.Load(); attempts != 1 {
+		t.Errorf("%d concurrent callers made %d load attempts against an unreachable database, want exactly 1; a failing reload is not being shared", callers, attempts)
+	}
+
+	// A failure must not be cached: the next caller starts a fresh
+	// attempt rather than being handed the stale error for ever.
+	if err := client.EnsureMetadataFor(connStr); err == nil {
+		t.Error("EnsureMetadataFor returned nil on a later call against an unreachable database")
+	}
+	if attempts := client.metadataLoadAttempts.Load(); attempts != 2 {
+		t.Errorf("a later call brought the total to %d load attempts, want 2; the failed reload was cached rather than retried", attempts)
 	}
 }

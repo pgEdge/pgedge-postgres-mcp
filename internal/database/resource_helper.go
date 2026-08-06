@@ -32,8 +32,11 @@ type RowProcessor func(rows pgx.Rows) (interface{}, error)
 // - Marshal to JSON
 // - Return formatted ResourceContent
 func ExecuteResourceQuery(client *Client, uri string, query string, processor RowProcessor) (mcp.ResourceContent, error) {
-	// Check if metadata is loaded
-	if !client.IsMetadataLoaded() {
+	// Ensure metadata is loaded, reloading it when the TTL has expired.
+	// Stale metadata is not the same thing as an unready database, and
+	// reporting DATABASE_NOT_READY for it left the client retrying
+	// against a database that was fine (issue #218).
+	if err := client.EnsureMetadata(); err != nil {
 		return mcp.NewResourceJSONError(uri, mcp.DatabaseNotReadyMessage, mcp.ErrorCodeDatabaseNotReady, true)
 	}
 

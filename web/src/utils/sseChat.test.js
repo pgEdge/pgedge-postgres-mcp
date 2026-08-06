@@ -152,6 +152,74 @@ describe('sseChat', () => {
         expect(result.stop_reason).toBe('end_turn');
     });
 
+    it('infers tool_use when the done frame reports end_turn', async () => {
+        globalThis.fetch = vi.fn().mockResolvedValue(buildStreamResponse([
+            'data: {"type":"tool_use_start","tool_use":{"id":"tu_1","name":"count_rows"}}\n\n',
+            'data: {"type":"tool_use_delta","partial":"{\\"table\\":\\"test_users\\"}"}\n\n',
+            'event: done\ndata: {"stop_reason":"end_turn","usage":{"prompt_tokens":1,"completion_tokens":1,"total_tokens":2}}\n\n',
+        ]));
+
+        const result = await sseChat({ messages: [] });
+
+        expect(result.stop_reason).toBe('tool_use');
+        expect(result.content).toEqual([
+            {
+                type: 'tool_use',
+                tool_use: {
+                    id: 'tu_1',
+                    name: 'count_rows',
+                    input: { table: 'test_users' },
+                },
+            },
+        ]);
+    });
+
+    it('infers tool_use when the done frame omits stop_reason', async () => {
+        globalThis.fetch = vi.fn().mockResolvedValue(buildStreamResponse([
+            'data: {"type":"text","text":"Counting."}\n\n',
+            'data: {"type":"tool_use_start","tool_use":{"id":"tu_1","name":"count_rows"}}\n\n',
+            'data: {"type":"tool_use_delta","partial":"{}"}\n\n',
+            'event: done\ndata: {"type":"done","usage":{"total_tokens":3}}\n\n',
+        ]));
+
+        const result = await sseChat({ messages: [] });
+
+        expect(result.stop_reason).toBe('tool_use');
+    });
+
+    it('infers tool_use from tool_use blocks in the done payload content', async () => {
+        globalThis.fetch = vi.fn().mockResolvedValue(buildStreamResponse([
+            'event: done\ndata: {"stop_reason":"end_turn","content":[{"type":"tool_use","tool_use":{"id":"tu_1","name":"count_rows","input":{}}}]}\n\n',
+        ]));
+
+        const result = await sseChat({ messages: [] });
+
+        expect(result.stop_reason).toBe('tool_use');
+    });
+
+    it('leaves a more specific stop_reason untouched', async () => {
+        globalThis.fetch = vi.fn().mockResolvedValue(buildStreamResponse([
+            'data: {"type":"tool_use_start","tool_use":{"id":"tu_1","name":"count_rows"}}\n\n',
+            'data: {"type":"tool_use_delta","partial":"{\\"table\\":"}\n\n',
+            'event: done\ndata: {"stop_reason":"max_tokens"}\n\n',
+        ]));
+
+        const result = await sseChat({ messages: [] });
+
+        expect(result.stop_reason).toBe('max_tokens');
+    });
+
+    it('keeps end_turn for a text-only response', async () => {
+        globalThis.fetch = vi.fn().mockResolvedValue(buildStreamResponse([
+            'data: {"type":"text","text":"All done."}\n\n',
+            'event: done\ndata: {"stop_reason":"end_turn"}\n\n',
+        ]));
+
+        const result = await sseChat({ messages: [] });
+
+        expect(result.stop_reason).toBe('end_turn');
+    });
+
     it('prefers content array from done payload when present', async () => {
         globalThis.fetch = vi.fn().mockResolvedValue(buildStreamResponse([
             'data: {"type":"text","text":"streamed"}\n\n',

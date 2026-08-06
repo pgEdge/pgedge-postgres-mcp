@@ -15,6 +15,7 @@ import (
 	"fmt"
 	"os"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"pgedge-postgres-mcp/internal/config"
@@ -51,6 +52,18 @@ type Client struct {
 	dbConfig       *config.NamedDatabaseConfig // database configuration for pool settings
 	closed         bool                        // true after Close() has been called
 	mu             sync.RWMutex
+
+	// metadataReloads holds the in-flight metadata reload per connection
+	// string, so that a burst of callers arriving after metadata_ttl
+	// expires shares one catalog query rather than issuing one each.
+	// Guarded by mu. See EnsureMetadataFor.
+	metadataReloads map[string]*metadataReload
+
+	// metadataLoadAttempts counts calls into LoadMetadataFor, successful
+	// or not. It exists so that tests can assert reloads were coalesced
+	// rather than merely assume it; nothing in the server's behaviour
+	// depends on it.
+	metadataLoadAttempts atomic.Uint64
 }
 
 // NewClient creates a new database client with optional database configuration
@@ -399,6 +412,7 @@ func (c *Client) Close() {
 		}
 	}
 	c.connections = make(map[string]*ConnectionInfo)
+	c.metadataReloads = nil
 }
 
 // IsClosed returns whether this client has been closed
@@ -427,6 +441,7 @@ func (c *Client) LoadMetadata() error {
 //  4. Atomically swap the result in under the client's lock and log.
 func (c *Client) LoadMetadataFor(connStr string) error {
 	startTime := time.Now()
+	c.metadataLoadAttempts.Add(1)
 
 	c.mu.RLock()
 	conn, exists := c.connections[connStr]
@@ -554,6 +569,103 @@ func (c *Client) IsMetadataLoadedFor(connStr string) bool {
 	}
 
 	return time.Since(conn.MetadataLoadedAt) <= ttl
+}
+
+// EnsureMetadata guarantees that valid, non-stale metadata is available
+// for the default connection, reloading it when the configured
+// metadata_ttl has expired. It returns nil when metadata is already
+// valid or the reload succeeded, and the reload error otherwise.
+//
+// Callers that merely need to know whether the database is ready should
+// use this rather than IsMetadataLoaded: a false from the latter means
+// "no valid metadata right now", which covers both a connection that
+// has never loaded any and one whose metadata has simply aged past the
+// TTL. Treating the second case as a failure reports the database as
+// unavailable when nothing is wrong with it.
+func (c *Client) EnsureMetadata() error {
+	return c.EnsureMetadataFor(c.GetDefaultConnection())
+}
+
+// EnsureMetadataFor is EnsureMetadata for a specific connection.
+//
+// At most one reload per connection is in flight at a time, and callers
+// that arrive whilst one is running wait for it and share its outcome
+// rather than starting their own. Without that, every caller in a burst
+// arriving after the TTL expires passes the freshness check before any of
+// them has refreshed MetadataLoadedAt, and each then runs its own catalog
+// query; the status banner's periodic refresh of several resources makes
+// such bursts routine rather than hypothetical. Sharing the outcome
+// matters most when the reload fails: a serialised retry per caller would
+// queue one connect timeout each, so twenty callers could hold the path
+// open for twenty timeouts rather than one.
+//
+// The in-flight record is discarded once the attempt finishes, so a
+// failure is not cached: the next caller to arrive starts a fresh
+// attempt. Note that a metadata_ttl of 0 means "always refresh", so
+// sequential callers each reload in that configuration; only genuinely
+// concurrent ones are coalesced.
+func (c *Client) EnsureMetadataFor(connStr string) error {
+	if c.IsMetadataLoadedFor(connStr) {
+		return nil
+	}
+
+	reload, leader := c.joinMetadataReload(connStr)
+	if !leader {
+		<-reload.done
+		return reload.err
+	}
+
+	// Another caller may have reloaded in the window between the check
+	// above and this one becoming the leader, in which case there is
+	// nothing left to do.
+	if !c.IsMetadataLoadedFor(connStr) {
+		reload.err = c.LoadMetadataFor(connStr)
+	}
+	c.finishMetadataReload(connStr, reload)
+
+	return reload.err
+}
+
+// metadataReload is one in-flight metadata reload. done is closed when
+// the attempt finishes, after which err holds its outcome and is safe to
+// read; the close is what publishes the write.
+type metadataReload struct {
+	done chan struct{}
+	err  error
+}
+
+// joinMetadataReload returns the in-flight reload for connStr, reporting
+// whether the caller is the leader and so responsible for performing it.
+// A caller that is not the leader must wait on the returned record rather
+// than reload anything itself.
+func (c *Client) joinMetadataReload(connStr string) (*metadataReload, bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if c.metadataReloads == nil {
+		c.metadataReloads = make(map[string]*metadataReload)
+	}
+	if r, exists := c.metadataReloads[connStr]; exists {
+		return r, false
+	}
+	r := &metadataReload{done: make(chan struct{})}
+	c.metadataReloads[connStr] = r
+	return r, true
+}
+
+// finishMetadataReload publishes the leader's outcome to any waiters. The
+// record is removed from the map before the waiters are released, so a
+// caller arriving afterwards starts a fresh attempt instead of joining
+// one that has already finished.
+func (c *Client) finishMetadataReload(connStr string, r *metadataReload) {
+	c.mu.Lock()
+	// Close() clears the map wholesale, so only remove our own record.
+	if current, exists := c.metadataReloads[connStr]; exists && current == r {
+		delete(c.metadataReloads, connStr)
+	}
+	c.mu.Unlock()
+
+	close(r.done)
 }
 
 // GetPool returns the connection pool for the default connection

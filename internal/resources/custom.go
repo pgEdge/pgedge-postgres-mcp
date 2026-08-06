@@ -34,8 +34,10 @@ func (r *ContextAwareRegistry) RegisterSQL(def definitions.ResourceDefinition) e
 
 	// Create handler that executes SQL query and returns TSV format
 	handler := func(ctx context.Context, dbClient *database.Client) (mcp.ResourceContent, error) {
-		// Check if metadata is loaded
-		if !dbClient.IsMetadataLoaded() {
+		// Ensure metadata is loaded, reloading it when the TTL has
+		// expired rather than reporting the database as not ready
+		// (issue #218).
+		if err := dbClient.EnsureMetadata(); err != nil {
 			return mcp.NewResourceJSONError(def.URI, mcp.DatabaseNotReadyMessage, mcp.ErrorCodeDatabaseNotReady, true)
 		}
 
