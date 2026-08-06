@@ -31,17 +31,18 @@ import (
 
 // HTTPConfig holds configuration for HTTP/HTTPS server mode
 type HTTPConfig struct {
-	Addr          string                         // Server address (e.g., ":8080")
-	TLSEnable     bool                           // Enable HTTPS
-	CertFile      string                         // Path to TLS certificate file
-	KeyFile       string                         // Path to TLS key file
-	ChainFile     string                         // Optional path to certificate chain file
-	AuthEnabled   bool                           // Enable API token authentication
-	TokenStore    *auth.TokenStore               // Token store for authentication
-	UserStore     *auth.UserStore                // User store for session token authentication
-	ClientIP      *auth.ClientIPResolver         // Resolves the client address; nil means socket only
-	SetupHandlers func(mux *http.ServeMux) error // Optional callback to add custom handlers before auth middleware
-	Debug         bool                           // Enable debug logging
+	Addr           string                         // Server address (e.g., ":8080")
+	TLSEnable      bool                           // Enable HTTPS
+	CertFile       string                         // Path to TLS certificate file
+	KeyFile        string                         // Path to TLS key file
+	ChainFile      string                         // Optional path to certificate chain file
+	AuthEnabled    bool                           // Enable API token authentication
+	TokenStore     *auth.TokenStore               // Token store for authentication
+	UserStore      *auth.UserStore                // User store for session token authentication
+	ClientIP       *auth.ClientIPResolver         // Resolves the client address; nil means socket only
+	AllowedOrigins []string                       // Origins accepted in the Origin header; empty means loopback only
+	SetupHandlers  func(mux *http.ServeMux) error // Optional callback to add custom handlers before auth middleware
+	Debug          bool                           // Enable debug logging
 }
 
 // buildHandler assembles the full mux and middleware chain used in HTTP
@@ -71,6 +72,16 @@ func (s *Server) buildHandler(config *HTTPConfig) (http.Handler, error) {
 	if config.AuthEnabled {
 		handler = auth.AuthMiddleware(config.TokenStore, config.UserStore, true)(handler)
 	}
+
+	// Validate the Origin header ahead of authentication, so a request
+	// from an unexpected origin is turned away before any credential is
+	// examined. Wrapping the whole mux rather than the MCP handler alone
+	// covers /health and the LLM proxy routes as well.
+	originPolicy, err := NewOriginPolicy(config.AllowedOrigins)
+	if err != nil {
+		return nil, fmt.Errorf("invalid allowed origins: %w", err)
+	}
+	handler = originValidationMiddleware(originPolicy)(handler)
 
 	// Wrap with security headers middleware
 	handler = securityHeadersMiddleware(config.TLSEnable)(handler)

@@ -47,6 +47,50 @@ specify property values, grouped by section.
 | `http.client_ip.source` | N/A | `PGEDGE_HTTP_CLIENT_IP_SOURCE` | Where the client address is read from; `socket` or `header` (default: "socket") |
 | `http.client_ip.header` | N/A | `PGEDGE_HTTP_CLIENT_IP_HEADER` | Forwarding header read when the source is `header` (default: "X-Real-IP") |
 | `http.client_ip.trusted_proxies` | N/A | `PGEDGE_HTTP_CLIENT_IP_TRUSTED_PROXIES` | Comma-separated addresses or CIDR blocks permitted to set that header |
+| `http.allowed_origins` | N/A | `PGEDGE_HTTP_ALLOWED_ORIGINS` | Comma-separated web origins accepted in the `Origin` header (default: loopback origins only) |
+
+### Browser Origins
+
+The server validates the `Origin` header that a browser sets on every
+request it makes. The `http.allowed_origins` setting lists the origins
+that the server accepts; a request carrying any other origin is refused
+with `403 Forbidden`.
+
+This check prevents DNS rebinding, in which a page on a site the user
+is merely visiting makes that site's own hostname resolve to a loopback
+address, so that the browser treats requests to a locally running
+server as same-origin and hands the page the responses. The server
+therefore judges a request by the origin the browser reports, and never
+by the `Host` header, which the attacker controls just as freely.
+
+By default, no origins are configured, and the server accepts only
+loopback origins: `localhost`, `127.0.0.1` and `::1`, under either
+scheme and on any port. This suits local use, including the bundled web
+client, without any configuration.
+
+A deployment that publishes the web client under a real hostname must
+name that origin, because the browser reports the address the user
+visited:
+
+```yaml
+http:
+  allowed_origins:
+    - https://mcp.example.com         # The origin users visit
+    - https://mcp.internal.example    # More than one may be listed
+```
+
+Naming any origin replaces the loopback default rather than adding to
+it, so list the loopback origins as well if you also reach the server
+locally. An origin is a scheme, a host and a port; `https://example.com`
+and `http://example.com` are different origins, as are two ports on the
+same host. The server rejects a malformed entry at startup rather than
+ignoring it, and reports the effective policy in its startup output.
+
+Requests that carry no `Origin` header at all are unaffected, so
+command line clients, scripts and other non-browser callers need no
+configuration here. The header is a statement a browser makes about
+itself; an attacker who can set arbitrary headers is not working
+through a browser, and so is not what this control addresses.
 
 ### Client Address Resolution
 

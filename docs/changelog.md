@@ -97,6 +97,34 @@ and this project adheres to
   now gated on `github.ref_type == 'tag'`, matching the existing
   snapshot-mode gate on the GoReleaser step itself.
 
+- The server now validates the `Origin` header on HTTP requests and
+  refuses an unexpected origin with `403 Forbidden`, closing a DNS
+  rebinding exposure. A page on any site the user was visiting could
+  previously drive a locally running server: the attacker points their
+  own domain at `127.0.0.1`, the browser then treats the local server
+  as belonging to that domain, and the page reads the responses, which
+  here means the schemas and query results of every configured
+  database. The check reads `Origin` alone and never `Host`, because
+  under rebinding the attacker controls the hostname the browser
+  connects to, so the two agree and comparing them would admit the very
+  request being guarded against. Validation covers every HTTP route,
+  not just the MCP endpoint, and runs ahead of authentication.
+
+  **This can require configuration when upgrading.** With no origins
+  configured the server accepts loopback origins only (`localhost`,
+  `127.0.0.1`, `::1`, either scheme, any port), which covers local use
+  and the bundled web client unchanged. A deployment that serves the
+  web client under a real hostname must now list that origin in the new
+  `http.allowed_origins` setting, or `PGEDGE_HTTP_ALLOWED_ORIGINS`, and
+  will otherwise see its own browser requests refused. Listing any
+  origin replaces the loopback default rather than adding to it. A
+  request that carries no `Origin` header at all is unaffected, so
+  command line clients, scripts and other non-browser callers need no
+  change. The effective policy is reported in the server's startup
+  output, and a malformed entry stops the server rather than being
+  ignored. See [Security](guide/security.md) and
+  [Configuration](guide/configuration.md) for details. Fixes #231.
+
 - Raised the `go.mod` floor from 1.26.1 to 1.26.5. Building this server
   with the actual go1.26.3 toolchain and running `govulncheck` in binary
   mode showed crypto/tls, net/textproto, and crypto/x509 stdlib

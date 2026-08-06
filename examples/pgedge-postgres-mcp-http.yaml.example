@@ -34,6 +34,20 @@ http:
         header: X-Real-IP
         trusted_proxies: []
 
+    # Web origins accepted in the Origin header, which browsers set on
+    # every request. Any other origin is refused with 403, which is what
+    # stops a hostile page from driving this server through DNS
+    # rebinding. Leaving the list empty accepts loopback origins only
+    # (localhost, 127.0.0.1 and ::1, on any port), which covers local use
+    # including the bundled web client. Publishing the web client under a
+    # real hostname means naming that origin here, since listing any
+    # origin replaces the loopback default rather than adding to it.
+    # Requests with no Origin header, such as those from command line
+    # clients, are unaffected.
+    allowed_origins: []
+    #allowed_origins:
+    #    - https://mcp.example.com
+
 # Database connection configuration
 # Multiple databases can be configured; each must have a unique name.
 # Use available_to_users to restrict access to specific users (empty = all users)

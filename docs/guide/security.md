@@ -43,6 +43,8 @@ You should instead:
 
 - Enable HTTPS with a valid CA certificate.
 - Enable authentication (do not use `-no-auth`).
+- List the origins the web client is served from in
+  `http.allowed_origins`.
 - Configure tokens with expiration dates.
 - Set private keys to 600 permissions.
 - Set token file to 600 permissions.
@@ -325,3 +327,49 @@ belongs in the provider client library, so that a credential never
 reaches an error value at all. Treat this as a safety net beneath
 that, and continue to keep provider keys out of any output you
 publish.
+
+## Browser Origins and DNS Rebinding
+
+A server reachable over HTTP is reachable by any page the user happens
+to be visiting, because a browser will send a request wherever a page
+tells it to. The defence against this is the `Origin` header, which the
+browser sets to the site the request came from and a page cannot forge.
+This server refuses a request whose origin it does not expect, with
+`403 Forbidden`.
+
+The attack this addresses is DNS rebinding. An attacker serves a page
+from a domain they control, then changes that domain's DNS record to
+point at `127.0.0.1`. The browser, having already loaded the page,
+resolves the name again and connects to the user's own machine, whilst
+still regarding the page as belonging to the attacker's domain. Any
+server listening locally is now reachable from that page, and the page
+can read the responses. For this server that means the schemas and
+query results of every configured database, through the tools the MCP
+endpoint exposes.
+
+Two properties of the check are worth understanding.
+
+The server judges a request by `Origin` alone, and never by `Host`.
+Under rebinding, the hostname the browser connects to belongs to the
+attacker, so `Host` and `Origin` agree with each other; a check that
+compared them would admit precisely the request it was meant to stop.
+Only a list of origins the operator expects can tell the two apart.
+
+A request carrying no `Origin` header is allowed through. Browsers set
+the header, and most MCP clients are not browsers, so rejecting its
+absence would break every command line client. It would also prevent
+nothing, because an attacker able to set arbitrary headers is not
+working through a browser and is not subject to this control at all.
+
+By default the server accepts loopback origins only, on any port, which
+covers local use and the bundled web client without configuration. A
+deployment that publishes the web client under a hostname must list
+that origin in `http.allowed_origins`, or the browser's own requests
+will be refused. See
+[Configuration](configuration.md#browser-origins) for the setting.
+
+This control assumes the server is reachable only where you intend.
+Consider also whether the listen address needs to be as broad as it is:
+the default binds every interface, and a server used only from the
+machine it runs on can bind loopback instead, by setting
+`http.address` to `127.0.0.1:8080`.

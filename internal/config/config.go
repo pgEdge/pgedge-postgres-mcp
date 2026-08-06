@@ -150,6 +150,16 @@ type HTTPConfig struct {
 	TLS      TLSConfig      `yaml:"tls"`
 	Auth     AuthConfig     `yaml:"auth"`
 	ClientIP ClientIPConfig `yaml:"client_ip"`
+
+	// AllowedOrigins lists the web origins the server accepts in the
+	// Origin header, as scheme://host[:port]. A browser sets that header;
+	// a request without one is unaffected, so command line clients need no
+	// configuration here. Leaving this empty accepts loopback origins on
+	// any port and refuses every other origin with 403, which is what
+	// prevents a hostile page from driving a local server through DNS
+	// rebinding. A deployment published under a real hostname must name
+	// that origin here, or its own web client will be refused.
+	AllowedOrigins []string `yaml:"allowed_origins"`
 }
 
 // ClientIPConfig controls how the server decides which address a request came
@@ -659,6 +669,7 @@ func defaultConfig() *Config {
 				Header:         "X-Real-IP", // Only consulted when source is "header"
 				TrustedProxies: nil,         // No proxy is trusted until an operator names one
 			},
+			AllowedOrigins: nil, // Empty means loopback origins only
 		},
 		Databases: []NamedDatabaseConfig{}, // Empty by default, populated from config file
 		Embedding: EmbeddingConfig{
@@ -761,6 +772,9 @@ func mergeConfig(dest, src *Config) {
 	// Replace rather than append, so a config file can narrow an inherited list
 	if len(src.HTTP.ClientIP.TrustedProxies) > 0 {
 		dest.HTTP.ClientIP.TrustedProxies = src.HTTP.ClientIP.TrustedProxies
+	}
+	if len(src.HTTP.AllowedOrigins) > 0 {
+		dest.HTTP.AllowedOrigins = src.HTTP.AllowedOrigins
 	}
 
 	// Databases - if source has databases defined, use them (replace, don't merge)
@@ -1057,6 +1071,7 @@ func applyEnvironmentVariables(cfg *Config) {
 	setStringFromEnv(&cfg.HTTP.ClientIP.Source, "PGEDGE_HTTP_CLIENT_IP_SOURCE")
 	setStringFromEnv(&cfg.HTTP.ClientIP.Header, "PGEDGE_HTTP_CLIENT_IP_HEADER")
 	setStringSliceFromEnv(&cfg.HTTP.ClientIP.TrustedProxies, "PGEDGE_HTTP_CLIENT_IP_TRUSTED_PROXIES")
+	setStringSliceFromEnv(&cfg.HTTP.AllowedOrigins, "PGEDGE_HTTP_ALLOWED_ORIGINS")
 
 	// Database environment variables apply to the first database in the list
 	// If no databases configured yet, create a default one from env vars

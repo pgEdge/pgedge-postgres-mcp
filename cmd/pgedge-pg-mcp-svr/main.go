@@ -815,18 +815,30 @@ func main() {
 				cfg.HTTP.ClientIP.Header, len(cfg.HTTP.ClientIP.TrustedProxies))
 		}
 
+		// Fail at startup rather than at the first request if an origin
+		// is malformed, and report the effective policy either way, so an
+		// operator can see whether the bundled web client will be
+		// accepted from wherever it is actually served.
+		originPolicy, originErr := mcp.NewOriginPolicy(cfg.HTTP.AllowedOrigins)
+		if originErr != nil {
+			fmt.Fprintf(os.Stderr, "ERROR: Invalid Origin configuration: %v\n", originErr)
+			os.Exit(1)
+		}
+		fmt.Fprintf(os.Stderr, "Accepting browser requests from: %s\n", originPolicy.Describe())
+
 		// Create HTTP server configuration
 		httpConfig := &mcp.HTTPConfig{
-			Addr:        cfg.HTTP.Address,
-			TLSEnable:   cfg.HTTP.TLS.Enabled,
-			CertFile:    cfg.HTTP.TLS.CertFile,
-			KeyFile:     cfg.HTTP.TLS.KeyFile,
-			ChainFile:   cfg.HTTP.TLS.ChainFile,
-			AuthEnabled: cfg.HTTP.Auth.Enabled,
-			TokenStore:  tokenStore,
-			UserStore:   userStore,
-			ClientIP:    clientIPResolver,
-			Debug:       *debug,
+			Addr:           cfg.HTTP.Address,
+			TLSEnable:      cfg.HTTP.TLS.Enabled,
+			CertFile:       cfg.HTTP.TLS.CertFile,
+			KeyFile:        cfg.HTTP.TLS.KeyFile,
+			ChainFile:      cfg.HTTP.TLS.ChainFile,
+			AuthEnabled:    cfg.HTTP.Auth.Enabled,
+			TokenStore:     tokenStore,
+			UserStore:      userStore,
+			ClientIP:       clientIPResolver,
+			AllowedOrigins: cfg.HTTP.AllowedOrigins,
+			Debug:          *debug,
 		}
 
 		// Setup additional HTTP handlers
