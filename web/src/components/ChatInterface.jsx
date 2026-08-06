@@ -1208,13 +1208,31 @@ const ChatInterface = ({ conversations }) => {
     }, [messages, showActivity, debug]);
 
     // Publish conversation-level actions to the StatusBanner header menu.
+    //
+    // handleClear and handleSaveConversation are rebuilt on most renders,
+    // because useConversations and useQueryHistory each return a fresh object
+    // and those objects are their dependencies. Publishing them directly made
+    // this effect re-run on every render, and since the context stored a new
+    // object each time, that re-rendered every consumer and re-ran the effect:
+    // an update loop that React 19 reports as "Maximum update depth exceeded".
+    // So keep the live callbacks in refs and publish stable wrappers, leaving
+    // hasMessages as the only value that actually changes.
+    const handleClearRef = useRef(handleClear);
+    const handleSaveConversationRef = useRef(handleSaveConversation);
+    handleClearRef.current = handleClear;
+    handleSaveConversationRef.current = handleSaveConversation;
+
+    const publishedClear = useCallback(() => handleClearRef.current(), []);
+    const publishedSave = useCallback(() => handleSaveConversationRef.current(), []);
+
+    const hasMessages = messages.length > 0;
     useEffect(() => {
         registerActions({
-            hasMessages: messages.length > 0,
-            onSave: handleSaveConversation,
-            onClear: handleClear,
+            hasMessages,
+            onSave: publishedSave,
+            onClear: publishedClear,
         });
-    }, [messages.length, handleSaveConversation, handleClear, registerActions]);
+    }, [hasMessages, publishedSave, publishedClear, registerActions]);
 
     // Handle prompt selection
     const handlePromptClick = useCallback((event) => {

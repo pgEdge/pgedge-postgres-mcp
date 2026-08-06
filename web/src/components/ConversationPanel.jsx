@@ -397,9 +397,13 @@ const ConversationPanel = ({
                                                     </Box>
                                                 }
                                                 secondary={formatRelativeDate(conversation.updated_at)}
-                                                secondaryTypographyProps={{
-                                                    variant: 'caption',
-                                                    sx: { color: isDark ? '#64748B' : '#9CA3AF' },
+                                                slotProps={{
+                                                    secondary: {
+                                                        variant: 'caption',
+                                                        sx: {
+                                                            color: isDark ? '#64748B' : '#9CA3AF',
+                                                        },
+                                                    },
                                                 }}
                                             />
                                         </ListItemButton>

@@ -361,10 +361,14 @@ const Login = () => {
                                 required
                                 autoFocus
                                 disabled={loading}
-                                InputLabelProps={{ shrink: usernameAutofilled || Boolean(username) }}
-                                inputProps={{
-                                    autoComplete: 'off',
-                                    onAnimationStart: handleAutofillDetect(setUsernameAutofilled),
+                                slotProps={{
+                                    inputLabel: {
+                                        shrink: usernameAutofilled || Boolean(username),
+                                    },
+                                    htmlInput: {
+                                        autoComplete: 'off',
+                                        onAnimationStart: handleAutofillDetect(setUsernameAutofilled),
+                                    },
                                 }}
                                 sx={{
                                     '& .MuiOutlinedInput-root': {
@@ -393,10 +397,14 @@ const Login = () => {
                                 margin="normal"
                                 required
                                 disabled={loading}
-                                InputLabelProps={{ shrink: passwordAutofilled || Boolean(password) }}
-                                inputProps={{
-                                    autoComplete: 'current-password',
-                                    onAnimationStart: handleAutofillDetect(setPasswordAutofilled),
+                                slotProps={{
+                                    inputLabel: {
+                                        shrink: passwordAutofilled || Boolean(password),
+                                    },
+                                    htmlInput: {
+                                        autoComplete: 'current-password',
+                                        onAnimationStart: handleAutofillDetect(setPasswordAutofilled),
+                                    },
                                 }}
                                 sx={{
                                     '& .MuiOutlinedInput-root': {

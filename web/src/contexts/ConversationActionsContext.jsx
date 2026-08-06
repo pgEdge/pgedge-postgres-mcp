@@ -26,12 +26,25 @@ export const ConversationActionsProvider = ({ children }) => {
 
     // Stable callback (empty deps + functional setState) so consumers
     // can safely call it from an effect without triggering update loops.
+    // Returning the previous state unchanged when nothing differs is part of
+    // that guarantee: storing a fresh object on every call re-rendered every
+    // consumer even for an identical registration, which is enough to sustain
+    // a loop with a caller whose effect re-runs on each render.
     const registerActions = useCallback((next) => {
-        setActions((prev) => ({
-            hasMessages: next.hasMessages,
-            onSave: next.onSave,
-            onClear: next.onClear,
-        }));
+        setActions((prev) => {
+            if (
+                prev.hasMessages === next.hasMessages &&
+                prev.onSave === next.onSave &&
+                prev.onClear === next.onClear
+            ) {
+                return prev;
+            }
+            return {
+                hasMessages: next.hasMessages,
+                onSave: next.onSave,
+                onClear: next.onClear,
+            };
+        });
     }, []);
 
     const value = useMemo(() => ({

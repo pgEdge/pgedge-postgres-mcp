@@ -252,9 +252,11 @@ const Header = ({ onToggleTheme, mode, serverInfo }) => {
                     </ListItemIcon>
                     <ListItemText
                         primary="Sign out"
-                        primaryTypographyProps={{
-                            fontSize: '0.875rem',
-                            fontWeight: 500,
+                        slotProps={{
+                            primary: {
+                                fontSize: '0.875rem',
+                                fontWeight: 500,
+                            },
                         }}
                     />
                 </MenuItem>
