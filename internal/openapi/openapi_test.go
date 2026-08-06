@@ -117,8 +117,11 @@ func TestBuildSpec_MCPEndpoint(t *testing.T) {
 		t.Error("/mcp/v1 should have a request body")
 	}
 
-	// Should document the three Streamable HTTP header parameters a
-	// modern (2026-07-28) request needs, via the reusable components.
+	// Should document the Streamable HTTP header parameters a modern
+	// (2026-07-28) request needs, via the reusable components: the
+	// three mirrored metadata headers this server validates, plus the
+	// Accept header the transport requires a conforming client to send
+	// even though this server does not inspect it.
 	params, ok := post["parameters"].(A)
 	if !ok {
 		t.Fatal("/mcp/v1 should have parameters")
@@ -127,6 +130,7 @@ func TestBuildSpec_MCPEndpoint(t *testing.T) {
 		"#/components/parameters/MCPProtocolVersionHeader": false,
 		"#/components/parameters/McpMethodHeader":          false,
 		"#/components/parameters/McpNameHeader":            false,
+		"#/components/parameters/AcceptHeader":             false,
 	}
 	for _, p := range params {
 		if ref, ok := p.(M)["$ref"].(string); ok {
@@ -149,6 +153,41 @@ func TestBuildSpec_MCPEndpoint(t *testing.T) {
 	for _, code := range []string{"200", "400", "401", "403", "404"} {
 		if _, ok := responses[code]; !ok {
 			t.Errorf("/mcp/v1 should have a %s response", code)
+		}
+	}
+}
+
+// The Accept parameter is only useful to a client if it names both
+// media types the transport requires; a bare "documented the header"
+// entry that omits text/event-stream would leave the contract just as
+// undiscoverable as not documenting it at all.
+func TestBuildSpec_AcceptHeaderNamesBothMediaTypes(t *testing.T) {
+	spec := BuildSpec()
+
+	components, ok := spec["components"].(M)
+	if !ok {
+		t.Fatal("spec should have components")
+	}
+	params, ok := components["parameters"].(M)
+	if !ok {
+		t.Fatal("components should have parameters")
+	}
+	accept, ok := params["AcceptHeader"].(M)
+	if !ok {
+		t.Fatal("components.parameters should have AcceptHeader")
+	}
+
+	if name, _ := accept["name"].(string); name != "Accept" {
+		t.Errorf("AcceptHeader name = %q, want \"Accept\"", name)
+	}
+	if in, _ := accept["in"].(string); in != "header" {
+		t.Errorf("AcceptHeader in = %q, want \"header\"", in)
+	}
+
+	description, _ := accept["description"].(string)
+	for _, mediaType := range []string{"application/json", "text/event-stream"} {
+		if !strings.Contains(description, mediaType) {
+			t.Errorf("AcceptHeader description does not mention %s", mediaType)
 		}
 	}
 }

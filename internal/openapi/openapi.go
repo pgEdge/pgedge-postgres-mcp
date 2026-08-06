@@ -133,6 +133,16 @@ func buildParameters() M {
 				"type": "string",
 			},
 		},
+		"AcceptHeader": M{
+			"name":        "Accept",
+			"in":          "header",
+			"required":    false,
+			"description": "The Streamable HTTP transport requires a modern (2026-07-28) client to list both application/json and text/event-stream here, because a conforming server may answer any request with either a single JSON object or a request-scoped SSE stream. This server always answers with application/json -- it implements no streaming method -- and does not inspect this header, so a request that omits it is not rejected; it is documented because a client that talks to other MCP servers must send it to remain conforming.",
+			"schema": M{
+				"type":    "string",
+				"example": "application/json, text/event-stream",
+			},
+		},
 	}
 }
 
@@ -216,13 +226,14 @@ func buildMCPPath() M {
 		"post": M{
 			"tags":        A{"MCP"},
 			"summary":     "Send an MCP JSON-RPC 2.0 request",
-			"description": "Accepts a JSON-RPC 2.0 request implementing the Model Context Protocol. Supported methods are initialize, server/discover, ping, tools/list, tools/call, resources/list, resources/read, prompts/list, prompts/get, pgedge/listDatabases, and pgedge/selectDatabase. Bearer token authentication is required when auth is enabled. Two protocol revisions are served on this same endpoint: a request whose body carries _meta.io.modelcontextprotocol/protocolVersion (or, on HTTP, a present MCP-Protocol-Version header) is served under the current, stateless revision (2026-07-28), which requires the MCP-Protocol-Version, Mcp-Method, and (for tools/call, resources/read, prompts/get) Mcp-Name headers described below; any other request is served under the original, handshake-based revision (2024-11-05), which sends none of those headers and negotiates via initialize instead. initialize itself exists only under that original revision: it is not a method the current revision recognizes.",
+			"description": "Accepts a JSON-RPC 2.0 request implementing the Model Context Protocol. Supported methods are initialize, server/discover, ping, tools/list, tools/call, resources/list, resources/read, prompts/list, prompts/get, pgedge/listDatabases, and pgedge/selectDatabase. Bearer token authentication is required when auth is enabled. Two protocol revisions are served on this same endpoint: a request whose body carries _meta.io.modelcontextprotocol/protocolVersion (or, on HTTP, a present MCP-Protocol-Version header) is served under the current, stateless revision (2026-07-28), which requires the MCP-Protocol-Version, Mcp-Method, and (for tools/call, resources/read, prompts/get) Mcp-Name headers described below, and which also expects a conforming client to offer both application/json and text/event-stream in Accept; any other request is served under the original, handshake-based revision (2024-11-05), which sends none of those headers and negotiates via initialize instead. initialize itself exists only under that original revision: it is not a method the current revision recognizes.",
 			"operationId": "postMCP",
 			"security":    bearerSecurity(),
 			"parameters": A{
 				refParam("MCPProtocolVersionHeader"),
 				refParam("McpMethodHeader"),
 				refParam("McpNameHeader"),
+				refParam("AcceptHeader"),
 			},
 			"requestBody": M{
 				"required":    true,

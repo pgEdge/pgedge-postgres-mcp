@@ -161,6 +161,17 @@ here so nobody has to re-derive them:
   the `2026-07-28` work and applies equally to the legacy transport;
   it needs its own fix.
 
+* **`Accept` header.** The transport requires a client to list both
+  `application/json` and `text/event-stream`, because a conforming
+  server may answer any request with either a single JSON object or a
+  request-scoped SSE stream. The requirement binds the client rather
+  than the server, and this server always answers with
+  `application/json`, since it implements no streaming method; it
+  therefore does not inspect the header, and a request that omits it
+  is not rejected. The OpenAPI specification documents the header so
+  the contract stays discoverable. Enforcing it would only become
+  meaningful alongside a streaming response.
+
 ## Where the implementation lives
 
 * `internal/mcp/modern.go` — the modern-protocol machinery: `_meta`
