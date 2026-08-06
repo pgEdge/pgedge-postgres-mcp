@@ -986,6 +986,32 @@ func setStringSliceFromEnv(dest *[]string, key string) {
 	*dest = entries
 }
 
+// setAllowedOriginsFromEnv sets the allowed origins from an environment
+// variable, keeping blank entries rather than discarding them.
+//
+// setStringSliceFromEnv drops blanks, which is right for a list where a
+// stray comma means nothing, but wrong here. An origin list is validated
+// at startup precisely so a typo is reported rather than acted upon, and
+// dropping the blanks from a value such as "," would leave an empty list,
+// which is not an error but a request for the loopback-only default. The
+// operator would then be running a policy they never chose. Keeping the
+// blanks lets NewOriginPolicy refuse the value and name it.
+//
+// An absent or entirely empty variable still means "unset", so it leaves
+// the configured default alone.
+func setAllowedOriginsFromEnv(dest *[]string, key string) {
+	val := os.Getenv(key)
+	if strings.TrimSpace(val) == "" {
+		return
+	}
+
+	entries := make([]string, 0, strings.Count(val, ",")+1)
+	for _, entry := range strings.Split(val, ",") {
+		entries = append(entries, strings.TrimSpace(entry))
+	}
+	*dest = entries
+}
+
 // setStringFromEnvWithFallback sets a string config value from an environment variable,
 // checking multiple environment variable names in priority order
 func setStringFromEnvWithFallback(dest *string, keys ...string) {
@@ -1071,7 +1097,7 @@ func applyEnvironmentVariables(cfg *Config) {
 	setStringFromEnv(&cfg.HTTP.ClientIP.Source, "PGEDGE_HTTP_CLIENT_IP_SOURCE")
 	setStringFromEnv(&cfg.HTTP.ClientIP.Header, "PGEDGE_HTTP_CLIENT_IP_HEADER")
 	setStringSliceFromEnv(&cfg.HTTP.ClientIP.TrustedProxies, "PGEDGE_HTTP_CLIENT_IP_TRUSTED_PROXIES")
-	setStringSliceFromEnv(&cfg.HTTP.AllowedOrigins, "PGEDGE_HTTP_ALLOWED_ORIGINS")
+	setAllowedOriginsFromEnv(&cfg.HTTP.AllowedOrigins, "PGEDGE_HTTP_ALLOWED_ORIGINS")
 
 	// Database environment variables apply to the first database in the list
 	// If no databases configured yet, create a default one from env vars

@@ -1086,6 +1086,55 @@ func TestApplyEnvironmentVariables_AllowedOrigins(t *testing.T) {
 	}
 }
 
+func TestApplyEnvironmentVariables_AllowedOriginsMalformedValues(t *testing.T) {
+	// A malformed value must reach NewOriginPolicy intact so startup can
+	// refuse it and say why. Silently reducing "," to an empty list would
+	// select the loopback-only default, leaving the operator running a
+	// policy they never asked for; that fails closed rather than open, but
+	// it is still not the policy they configured.
+	malformed := []struct {
+		name  string
+		value string
+	}{
+		{"only a comma", ","},
+		{"trailing comma", "https://a.example,"},
+		{"blank between commas", "https://a.example,,https://b.example"},
+		{"whitespace only", "   "},
+	}
+
+	for _, tt := range malformed {
+		t.Run(tt.name, func(t *testing.T) {
+			os.Setenv("PGEDGE_HTTP_ALLOWED_ORIGINS", tt.value)
+			defer os.Unsetenv("PGEDGE_HTTP_ALLOWED_ORIGINS")
+
+			cfg := defaultConfig()
+			applyEnvironmentVariables(cfg)
+
+			if tt.name == "whitespace only" {
+				// Indistinguishable from unset, so the default stands.
+				if len(cfg.HTTP.AllowedOrigins) != 0 {
+					t.Errorf("expected a whitespace-only value to be treated as unset, got %v",
+						cfg.HTTP.AllowedOrigins)
+				}
+				return
+			}
+
+			// Every other case must retain a blank entry, which is what
+			// makes it an error rather than an empty list.
+			blanks := 0
+			for _, origin := range cfg.HTTP.AllowedOrigins {
+				if origin == "" {
+					blanks++
+				}
+			}
+			if blanks == 0 {
+				t.Errorf("expected a blank entry to survive for %q, got %v",
+					tt.value, cfg.HTTP.AllowedOrigins)
+			}
+		})
+	}
+}
+
 func TestMergeClientIPConfig(t *testing.T) {
 	dest := defaultConfig()
 	src := &Config{
