@@ -1,4 +1,4 @@
-.PHONY: build build-server build-client clean clean-server clean-client test test-server test-client run install help lint lint-server lint-client vulncheck fmt format gofmt openapi
+.PHONY: build build-server build-client clean clean-server clean-client test test-server test-client test-web run install help lint lint-server lint-client vulncheck fmt format gofmt openapi
 
 # Binary names and directories
 SERVER_BINARY=pgedge-postgres-mcp
@@ -6,6 +6,7 @@ CLIENT_BINARY=pgedge-nla-cli
 BIN_DIR=bin
 SERVER_CMD_DIR=cmd/pgedge-pg-mcp-svr
 CLIENT_CMD_DIR=cmd/pgedge-pg-mcp-cli
+WEB_DIR=web
 
 # Build variables
 GO=go
@@ -84,7 +85,7 @@ clean-client:
 	@echo "Client clean complete"
 
 # Run all tests
-test: test-server test-client
+test: test-server test-client test-web
 
 # Run server tests
 # Lists every server-side package that has tests. The client-side packages are
@@ -97,6 +98,26 @@ test-server:
 test-client:
 	@echo "Running client tests..."
 	$(GO) test -v ./internal/chat/... ./$(CLIENT_CMD_DIR)/...
+
+# Run web client tests
+# The web client is a separate npm project, so its suite needs its own target
+# rather than a package added to the Go lists above. Dependencies are installed
+# only when node_modules is absent, so a repeat run does not pay for it.
+# A missing npm is reported and skipped rather than failed, matching how the
+# lint targets treat a missing golangci-lint; the tests themselves failing is
+# still a hard failure.
+test-web:
+	@echo "Running web client tests..."
+	@if command -v npm >/dev/null 2>&1; then \
+		if [ ! -d $(WEB_DIR)/node_modules ]; then \
+			echo "Installing web client dependencies..."; \
+			cd $(WEB_DIR) && npm ci; \
+		fi; \
+		cd $(WEB_DIR) && npm test -- --run; \
+	else \
+		echo "npm not found, skipping web client tests. Install Node.js from:"; \
+		echo "  https://nodejs.org/"; \
+	fi
 
 # Run with example environment
 run:
@@ -222,9 +243,10 @@ help:
 	@echo "  make build-windows  - Build for Windows (amd64)"
 	@echo ""
 	@echo "Testing:"
-	@echo "  make test           - Run all tests (server + client)"
+	@echo "  make test           - Run all tests (server + client + web)"
 	@echo "  make test-server    - Run server tests only"
 	@echo "  make test-client    - Run client tests only"
+	@echo "  make test-web       - Run web client tests only"
 	@echo ""
 	@echo "Formatting:"
 	@echo "  make fmt            - Format Go code with go fmt"
