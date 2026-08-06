@@ -37,6 +37,21 @@ and this project adheres to
   lays out with `Box` and CSS grid rather than the reworked `Grid`, and
   never used the legacy `@mui/styles` APIs.
 
+- The server and CLI client no longer send a sampling temperature, leaving
+  the choice to the provider's own default. Several current models,
+  including the Claude 5 family, reject the `temperature` parameter
+  outright, and because the server attached one to every request the web
+  client failed with `anthropic (400): temperature is deprecated for this
+  model` on any such model; since the model comes from the client's
+  selector rather than `llm.model`, a fresh session hit this without any
+  configuration being at fault. There was no way to opt out either: the
+  `llm.temperature` option defaulted to 0.7 and the configuration merge
+  treated 0 as unset. That option and its `PGEDGE_LLM_TEMPERATURE`
+  environment variable are therefore retired. Existing configuration files
+  that still set them keep loading, the values simply having no effect.
+  Callers of the LLM proxy API may still pass a per-request `temperature`,
+  which is forwarded only when present.
+
 ### Security
 
 - `release.yml`'s `build-web`, `build-amd64`, and `build-arm64` jobs run on

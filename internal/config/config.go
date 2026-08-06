@@ -495,21 +495,20 @@ type EmbeddingConfig struct {
 
 // LLMConfig holds LLM configuration for web client chat proxy
 type LLMConfig struct {
-	Enabled             bool    `yaml:"enabled"`                // Whether LLM proxy is enabled (default: false)
-	Provider            string  `yaml:"provider"`               // "anthropic", "openai", "ollama", or "gemini"
-	Model               string  `yaml:"model"`                  // Provider-specific model name
-	AnthropicAPIKey     string  `yaml:"anthropic_api_key"`      // API key for Anthropic (direct - discouraged, use api_key_file or env var instead)
-	AnthropicAPIKeyFile string  `yaml:"anthropic_api_key_file"` // Path to file containing Anthropic API key
-	AnthropicBaseURL    string  `yaml:"anthropic_base_url"`     // Base URL for Anthropic API (default: https://api.anthropic.com)
-	OpenAIAPIKey        string  `yaml:"openai_api_key"`         // API key for OpenAI (direct - discouraged, use api_key_file or env var instead)
-	OpenAIAPIKeyFile    string  `yaml:"openai_api_key_file"`    // Path to file containing OpenAI API key
-	OpenAIBaseURL       string  `yaml:"openai_base_url"`        // Base URL for OpenAI API (default: https://api.openai.com)
-	OllamaURL           string  `yaml:"ollama_url"`             // URL for Ollama service (default: http://localhost:11434)
-	GeminiAPIKey        string  `yaml:"gemini_api_key"`         // API key for Google Gemini (direct - discouraged, use api_key_file or env var instead)
-	GeminiAPIKeyFile    string  `yaml:"gemini_api_key_file"`    // Path to file containing Gemini API key
-	MaxTokens           int     `yaml:"max_tokens"`             // Maximum tokens for LLM response (default: 4096)
-	Temperature         float64 `yaml:"temperature"`            // Temperature for LLM sampling (default: 0.7)
-	PerAttemptTimeout   int     `yaml:"per_attempt_timeout"`    // Per-attempt HTTP timeout in seconds (0 = unlimited; default: 60)
+	Enabled             bool   `yaml:"enabled"`                // Whether LLM proxy is enabled (default: false)
+	Provider            string `yaml:"provider"`               // "anthropic", "openai", "ollama", or "gemini"
+	Model               string `yaml:"model"`                  // Provider-specific model name
+	AnthropicAPIKey     string `yaml:"anthropic_api_key"`      // API key for Anthropic (direct - discouraged, use api_key_file or env var instead)
+	AnthropicAPIKeyFile string `yaml:"anthropic_api_key_file"` // Path to file containing Anthropic API key
+	AnthropicBaseURL    string `yaml:"anthropic_base_url"`     // Base URL for Anthropic API (default: https://api.anthropic.com)
+	OpenAIAPIKey        string `yaml:"openai_api_key"`         // API key for OpenAI (direct - discouraged, use api_key_file or env var instead)
+	OpenAIAPIKeyFile    string `yaml:"openai_api_key_file"`    // Path to file containing OpenAI API key
+	OpenAIBaseURL       string `yaml:"openai_base_url"`        // Base URL for OpenAI API (default: https://api.openai.com)
+	OllamaURL           string `yaml:"ollama_url"`             // URL for Ollama service (default: http://localhost:11434)
+	GeminiAPIKey        string `yaml:"gemini_api_key"`         // API key for Google Gemini (direct - discouraged, use api_key_file or env var instead)
+	GeminiAPIKeyFile    string `yaml:"gemini_api_key_file"`    // Path to file containing Gemini API key
+	MaxTokens           int    `yaml:"max_tokens"`             // Maximum tokens for LLM response (default: 4096)
+	PerAttemptTimeout   int    `yaml:"per_attempt_timeout"`    // Per-attempt HTTP timeout in seconds (0 = unlimited; default: 60)
 }
 
 // KnowledgebaseConfig holds knowledgebase configuration
@@ -678,7 +677,6 @@ func defaultConfig() *Config {
 			OpenAIAPIKey:      "",                       // Must be provided if using OpenAI
 			OllamaURL:         "http://localhost:11434", // Default Ollama URL
 			MaxTokens:         4096,                     // Default max tokens
-			Temperature:       0.7,                      // Default temperature
 			PerAttemptTimeout: 60,                       // Default per-attempt HTTP timeout (seconds)
 		},
 		Knowledgebase: KnowledgebaseConfig{
@@ -843,9 +841,6 @@ func mergeConfig(dest, src *Config) {
 		}
 		if src.LLM.MaxTokens != 0 {
 			dest.LLM.MaxTokens = src.LLM.MaxTokens
-		}
-		if src.LLM.Temperature != 0 {
-			dest.LLM.Temperature = src.LLM.Temperature
 		}
 		if src.LLM.PerAttemptTimeout != 0 {
 			dest.LLM.PerAttemptTimeout = src.LLM.PerAttemptTimeout
@@ -1200,15 +1195,6 @@ func applyEnvironmentVariables(cfg *Config) {
 	setStringFromEnv(&cfg.LLM.OpenAIBaseURL, "PGEDGE_OPENAI_BASE_URL")
 	setIntFromEnv(&cfg.LLM.MaxTokens, "PGEDGE_LLM_MAX_TOKENS")
 	setIntFromEnv(&cfg.LLM.PerAttemptTimeout, "PGEDGE_LLM_PER_ATTEMPT_TIMEOUT")
-	// Temperature is a float, but we'll handle it specially
-	if val := os.Getenv("PGEDGE_LLM_TEMPERATURE"); val != "" {
-		var floatVal float64
-		_, err := fmt.Sscanf(val, "%f", &floatVal)
-		if err == nil {
-			cfg.LLM.Temperature = floatVal
-		}
-	}
-
 	// Knowledgebase
 	setBoolFromEnv(&cfg.Knowledgebase.Enabled, "PGEDGE_KB_ENABLED")
 	setStringFromEnv(&cfg.Knowledgebase.DatabasePath, "PGEDGE_KB_DATABASE_PATH")

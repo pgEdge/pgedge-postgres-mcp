@@ -205,7 +205,6 @@ func TestClient_InitializeLLM_Anthropic(t *testing.T) {
 			AnthropicAPIKey: "test-key",
 			Model:           "claude-test",
 			MaxTokens:       4096,
-			Temperature:     0.7,
 		},
 		UI: UIConfig{
 			NoColor: true,
@@ -233,11 +232,10 @@ func TestClient_InitializeLLM_Ollama(t *testing.T) {
 			ServerPath: "/fake/path",
 		},
 		LLM: LLMConfig{
-			Provider:    "ollama",
-			Model:       "llama3",
-			OllamaURL:   "http://localhost:11434",
-			MaxTokens:   4096,
-			Temperature: 0.7,
+			Provider:  "ollama",
+			Model:     "llama3",
+			OllamaURL: "http://localhost:11434",
+			MaxTokens: 4096,
 		},
 		UI: UIConfig{
 			NoColor: true,

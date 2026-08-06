@@ -174,7 +174,6 @@ llm:
     # openai_api_key: your-openai-key-here
 
     max_tokens: 4096
-    temperature: 0.7
 
 ui:
     no_color: false
@@ -251,7 +250,6 @@ Supported OpenAI models:
 Note: GPT-5 and o-series models (o1, o3) have specific API constraints:
 
 - Use `max_completion_tokens` instead of `max_tokens`
-- Only support default temperature (1)
 
 The client automatically handles these differences.
 
@@ -626,7 +624,6 @@ LLM:
   Provider:         anthropic
   Model:            claude-sonnet-4-20250514
   Max Tokens:       4096
-  Temperature:      0.70
 
 MCP:
   Mode:             stdio

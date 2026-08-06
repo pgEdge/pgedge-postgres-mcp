@@ -53,9 +53,6 @@ func TestDefaultConfig(t *testing.T) {
 	if cfg.LLM.MaxTokens != 4096 {
 		t.Errorf("Expected default max tokens 4096, got %d", cfg.LLM.MaxTokens)
 	}
-	if cfg.LLM.Temperature != 0.7 {
-		t.Errorf("Expected default temperature 0.7, got %f", cfg.LLM.Temperature)
-	}
 
 	// Test knowledgebase defaults
 	if cfg.Knowledgebase.Enabled {
@@ -705,6 +702,55 @@ databases:
 	}
 	if cfg.Databases[0].Name != "testdb" {
 		t.Errorf("expected database name 'testdb', got %q", cfg.Databases[0].Name)
+	}
+}
+
+// TestLoadConfigWithRetiredTemperature covers the compatibility promise made
+// when the llm.temperature option was retired: an existing configuration file
+// that still sets it must load without complaint, the option simply having no
+// effect. The server no longer sends a temperature at all, leaving the choice
+// to the provider, because several current models reject the parameter.
+func TestLoadConfigWithRetiredTemperature(t *testing.T) {
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "config.yaml")
+
+	configContent := `
+http:
+    enabled: true
+    auth:
+        enabled: false
+databases:
+    - name: testdb
+      host: localhost
+      port: 5432
+      user: testuser
+      database: test
+llm:
+    enabled: true
+    provider: anthropic
+    model: claude-opus-5
+    max_tokens: 2048
+    temperature: 0.7
+`
+	if err := os.WriteFile(configPath, []byte(configContent), 0644); err != nil {
+		t.Fatalf("failed to write config file: %v", err)
+	}
+
+	flags := CLIFlags{ConfigFileSet: true, ConfigFile: configPath}
+	cfg, err := LoadConfig(configPath, flags)
+	if err != nil {
+		t.Fatalf("a config carrying the retired temperature option should still load: %v", err)
+	}
+
+	// The rest of the llm block must survive alongside the ignored option.
+	if !cfg.LLM.Enabled {
+		t.Error("expected LLM to be enabled")
+	}
+	if cfg.LLM.Model != "claude-opus-5" {
+		t.Errorf("expected model 'claude-opus-5', got %q", cfg.LLM.Model)
+	}
+	if cfg.LLM.MaxTokens != 2048 {
+		t.Errorf("expected max tokens 2048, got %d", cfg.LLM.MaxTokens)
 	}
 }
 

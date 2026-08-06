@@ -155,7 +155,6 @@ client manages its own LLM connection and does not use these settings.
 | `llm.openai_base_url` | N/A | `PGEDGE_OPENAI_BASE_URL` | Custom OpenAI API base URL for proxies |
 | `llm.ollama_url` | N/A | `PGEDGE_OLLAMA_URL` | Ollama server URL (default: "http://localhost:11434") |
 | `llm.max_tokens` | N/A | `PGEDGE_LLM_MAX_TOKENS` | Maximum tokens for LLM response (default: 4096) |
-| `llm.temperature` | N/A | `PGEDGE_LLM_TEMPERATURE` | Sampling temperature (default: 0.7) |
 
 ### Embedding Generation
 

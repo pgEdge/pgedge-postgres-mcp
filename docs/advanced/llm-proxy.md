@@ -338,7 +338,6 @@ llm:
 
     # Generation parameters
     max_tokens: 4096
-    temperature: 0.7
 ```
 
 The proxy is disabled unless `enabled` (or `PGEDGE_LLM_ENABLED`) is
@@ -368,7 +367,6 @@ API keys are loaded in the following order (highest to lowest):
 - `PGEDGE_GEMINI_API_KEY` or `GEMINI_API_KEY`: The Google Gemini API key.
 - `PGEDGE_OLLAMA_URL`: The Ollama server URL (used for both embeddings and LLM).
 - `PGEDGE_LLM_MAX_TOKENS`: The maximum tokens per response.
-- `PGEDGE_LLM_TEMPERATURE`: The LLM temperature (0.0-1.0).
 
 **Implementation:** [internal/config/config.go:497-513](https://github.com/pgEdge/pgedge-postgres-mcp/blob/main/internal/config/config.go#L497-L513)
 

@@ -31,7 +31,6 @@ func main() {
 	fmt.Printf("  LLM Provider: %s\n", cfg.LLM.Provider)
 	fmt.Printf("  LLM Model: %s\n", cfg.LLM.Model)
 	fmt.Printf("  LLM Max Tokens: %d\n", cfg.LLM.MaxTokens)
-	fmt.Printf("  LLM Temperature: %.1f\n", cfg.LLM.Temperature)
 	fmt.Printf("  MCP Mode: %s\n", cfg.MCP.Mode)
 	fmt.Printf("  MCP Server Path: %s\n", cfg.MCP.ServerPath)
 
@@ -45,5 +44,4 @@ func main() {
 	fmt.Printf("  LLM Provider: %s\n", cfg.LLM.Provider)
 	fmt.Printf("  LLM Model: %s\n", cfg.LLM.Model)
 	fmt.Printf("  LLM Max Tokens: %d\n", cfg.LLM.MaxTokens)
-	fmt.Printf("  LLM Temperature: %.1f\n", cfg.LLM.Temperature)
 }

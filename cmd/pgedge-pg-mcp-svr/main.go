@@ -931,7 +931,6 @@ func main() {
 						Model:             cfg.LLM.Model,
 						BaseURL:           cfg.LLM.AnthropicBaseURL,
 						MaxTokens:         llm.Int(cfg.LLM.MaxTokens),
-						Temperature:       llm.Float(cfg.LLM.Temperature),
 						PerAttemptTimeout: time.Duration(cfg.LLM.PerAttemptTimeout) * time.Second,
 					}
 				}
@@ -941,7 +940,6 @@ func main() {
 						Model:             cfg.LLM.Model,
 						BaseURL:           cfg.LLM.OpenAIBaseURL,
 						MaxTokens:         llm.Int(cfg.LLM.MaxTokens),
-						Temperature:       llm.Float(cfg.LLM.Temperature),
 						PerAttemptTimeout: time.Duration(cfg.LLM.PerAttemptTimeout) * time.Second,
 					}
 				}
@@ -950,7 +948,6 @@ func main() {
 						Model:             cfg.LLM.Model,
 						BaseURL:           cfg.LLM.OllamaURL,
 						MaxTokens:         llm.Int(cfg.LLM.MaxTokens),
-						Temperature:       llm.Float(cfg.LLM.Temperature),
 						PerAttemptTimeout: time.Duration(cfg.LLM.PerAttemptTimeout) * time.Second,
 					}
 				}
@@ -959,7 +956,6 @@ func main() {
 						APIKey:            cfg.LLM.GeminiAPIKey,
 						Model:             cfg.LLM.Model,
 						MaxTokens:         llm.Int(cfg.LLM.MaxTokens),
-						Temperature:       llm.Float(cfg.LLM.Temperature),
 						PerAttemptTimeout: time.Duration(cfg.LLM.PerAttemptTimeout) * time.Second,
 					}
 				}
