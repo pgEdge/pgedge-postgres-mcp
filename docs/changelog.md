@@ -39,6 +39,13 @@ and this project adheres to
 
 ### Security
 
+- `release.yml`'s `build-web`, `build-amd64`, and `build-arm64` jobs run on
+  every `workflow_dispatch`, not just tag pushes, so a manual test run on
+  an arbitrary branch could write to the same npm/Go dependency caches a
+  real release build reads from. Caching in `setup-node` and `setup-go` is
+  now gated on `github.ref_type == 'tag'`, matching the existing
+  snapshot-mode gate on the GoReleaser step itself.
+
 - Raised the `go.mod` floor from 1.26.1 to 1.26.5. Building this server
   with the actual go1.26.3 toolchain and running `govulncheck` in binary
   mode showed crypto/tls, net/textproto, and crypto/x509 stdlib
