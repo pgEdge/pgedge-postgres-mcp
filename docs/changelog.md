@@ -155,6 +155,15 @@ and this project adheres to
 
 ### Fixed
 
+- The conversation actions menu in the status banner header no longer
+  offers a "Delete conversation" item that does not delete anything. That
+  action resets the chat window and starts a new conversation; it never
+  removed the conversation from the conversation list, so a selected
+  conversation appeared to survive the delete. The item is now labelled
+  "Clear conversation", and its confirmation dialog explains that the
+  conversation stays in the list, where the per-conversation delete button
+  removes it for good. (#223)
+
 - Tool calls made over the streaming chat endpoint are no longer silently
   dropped, which showed up in the web client as "No response received"
   whenever a provider decided to call a tool. The terminating `done` frame

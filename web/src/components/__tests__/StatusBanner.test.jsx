@@ -79,13 +79,21 @@ describe('StatusBanner conversation actions', () => {
         ).toBeInTheDocument();
     });
 
-    it('opens the menu with Save and Delete items', () => {
+    it('opens the menu with Save and Clear items', () => {
         renderBanner();
         fireEvent.click(
             screen.getByRole('button', { name: /conversation actions/i })
         );
         expect(screen.getByText('Save conversation')).toBeInTheDocument();
-        expect(screen.getByText('Delete conversation')).toBeInTheDocument();
+        expect(screen.getByText('Clear conversation')).toBeInTheDocument();
+    });
+
+    it('does not offer a delete action in the header menu', () => {
+        renderBanner();
+        fireEvent.click(
+            screen.getByRole('button', { name: /conversation actions/i })
+        );
+        expect(screen.queryByText(/delete/i)).not.toBeInTheDocument();
     });
 
     it('calls onSave when Save is clicked', () => {
@@ -102,16 +110,20 @@ describe('StatusBanner conversation actions', () => {
         fireEvent.click(
             screen.getByRole('button', { name: /conversation actions/i })
         );
-        fireEvent.click(screen.getByText('Delete conversation'));
+        fireEvent.click(screen.getByText('Clear conversation'));
 
-        // Confirmation dialog appears.
+        // Confirmation dialog appears, and explains that the conversation
+        // itself is not removed from the conversation list.
         expect(
-            screen.getByText(/clears the entire current conversation/i)
+            screen.getByText(/clears the chat window/i)
+        ).toBeInTheDocument();
+        expect(
+            screen.getByText(/stays in the conversation list/i)
         ).toBeInTheDocument();
         expect(onClear).not.toHaveBeenCalled();
 
-        // Confirm the delete.
-        fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
+        // Confirm the clear.
+        fireEvent.click(screen.getByRole('button', { name: 'Clear' }));
         expect(onClear).toHaveBeenCalledTimes(1);
     });
 });
