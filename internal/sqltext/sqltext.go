@@ -37,9 +37,11 @@ import "strings"
 // construct is ambiguous or unterminated it stops treating the text as a
 // literal and lets the remainder fall through to the residue as code, so the
 // failure mode is a rejected valid query rather than an admitted hostile one.
-// Backslash escapes inside string literals are not honoured, matching
-// standard_conforming_strings being on, which is the default and the only
-// setting under which the shorter reading is also the safer one.
+// Backslash escapes are honoured inside an E'...' escape string constant and
+// nowhere else. In a plain '...' literal a backslash is an ordinary character
+// under standard_conforming_strings, which is the default, so treating it as
+// an escape there would run the literal past its real end and hide the code
+// that follows.
 func Strip(query string) (residue string, bare string) {
 	var res, bar strings.Builder
 	res.Grow(len(query))
@@ -56,11 +58,18 @@ func Strip(query string) (residue string, bare string) {
 			i = skipBlockComment(query, i)
 			writeNoiseSeparator(&res, &bar)
 
+		case escapeStringStart(query, i):
+			// Write the E through to both forms, then consume the literal
+			// itself with backslash escapes honoured.
+			res.WriteByte(query[i])
+			bar.WriteByte(query[i])
+			i = consumeQuoted(query, i+1, '\'', true, &res, &bar)
+
 		case query[i] == '\'':
-			i = consumeQuoted(query, i, '\'', &res, &bar)
+			i = consumeQuoted(query, i, '\'', false, &res, &bar)
 
 		case query[i] == '"':
-			i = consumeQuoted(query, i, '"', &res, &bar)
+			i = consumeQuoted(query, i, '"', false, &res, &bar)
 
 		case query[i] == '$':
 			if end, ok := consumeDollarQuote(query, i, &res, &bar); ok {
@@ -111,8 +120,8 @@ func skipLineCommentBody(query string, i int) int {
 // consumeQuoted returns the index just past a quoted literal or identifier
 // starting at i, having written the original text to bar and an empty
 // same-quote placeholder to res.
-func consumeQuoted(query string, i int, quote byte, res, bar *strings.Builder) int {
-	end := endOfQuoted(query, i, quote)
+func consumeQuoted(query string, i int, quote byte, escapes bool, res, bar *strings.Builder) int {
+	end := endOfQuoted(query, i, quote, escapes)
 	bar.WriteString(query[i:end])
 	res.WriteByte(quote)
 	res.WriteByte(quote)
@@ -174,9 +183,19 @@ func skipBlockComment(query string, i int) int {
 // endOfQuoted returns the index just past a literal or quoted identifier that
 // starts at i, treating a doubled quote character as an escaped one. An
 // unterminated quote consumes the remainder of the statement.
-func endOfQuoted(query string, i int, quote byte) int {
+//
+// When escapes is set the literal is an escape string constant, E'...', in
+// which a backslash escapes the character after it. Honouring that matters:
+// in E'\” the backslash escapes the first quote and the second closes the
+// literal, whereas reading the pair as a doubled quote runs the literal on to
+// the end of the statement and hides whatever follows it.
+func endOfQuoted(query string, i int, quote byte, escapes bool) int {
 	i++
 	for i < len(query) {
+		if escapes && query[i] == '\\' && i+1 < len(query) {
+			i += 2
+			continue
+		}
 		if query[i] != quote {
 			i++
 			continue
@@ -188,6 +207,27 @@ func endOfQuoted(query string, i int, quote byte) int {
 		return i + 1
 	}
 	return len(query)
+}
+
+// escapeStringStart reports whether an E'...' escape string constant starts at
+// i, that is whether query[i] is an E introducing a literal rather than an
+// ordinary identifier character. Backslash escapes are honoured only for these
+// literals: with standard_conforming_strings on, which is the default, a
+// backslash in a plain '...' literal is an ordinary character, and treating it
+// as an escape there would run that literal past its real end.
+func escapeStringStart(query string, i int) bool {
+	if query[i] != 'E' && query[i] != 'e' {
+		return false
+	}
+	if i+1 >= len(query) || query[i+1] != '\'' {
+		return false
+	}
+	// An E that continues an identifier, as in "table_e'x'", is not a prefix.
+	return i == 0 || !isIdentifierByte(query[i-1])
+}
+
+func isIdentifierByte(c byte) bool {
+	return c == '_' || isASCIILetter(c) || isASCIIDigit(c)
 }
 
 // dollarQuoteTag returns the opening tag of a dollar-quoted string starting at

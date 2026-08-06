@@ -127,6 +127,22 @@ describe('isWriteQuery', () => {
                 .toBe(true);
         });
 
+        it('classifies MERGE as write', () => {
+            expect(isWriteQuery(
+                'MERGE INTO t USING s ON t.id = s.id '
+                + 'WHEN MATCHED THEN UPDATE SET n = s.n',
+            )).toBe(true);
+        });
+
+        it('is not fooled by an escape string hiding the INTO', () => {
+            expect(isWriteQuery("SELECT E'\\'' INTO backup FROM users"))
+                .toBe(true);
+        });
+
+        it('is not fooled by an escape string before a comma', () => {
+            expect(isWriteQuery("SELECT E'a\\'' , x INTO t FROM u")).toBe(true);
+        });
+
         it('sees through a leading comment', () => {
             expect(isWriteQuery('/* harmless */ SELECT * INTO backup FROM users'))
                 .toBe(true);
@@ -147,6 +163,17 @@ describe('isWriteQuery', () => {
             expect(isWriteQuery(
                 'SELECT * FROM audit WHERE action = \'DELETE\'',
             )).toBe(false);
+        });
+
+        it('ignores a write keyword inside an escape string literal', () => {
+            expect(isWriteQuery(
+                "SELECT * FROM audit WHERE action = E'DEL\\'ETE'",
+            )).toBe(false);
+        });
+
+        it('treats a backslash in a plain literal as an ordinary character', () => {
+            expect(isWriteQuery("SELECT * FROM t WHERE path = 'C:\\'"))
+                .toBe(false);
         });
 
         it('ignores a write keyword inside a quoted identifier', () => {

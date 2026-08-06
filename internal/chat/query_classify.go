@@ -37,7 +37,7 @@ var readPrefixes = []string{
 // write outright, whatever follows them.
 var (
 	ddlPrefixes = []string{"CREATE", "DROP", "ALTER", "TRUNCATE"}
-	dmlPrefixes = []string{"INSERT", "UPDATE", "DELETE"}
+	dmlPrefixes = []string{"INSERT", "UPDATE", "DELETE", "MERGE"}
 )
 
 // dmlIndicator and ddlIndicator match a keyword that makes a read-prefixed

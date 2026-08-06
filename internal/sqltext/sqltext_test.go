@@ -74,6 +74,46 @@ func TestStrip(t *testing.T) {
 			wantBare:    "SELECT * FROM t WHERE id = $1",
 		},
 		{
+			// Read as a doubled quote the literal would run to the end of the
+			// statement and hide the INTO, which is a write going unseen.
+			name:        "escape string backslash-quote does not close the literal",
+			query:       `SELECT E'\'' INTO backup FROM users`,
+			wantResidue: `SELECT E'' INTO backup FROM users`,
+			wantBare:    `SELECT E'\'' INTO backup FROM users`,
+		},
+		{
+			name:        "escape string with a trailing backslash escape",
+			query:       `SELECT E'a\'' , x INTO t FROM u`,
+			wantResidue: `SELECT E'' , x INTO t FROM u`,
+			wantBare:    `SELECT E'a\'' , x INTO t FROM u`,
+		},
+		{
+			name:        "lowercase e prefix is also an escape string",
+			query:       `SELECT e'\'' INTO t`,
+			wantResidue: `SELECT e'' INTO t`,
+			wantBare:    `SELECT e'\'' INTO t`,
+		},
+		{
+			name:        "escaped backslash does not escape the closing quote",
+			query:       `SELECT E'a\\' INTO t`,
+			wantResidue: `SELECT E'' INTO t`,
+			wantBare:    `SELECT E'a\\' INTO t`,
+		},
+		{
+			// standard_conforming_strings is on by default, so this backslash
+			// is an ordinary character and the literal ends at the next quote.
+			name:        "plain literal does not honour a backslash escape",
+			query:       `SELECT 'a\' , x INTO t FROM u`,
+			wantResidue: `SELECT '' , x INTO t FROM u`,
+			wantBare:    `SELECT 'a\' , x INTO t FROM u`,
+		},
+		{
+			name:        "an E ending an identifier is not an escape prefix",
+			query:       `SELECT * FROM table_e'a\' , x`,
+			wantResidue: `SELECT * FROM table_e'' , x`,
+			wantBare:    `SELECT * FROM table_e'a\' , x`,
+		},
+		{
 			name:        "unterminated literal consumes the remainder",
 			query:       "SELECT 'oops",
 			wantResidue: "SELECT ''",

@@ -79,6 +79,18 @@ func TestClassifyQuery(t *testing.T) {
 			"EXPLAIN (ANALYZE, BUFFERS) UPDATE t SET n = 1", QueryTypeDML, true},
 		{"comment hiding select into",
 			"/* harmless */ SELECT * INTO backup FROM users", QueryTypeDDL, true},
+		{"merge", "MERGE INTO t USING s ON t.id = s.id " +
+			"WHEN MATCHED THEN UPDATE SET n = s.n", QueryTypeDML, true},
+
+		// An escape string constant must not be allowed to swallow the rest of
+		// the statement. Read as a doubled quote rather than an escape, E'\''
+		// runs to the end of the text and hides the INTO behind it.
+		{"escape string hiding select into",
+			`SELECT E'\'' INTO backup FROM users`, QueryTypeDDL, true},
+		{"escape string hiding select into after a comma",
+			`SELECT E'a\'' , x INTO t FROM u`, QueryTypeDDL, true},
+		{"lowercase escape string hiding select into",
+			`SELECT e'\'' INTO backup FROM users`, QueryTypeDDL, true},
 
 		// Reads that must stay quiet, so that the prompt keeps its meaning.
 		{"explain insert without analyze",
@@ -87,6 +99,11 @@ func TestClassifyQuery(t *testing.T) {
 			"EXPLAIN (ANALYZE, BUFFERS) SELECT * FROM t", QueryTypeSelect, false},
 		{"write keyword inside a literal",
 			"SELECT * FROM audit WHERE action = 'DELETE'", QueryTypeSelect, false},
+		{"write keyword inside an escape string literal",
+			`SELECT * FROM audit WHERE action = E'DEL\'ETE'`,
+			QueryTypeSelect, false},
+		{"backslash in a plain literal is an ordinary character",
+			`SELECT * FROM t WHERE path = 'C:\'`, QueryTypeSelect, false},
 		{"write keyword inside a quoted identifier",
 			`SELECT "delete" FROM t`, QueryTypeSelect, false},
 		{"write keyword as part of an identifier",

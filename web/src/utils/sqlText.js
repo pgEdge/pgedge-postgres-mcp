@@ -17,6 +17,12 @@
  * parse SQL. Where a construct is ambiguous or unterminated it stops treating
  * the text as a literal and lets the remainder fall through as code, so the
  * failure mode is a needless confirmation prompt rather than a missed write.
+ *
+ * Backslash escapes are honoured inside an E'...' escape string constant and
+ * nowhere else. In a plain '...' literal a backslash is an ordinary character
+ * under standard_conforming_strings, which is the default, so treating it as
+ * an escape there would run the literal past its real end and hide the code
+ * that follows.
  */
 
 const isAsciiLetter = c => (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z');
@@ -58,10 +64,20 @@ function skipBlockComment(sql, i) {
  * Returns the index just past a literal or quoted identifier starting at i,
  * treating a doubled quote character as an escaped one. An unterminated quote
  * consumes the remainder of the statement.
+ *
+ * When escapes is set the literal is an escape string constant, E'...', in
+ * which a backslash escapes the character after it. Honouring that matters: in
+ * E'\'' the backslash escapes the first quote and the second closes the
+ * literal, whereas reading the pair as a doubled quote runs the literal on to
+ * the end of the statement and hides whatever follows it.
  */
-function endOfQuoted(sql, i, quote) {
+function endOfQuoted(sql, i, quote, escapes) {
     i++;
     while (i < sql.length) {
+        if (escapes && sql[i] === '\\' && i + 1 < sql.length) {
+            i += 2;
+            continue;
+        }
         if (sql[i] !== quote) {
             i++;
             continue;
@@ -73,6 +89,21 @@ function endOfQuoted(sql, i, quote) {
         return i + 1;
     }
     return sql.length;
+}
+
+/**
+ * Reports whether an E'...' escape string constant starts at i, that is
+ * whether sql[i] is an E introducing a literal rather than an ordinary
+ * identifier character. Backslash escapes are honoured only for these
+ * literals: with standard_conforming_strings on, which is the default, a
+ * backslash in a plain '...' literal is an ordinary character, and treating it
+ * as an escape there would run that literal past its real end.
+ */
+function isEscapeStringStart(sql, i) {
+    if (sql[i] !== 'E' && sql[i] !== 'e') return false;
+    if (sql[i + 1] !== '\'') return false;
+    // An E that continues an identifier, as in "table_e'x'", is not a prefix.
+    return i === 0 || !/[A-Za-z0-9_]/.test(sql[i - 1]);
 }
 
 /**
@@ -116,8 +147,14 @@ export function stripSqlNoise(sql) {
         } else if (c === '/' && sql[i + 1] === '*') {
             i = skipBlockComment(sql, i);
             out += ' ';
+        } else if (isEscapeStringStart(sql, i)) {
+            // Keep the E, then consume the literal with backslash escapes
+            // honoured.
+            out += c;
+            i = endOfQuoted(sql, i + 1, '\'', true);
+            out += "''";
         } else if (c === '\'' || c === '"') {
-            i = endOfQuoted(sql, i, c);
+            i = endOfQuoted(sql, i, c, false);
             out += c + c;
         } else if (c === '$') {
             const tag = dollarQuoteTag(sql, i);

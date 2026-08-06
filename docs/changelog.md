@@ -139,7 +139,15 @@ and this project adheres to
   are still treated as the reads they are, so the prompt keeps its meaning.
   The scanner the read-only guardrails already used has moved to
   `internal/sqltext` and is now shared with the classifier, with
-  `web/src/utils/sqlText.js` mirroring it for the web client. Note that this
+  `web/src/utils/sqlText.js` mirroring it for the web client. That scanner
+  now also honours backslash escapes inside an `E'...'` escape string
+  constant, and only there. Reading the `\'` in `E'\''` as a doubled quote
+  rather than an escape ran the literal on to the end of the statement and
+  hid whatever followed it, so `SELECT E'\'' INTO backup FROM users`
+  classified as a read; a backslash in a plain `'...'` literal is still an
+  ordinary character, as `standard_conforming_strings` requires. The
+  read-only guardrails benefit from the same correction, since a statement
+  that hides its tail from the scanner also hides it from them. Note that this
   is a client-side prompt and not a security boundary: a statement whose
   writes happen inside a function it calls still reads as a `SELECT`, and
   nothing textual could tell otherwise. What prevents a write on a read-only
