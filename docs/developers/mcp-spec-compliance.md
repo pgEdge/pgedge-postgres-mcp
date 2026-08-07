@@ -153,14 +153,6 @@ Unlike the section above, these are not deliberate choices -- they are
 gaps found during review that this pass did not set out to fix, recorded
 here so nobody has to re-derive them:
 
-* **`Origin` header validation.** The Streamable HTTP transport's
-  security section requires servers to validate the `Origin` header on
-  every incoming connection, to prevent DNS rebinding attacks, and to
-  respond `403 Forbidden` when it is present and invalid. This server
-  does not currently do so anywhere in `internal/mcp`. This predates
-  the `2026-07-28` work and applies equally to the legacy transport;
-  it needs its own fix.
-
 * **`Accept` header.** The transport requires a client to list both
   `application/json` and `text/event-stream`, because a conforming
   server may answer any request with either a single JSON object or a
