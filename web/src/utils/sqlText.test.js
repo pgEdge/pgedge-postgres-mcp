@@ -47,6 +47,9 @@ describe('stripSqlNoise', () => {
             'SELECT 1 AS x$$; DELETE FROM t  '],
         ['still opens a dollar quote that follows a space',
             'DO $ $tag$ DROP TABLE t $tag$', 'DO $ $tag$$tag$'],
+        ['does not let a $ continuing an identifier hide a SELECT INTO',
+            'SELECT 1 AS x$tag$ INTO backup FROM users -- $tag$',
+            'SELECT 1 AS x$tag$ INTO backup FROM users  '],
     ];
 
     it.each(cases)('%s', (_name, input, expected) => {

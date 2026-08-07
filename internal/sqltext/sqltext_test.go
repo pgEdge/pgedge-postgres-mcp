@@ -127,10 +127,10 @@ func TestStrip(t *testing.T) {
 		},
 		{
 			// A $ that continues an identifier is not a delimiter: PostgreSQL
-			// treats x$tag$ as one identifier. Reading the first $ as a
-			// delimiter attempt fails and falls back to one byte of code,
-			// letting the very next $ open a real dollar-quoted block whose
-			// attacker-chosen closing tag swallows the DELETE that follows.
+			// treats x$tag$ as one identifier. Reading it as one anyway
+			// mistook the second $ for the tag's own closing mark, forming a
+			// bogus tag "$tag$" whose next occurrence, planted in the
+			// trailing comment, closed a body that swallowed the DELETE.
 			name:        "dollar sign continuing an identifier does not start a tag",
 			query:       "SELECT 1 AS x$tag$; DELETE FROM t -- $tag$",
 			wantResidue: "SELECT 1 AS x$tag$; DELETE FROM t  ",
@@ -141,6 +141,17 @@ func TestStrip(t *testing.T) {
 			query:       "SELECT 1 AS x$$; DELETE FROM t -- $$",
 			wantResidue: "SELECT 1 AS x$$; DELETE FROM t  ",
 			wantBare:    "SELECT 1 AS x$$; DELETE FROM t  ",
+		},
+		{
+			// The same decoy hiding a single statement's own INTO, rather
+			// than a smuggled second statement, is the more severe case: a
+			// SELECT INTO genuinely writes, and unlike a smuggled statement
+			// it is not stopped by the one-statement-per-message extended
+			// query protocol, since it really is only one statement.
+			name:        "dollar sign continuing an identifier does not hide a SELECT INTO",
+			query:       "SELECT 1 AS x$tag$ INTO backup FROM users -- $tag$",
+			wantResidue: "SELECT 1 AS x$tag$ INTO backup FROM users  ",
+			wantBare:    "SELECT 1 AS x$tag$ INTO backup FROM users  ",
 		},
 		{
 			name:        "dollar quote after a space still opens normally",

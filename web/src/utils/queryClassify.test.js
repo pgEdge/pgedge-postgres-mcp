@@ -158,6 +158,12 @@ describe('isWriteQuery', () => {
             expect(isWriteQuery('SELECT 1 AS x$$; DELETE FROM t -- $$'))
                 .toBe(true);
         });
+
+        it('is not fooled by a dollar-quote decoy hiding a SELECT INTO', () => {
+            expect(isWriteQuery(
+                'SELECT 1 AS x$tag$ INTO backup FROM users -- $tag$',
+            )).toBe(true);
+        });
     });
 
     describe('reads that must not prompt return false', () => {

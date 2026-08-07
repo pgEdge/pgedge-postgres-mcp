@@ -100,6 +100,12 @@ func TestClassifyQuery(t *testing.T) {
 			"SELECT 1 AS x$tag$; DELETE FROM t -- $tag$", QueryTypeDML, true},
 		{"dollar quote decoy without a tag hiding a delete",
 			"SELECT 1 AS x$$; DELETE FROM t -- $$", QueryTypeDML, true},
+		// The same decoy hiding a single statement's own INTO: verified
+		// against a real PostgreSQL server to actually create the target
+		// table when executed, since a genuine SELECT INTO is not caught by
+		// the multi-statement protection a smuggled second statement is.
+		{"dollar quote decoy hiding a select into",
+			"SELECT 1 AS x$tag$ INTO backup FROM users -- $tag$", QueryTypeDDL, true},
 
 		// Reads that must stay quiet, so that the prompt keeps its meaning.
 		{"explain insert without analyze",
