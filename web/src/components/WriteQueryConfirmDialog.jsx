@@ -42,12 +42,14 @@ const WriteQueryConfirmDialog = ({
             maxWidth="sm"
             fullWidth
             aria-labelledby="write-query-confirm-dialog-title"
-            PaperProps={{
-                sx: {
-                    bgcolor: isDark ? '#1E293B' : '#FFFFFF',
-                    border: '1px solid',
-                    borderColor: isDark ? '#334155' : '#E5E7EB',
-                    borderRadius: 1,
+            slotProps={{
+                paper: {
+                    sx: {
+                        bgcolor: isDark ? '#1E293B' : '#FFFFFF',
+                        border: '1px solid',
+                        borderColor: isDark ? '#334155' : '#E5E7EB',
+                        borderRadius: 1,
+                    },
                 },
             }}
         >

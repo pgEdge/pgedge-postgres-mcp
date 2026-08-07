@@ -40,10 +40,6 @@ func TestLoadConfig_Defaults(t *testing.T) {
 	if cfg.LLM.MaxTokens != 4096 {
 		t.Errorf("Expected MaxTokens 4096, got %d", cfg.LLM.MaxTokens)
 	}
-
-	if cfg.LLM.Temperature != 0.7 {
-		t.Errorf("Expected Temperature 0.7, got %f", cfg.LLM.Temperature)
-	}
 }
 
 func TestLoadConfig_Environment(t *testing.T) {
@@ -99,6 +95,7 @@ llm:
   model: test-model
   ollama_url: http://localhost:11434
   max_tokens: 2048
+  # Retired option: still accepted in existing files, and ignored.
   temperature: 0.5
 
 ui:
@@ -134,10 +131,6 @@ ui:
 
 	if cfg.LLM.MaxTokens != 2048 {
 		t.Errorf("Expected MaxTokens 2048, got %d", cfg.LLM.MaxTokens)
-	}
-
-	if cfg.LLM.Temperature != 0.5 {
-		t.Errorf("Expected Temperature 0.5, got %f", cfg.LLM.Temperature)
 	}
 
 	if !cfg.UI.NoColor {

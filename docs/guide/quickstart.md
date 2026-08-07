@@ -169,7 +169,6 @@ databases:
 #     # openai_base_url: ""
 #     # ollama_url: "http://localhost:11434"
 #     # max_tokens: 4096
-#     # temperature: 0.7
 
 # Embedding generation (for the generate_embedding tool)
 # embedding:

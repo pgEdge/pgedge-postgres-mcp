@@ -66,15 +66,17 @@ const PreferencesPopover = React.memo(({
                 vertical: 'bottom',
                 horizontal: 'right',
             }}
-            PaperProps={{
-                sx: {
-                    bgcolor: isDark ? '#1E293B' : '#FFFFFF',
-                    border: '1px solid',
-                    borderColor: isDark ? '#334155' : '#E5E7EB',
-                    borderRadius: 1,
-                    boxShadow: isDark
-                        ? '0 10px 15px -3px rgba(0, 0, 0, 0.3)'
-                        : '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
+            slotProps={{
+                paper: {
+                    sx: {
+                        bgcolor: isDark ? '#1E293B' : '#FFFFFF',
+                        border: '1px solid',
+                        borderColor: isDark ? '#334155' : '#E5E7EB',
+                        borderRadius: 1,
+                        boxShadow: isDark
+                            ? '0 10px 15px -3px rgba(0, 0, 0, 0.3)'
+                            : '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
+                    },
                 },
             }}
         >

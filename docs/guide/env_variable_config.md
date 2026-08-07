@@ -131,7 +131,6 @@ configuration for the web client chat proxy:
 - **`PGEDGE_LLM_MODEL`**: Default model to use
 - **`PGEDGE_LLM_MAX_TOKENS`**: Maximum tokens for LLM response
   (default: 4096)
-- **`PGEDGE_LLM_TEMPERATURE`**: Sampling temperature (default: 0.7)
 - **`PGEDGE_ANTHROPIC_API_KEY`**: Anthropic API key (or
   `ANTHROPIC_API_KEY`)
 - **`PGEDGE_ANTHROPIC_BASE_URL`**: Custom Anthropic API base URL

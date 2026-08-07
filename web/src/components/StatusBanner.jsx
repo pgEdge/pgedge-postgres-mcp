@@ -42,7 +42,7 @@ import {
     Warning as WarningIcon,
     MoreVert as MoreVertIcon,
     SaveAlt as SaveIcon,
-    Delete as DeleteIcon,
+    ClearAll as ClearIcon,
 } from '@mui/icons-material';
 import { useAuth } from '../contexts/AuthContext';
 import { useLLMProcessing } from '../contexts/LLMProcessingContext';
@@ -68,7 +68,7 @@ const StatusBanner = () => {
     const [dbPopoverAnchor, setDbPopoverAnchor] = useState(null);
     const [isSwitchingDatabase, setIsSwitchingDatabase] = useState(false);
     const [actionsMenuAnchor, setActionsMenuAnchor] = useState(null);
-    const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+    const [clearDialogOpen, setClearDialogOpen] = useState(false);
 
     const isDark = theme.palette.mode === 'dark';
 
@@ -86,18 +86,18 @@ const StatusBanner = () => {
         onSave?.();
     };
 
-    const handleDeleteClick = () => {
+    const handleClearClick = () => {
         handleActionsMenuClose();
-        setDeleteDialogOpen(true);
+        setClearDialogOpen(true);
     };
 
-    const handleConfirmDelete = () => {
+    const handleConfirmClear = () => {
         onClear?.();
-        setDeleteDialogOpen(false);
+        setClearDialogOpen(false);
     };
 
-    const handleCancelDelete = () => {
-        setDeleteDialogOpen(false);
+    const handleCancelClear = () => {
+        setClearDialogOpen(false);
     };
 
     const dialogPaperProps = {
@@ -486,19 +486,19 @@ const StatusBanner = () => {
                             <ListItemText primary="Save conversation" />
                         </MenuItem>
                         <MenuItem
-                            onClick={handleDeleteClick}
+                            onClick={handleClearClick}
                             disabled={!hasMessages || !onClear}
                             sx={{
-                                color: isDark ? '#F87171' : '#DC2626',
+                                color: isDark ? '#F1F5F9' : '#1F2937',
                                 '&:hover': {
-                                    bgcolor: isDark ? alpha('#EF4444', 0.08) : alpha('#EF4444', 0.04),
+                                    bgcolor: isDark ? alpha('#22B8CF', 0.08) : alpha('#15AABF', 0.04),
                                 },
                             }}
                         >
                             <ListItemIcon sx={{ color: 'inherit', minWidth: 36 }}>
-                                <DeleteIcon fontSize="small" />
+                                <ClearIcon fontSize="small" />
                             </ListItemIcon>
-                            <ListItemText primary="Delete conversation" />
+                            <ListItemText primary="Clear conversation" />
                         </MenuItem>
                     </Menu>
                     <IconButton
@@ -787,24 +787,25 @@ const StatusBanner = () => {
                 error={dbError}
             />
 
-            {/* Delete Conversation Confirmation Dialog */}
+            {/* Clear Conversation Confirmation Dialog */}
             <Dialog
-                open={deleteDialogOpen}
-                onClose={handleCancelDelete}
-                PaperProps={dialogPaperProps}
+                open={clearDialogOpen}
+                onClose={handleCancelClear}
+                slotProps={{ paper: dialogPaperProps }}
             >
                 <DialogTitle sx={{ color: isDark ? '#F1F5F9' : '#1F2937' }}>
-                    Delete conversation
+                    Clear conversation
                 </DialogTitle>
                 <DialogContent>
                     <DialogContentText sx={{ color: isDark ? '#94A3B8' : '#6B7280' }}>
-                        This clears the entire current conversation and starts a
-                        new one. This action cannot be undone.
+                        This clears the chat window and starts a new
+                        conversation. The current conversation stays in the
+                        conversation list, where you can reopen or delete it.
                     </DialogContentText>
                 </DialogContent>
                 <DialogActions sx={{ p: 2, pt: 0 }}>
                     <Button
-                        onClick={handleCancelDelete}
+                        onClick={handleCancelClear}
                         sx={{
                             color: isDark ? '#94A3B8' : '#6B7280',
                             textTransform: 'none',
@@ -813,18 +814,18 @@ const StatusBanner = () => {
                         Cancel
                     </Button>
                     <Button
-                        onClick={handleConfirmDelete}
+                        onClick={handleConfirmClear}
                         variant="contained"
                         sx={{
-                            bgcolor: '#EF4444',
+                            bgcolor: '#15AABF',
                             color: '#FFFFFF',
                             textTransform: 'none',
                             '&:hover': {
-                                bgcolor: '#DC2626',
+                                bgcolor: '#0C8599',
                             },
                         }}
                     >
-                        Delete
+                        Clear
                     </Button>
                 </DialogActions>
             </Dialog>

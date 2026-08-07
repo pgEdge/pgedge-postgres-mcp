@@ -9,7 +9,57 @@ and this project adheres to
 
 ## [Unreleased]
 
+### Changed
+
+- Dependencies across every ecosystem this project uses are now on their
+  latest releases. The GitHub Actions pins move to the current major of
+  each action, which also resolves the split where `actions/checkout`,
+  `actions/upload-artifact`, and `actions/download-artifact` were each
+  pinned at two different majors in different workflows; all of these
+  majors amount to the Node 24 runtime and an ESM migration, and no input
+  these workflows pass has been removed. The Go module graph is updated,
+  which brings `glamour` to v1.0.0, `pgedge-go-llm-lib` to v0.2.0,
+  `modernc.org/sqlite` to v1.56.0, and `fsnotify` to v1.10.1. CI now
+  lints with `golangci-lint` v2.12.2, builds the web client on Node 24
+  rather than the end-of-life Node 20, and builds the documentation on
+  Python 3.14; the `Dockerfile.web` build and runtime stages move to
+  `ubi9/nodejs-24` and `ubi9/nginx-126`. The documentation requirements
+  are refreshed, except for `typing-inspect`, which
+  `mkdocs-multirepo-plugin` caps below 0.9.
+
+- The web client is now built on React 19 and MUI 9, along with Vite 8,
+  Vitest 4, and the current testing-library releases. MUI has removed the
+  `PaperProps` prop from `Dialog`, `Menu`, and `Popover` and `InputProps`
+  from `TextField`, so those fourteen call sites now pass the equivalent
+  `slotProps.paper` and `slotProps.input`, and `@mui/icons-material` no
+  longer ships a `HelpOutline` alias, so the header help button uses
+  `HelpOutlined`. Nothing else in the client needed migrating, since it
+  lays out with `Box` and CSS grid rather than the reworked `Grid`, and
+  never used the legacy `@mui/styles` APIs.
+
+- The server and CLI client no longer send a sampling temperature, leaving
+  the choice to the provider's own default. Several current models,
+  including the Claude 5 family, reject the `temperature` parameter
+  outright, and because the server attached one to every request the web
+  client failed with `anthropic (400): temperature is deprecated for this
+  model` on any such model; since the model comes from the client's
+  selector rather than `llm.model`, a fresh session hit this without any
+  configuration being at fault. There was no way to opt out either: the
+  `llm.temperature` option defaulted to 0.7 and the configuration merge
+  treated 0 as unset. That option and its `PGEDGE_LLM_TEMPERATURE`
+  environment variable are therefore retired. Existing configuration files
+  that still set them keep loading, the values simply having no effect.
+  Callers of the LLM proxy API may still pass a per-request `temperature`,
+  which is forwarded only when present.
+
 ### Security
+
+- `release.yml`'s `build-web`, `build-amd64`, and `build-arm64` jobs run on
+  every `workflow_dispatch`, not just tag pushes, so a manual test run on
+  an arbitrary branch could write to the same npm/Go dependency caches a
+  real release build reads from. Caching in `setup-node` and `setup-go` is
+  now gated on `github.ref_type == 'tag'`, matching the existing
+  snapshot-mode gate on the GoReleaser step itself.
 
 - Raised the `go.mod` floor from 1.26.1 to 1.26.5. Building this server
   with the actual go1.26.3 toolchain and running `govulncheck` in binary
@@ -184,6 +234,14 @@ and this project adheres to
   database connection returned a database-error message instead of a
   not-found one, since acquiring a client came first regardless of
   whether the resource existed at all.
+- The conversation actions menu in the status banner header no longer
+  offers a "Delete conversation" item that does not delete anything. That
+  action resets the chat window and starts a new conversation; it never
+  removed the conversation from the conversation list, so a selected
+  conversation appeared to survive the delete. The item is now labelled
+  "Clear conversation", and its confirmation dialog explains that the
+  conversation stays in the list, where the per-conversation delete button
+  removes it for good. (#223)
 
 - Tool calls made over the streaming chat endpoint are no longer silently
   dropped, which showed up in the web client as "No response received"

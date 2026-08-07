@@ -52,7 +52,7 @@ const HelpPanel = ({ open, onClose, serverInfo }) => {
                 <Typography variant="h6" gutterBottom>
                     Getting Started
                 </Typography>
-                <Typography variant="body2" paragraph>
+                <Typography variant="body2" sx={{ mb: 2 }}>
                     The pgEdge Natural Language Agent allows you to interact with your PostgreSQL database using natural language.
                     Ask questions about your data, run queries, and get insights without writing SQL.
                 </Typography>
@@ -102,7 +102,7 @@ const HelpPanel = ({ open, onClose, serverInfo }) => {
                 <Typography variant="h6" gutterBottom>
                     Prompts
                 </Typography>
-                <Typography variant="body2" paragraph>
+                <Typography variant="body2" sx={{ mb: 2 }}>
                     Prompts are guided workflows that help you perform complex multi-step tasks.
                     Click the brain icon (next to the send button) to access available prompts.
                 </Typography>
@@ -211,7 +211,7 @@ const HelpPanel = ({ open, onClose, serverInfo }) => {
                 <Typography variant="h6" gutterBottom>
                     Database Connection
                 </Typography>
-                <Typography variant="body2" paragraph>
+                <Typography variant="body2" sx={{ mb: 2 }}>
                     Connection details are shown in the status banner at the top of the page.
                     A green indicator means you're connected. Click the banner to expand/collapse detailed connection information.
                 </Typography>

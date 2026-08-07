@@ -30,7 +30,7 @@ import {
     DarkMode as DarkModeIcon,
     LightMode as LightModeIcon,
     Logout as LogoutIcon,
-    HelpOutline as HelpIcon,
+    HelpOutlined as HelpIcon,
 } from '@mui/icons-material';
 import logoLight from '../assets/images/logo-light.png';
 import logoDark from '../assets/images/logo-dark.png';
@@ -195,16 +195,18 @@ const Header = ({ onToggleTheme, mode, serverInfo }) => {
                     vertical: 'top',
                     horizontal: 'right',
                 }}
-                PaperProps={{
-                    sx: {
-                        minWidth: 180,
-                        mt: 1,
-                        borderRadius: 1,
-                        border: '1px solid',
-                        borderColor: isDark ? '#334155' : '#E5E7EB',
-                        boxShadow: isDark
-                            ? '0 10px 15px -3px rgba(0, 0, 0, 0.3)'
-                            : '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
+                slotProps={{
+                    paper: {
+                        sx: {
+                            minWidth: 180,
+                            mt: 1,
+                            borderRadius: 1,
+                            border: '1px solid',
+                            borderColor: isDark ? '#334155' : '#E5E7EB',
+                            boxShadow: isDark
+                                ? '0 10px 15px -3px rgba(0, 0, 0, 0.3)'
+                                : '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
+                        },
                     },
                 }}
             >
@@ -250,9 +252,11 @@ const Header = ({ onToggleTheme, mode, serverInfo }) => {
                     </ListItemIcon>
                     <ListItemText
                         primary="Sign out"
-                        primaryTypographyProps={{
-                            fontSize: '0.875rem',
-                            fontWeight: 500,
+                        slotProps={{
+                            primary: {
+                                fontSize: '0.875rem',
+                                fontWeight: 500,
+                            },
                         }}
                     />
                 </MenuItem>

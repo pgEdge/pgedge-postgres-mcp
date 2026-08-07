@@ -571,7 +571,6 @@ func (c *Client) printAllSettings() {
 	fmt.Printf("  Provider:         %s\n", c.config.LLM.Provider)
 	fmt.Printf("  Model:            %s\n", c.config.LLM.Model)
 	fmt.Printf("  Max Tokens:       %d\n", c.config.LLM.MaxTokens)
-	fmt.Printf("  Temperature:      %.2f\n", c.config.LLM.Temperature)
 
 	// MCP Settings
 	fmt.Println("\nMCP:")

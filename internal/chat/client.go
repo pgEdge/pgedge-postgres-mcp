@@ -472,9 +472,8 @@ func mcpToolsToLibTools(tools []mcp.Tool) []llmlib.Tool {
 // traffic is logged via newTracingHTTPClient.
 func (c *Client) newLLMClient(provider, model string, debug bool) (llmlib.Client, error) {
 	opts := llmlib.Options{
-		Model:       model,
-		MaxTokens:   llmlib.Int(c.config.LLM.MaxTokens),
-		Temperature: llmlib.Float(c.config.LLM.Temperature),
+		Model:     model,
+		MaxTokens: llmlib.Int(c.config.LLM.MaxTokens),
 	}
 	switch provider {
 	case "anthropic":

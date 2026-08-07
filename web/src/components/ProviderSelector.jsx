@@ -111,15 +111,17 @@ const ProviderSelector = React.memo(({
                     disabled={disabled}
                     sx={selectStyles}
                     MenuProps={{
-                        PaperProps: {
-                            sx: {
-                                bgcolor: isDark ? '#1E293B' : '#FFFFFF',
-                                border: '1px solid',
-                                borderColor: isDark ? '#334155' : '#E5E7EB',
-                                borderRadius: 1,
-                                boxShadow: isDark
-                                    ? '0 10px 15px -3px rgba(0, 0, 0, 0.3)'
-                                    : '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
+                        slotProps: {
+                            paper: {
+                                sx: {
+                                    bgcolor: isDark ? '#1E293B' : '#FFFFFF',
+                                    border: '1px solid',
+                                    borderColor: isDark ? '#334155' : '#E5E7EB',
+                                    borderRadius: 1,
+                                    boxShadow: isDark
+                                        ? '0 10px 15px -3px rgba(0, 0, 0, 0.3)'
+                                        : '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
+                                },
                             },
                         },
                     }}
@@ -161,16 +163,18 @@ const ProviderSelector = React.memo(({
                     disabled={disabled || loadingModels}
                     sx={selectStyles}
                     MenuProps={{
-                        PaperProps: {
-                            sx: {
-                                bgcolor: isDark ? '#1E293B' : '#FFFFFF',
-                                border: '1px solid',
-                                borderColor: isDark ? '#334155' : '#E5E7EB',
-                                borderRadius: 1,
-                                boxShadow: isDark
-                                    ? '0 10px 15px -3px rgba(0, 0, 0, 0.3)'
-                                    : '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
-                                maxHeight: 300,
+                        slotProps: {
+                            paper: {
+                                sx: {
+                                    bgcolor: isDark ? '#1E293B' : '#FFFFFF',
+                                    border: '1px solid',
+                                    borderColor: isDark ? '#334155' : '#E5E7EB',
+                                    borderRadius: 1,
+                                    boxShadow: isDark
+                                        ? '0 10px 15px -3px rgba(0, 0, 0, 0.3)'
+                                        : '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
+                                    maxHeight: 300,
+                                },
                             },
                         },
                     }}

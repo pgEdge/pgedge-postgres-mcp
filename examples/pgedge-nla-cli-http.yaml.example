@@ -45,7 +45,6 @@ llm:
     # openai_base_url: ""  # Default: https://api.openai.com
 
     max_tokens: 4096
-    temperature: 0.7
 
 # UI configuration
 ui:

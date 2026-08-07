@@ -356,13 +356,6 @@ llm:
     # Command line flag: (not available)
     max_tokens: 4096
 
-    # Temperature for sampling (0.0-1.0)
-    # Lower = more focused/deterministic, Higher = more creative/random
-    # Note: GPT-5 and o-series models only support default temperature (1)
-    # Default: 0.7
-    # Command line flag: (not available)
-    temperature: 0.7
-
     # -------------------------
     # Ollama Configuration
     # -------------------------
