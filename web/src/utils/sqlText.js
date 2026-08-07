@@ -27,6 +27,7 @@
 
 const isAsciiLetter = c => (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z');
 const isAsciiDigit = c => c >= '0' && c <= '9';
+const isIdentifierByte = c => c === '_' || isAsciiLetter(c) || isAsciiDigit(c);
 
 /**
  * Returns the index just past a "--" line comment starting at i.
@@ -107,6 +108,19 @@ function isEscapeStringStart(sql, i) {
 }
 
 /**
+ * Reports whether a dollar-quote tag may begin at i. PostgreSQL treats $ as a
+ * legal, non-initial identifier character, so "x$tag$" lexes as the single
+ * identifier x$tag$, not as x followed by a dollar-quote delimiter. Without
+ * this check that byte is rejected as a tag on its own and the scanner falls
+ * back to consuming it as ordinary text one byte at a time, so the very next
+ * $ opens a dollar-quoted block whose attacker-chosen closing tag can swallow
+ * arbitrary SQL that follows, including a smuggled statement.
+ */
+function canStartDollarQuote(sql, i) {
+    return i === 0 || (!isIdentifierByte(sql[i - 1]) && sql[i - 1] !== '$');
+}
+
+/**
  * Returns the opening tag of a dollar-quoted string starting at i, for example
  * "$$" or "$body$", or null for anything else. Positional parameters such as
  * $1 are not tags, since a digit cannot start one.
@@ -157,14 +171,15 @@ export function stripSqlNoise(sql) {
             i = endOfQuoted(sql, i, c, false);
             out += c + c;
         } else if (c === '$') {
-            const tag = dollarQuoteTag(sql, i);
+            const tag = canStartDollarQuote(sql, i) ? dollarQuoteTag(sql, i) : null;
             const body = tag === null ? -1 : sql.indexOf(tag, i + tag.length);
             if (tag !== null && body >= 0) {
                 i = body + tag.length;
                 out += tag + tag;
             } else {
-                // Not a dollar quote, or never closed: treat as ordinary text
-                // so that anything following is still scanned as code.
+                // Not a dollar quote, never closed, or continuing an
+                // identifier: treat as ordinary text so that anything
+                // following is still scanned as code.
                 out += c;
                 i++;
             }

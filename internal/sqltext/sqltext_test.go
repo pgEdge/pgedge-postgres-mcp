@@ -125,6 +125,29 @@ func TestStrip(t *testing.T) {
 			wantResidue: "SELECT $tag$ DROP TABLE t",
 			wantBare:    "SELECT $tag$ DROP TABLE t",
 		},
+		{
+			// A $ that continues an identifier is not a delimiter: PostgreSQL
+			// treats x$tag$ as one identifier. Reading the first $ as a
+			// delimiter attempt fails and falls back to one byte of code,
+			// letting the very next $ open a real dollar-quoted block whose
+			// attacker-chosen closing tag swallows the DELETE that follows.
+			name:        "dollar sign continuing an identifier does not start a tag",
+			query:       "SELECT 1 AS x$tag$; DELETE FROM t -- $tag$",
+			wantResidue: "SELECT 1 AS x$tag$; DELETE FROM t  ",
+			wantBare:    "SELECT 1 AS x$tag$; DELETE FROM t  ",
+		},
+		{
+			name:        "dollar quote immediately after an identifier without a tag",
+			query:       "SELECT 1 AS x$$; DELETE FROM t -- $$",
+			wantResidue: "SELECT 1 AS x$$; DELETE FROM t  ",
+			wantBare:    "SELECT 1 AS x$$; DELETE FROM t  ",
+		},
+		{
+			name:        "dollar quote after a space still opens normally",
+			query:       "DO $ $tag$ DROP TABLE t $tag$",
+			wantResidue: "DO $ $tag$$tag$",
+			wantBare:    "DO $ $tag$ DROP TABLE t $tag$",
+		},
 	}
 
 	for _, tt := range tests {

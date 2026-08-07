@@ -72,12 +72,15 @@ func Strip(query string) (residue string, bare string) {
 			i = consumeQuoted(query, i, '"', false, &res, &bar)
 
 		case query[i] == '$':
-			if end, ok := consumeDollarQuote(query, i, &res, &bar); ok {
-				i = end
-				continue
+			if dollarQuoteCanStartAt(query, i) {
+				if end, ok := consumeDollarQuote(query, i, &res, &bar); ok {
+					i = end
+					continue
+				}
 			}
-			// Not a dollar quote, or never closed: treat as ordinary text so
-			// that anything following is still scanned as code.
+			// Not a dollar quote, never closed, or continuing an
+			// identifier: treat as ordinary text so that anything
+			// following is still scanned as code.
 			res.WriteByte(query[i])
 			bar.WriteByte(query[i])
 			i++
@@ -228,6 +231,19 @@ func escapeStringStart(query string, i int) bool {
 
 func isIdentifierByte(c byte) bool {
 	return c == '_' || isASCIILetter(c) || isASCIIDigit(c)
+}
+
+// dollarQuoteCanStartAt reports whether a dollar-quote tag may begin at i.
+// PostgreSQL treats $ as a legal, non-initial identifier character, so
+// "x$tag$" lexes as the single identifier x$tag$, not as x followed by a
+// dollar-quote delimiter. Without this check that byte is rejected as a tag
+// on its own (dollarQuoteTag's digit rule aside, $ after $ is not a valid
+// tag start either) and the scanner falls back to consuming it as ordinary
+// text one byte at a time, so the very next $ opens a dollar-quoted block
+// whose attacker-chosen closing tag can swallow arbitrary SQL that follows,
+// including a smuggled statement.
+func dollarQuoteCanStartAt(query string, i int) bool {
+	return i == 0 || (!isIdentifierByte(query[i-1]) && query[i-1] != '$')
 }
 
 // dollarQuoteTag returns the opening tag of a dollar-quoted string starting at

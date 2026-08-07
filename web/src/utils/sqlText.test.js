@@ -39,6 +39,14 @@ describe('stripSqlNoise', () => {
             "SELECT 'oops", "SELECT ''"],
         ['lets an unclosed dollar quote fall through as code',
             'SELECT $tag$ DROP TABLE t', 'SELECT $tag$ DROP TABLE t'],
+        ['does not let a $ continuing an identifier start a tag',
+            'SELECT 1 AS x$tag$; DELETE FROM t -- $tag$',
+            'SELECT 1 AS x$tag$; DELETE FROM t  '],
+        ['does not let a dollar quote without a tag continue an identifier',
+            'SELECT 1 AS x$$; DELETE FROM t -- $$',
+            'SELECT 1 AS x$$; DELETE FROM t  '],
+        ['still opens a dollar quote that follows a space',
+            'DO $ $tag$ DROP TABLE t $tag$', 'DO $ $tag$$tag$'],
     ];
 
     it.each(cases)('%s', (_name, input, expected) => {

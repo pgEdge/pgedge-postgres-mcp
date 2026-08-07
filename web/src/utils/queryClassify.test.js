@@ -147,6 +147,17 @@ describe('isWriteQuery', () => {
             expect(isWriteQuery('/* harmless */ SELECT * INTO backup FROM users'))
                 .toBe(true);
         });
+
+        it('is not fooled by a dollar-quote decoy hiding a DELETE', () => {
+            expect(isWriteQuery(
+                'SELECT 1 AS x$tag$; DELETE FROM t -- $tag$',
+            )).toBe(true);
+        });
+
+        it('is not fooled by a tagless dollar-quote decoy hiding a DELETE', () => {
+            expect(isWriteQuery('SELECT 1 AS x$$; DELETE FROM t -- $$'))
+                .toBe(true);
+        });
     });
 
     describe('reads that must not prompt return false', () => {

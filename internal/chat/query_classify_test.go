@@ -92,6 +92,15 @@ func TestClassifyQuery(t *testing.T) {
 		{"lowercase escape string hiding select into",
 			`SELECT e'\'' INTO backup FROM users`, QueryTypeDDL, true},
 
+		// A dollar-quote tag glued onto the end of an identifier must not be
+		// read as a delimiter: PostgreSQL treats x$tag$ as a single
+		// identifier, and misreading it opens a real, attacker-chosen
+		// dollar-quoted block that can swallow a smuggled statement.
+		{"dollar quote decoy hiding a delete",
+			"SELECT 1 AS x$tag$; DELETE FROM t -- $tag$", QueryTypeDML, true},
+		{"dollar quote decoy without a tag hiding a delete",
+			"SELECT 1 AS x$$; DELETE FROM t -- $$", QueryTypeDML, true},
+
 		// Reads that must stay quiet, so that the prompt keeps its meaning.
 		{"explain insert without analyze",
 			"EXPLAIN INSERT INTO t VALUES (1)", QueryTypeSelect, false},

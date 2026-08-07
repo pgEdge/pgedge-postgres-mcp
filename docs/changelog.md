@@ -145,9 +145,15 @@ and this project adheres to
   rather than an escape ran the literal on to the end of the statement and
   hid whatever followed it, so `SELECT E'\'' INTO backup FROM users`
   classified as a read; a backslash in a plain `'...'` literal is still an
-  ordinary character, as `standard_conforming_strings` requires. The
-  read-only guardrails benefit from the same correction, since a statement
-  that hides its tail from the scanner also hides it from them. Note that this
+  ordinary character, as `standard_conforming_strings` requires. The scanner
+  also no longer lets a `$` that continues an identifier open a dollar-quote
+  tag. PostgreSQL treats `$` as a legal, non-initial identifier character, so
+  `x$tag$` lexes as one identifier; misreading the first `$` as a failed
+  delimiter attempt let the very next `$` open a real, attacker-chosen
+  dollar-quoted block, so `SELECT 1 AS x$tag$; DELETE FROM t -- $tag$` hid
+  the `DELETE` and classified as a read. The read-only guardrails benefit
+  from the same correction, since a statement that hides its tail from the
+  scanner also hides it from them. Note that this
   is a client-side prompt and not a security boundary: a statement whose
   writes happen inside a function it calls still reads as a `SELECT`, and
   nothing textual could tell otherwise. What prevents a write on a read-only
