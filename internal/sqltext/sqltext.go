@@ -236,12 +236,14 @@ func isIdentifierByte(c byte) bool {
 // dollarQuoteCanStartAt reports whether a dollar-quote tag may begin at i.
 // PostgreSQL treats $ as a legal, non-initial identifier character, so
 // "x$tag$" lexes as the single identifier x$tag$, not as x followed by a
-// dollar-quote delimiter. Without this check that byte is rejected as a tag
-// on its own (dollarQuoteTag's digit rule aside, $ after $ is not a valid
-// tag start either) and the scanner falls back to consuming it as ordinary
-// text one byte at a time, so the very next $ opens a dollar-quoted block
-// whose attacker-chosen closing tag can swallow arbitrary SQL that follows,
-// including a smuggled statement.
+// dollar-quote delimiter. Without this check, dollarQuoteTag reads forward
+// from that first $ and accepts the second one as the tag's own closing
+// mark, mistaking two bytes of an identifier for a two-character tag
+// "$tag$". Once that bogus tag is accepted, the scanner searches for its
+// next literal occurrence to close the body, and an attacker who plants one
+// later in the statement, for example inside a trailing comment, can make
+// everything in between disappear from the residue, including a smuggled
+// statement.
 func dollarQuoteCanStartAt(query string, i int) bool {
 	return i == 0 || (!isIdentifierByte(query[i-1]) && query[i-1] != '$')
 }
