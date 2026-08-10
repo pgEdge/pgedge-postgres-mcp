@@ -974,6 +974,14 @@ const ChatInterface = ({ conversations }) => {
                     // once per block.
                     const toolResultMessages = [];
                     for (const toolUseBlock of toolUses) {
+                        // A batch of parallel tool_use blocks can repeat the
+                        // same failing call several times in one response;
+                        // stop issuing further calls the moment the guard
+                        // has already tripped on an earlier one this batch.
+                        if (toolRepeatGuard.getTripped()) {
+                            break;
+                        }
+
                         const toolUse = toolUseBlock.tool_use || toolUseBlock;
                         const toolUseId = toolUse.id;
                         const toolName = toolUse.name;
@@ -1549,6 +1557,14 @@ const ChatInterface = ({ conversations }) => {
                     // details under a `tool_use` object.
                     const toolResultMessages = [];
                     for (const toolUseBlock of toolUses) {
+                        // A batch of parallel tool_use blocks can repeat the
+                        // same failing call several times in one response;
+                        // stop issuing further calls the moment the guard
+                        // has already tripped on an earlier one this batch.
+                        if (toolRepeatGuard.getTripped()) {
+                            break;
+                        }
+
                         const toolUse = toolUseBlock.tool_use || toolUseBlock;
                         const toolUseId = toolUse.id;
                         const toolName = toolUse.name;

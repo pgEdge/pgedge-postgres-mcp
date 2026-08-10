@@ -217,6 +217,31 @@ describe('ChatInterface repeated tool failure guard', () => {
         expect(text).toContain('relation "users" does not exist');
     });
 
+    it('stops mid-batch when one response repeats the same failing call', async () => {
+        const sameCall = (id) => ({
+            type: 'tool_use',
+            tool_use: { id, name: 'query_database', input: { sql: 'SELECT count(*) FROM users' } },
+        });
+        mockSseChat.mockImplementation(async () => ({
+            stop_reason: 'tool_use',
+            content: [sameCall('call-1'), sameCall('call-2'), sameCall('call-3'), sameCall('call-4')],
+            usage: { prompt_tokens: 10, completion_tokens: 5, total_tokens: 15 },
+        }));
+        mockCallTool.mockResolvedValue(
+            errorResult('ERROR: relation "users" does not exist'));
+
+        await sendMessage();
+        const text = await finalMessageText();
+
+        // The fourth identical call in the batch must never run: the
+        // guard trips on the third failure, so the loop should stop
+        // issuing further calls from the same response rather than
+        // running the whole batch before checking.
+        expect(mockCallTool).toHaveBeenCalledTimes(3);
+        expect(mockSseChat).toHaveBeenCalledTimes(1);
+        expect(text).toContain('3 times');
+    });
+
     it('ignores argument key ordering when matching repeats', async () => {
         const inputs = [
             { sql: 'SELECT 1', limit: 10 },
