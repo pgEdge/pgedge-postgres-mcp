@@ -46,6 +46,8 @@ Before running the startup script, make sure you have:
      environment variable, OR create `~/.anthropic-api-key` file
    - OpenAI: Set `OPENAI_API_KEY` or `PGEDGE_OPENAI_API_KEY` environment
      variable, OR create `~/.openai-api-key` file
+   - Gemini: Set `GEMINI_API_KEY` or `PGEDGE_GEMINI_API_KEY` environment
+     variable, OR pass `-gemini-api-key-file` with the path to a key file
    - Ollama: Set `PGEDGE_OLLAMA_URL` (e.g., `http://localhost:11434`)
 
 * **Database Connection** (optional, uses defaults if not set):
@@ -103,9 +105,15 @@ You can configure the chat client in three ways (in order of precedence):
 
 API keys are loaded in the following order (highest to lowest):
 
-1. Environment variables (`PGEDGE_ANTHROPIC_API_KEY`, `PGEDGE_OPENAI_API_KEY`)
-2. API key files (`~/.anthropic-api-key`, `~/.openai-api-key`)
+1. Environment variables (`PGEDGE_ANTHROPIC_API_KEY`,
+   `PGEDGE_OPENAI_API_KEY`, `PGEDGE_GEMINI_API_KEY`)
+2. API key files (`~/.anthropic-api-key`, `~/.openai-api-key`, and the file
+   named by `gemini_api_key_file` or `-gemini-api-key-file`)
 3. Configuration file values (not recommended)
+
+The `-gemini-api-key` and `-gemini-api-key-file` flags override every other
+source, because command-line flags take precedence over the configuration
+the client has already loaded.
 
 ### Using Command-Line Flags
 
@@ -119,10 +127,17 @@ Flags:
   -mcp-url string           MCP server URL (for HTTP mode)
   -mcp-server-path string   Path to MCP server binary (for stdio mode)
   -mcp-server-config string Path to MCP server config file (for stdio mode)
-  -llm-provider string      LLM provider: anthropic, openai, or ollama
+  -mcp-auth-mode string     MCP authentication mode: none, token, or user
+  -mcp-token string         MCP server authentication token (for token mode)
+  -mcp-username string      MCP server username (for user mode)
+  -mcp-password string      MCP server password (for user mode)
+  -llm-provider string      LLM provider: anthropic, openai, gemini, or ollama
   -llm-model string         LLM model to use
   -anthropic-api-key string API key for Anthropic
   -openai-api-key string    API key for OpenAI
+  -gemini-api-key string    API key for Google Gemini
+  -gemini-api-key-file string
+                            Path to a file containing the Google Gemini API key
   -ollama-url string        Ollama server URL
   -no-color                 Disable colored output
 ```
@@ -134,10 +149,11 @@ Flags:
 - `PGEDGE_MCP_SERVER_PATH`: Path to MCP server binary (for stdio mode)
 - `PGEDGE_MCP_SERVER_CONFIG_PATH`: Path to MCP server config file (for stdio mode)
 - `PGEDGE_MCP_TOKEN`: Authentication token (for HTTP mode)
-- `PGEDGE_LLM_PROVIDER`: LLM provider (anthropic, openai, or ollama)
+- `PGEDGE_LLM_PROVIDER`: LLM provider (anthropic, openai, gemini, or ollama)
 - `PGEDGE_LLM_MODEL`: LLM model name
 - `PGEDGE_ANTHROPIC_API_KEY`: Anthropic API key
 - `PGEDGE_OPENAI_API_KEY`: OpenAI API key
+- `PGEDGE_GEMINI_API_KEY`: Google Gemini API key
 - `PGEDGE_OLLAMA_URL`: Ollama server URL (default: http://localhost:11434)
 - `NO_COLOR`: Disable colored output
 
@@ -161,7 +177,7 @@ mcp:
     # token: your-token-here
 
 llm:
-    provider: anthropic  # Options: anthropic, openai, or ollama
+    provider: anthropic  # Options: anthropic, openai, gemini, or ollama
     model: claude-sonnet-4-20250514
 
     # API keys (priority: env vars > key files > direct config values)
@@ -169,9 +185,11 @@ llm:
     # Option 2: API key files (recommended for production)
     anthropic_api_key_file: ~/.anthropic-api-key
     openai_api_key_file: ~/.openai-api-key
+    gemini_api_key_file: ~/.gemini-api-key
     # Option 3: Direct values (not recommended - use env vars or files)
     # anthropic_api_key: your-anthropic-key-here
     # openai_api_key: your-openai-key-here
+    # gemini_api_key: your-gemini-key-here
 
     max_tokens: 4096
 
@@ -252,6 +270,35 @@ Note: GPT-5 and o-series models (o1, o3) have specific API constraints:
 - Use `max_completion_tokens` instead of `max_tokens`
 
 The client automatically handles these differences.
+
+### Example 2b: Stdio Mode with Google Gemini
+
+Use Google's Gemini models for natural language processing.
+
+```bash
+# Set your Gemini API key
+export PGEDGE_GEMINI_API_KEY="your-api-key-here"
+
+# Run the chat client with Gemini
+./bin/pgedge-nla-cli \
+  -llm-provider gemini \
+  -llm-model gemini-2.5-flash
+```
+
+You can keep the key in a file instead, which avoids exposing it in the
+environment:
+
+```bash
+echo "your-api-key-here" > ~/.gemini-api-key
+chmod 600 ~/.gemini-api-key
+
+./bin/pgedge-nla-cli \
+  -llm-provider gemini \
+  -gemini-api-key-file ~/.gemini-api-key
+```
+
+The client defaults to the `gemini-2.5-flash` model when you do not name one;
+use `/list models` to see everything the account can reach.
 
 ### Example 3: HTTP Mode with Authentication
 
@@ -475,7 +522,7 @@ colors but still with formatting structure.
 ```
 
 Change the LLM provider at runtime without restarting the client. Valid
-providers: `anthropic`, `openai`, `ollama`.
+providers: `anthropic`, `openai`, `gemini`, `ollama`.
 
 **Examples:**
 

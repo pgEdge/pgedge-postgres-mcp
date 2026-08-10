@@ -16,12 +16,14 @@ The chat client supports the following environment variables (in order of preced
 
 ### LLM Configuration
 
-- `PGEDGE_LLM_PROVIDER`: LLM provider (`anthropic`, `openai`, or `ollama`)
+- `PGEDGE_LLM_PROVIDER`: LLM provider (`anthropic`, `openai`, `gemini`, or
+  `ollama`)
 - `PGEDGE_LLM_MODEL`: Model to use
 - `PGEDGE_ANTHROPIC_API_KEY`: Anthropic API key
 - `PGEDGE_ANTHROPIC_BASE_URL`: Custom Anthropic API base URL (for proxies)
 - `PGEDGE_OPENAI_API_KEY`: OpenAI API key
 - `PGEDGE_OPENAI_BASE_URL`: Custom OpenAI API base URL (for proxies)
+- `PGEDGE_GEMINI_API_KEY`: Google Gemini API key
 - `PGEDGE_OLLAMA_URL`: Ollama server URL
 
 ### Command Line Flags
@@ -39,6 +41,16 @@ All configuration options can be overridden with command line flags:
     -llm-model claude-opus-4-20250514 \
     -anthropic-api-key your-anthropic-key \
     -no-color
+```
+
+The Gemini key can be given directly or read from a file, and either flag
+overrides the environment variable and the configuration file:
+
+```bash
+./bin/pgedge-nla-cli \
+    -llm-provider gemini \
+    -llm-model gemini-2.5-flash \
+    -gemini-api-key-file ~/.gemini-api-key
 ```
 
 Available MCP authentication flags:
@@ -277,9 +289,10 @@ mcp:
 # LLM PROVIDER CONFIGURATION
 # ============================================================================
 llm:
-    # Provider: "anthropic", "openai", or "ollama"
+    # Provider: "anthropic", "openai", "gemini", or "ollama"
     # anthropic: Uses Anthropic's Claude API (requires API key)
     # openai: Uses OpenAI's GPT API (requires API key)
+    # gemini: Uses Google's Gemini API (requires API key)
     # ollama: Uses locally running Ollama server (no API key needed)
     # Default: anthropic
     # Environment variable: PGEDGE_LLM_PROVIDER
@@ -289,8 +302,10 @@ llm:
     # Model to use
     # Anthropic models: claude-sonnet-4-20250514, claude-opus-4-20250514, etc.
     # OpenAI models: gpt-5-main, gpt-5-thinking, gpt-4o, gpt-4-turbo, gpt-3.5-turbo, etc.
+    # Gemini models: gemini-2.5-flash, gemini-2.5-pro, etc.
     # Ollama models: llama3, llama3.1, mistral, gpt-oss:20b, etc.
-    # Default: claude-sonnet-4-20250514 (anthropic), gpt-5-main (openai), or llama3 (ollama)
+    # Default: claude-sonnet-4-20250514 (anthropic), gpt-5-main (openai),
+    # gemini-2.5-flash (gemini), or llama3 (ollama)
     # Environment variable: PGEDGE_LLM_MODEL
     # Command line flag: -llm-model
     model: claude-sonnet-4-20250514
@@ -348,6 +363,27 @@ llm:
     # Environment variable: PGEDGE_OPENAI_BASE_URL
     # Leave empty to use default (https://api.openai.com)
     # openai_base_url: "https://your-proxy.example.com"
+
+    # -------------------------
+    # Gemini Configuration
+    # -------------------------
+    # API key for Google Gemini
+    # Get your API key from: https://aistudio.google.com/
+    #
+    # Priority (highest to lowest):
+    # 1. Command line flag: -gemini-api-key or -gemini-api-key-file
+    # 2. Environment variable: PGEDGE_GEMINI_API_KEY or GEMINI_API_KEY
+    # 3. API key file: gemini_api_key_file
+    # 4. Direct config value: gemini_api_key (not recommended)
+    #
+    # Option 1: Environment variable (recommended for development)
+    # export PGEDGE_GEMINI_API_KEY="your-key-here"
+    #
+    # Option 2: API key file (recommended for production)
+    gemini_api_key_file: ~/.gemini-api-key
+    #
+    # Option 3: Direct value (not recommended - use env var or file)
+    # gemini_api_key: your-gemini-api-key-here
 
     # Maximum tokens for LLM response
     # For GPT-5 and o-series models, automatically uses max_completion_tokens

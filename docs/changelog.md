@@ -31,6 +31,16 @@ and this project adheres to
   databases built before the column existed continue to work with the
   other providers.
 
+- The CLI client now supports Google Gemini as an LLM provider, which
+  the server has offered for some time. Select it with `-llm-provider
+  gemini`, with `PGEDGE_LLM_PROVIDER=gemini`, or with `provider:
+  gemini` in the configuration file, and supply the key through the
+  new `-gemini-api-key` and `-gemini-api-key-file` flags, the
+  `PGEDGE_GEMINI_API_KEY` or `GEMINI_API_KEY` environment variables,
+  or the `gemini_api_key` and `gemini_api_key_file` settings. The
+  provider can also be switched at runtime with `/set provider
+  gemini`, and defaults to the `gemini-2.5-flash` model. (#238)
+
 ### Changed
 
 - Dependencies across every ecosystem this project uses are now on their

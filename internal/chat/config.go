@@ -50,7 +50,7 @@ type MCPConfig struct {
 
 // LLMConfig holds LLM provider configuration
 type LLMConfig struct {
-	Provider            string `yaml:"provider"`               // anthropic, openai, or ollama
+	Provider            string `yaml:"provider"`               // anthropic, openai, gemini, or ollama
 	Model               string `yaml:"model"`                  // Model to use
 	AnthropicAPIKey     string `yaml:"anthropic_api_key"`      // API key for Anthropic (direct - discouraged, use api_key_file or env var)
 	AnthropicAPIKeyFile string `yaml:"anthropic_api_key_file"` // Path to file containing Anthropic API key
@@ -58,6 +58,8 @@ type LLMConfig struct {
 	OpenAIAPIKey        string `yaml:"openai_api_key"`         // API key for OpenAI (direct - discouraged, use api_key_file or env var)
 	OpenAIAPIKeyFile    string `yaml:"openai_api_key_file"`    // Path to file containing OpenAI API key
 	OpenAIBaseURL       string `yaml:"openai_base_url"`        // Base URL for OpenAI API (default: https://api.openai.com)
+	GeminiAPIKey        string `yaml:"gemini_api_key"`         // API key for Google Gemini (direct - discouraged, use api_key_file or env var)
+	GeminiAPIKeyFile    string `yaml:"gemini_api_key_file"`    // Path to file containing Gemini API key
 	OllamaURL           string `yaml:"ollama_url"`             // Ollama server URL
 	MaxTokens           int    `yaml:"max_tokens"`             // Max tokens for response
 }
@@ -91,6 +93,7 @@ func LoadConfig(configPath string) (*Config, error) {
 			AnthropicBaseURL: os.Getenv("PGEDGE_ANTHROPIC_BASE_URL"), // Empty string uses default
 			OpenAIAPIKey:     getEnvWithFallback("PGEDGE_OPENAI_API_KEY", "OPENAI_API_KEY"),
 			OpenAIBaseURL:    os.Getenv("PGEDGE_OPENAI_BASE_URL"), // Empty string uses default
+			GeminiAPIKey:     getEnvWithFallback("PGEDGE_GEMINI_API_KEY", "GEMINI_API_KEY"),
 			OllamaURL:        getEnvOrDefault("PGEDGE_OLLAMA_URL", "http://localhost:11434"),
 			MaxTokens:        4096,
 		},
@@ -138,19 +141,34 @@ func LoadConfig(configPath string) (*Config, error) {
 		}
 		// Note: errors are silently ignored - file may not exist and that's ok
 	}
-	// 2. Direct config value (if set) is already in cfg.LLM.AnthropicAPIKey/OpenAIAPIKey from loadConfigFile
+	if cfg.LLM.GeminiAPIKey == "" && cfg.LLM.GeminiAPIKeyFile != "" {
+		if key, err := readAPIKeyFromFile(cfg.LLM.GeminiAPIKeyFile); err == nil && key != "" {
+			cfg.LLM.GeminiAPIKey = key
+		}
+		// Note: errors are silently ignored - file may not exist and that's ok
+	}
+	// 2. Direct config value (if set) is already in cfg.LLM.AnthropicAPIKey/OpenAIAPIKey/GeminiAPIKey from loadConfigFile
 
 	// Load authentication token with priority
 	cfg.MCP.Token = loadAuthToken()
 
 	// Register the credentials for redaction, so that a provider quoting a key
 	// back in an error cannot reach the terminal or a redirected log.
-	redact.Register(
-		cfg.LLM.AnthropicAPIKey,
-		cfg.LLM.OpenAIAPIKey,
-	)
+	cfg.RegisterSecrets()
 
 	return cfg, nil
+}
+
+// RegisterSecrets registers the configured provider API keys for redaction, so
+// that a provider quoting a key back in an error cannot reach the terminal or
+// a redirected log. LoadConfig calls it, and a caller that overrides a key
+// afterwards (the CLI does so from its flags) must call it again.
+func (c *Config) RegisterSecrets() {
+	redact.Register(
+		c.LLM.AnthropicAPIKey,
+		c.LLM.OpenAIAPIKey,
+		c.LLM.GeminiAPIKey,
+	)
 }
 
 // loadConfigFile loads configuration from a YAML file
@@ -205,8 +223,9 @@ func (c *Config) Validate() error {
 	}
 
 	// Validate LLM provider
-	if c.LLM.Provider != "anthropic" && c.LLM.Provider != "openai" && c.LLM.Provider != "ollama" {
-		return fmt.Errorf("invalid llm-provider: %s (must be anthropic, openai, or ollama)", c.LLM.Provider)
+	if c.LLM.Provider != "anthropic" && c.LLM.Provider != "openai" &&
+		c.LLM.Provider != "gemini" && c.LLM.Provider != "ollama" {
+		return fmt.Errorf("invalid llm-provider: %s (must be anthropic, openai, gemini, or ollama)", c.LLM.Provider)
 	}
 
 	// Validate LLM configuration based on provider
@@ -224,6 +243,13 @@ func (c *Config) Validate() error {
 		}
 		if c.LLM.Model == "" {
 			c.LLM.Model = "gpt-4o"
+		}
+	case "gemini":
+		if c.LLM.GeminiAPIKey == "" {
+			return fmt.Errorf("PGEDGE_GEMINI_API_KEY environment variable or gemini_api_key config is required for Gemini")
+		}
+		if c.LLM.Model == "" {
+			c.LLM.Model = "gemini-2.5-flash"
 		}
 	default:
 		if c.LLM.OllamaURL == "" {
@@ -244,6 +270,8 @@ func (c *Config) IsProviderConfigured(provider string) bool {
 		return c.LLM.AnthropicAPIKey != ""
 	case "openai":
 		return c.LLM.OpenAIAPIKey != ""
+	case "gemini":
+		return c.LLM.GeminiAPIKey != ""
 	case "ollama":
 		// Ollama is configured if URL is set (defaults to localhost)
 		return c.LLM.OllamaURL != ""
@@ -253,7 +281,7 @@ func (c *Config) IsProviderConfigured(provider string) bool {
 }
 
 // GetConfiguredProviders returns a list of providers that are configured
-// in priority order: anthropic, openai, ollama
+// in priority order: anthropic, openai, gemini, ollama
 func (c *Config) GetConfiguredProviders() []string {
 	providers := []string{}
 	if c.IsProviderConfigured("anthropic") {
@@ -261,6 +289,9 @@ func (c *Config) GetConfiguredProviders() []string {
 	}
 	if c.IsProviderConfigured("openai") {
 		providers = append(providers, "openai")
+	}
+	if c.IsProviderConfigured("gemini") {
+		providers = append(providers, "gemini")
 	}
 	if c.IsProviderConfigured("ollama") {
 		providers = append(providers, "ollama")
@@ -284,6 +315,15 @@ func getEnvWithFallback(keys ...string) string {
 		}
 	}
 	return ""
+}
+
+// ReadAPIKeyFile reads an API key from the named file, expanding a leading
+// tilde to the user's home directory. It exists for callers outside the
+// package, such as the CLI's key file flags, which apply after LoadConfig has
+// already resolved the key files named in the configuration. An empty string
+// is returned when the file does not exist.
+func ReadAPIKeyFile(filePath string) (string, error) {
+	return readAPIKeyFromFile(filePath)
 }
 
 // readAPIKeyFromFile reads an API key from a file

@@ -169,12 +169,13 @@ You also need to specify the LLM provider information in the `LLM CONFIGURATION 
 # ============================================================================
 # LLM CONFIGURATION FOR CLIENTS
 # ============================================================================
-# Default LLM provider for chat clients: anthropic, openai, or ollama
+# Default LLM provider for chat clients: anthropic, openai, gemini, or ollama
 PGEDGE_LLM_PROVIDER=anthropic
 
 # Default LLM model for chat clients
 # Anthropic: claude-sonnet-4-20250514, claude-opus-4-20250514, etc.
 # OpenAI: gpt-4o, gpt-4-turbo, gpt-4o-mini, etc.
+# Gemini: gemini-2.5-flash, gemini-2.5-pro, etc.
 # Ollama: llama3, mistral, etc.
 PGEDGE_LLM_MODEL=claude-sonnet-4-20250514
 ```

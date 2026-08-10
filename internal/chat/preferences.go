@@ -128,6 +128,7 @@ func getDefaultPreferences() *Preferences {
 		ProviderModels: map[string]string{
 			"anthropic": "claude-sonnet-4-5-20250929",
 			"openai":    "gpt-4o",
+			"gemini":    "gemini-2.5-flash",
 			"ollama":    "qwen3-coder:latest",
 		},
 		LastProvider: "anthropic",
@@ -153,6 +154,7 @@ func sanitizePreferences(prefs *Preferences) *Preferences {
 	validProviders := map[string]bool{
 		"anthropic": true,
 		"openai":    true,
+		"gemini":    true,
 		"ollama":    true,
 	}
 	if !validProviders[prefs.LastProvider] {

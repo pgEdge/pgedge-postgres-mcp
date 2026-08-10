@@ -253,6 +253,7 @@ func TestHandleSetLLMProvider(t *testing.T) {
 	}{
 		{"anthropic", "anthropic", false},
 		{"openai", "openai", false},
+		{"gemini", "gemini", false},
 		{"ollama", "ollama", false},
 		{"ANTHROPIC uppercase", "ANTHROPIC", false},
 		{"invalid provider", "invalid", true},
@@ -267,6 +268,7 @@ func TestHandleSetLLMProvider(t *testing.T) {
 					Model:           "claude-sonnet-4-5-20250929",
 					AnthropicAPIKey: "test-key",
 					OpenAIAPIKey:    "test-key",
+					GeminiAPIKey:    "test-key",
 					OllamaURL:       "http://localhost:11434",
 				},
 				UI: UIConfig{

@@ -33,10 +33,12 @@ func main() {
 	mcpToken := flag.String("mcp-token", "", "MCP server authentication token (for token mode)")
 	mcpUsername := flag.String("mcp-username", "", "MCP server username (for user mode)")
 	mcpPassword := flag.String("mcp-password", "", "MCP server password (for user mode)")
-	llmProvider := flag.String("llm-provider", "", "LLM provider: anthropic, openai, or ollama (default: anthropic)")
+	llmProvider := flag.String("llm-provider", "", "LLM provider: anthropic, openai, gemini, or ollama (default: anthropic)")
 	llmModel := flag.String("llm-model", "", "LLM model to use")
 	anthropicAPIKey := flag.String("anthropic-api-key", "", "API key for Anthropic")
 	openaiAPIKey := flag.String("openai-api-key", "", "API key for OpenAI")
+	geminiAPIKey := flag.String("gemini-api-key", "", "API key for Google Gemini")
+	geminiAPIKeyFile := flag.String("gemini-api-key-file", "", "Path to a file containing the Google Gemini API key")
 	ollamaURL := flag.String("ollama-url", "", "Ollama server URL (default: http://localhost:11434)")
 	noColor := flag.Bool("no-color", false, "Disable colored output")
 
@@ -98,12 +100,35 @@ func main() {
 	if *openaiAPIKey != "" {
 		cfg.LLM.OpenAIAPIKey = *openaiAPIKey
 	}
+	// The key file is read here rather than by the loader, because the loader
+	// resolves the files named in the configuration before any flag is seen.
+	// A key given directly on the command line wins over one in a file.
+	if *geminiAPIKeyFile != "" {
+		cfg.LLM.GeminiAPIKeyFile = *geminiAPIKeyFile
+		key, err := chat.ReadAPIKeyFile(*geminiAPIKeyFile)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error reading Gemini API key file: %v\n", err)
+			os.Exit(1)
+		}
+		if key == "" {
+			fmt.Fprintf(os.Stderr, "Gemini API key file %s is missing or empty\n", *geminiAPIKeyFile)
+			os.Exit(1)
+		}
+		cfg.LLM.GeminiAPIKey = key
+	}
+	if *geminiAPIKey != "" {
+		cfg.LLM.GeminiAPIKey = *geminiAPIKey
+	}
 	if *ollamaURL != "" {
 		cfg.LLM.OllamaURL = *ollamaURL
 	}
 	if *noColor {
 		cfg.UI.NoColor = true
 	}
+
+	// Re-register the credentials for redaction, since the flags above may
+	// have supplied keys that LoadConfig never saw.
+	cfg.RegisterSecrets()
 
 	// Validate configuration
 	if err := cfg.Validate(); err != nil {

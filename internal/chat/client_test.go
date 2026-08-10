@@ -184,6 +184,7 @@ func TestGetDefaultModelForProvider(t *testing.T) {
 	}{
 		{"anthropic", "anthropic", "claude-sonnet-4-5-20250929"},
 		{"openai", "openai", "gpt-4o"},
+		{"gemini", "gemini", "gemini-2.5-flash"},
 		{"ollama", "ollama", "qwen3-coder:latest"},
 		{"unknown", "unknown", ""},
 		{"empty", "", ""},

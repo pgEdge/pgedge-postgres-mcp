@@ -256,3 +256,160 @@ func TestValidate_MissingAPIKey(t *testing.T) {
 		t.Error("Expected validation error for missing API key for Anthropic")
 	}
 }
+
+func TestValidate_Gemini(t *testing.T) {
+	cfg := &Config{
+		MCP: MCPConfig{
+			Mode:       "stdio",
+			ServerPath: "/path/to/server",
+		},
+		LLM: LLMConfig{
+			Provider:     "gemini",
+			GeminiAPIKey: "test-key",
+		},
+	}
+
+	if err := cfg.Validate(); err != nil {
+		t.Fatalf("Validate failed: %v", err)
+	}
+
+	if cfg.LLM.Model != "gemini-2.5-flash" {
+		t.Errorf("Expected default Gemini model 'gemini-2.5-flash', got '%s'", cfg.LLM.Model)
+	}
+}
+
+func TestValidate_GeminiMissingAPIKey(t *testing.T) {
+	cfg := &Config{
+		MCP: MCPConfig{
+			Mode:       "stdio",
+			ServerPath: "/path/to/server",
+		},
+		LLM: LLMConfig{
+			Provider: "gemini",
+			// GeminiAPIKey is missing
+		},
+	}
+
+	if err := cfg.Validate(); err == nil {
+		t.Error("Expected validation error for missing API key for Gemini")
+	}
+}
+
+func TestIsProviderConfigured(t *testing.T) {
+	cfg := &Config{
+		LLM: LLMConfig{
+			GeminiAPIKey: "test-key",
+		},
+	}
+
+	if !cfg.IsProviderConfigured("gemini") {
+		t.Error("Expected gemini to be configured when the API key is set")
+	}
+	if cfg.IsProviderConfigured("anthropic") {
+		t.Error("Expected anthropic to be unconfigured without an API key")
+	}
+	if cfg.IsProviderConfigured("unknown") {
+		t.Error("Expected an unknown provider to be unconfigured")
+	}
+}
+
+func TestGetConfiguredProviders_IncludesGemini(t *testing.T) {
+	cfg := &Config{
+		LLM: LLMConfig{
+			AnthropicAPIKey: "test-key",
+			OpenAIAPIKey:    "test-key",
+			GeminiAPIKey:    "test-key",
+			OllamaURL:       "http://localhost:11434",
+		},
+	}
+
+	providers := cfg.GetConfiguredProviders()
+	expected := []string{"anthropic", "openai", "gemini", "ollama"}
+
+	if len(providers) != len(expected) {
+		t.Fatalf("Expected %d providers, got %d (%v)", len(expected), len(providers), providers)
+	}
+	for i, want := range expected {
+		if providers[i] != want {
+			t.Errorf("Expected provider %d to be %q, got %q", i, want, providers[i])
+		}
+	}
+}
+
+func TestLoadConfig_GeminiAPIKeyFromEnvironment(t *testing.T) {
+	t.Setenv("PGEDGE_GEMINI_API_KEY", "")
+	t.Setenv("GEMINI_API_KEY", "env-gemini-key")
+
+	cfg, err := LoadConfig("")
+	if err != nil {
+		t.Fatalf("LoadConfig failed: %v", err)
+	}
+
+	if cfg.LLM.GeminiAPIKey != "env-gemini-key" {
+		t.Errorf("Expected Gemini API key 'env-gemini-key', got '%s'", cfg.LLM.GeminiAPIKey)
+	}
+
+	// The prefixed variable takes priority over the bare one.
+	t.Setenv("PGEDGE_GEMINI_API_KEY", "prefixed-gemini-key")
+
+	cfg, err = LoadConfig("")
+	if err != nil {
+		t.Fatalf("LoadConfig failed: %v", err)
+	}
+
+	if cfg.LLM.GeminiAPIKey != "prefixed-gemini-key" {
+		t.Errorf("Expected Gemini API key 'prefixed-gemini-key', got '%s'", cfg.LLM.GeminiAPIKey)
+	}
+}
+
+func TestLoadConfig_GeminiAPIKeyFromFile(t *testing.T) {
+	t.Setenv("PGEDGE_GEMINI_API_KEY", "")
+	t.Setenv("GEMINI_API_KEY", "")
+
+	tmpDir := t.TempDir()
+	keyPath := filepath.Join(tmpDir, "gemini-key")
+	if err := os.WriteFile(keyPath, []byte("file-gemini-key\n"), 0600); err != nil {
+		t.Fatalf("Failed to write key file: %v", err)
+	}
+
+	configPath := filepath.Join(tmpDir, "test-config.yaml")
+	configContent := "llm:\n  provider: gemini\n  gemini_api_key_file: " + keyPath + "\n"
+	if err := os.WriteFile(configPath, []byte(configContent), 0644); err != nil {
+		t.Fatalf("Failed to write config file: %v", err)
+	}
+
+	cfg, err := LoadConfig(configPath)
+	if err != nil {
+		t.Fatalf("LoadConfig failed: %v", err)
+	}
+
+	if cfg.LLM.GeminiAPIKey != "file-gemini-key" {
+		t.Errorf("Expected Gemini API key 'file-gemini-key', got '%s'", cfg.LLM.GeminiAPIKey)
+	}
+}
+
+func TestReadAPIKeyFile(t *testing.T) {
+	tmpDir := t.TempDir()
+	keyPath := filepath.Join(tmpDir, "gemini-key")
+	if err := os.WriteFile(keyPath, []byte("  file-gemini-key\n"), 0600); err != nil {
+		t.Fatalf("Failed to write key file: %v", err)
+	}
+
+	key, err := ReadAPIKeyFile(keyPath)
+	if err != nil {
+		t.Fatalf("ReadAPIKeyFile failed: %v", err)
+	}
+	if key != "file-gemini-key" {
+		t.Errorf("Expected 'file-gemini-key', got '%s'", key)
+	}
+
+	// A missing file is reported as an empty key rather than an error, so
+	// that the caller can decide how to treat it.
+	key, err = ReadAPIKeyFile(filepath.Join(tmpDir, "no-such-file"))
+	if err != nil {
+		t.Fatalf("ReadAPIKeyFile failed for a missing file: %v", err)
+	}
+	if key != "" {
+		t.Errorf("Expected an empty key for a missing file, got '%s'", key)
+	}
+}

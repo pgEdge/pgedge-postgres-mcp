@@ -29,6 +29,7 @@ import (
 	"github.com/chzyer/readline"
 	llmlib "github.com/pgEdge/pgedge-go-llm-lib/llm"
 	"github.com/pgEdge/pgedge-go-llm-lib/llm/provider/anthropic"
+	_ "github.com/pgEdge/pgedge-go-llm-lib/llm/provider/gemini"
 	_ "github.com/pgEdge/pgedge-go-llm-lib/llm/provider/ollama"
 	_ "github.com/pgEdge/pgedge-go-llm-lib/llm/provider/openai"
 )
@@ -87,10 +88,10 @@ func NewClient(cfg *Config, overrides *ConfigOverrides) (*Client, error) {
 		if prefs.LastProvider != "" && cfg.IsProviderConfigured(prefs.LastProvider) {
 			cfg.LLM.Provider = prefs.LastProvider
 		} else {
-			// Use first configured provider (anthropic > openai > ollama)
+			// Use first configured provider (anthropic > openai > gemini > ollama)
 			configuredProviders := cfg.GetConfiguredProviders()
 			if len(configuredProviders) == 0 {
-				return nil, fmt.Errorf("no LLM provider configured (set API key for anthropic, openai, or ollama URL)")
+				return nil, fmt.Errorf("no LLM provider configured (set API key for anthropic, openai or gemini, or an ollama URL)")
 			}
 			cfg.LLM.Provider = configuredProviders[0]
 		}
@@ -482,6 +483,8 @@ func (c *Client) newLLMClient(provider, model string, debug bool) (llmlib.Client
 	case "openai":
 		opts.APIKey = c.config.LLM.OpenAIAPIKey
 		opts.BaseURL = c.config.LLM.OpenAIBaseURL
+	case "gemini":
+		opts.APIKey = c.config.LLM.GeminiAPIKey
 	case "ollama":
 		// Ollama has no API key. Empty BaseURL keeps the library
 		// default (http://localhost:11434).
@@ -502,7 +505,7 @@ func (c *Client) initializeLLM() error {
 	// Validate provider up-front so unsupported values surface a clear
 	// error before any client construction is attempted.
 	switch provider {
-	case "anthropic", "openai", "ollama":
+	case "anthropic", "openai", "gemini", "ollama":
 		// ok
 	default:
 		return fmt.Errorf("unsupported LLM provider: %s", provider)
@@ -1441,6 +1444,8 @@ func getDefaultModelForProvider(provider string) string {
 		return "claude-sonnet-4-5-20250929"
 	case "openai":
 		return "gpt-4o"
+	case "gemini":
+		return "gemini-2.5-flash"
 	case "ollama":
 		return "qwen3-coder:latest"
 	default:

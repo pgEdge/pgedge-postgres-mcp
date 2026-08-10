@@ -170,7 +170,8 @@ Available Commands:
   LLM Settings:
     /list providers             List available LLM providers
     /list models                List available models for current provider
-    /set provider <name>        Set LLM provider (anthropic, openai, ollama)
+    /set provider <name>        Set LLM provider (anthropic, openai,
+                                gemini, ollama)
     /set model <name>           Set LLM model
     /show provider              Show current LLM provider
     /show model                 Show current LLM model
@@ -395,12 +396,13 @@ func (c *Client) handleSetLLMProvider(provider string) bool {
 	validProviders := map[string]bool{
 		"anthropic": true,
 		"openai":    true,
+		"gemini":    true,
 		"ollama":    true,
 	}
 
 	if !validProviders[provider] {
 		c.ui.PrintError(fmt.Sprintf("Invalid LLM provider: %s", provider))
-		c.ui.PrintSystemMessage("Valid providers: anthropic, openai, ollama")
+		c.ui.PrintSystemMessage("Valid providers: anthropic, openai, gemini, ollama")
 		return true
 	}
 

@@ -45,6 +45,9 @@ func TestGetDefaultPreferences(t *testing.T) {
 	if prefs.ProviderModels["openai"] != "gpt-4o" {
 		t.Errorf("Expected openai model to be 'gpt-4o', got %q", prefs.ProviderModels["openai"])
 	}
+	if prefs.ProviderModels["gemini"] != "gemini-2.5-flash" {
+		t.Errorf("Expected gemini model to be 'gemini-2.5-flash', got %q", prefs.ProviderModels["gemini"])
+	}
 	if prefs.ProviderModels["ollama"] != "qwen3-coder:latest" {
 		t.Errorf("Expected ollama model to be 'qwen3-coder:latest', got %q", prefs.ProviderModels["ollama"])
 	}
@@ -77,6 +80,18 @@ func TestSanitizePreferences(t *testing.T) {
 			check: func(p *Preferences, t *testing.T) {
 				if p.LastProvider != "anthropic" {
 					t.Errorf("Expected LastProvider to be reset to 'anthropic', got %q", p.LastProvider)
+				}
+			},
+		},
+		{
+			name: "gemini last provider",
+			prefs: &Preferences{
+				ProviderModels: make(map[string]string),
+				LastProvider:   "gemini",
+			},
+			check: func(p *Preferences, t *testing.T) {
+				if p.LastProvider != "gemini" {
+					t.Errorf("Expected LastProvider to remain 'gemini', got %q", p.LastProvider)
 				}
 			},
 		},
