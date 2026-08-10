@@ -248,6 +248,15 @@ databases:
       # Default: prefer
       sslmode: "prefer"
 
+      # Client certificate authentication, used instead of, or alongside,
+      # a password. sslcert and sslkey must be set together.
+      # sslcert: "/path/to/client.crt"
+      # sslkey: "/path/to/client.key"
+
+      # CA certificate used to verify the server. Only consulted when
+      # sslmode is require, verify-ca, or verify-full.
+      # sslrootcert: "/path/to/ca.crt"
+
       # Connection pool settings
       # Default: 4 max connections, 0 min connections, 30m idle time
       pool_max_conns: 4

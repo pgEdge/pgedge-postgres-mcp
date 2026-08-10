@@ -59,6 +59,13 @@ databases:
       user: "postgres"
       password: ""  # Leave empty to use .pgpass file
       sslmode: "prefer"
+      # Client certificate authentication, used instead of, or alongside,
+      # a password. sslcert and sslkey must be set together.
+      # sslcert: "/path/to/client.crt"
+      # sslkey: "/path/to/client.key"
+      # CA certificate used to verify the server. Only consulted when
+      # sslmode is require, verify-ca, or verify-full.
+      # sslrootcert: "/path/to/ca.crt"
       pool_max_conns: 10
       pool_min_conns: 2
       pool_max_conn_idle_time: "5m"

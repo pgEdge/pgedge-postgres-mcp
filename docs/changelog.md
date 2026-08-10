@@ -11,6 +11,15 @@ and this project adheres to
 
 ### Changed
 
+- The example configuration files now show the `sslcert`, `sslkey`, and
+  `sslrootcert` database settings, commented out alongside `sslmode`,
+  together with the matching `PGEDGE_DB_SSLCERT`, `PGEDGE_DB_SSLKEY`,
+  and `PGEDGE_DB_SSLROOTCERT` environment variables. The settings have
+  always been supported; showing only `sslmode` left client certificate
+  authentication undiscoverable for anyone working from the examples.
+
+### Changed
+
 - Dependencies across every ecosystem this project uses are now on their
   latest releases. The GitHub Actions pins move to the current major of
   each action, which also resolves the split where `actions/checkout`,
