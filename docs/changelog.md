@@ -76,6 +76,16 @@ and this project adheres to
 
 ### Fixed
 
+- The web client no longer keeps re-running a tool call that cannot
+  succeed. Where a model responded to a tool error by reissuing the
+  identical call, the agentic loop would repeat it up to fifty times,
+  spending a request on each attempt, before failing with a bare
+  message about the loop limit. The loop now stops after the same tool
+  fails three times in a row with the same arguments, and explains what
+  happened, naming the tool and quoting the error. A retry with
+  different arguments is not affected, and a success clears the count,
+  so a model that adapts is left alone.
+
 - Switching `embedding.provider` (or `knowledgebase.embedding_provider`)
   away from Ollama without also setting a model no longer sends the
   Ollama model name to the new provider. `defaultConfig` seeded both

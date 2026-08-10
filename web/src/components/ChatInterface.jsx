@@ -25,9 +25,19 @@ import PromptPopover from './PromptPopover';
 import WriteQueryConfirmDialog from './WriteQueryConfirmDialog';
 import { writeConfirmationSubject } from '../utils/queryClassify';
 import { sseChat } from '../utils/sseChat';
+import {
+    createToolRepeatGuard,
+    buildRepeatedToolFailureMessage,
+} from '../utils/toolRepeatGuard';
 import { conversationToMarkdown, downloadMarkdown } from '../lib/conversationExport';
 
 const MAX_AGENTIC_LOOPS = 50;
+// Consecutive failures of the same tool, called with the same arguments,
+// that end the agentic loop early. Three allows a transient failure plus
+// one considered retry, whilst still catching a model that has locked on
+// to repeating a call that cannot succeed; without it the loop grinds all
+// the way to MAX_AGENTIC_LOOPS, spending a request on every attempt.
+const MAX_IDENTICAL_TOOL_FAILURES = 3;
 // Compact if estimated tokens exceed this threshold.
 // Note: Anthropic rate limits are typically 30k-60k input tokens/minute cumulative.
 // Setting lower allows multiple requests within the rate limit window.
@@ -741,6 +751,7 @@ const ChatInterface = ({ conversations }) => {
             const activity = [];
             let loopCount = 0;
             let rateLimitRetryCount = 0;
+            const toolRepeatGuard = createToolRepeatGuard(MAX_IDENTICAL_TOOL_FAILURES);
 
             // Agentic loop
             while (loopCount < MAX_AGENTIC_LOOPS) {
@@ -1007,9 +1018,16 @@ const ChatInterface = ({ conversations }) => {
                                 if (!confirmed) {
                                     activity[activityIndex].isError = true;
                                     activity[activityIndex].tokens = 0;
+                                    const declinedText = 'Execution was declined by the user. Do not retry this call. Ask the user how they would like to proceed.';
+                                    toolRepeatGuard.record({
+                                        name: toolName,
+                                        input: toolInput,
+                                        isError: true,
+                                        resultText: declinedText,
+                                    });
                                     toolResultMessages.push(buildToolResultMessage(
                                         toolUseId,
-                                        'Execution was declined by the user. Do not retry this call. Ask the user how they would like to proceed.',
+                                        declinedText,
                                         true,
                                     ));
                                     continue;
@@ -1026,6 +1044,15 @@ const ChatInterface = ({ conversations }) => {
                             const resultTokens = estimateToolResultTokens(result.content);
                             activity[activityIndex].tokens = resultTokens;
                             activity[activityIndex].isError = result.isError || false;
+
+                            // Track repeated identical failures so the loop
+                            // can stop rather than retry indefinitely.
+                            toolRepeatGuard.record({
+                                name: toolName,
+                                input: toolInput,
+                                isError: Boolean(result.isError),
+                                resultText: flattenToolResultText(result.content),
+                            });
 
                             // Update thinking message with token count
                             setMessages(prev => {
@@ -1060,12 +1087,40 @@ const ChatInterface = ({ conversations }) => {
                             activity[activityIndex].tokens = estimateToolResultTokens(errorContent);
                             activity[activityIndex].isError = true;
 
+                            toolRepeatGuard.record({
+                                name: toolName,
+                                input: toolInput,
+                                isError: true,
+                                resultText: errorContent,
+                            });
+
                             toolResultMessages.push(buildToolResultMessage(
                                 toolUseId,
                                 errorContent,
                                 true,
                             ));
                         }
+                    }
+
+                    // If the same call has now failed repeatedly, stop here
+                    // and explain why, rather than sending the model back
+                    // round to repeat it.
+                    const repeatedFailure = toolRepeatGuard.getTripped();
+                    if (repeatedFailure) {
+                        pendingSaveRef.current = true;
+                        setMessages(prev => {
+                            const newMessages = prev.slice(0, -1);
+                            return [...newMessages, {
+                                role: 'assistant',
+                                content: buildRepeatedToolFailureMessage(repeatedFailure),
+                                timestamp: new Date().toISOString(),
+                                provider: llmProviders.selectedProvider,
+                                model: llmProviders.selectedModel,
+                                activity: activity,
+                                tokenUsage: usage,
+                            }];
+                        });
+                        break;
                     }
 
                     // Echo the assistant turn (text + tool_use blocks) back
@@ -1319,6 +1374,7 @@ const ChatInterface = ({ conversations }) => {
             let loopCount = 0;
             const activity = [];
             let rateLimitRetryCount = 0;
+            const toolRepeatGuard = createToolRepeatGuard(MAX_IDENTICAL_TOOL_FAILURES);
 
             while (loopCount < MAX_AGENTIC_LOOPS) {
                 loopCount++;
@@ -1535,9 +1591,16 @@ const ChatInterface = ({ conversations }) => {
                                 if (!confirmed) {
                                     activity[activityIndex].isError = true;
                                     activity[activityIndex].tokens = 0;
+                                    const declinedText = 'Execution was declined by the user. Do not retry this call. Ask the user how they would like to proceed.';
+                                    toolRepeatGuard.record({
+                                        name: toolName,
+                                        input: toolInput,
+                                        isError: true,
+                                        resultText: declinedText,
+                                    });
                                     toolResultMessages.push(buildToolResultMessage(
                                         toolUseId,
-                                        'Execution was declined by the user. Do not retry this call. Ask the user how they would like to proceed.',
+                                        declinedText,
                                         true,
                                     ));
                                     continue;
@@ -1553,6 +1616,15 @@ const ChatInterface = ({ conversations }) => {
                             const resultTokens = estimateToolResultTokens(result.content);
                             activity[activityIndex].tokens = resultTokens;
                             activity[activityIndex].isError = result.isError || false;
+
+                            // Track repeated identical failures so the loop
+                            // can stop rather than retry indefinitely.
+                            toolRepeatGuard.record({
+                                name: toolName,
+                                input: toolInput,
+                                isError: Boolean(result.isError),
+                                resultText: flattenToolResultText(result.content),
+                            });
 
                             // Update thinking message with token count
                             setMessages(prev => {
@@ -1587,12 +1659,40 @@ const ChatInterface = ({ conversations }) => {
                             activity[activityIndex].tokens = estimateToolResultTokens(errorContent);
                             activity[activityIndex].isError = true;
 
+                            toolRepeatGuard.record({
+                                name: toolName,
+                                input: toolInput,
+                                isError: true,
+                                resultText: errorContent,
+                            });
+
                             toolResultMessages.push(buildToolResultMessage(
                                 toolUseId,
                                 errorContent,
                                 true,
                             ));
                         }
+                    }
+
+                    // If the same call has now failed repeatedly, stop here
+                    // and explain why, rather than sending the model back
+                    // round to repeat it.
+                    const repeatedFailure = toolRepeatGuard.getTripped();
+                    if (repeatedFailure) {
+                        pendingSaveRef.current = true;
+                        setMessages(prev => {
+                            const newMessages = prev.slice(0, -1);
+                            return [...newMessages, {
+                                role: 'assistant',
+                                content: buildRepeatedToolFailureMessage(repeatedFailure),
+                                timestamp: new Date().toISOString(),
+                                provider: llmProviders.selectedProvider,
+                                model: llmProviders.selectedModel,
+                                activity: activity,
+                                tokenUsage: usage,
+                            }];
+                        });
+                        break;
                     }
 
                     // Echo the assistant turn into the conversation
