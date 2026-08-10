@@ -76,6 +76,21 @@ and this project adheres to
 
 ### Fixed
 
+- Switching `embedding.provider` (or `knowledgebase.embedding_provider`)
+  away from Ollama without also setting a model no longer sends the
+  Ollama model name to the new provider. `defaultConfig` seeded both
+  `Embedding.Model` and `Knowledgebase.EmbeddingModel` with Ollama's
+  `nomic-embed-text` as part of the shared baseline, and `mergeConfig`
+  only overwrites a field when the loaded config sets it, so that value
+  survived untouched for a config that named a provider alone. Each
+  provider's own model default in `newEmbedClient` only applies when the
+  model is empty, so it never got the chance to run: a live request
+  with Gemini configured this way sent model `nomic-embed-text` and was
+  confirmed to fail with a 404, rather than resolving to
+  `gemini-embedding-001` as intended. Both fields now default to empty,
+  which changes nothing for Ollama itself, since `newEmbedClient` already
+  supplies `nomic-embed-text` there when the model is unset.
+
 - The configured databases are now listed in a deterministic order, sorted
   by name. `ClientManager` holds them in a map and both accessors iterated
   it directly, so the order was randomised by the Go runtime on every call:

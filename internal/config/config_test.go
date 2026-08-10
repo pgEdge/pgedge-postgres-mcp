@@ -2044,6 +2044,64 @@ func TestMergeGeminiEmbeddingConfig(t *testing.T) {
 	}
 }
 
+// TestSwitchingEmbeddingProviderAloneLeavesModelEmpty guards against the
+// default Model value leaking across providers. defaultConfig used to
+// seed both Embedding.Model and Knowledgebase.EmbeddingModel with
+// Ollama's "nomic-embed-text", so a config that set only provider,
+// which every documented example pairs with model but nothing enforces,
+// kept that Ollama model name after merging. newEmbedClient only applies
+// its own per-provider default (e.g. gemini-embedding-001) when Model
+// is empty, so the stale value silently reached the provider: a live
+// Gemini request for model "nomic-embed-text" was confirmed to fail
+// with a 404 rather than the clear configuration error this is meant
+// to produce instead.
+func TestSwitchingEmbeddingProviderAloneLeavesModelEmpty(t *testing.T) {
+	dest := defaultConfig()
+	src := &Config{
+		Embedding: EmbeddingConfig{
+			Provider: "gemini",
+		},
+		Knowledgebase: KnowledgebaseConfig{
+			EmbeddingProvider: "gemini",
+		},
+	}
+
+	mergeConfig(dest, src)
+
+	if dest.Embedding.Model != "" {
+		t.Errorf("Embedding.Model = %q, want empty so newEmbedClient applies gemini's own default",
+			dest.Embedding.Model)
+	}
+	if dest.Knowledgebase.EmbeddingModel != "" {
+		t.Errorf("Knowledgebase.EmbeddingModel = %q, want empty so newEmbedClient applies gemini's own default",
+			dest.Knowledgebase.EmbeddingModel)
+	}
+}
+
+// TestDefaultOllamaModelStillAppliesWithNoConfig confirms the fix above
+// does not change behaviour for a config that sets nothing at all:
+// Provider stays "ollama" and Model stays empty, which is exactly the
+// input newEmbedClient's own ollama case already defaults to
+// "nomic-embed-text" for, so the zero-config path is unaffected.
+func TestDefaultOllamaModelStillAppliesWithNoConfig(t *testing.T) {
+	cfg := defaultConfig()
+
+	if cfg.Embedding.Provider != "ollama" {
+		t.Errorf("Embedding.Provider = %q, want ollama", cfg.Embedding.Provider)
+	}
+	if cfg.Embedding.Model != "" {
+		t.Errorf("Embedding.Model = %q, want empty (newEmbedClient supplies nomic-embed-text for ollama)",
+			cfg.Embedding.Model)
+	}
+	if cfg.Knowledgebase.EmbeddingProvider != "ollama" {
+		t.Errorf("Knowledgebase.EmbeddingProvider = %q, want ollama", cfg.Knowledgebase.EmbeddingProvider)
+	}
+	if cfg.Knowledgebase.EmbeddingModel != "" {
+		t.Errorf("Knowledgebase.EmbeddingModel = %q, want empty (newEmbedClient supplies nomic-embed-text for ollama)",
+			cfg.Knowledgebase.EmbeddingModel)
+	}
+}
+
 func TestLoadGeminiEmbeddingConfigFromYAML(t *testing.T) {
 	tmpDir := t.TempDir()
 	configPath := filepath.Join(tmpDir, "config.yaml")

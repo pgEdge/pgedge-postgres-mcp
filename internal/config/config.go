@@ -679,9 +679,17 @@ func defaultConfig() *Config {
 		},
 		Databases: []NamedDatabaseConfig{}, // Empty by default, populated from config file
 		Embedding: EmbeddingConfig{
-			Enabled:           false,                    // Disabled by default (opt-in)
-			Provider:          "ollama",                 // Default provider
-			Model:             "nomic-embed-text",       // Default Ollama model
+			Enabled:  false,    // Disabled by default (opt-in)
+			Provider: "ollama", // Default provider
+			// Model is left empty rather than defaulted to Ollama's
+			// nomic-embed-text here. newEmbedClient applies the right
+			// default for whichever provider is actually configured
+			// (see internal/tools/embed_client.go); baking Ollama's
+			// model into the shared baseline would survive mergeConfig
+			// untouched for a config that sets provider alone, so a
+			// user switching to Gemini or Voyage without also setting a
+			// model would silently keep asking Ollama's model name.
+			Model:             "",
 			VoyageAPIKey:      "",                       // Must be provided if using Voyage AI
 			OllamaURL:         "http://localhost:11434", // Default Ollama URL
 			PerAttemptTimeout: 60,                       // Default per-attempt HTTP timeout (seconds)
@@ -697,10 +705,14 @@ func defaultConfig() *Config {
 			PerAttemptTimeout: 60,                       // Default per-attempt HTTP timeout (seconds)
 		},
 		Knowledgebase: KnowledgebaseConfig{
-			Enabled:                    false,                    // Disabled by default (opt-in)
-			DatabasePath:               "",                       // Must be provided if enabled
-			EmbeddingProvider:          "ollama",                 // Default provider for KB embeddings
-			EmbeddingModel:             "nomic-embed-text",       // Default Ollama model
+			Enabled:           false,    // Disabled by default (opt-in)
+			DatabasePath:      "",       // Must be provided if enabled
+			EmbeddingProvider: "ollama", // Default provider for KB embeddings
+			// See the matching comment on Embedding.Model above: left
+			// empty so newEmbedClient's own per-provider default applies
+			// rather than a stale Ollama model name surviving a config
+			// that sets embedding_provider alone.
+			EmbeddingModel:             "",
 			EmbeddingOllamaURL:         "http://localhost:11434", // Default Ollama URL
 			EmbeddingVoyageAPIKey:      "",                       // Must be provided if using Voyage
 			EmbeddingOpenAIAPIKey:      "",                       // Must be provided if using OpenAI
