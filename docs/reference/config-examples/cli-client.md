@@ -44,7 +44,8 @@ All configuration options can be overridden with command line flags:
 ```
 
 The Gemini key can be given directly or read from a file, and either flag
-overrides the environment variable and the configuration file:
+overrides the environment variable and the configuration file. Where both
+flags are given, `-gemini-api-key` takes precedence:
 
 ```bash
 ./bin/pgedge-nla-cli \
@@ -304,8 +305,8 @@ llm:
     # OpenAI models: gpt-5-main, gpt-5-thinking, gpt-4o, gpt-4-turbo, gpt-3.5-turbo, etc.
     # Gemini models: gemini-2.5-flash, gemini-2.5-pro, etc.
     # Ollama models: llama3, llama3.1, mistral, gpt-oss:20b, etc.
-    # Default: claude-sonnet-4-20250514 (anthropic), gpt-5-main (openai),
-    # gemini-2.5-flash (gemini), or llama3 (ollama)
+    # Default: claude-sonnet-4-5-20250929 (anthropic), gpt-4o (openai),
+    # gemini-2.5-flash (gemini), or qwen3-coder:latest (ollama)
     # Environment variable: PGEDGE_LLM_MODEL
     # Command line flag: -llm-model
     model: claude-sonnet-4-20250514

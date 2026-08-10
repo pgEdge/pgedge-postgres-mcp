@@ -106,14 +106,19 @@ You can configure the chat client in three ways (in order of precedence):
 API keys are loaded in the following order (highest to lowest):
 
 1. Environment variables (`PGEDGE_ANTHROPIC_API_KEY`,
-   `PGEDGE_OPENAI_API_KEY`, `PGEDGE_GEMINI_API_KEY`)
+   `PGEDGE_OPENAI_API_KEY`, `PGEDGE_GEMINI_API_KEY`). Each falls back to
+   the unprefixed form (`ANTHROPIC_API_KEY`, `OPENAI_API_KEY`,
+   `GEMINI_API_KEY`), which is consulted only when the prefixed
+   variable is unset.
 2. API key files (`~/.anthropic-api-key`, `~/.openai-api-key`, and the file
    named by `gemini_api_key_file` or `-gemini-api-key-file`)
 3. Configuration file values (not recommended)
 
 The `-gemini-api-key` and `-gemini-api-key-file` flags override every other
 source, because command-line flags take precedence over the configuration
-the client has already loaded.
+the client has already loaded. Where both are given, `-gemini-api-key`
+wins, and a key file named on the command line that cannot be read is an
+error rather than a silent fallback.
 
 ### Using Command-Line Flags
 
@@ -151,9 +156,11 @@ Flags:
 - `PGEDGE_MCP_TOKEN`: Authentication token (for HTTP mode)
 - `PGEDGE_LLM_PROVIDER`: LLM provider (anthropic, openai, gemini, or ollama)
 - `PGEDGE_LLM_MODEL`: LLM model name
-- `PGEDGE_ANTHROPIC_API_KEY`: Anthropic API key
-- `PGEDGE_OPENAI_API_KEY`: OpenAI API key
-- `PGEDGE_GEMINI_API_KEY`: Google Gemini API key
+- `PGEDGE_ANTHROPIC_API_KEY`: Anthropic API key (falls back to
+  `ANTHROPIC_API_KEY`)
+- `PGEDGE_OPENAI_API_KEY`: OpenAI API key (falls back to `OPENAI_API_KEY`)
+- `PGEDGE_GEMINI_API_KEY`: Google Gemini API key (falls back to
+  `GEMINI_API_KEY`)
 - `PGEDGE_OLLAMA_URL`: Ollama server URL (default: http://localhost:11434)
 - `NO_COLOR`: Disable colored output
 
@@ -289,7 +296,11 @@ You can keep the key in a file instead, which avoids exposing it in the
 environment:
 
 ```bash
-echo "your-api-key-here" > ~/.gemini-api-key
+umask 077
+read -r -s -p 'Gemini API key: ' key
+printf '\n'
+printf '%s\n' "$key" > ~/.gemini-api-key
+unset key
 chmod 600 ~/.gemini-api-key
 
 ./bin/pgedge-nla-cli \
