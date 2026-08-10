@@ -60,6 +60,7 @@ type LLMConfig struct {
 	OpenAIBaseURL       string `yaml:"openai_base_url"`        // Base URL for OpenAI API (default: https://api.openai.com)
 	GeminiAPIKey        string `yaml:"gemini_api_key"`         // API key for Google Gemini (direct - discouraged, use api_key_file or env var)
 	GeminiAPIKeyFile    string `yaml:"gemini_api_key_file"`    // Path to file containing Gemini API key
+	GeminiBaseURL       string `yaml:"gemini_base_url"`        // Base URL for Gemini API (default: https://generativelanguage.googleapis.com)
 	OllamaURL           string `yaml:"ollama_url"`             // Ollama server URL
 	MaxTokens           int    `yaml:"max_tokens"`             // Max tokens for response
 }
@@ -94,6 +95,7 @@ func LoadConfig(configPath string) (*Config, error) {
 			OpenAIAPIKey:     getEnvWithFallback("PGEDGE_OPENAI_API_KEY", "OPENAI_API_KEY"),
 			OpenAIBaseURL:    os.Getenv("PGEDGE_OPENAI_BASE_URL"), // Empty string uses default
 			GeminiAPIKey:     getEnvWithFallback("PGEDGE_GEMINI_API_KEY", "GEMINI_API_KEY"),
+			GeminiBaseURL:    os.Getenv("PGEDGE_GEMINI_BASE_URL"), // Empty string uses default
 			OllamaURL:        getEnvOrDefault("PGEDGE_OLLAMA_URL", "http://localhost:11434"),
 			MaxTokens:        4096,
 		},

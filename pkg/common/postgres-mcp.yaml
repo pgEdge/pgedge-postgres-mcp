@@ -103,9 +103,13 @@ http:
 # LLM proxy settings (optional - for web UI)
 llm:
   enabled: false
-  # provider: anthropic  # anthropic, openai, or ollama
+  # provider: anthropic  # anthropic, openai, gemini, or ollama
   # Set API keys via environment variables:
-  # ANTHROPIC_API_KEY or OPENAI_API_KEY
+  # ANTHROPIC_API_KEY, OPENAI_API_KEY, or GEMINI_API_KEY
+  # Optional: Custom base URLs for API proxies
+  # anthropic_base_url: ""  # Default: https://api.anthropic.com
+  # openai_base_url: ""  # Default: https://api.openai.com
+  # gemini_base_url: ""  # Default: https://generativelanguage.googleapis.com
 
 # Knowledgebase database (for similarity_search tool)
 # Requires pgedge-ai-kb package

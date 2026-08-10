@@ -24,6 +24,7 @@ The chat client supports the following environment variables (in order of preced
 - `PGEDGE_OPENAI_API_KEY`: OpenAI API key
 - `PGEDGE_OPENAI_BASE_URL`: Custom OpenAI API base URL (for proxies)
 - `PGEDGE_GEMINI_API_KEY`: Google Gemini API key
+- `PGEDGE_GEMINI_BASE_URL`: Custom Gemini API base URL (for proxies)
 - `PGEDGE_OLLAMA_URL`: Ollama server URL
 
 ### Command Line Flags
@@ -43,15 +44,25 @@ All configuration options can be overridden with command line flags:
     -no-color
 ```
 
-The Gemini key can be given directly or read from a file, and either flag
-overrides the environment variable and the configuration file. Where both
-flags are given, `-gemini-api-key` takes precedence:
+Each provider's key can be given directly or read from a file, and either
+flag overrides the environment variable and the configuration file. Where
+both flags are given, the direct key takes precedence, and a key file named
+on the command line that cannot be read, or that holds nothing, is an error:
 
 ```bash
 ./bin/pgedge-nla-cli \
     -llm-provider gemini \
     -llm-model gemini-2.5-flash \
     -gemini-api-key-file ~/.gemini-api-key
+```
+
+The `-anthropic-api-key-file` and `-openai-api-key-file` flags behave
+identically for their own providers:
+
+```bash
+./bin/pgedge-nla-cli \
+    -llm-provider anthropic \
+    -anthropic-api-key-file ~/.anthropic-api-key
 ```
 
 Available MCP authentication flags:
@@ -318,11 +329,12 @@ llm:
     # Get your API key from: https://console.anthropic.com/
     #
     # Priority (highest to lowest):
-    # 1. Environment variable: PGEDGE_ANTHROPIC_API_KEY or ANTHROPIC_API_KEY
-    # 2. API key file: anthropic_api_key_file
-    # 3. Direct config value: anthropic_api_key (not recommended)
+    # 1. Command line flag: -anthropic-api-key or -anthropic-api-key-file
+    # 2. Environment variable: PGEDGE_ANTHROPIC_API_KEY or ANTHROPIC_API_KEY
+    # 3. API key file: anthropic_api_key_file
+    # 4. Direct config value: anthropic_api_key (not recommended)
     #
-    # Command line flag: -anthropic-api-key
+    # Command line flags: -anthropic-api-key, -anthropic-api-key-file
     #
     # Option 1: Environment variable (recommended for development)
     # export PGEDGE_ANTHROPIC_API_KEY="sk-ant-your-key-here"
@@ -345,11 +357,12 @@ llm:
     # Get your API key from: https://platform.openai.com/
     #
     # Priority (highest to lowest):
-    # 1. Environment variable: PGEDGE_OPENAI_API_KEY or OPENAI_API_KEY
-    # 2. API key file: openai_api_key_file
-    # 3. Direct config value: openai_api_key (not recommended)
+    # 1. Command line flag: -openai-api-key or -openai-api-key-file
+    # 2. Environment variable: PGEDGE_OPENAI_API_KEY or OPENAI_API_KEY
+    # 3. API key file: openai_api_key_file
+    # 4. Direct config value: openai_api_key (not recommended)
     #
-    # Command line flag: -openai-api-key
+    # Command line flags: -openai-api-key, -openai-api-key-file
     #
     # Option 1: Environment variable (recommended for development)
     # export PGEDGE_OPENAI_API_KEY="sk-proj-your-key-here"
@@ -385,6 +398,11 @@ llm:
     #
     # Option 3: Direct value (not recommended - use env var or file)
     # gemini_api_key: your-gemini-api-key-here
+    #
+    # Optional: Custom base URL for API proxy
+    # Environment variable: PGEDGE_GEMINI_BASE_URL
+    # Leave empty to use default (https://generativelanguage.googleapis.com)
+    # gemini_base_url: "https://your-proxy.example.com"
 
     # Maximum tokens for LLM response
     # For GPT-5 and o-series models, automatically uses max_completion_tokens

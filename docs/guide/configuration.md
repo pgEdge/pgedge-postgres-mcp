@@ -189,7 +189,7 @@ client manages its own LLM connection and does not use these settings.
 | Configuration File Option | CLI Flag | Environment Variable | Description |
 |--------------------------|----------|---------------------|-------------|
 | `llm.enabled` | N/A | `PGEDGE_LLM_ENABLED` | Enable LLM proxy for web clients (default: false) |
-| `llm.provider` | N/A | `PGEDGE_LLM_PROVIDER` | LLM provider: "anthropic", "openai", or "ollama" (default: "anthropic") |
+| `llm.provider` | N/A | `PGEDGE_LLM_PROVIDER` | LLM provider: "anthropic", "openai", "gemini", or "ollama" (default: "anthropic") |
 | `llm.model` | N/A | `PGEDGE_LLM_MODEL` | Model name (default: provider-specific) |
 | `llm.anthropic_api_key` | N/A | `PGEDGE_ANTHROPIC_API_KEY`, `ANTHROPIC_API_KEY` | Anthropic API key (prefer key file or env var) |
 | `llm.anthropic_api_key_file` | N/A | N/A | Path to file containing Anthropic API key |
@@ -197,6 +197,9 @@ client manages its own LLM connection and does not use these settings.
 | `llm.openai_api_key` | N/A | `PGEDGE_OPENAI_API_KEY`, `OPENAI_API_KEY` | OpenAI API key (prefer key file or env var) |
 | `llm.openai_api_key_file` | N/A | N/A | Path to file containing OpenAI API key |
 | `llm.openai_base_url` | N/A | `PGEDGE_OPENAI_BASE_URL` | Custom OpenAI API base URL for proxies |
+| `llm.gemini_api_key` | N/A | `PGEDGE_GEMINI_API_KEY`, `GEMINI_API_KEY` | Google Gemini API key (prefer key file or env var) |
+| `llm.gemini_api_key_file` | N/A | N/A | Path to file containing Gemini API key |
+| `llm.gemini_base_url` | N/A | `PGEDGE_GEMINI_BASE_URL` | Custom Gemini API base URL for proxies |
 | `llm.ollama_url` | N/A | `PGEDGE_OLLAMA_URL` | Ollama server URL (default: "http://localhost:11434") |
 | `llm.max_tokens` | N/A | `PGEDGE_LLM_MAX_TOKENS` | Maximum tokens for LLM response (default: 4096) |
 

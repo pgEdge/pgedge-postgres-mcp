@@ -395,6 +395,15 @@ llm:
     # Leave empty to use default (https://api.openai.com)
     # openai_base_url: "https://your-proxy.example.com"
 
+    # For Gemini
+    gemini_api_key_file: "~/.gemini-api-key"
+    # gemini_api_key: ""  # Not recommended - use file or env var
+
+    # Optional: Custom Gemini API base URL (for proxies)
+    # Leave empty to use default
+    # (https://generativelanguage.googleapis.com)
+    # gemini_base_url: "https://your-proxy.example.com"
+
     # For Ollama
     ollama_url: "http://localhost:11434"
 
@@ -581,6 +590,8 @@ custom_definitions_path: ""
 #   LLM providers:
 #     - PGEDGE_ANTHROPIC_BASE_URL (default: https://api.anthropic.com)
 #     - PGEDGE_OPENAI_BASE_URL (default: https://api.openai.com)
+#     - PGEDGE_GEMINI_BASE_URL
+#       (default: https://generativelanguage.googleapis.com)
 #   Embedding providers:
 #     - PGEDGE_VOYAGE_BASE_URL (default: https://api.voyageai.com/v1/embeddings)
 #     - PGEDGE_OPENAI_EMBEDDING_BASE_URL (default: https://api.openai.com/v1)

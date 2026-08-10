@@ -520,6 +520,7 @@ type LLMConfig struct {
 	OllamaURL           string `yaml:"ollama_url"`             // URL for Ollama service (default: http://localhost:11434)
 	GeminiAPIKey        string `yaml:"gemini_api_key"`         // API key for Google Gemini (direct - discouraged, use api_key_file or env var instead)
 	GeminiAPIKeyFile    string `yaml:"gemini_api_key_file"`    // Path to file containing Gemini API key
+	GeminiBaseURL       string `yaml:"gemini_base_url"`        // Base URL for Gemini API (default: https://generativelanguage.googleapis.com)
 	MaxTokens           int    `yaml:"max_tokens"`             // Maximum tokens for LLM response (default: 4096)
 	PerAttemptTimeout   int    `yaml:"per_attempt_timeout"`    // Per-attempt HTTP timeout in seconds (0 = unlimited; default: 60)
 }
@@ -879,6 +880,9 @@ func mergeConfig(dest, src *Config) {
 		}
 		if src.LLM.GeminiAPIKeyFile != "" {
 			dest.LLM.GeminiAPIKeyFile = src.LLM.GeminiAPIKeyFile
+		}
+		if src.LLM.GeminiBaseURL != "" {
+			dest.LLM.GeminiBaseURL = src.LLM.GeminiBaseURL
 		}
 		if src.LLM.MaxTokens != 0 {
 			dest.LLM.MaxTokens = src.LLM.MaxTokens
@@ -1278,6 +1282,7 @@ func applyEnvironmentVariables(cfg *Config) {
 	// Base URL overrides for LLM providers (useful for proxies)
 	setStringFromEnv(&cfg.LLM.AnthropicBaseURL, "PGEDGE_ANTHROPIC_BASE_URL")
 	setStringFromEnv(&cfg.LLM.OpenAIBaseURL, "PGEDGE_OPENAI_BASE_URL")
+	setStringFromEnv(&cfg.LLM.GeminiBaseURL, "PGEDGE_GEMINI_BASE_URL")
 	setIntFromEnv(&cfg.LLM.MaxTokens, "PGEDGE_LLM_MAX_TOKENS")
 	setIntFromEnv(&cfg.LLM.PerAttemptTimeout, "PGEDGE_LLM_PER_ATTEMPT_TIMEOUT")
 	// Knowledgebase

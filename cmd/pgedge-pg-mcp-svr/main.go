@@ -969,6 +969,7 @@ func main() {
 					providers["gemini"] = llm.Options{
 						APIKey:            cfg.LLM.GeminiAPIKey,
 						Model:             cfg.LLM.Model,
+						BaseURL:           cfg.LLM.GeminiBaseURL,
 						MaxTokens:         llm.Int(cfg.LLM.MaxTokens),
 						PerAttemptTimeout: time.Duration(cfg.LLM.PerAttemptTimeout) * time.Second,
 					}
