@@ -24,7 +24,12 @@ and this project adheres to
   `embedding_provider`. The default model is `gemini-embedding-001`,
   which produces 3072 dimensions. Because the embedding and LLM
   configurations read the same key variables, a single Gemini key now
-  drives both chat and embeddings.
+  drives both chat and embeddings. Knowledgebase search reads the
+  `gemini_embedding` column, so it needs a `kb.db` built with Gemini;
+  searching a knowledgebase that holds another provider's vectors now
+  reports the mismatch instead of returning meaningless scores, and
+  databases built before the column existed continue to work with the
+  other providers.
 
 ### Changed
 

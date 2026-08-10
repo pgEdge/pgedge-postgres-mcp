@@ -11,9 +11,14 @@
 package tools
 
 import (
+	"database/sql"
 	"encoding/binary"
 	"math"
+	"path/filepath"
+	"strings"
 	"testing"
+
+	_ "modernc.org/sqlite"
 )
 
 func TestDeserializeEmbedding(t *testing.T) {
@@ -263,6 +268,292 @@ func TestKBSearchResultStruct(t *testing.T) {
 	}
 	if result.Similarity != 0.92 {
 		t.Errorf("Similarity = %f, want %f", result.Similarity, 0.92)
+	}
+}
+
+// testChunk describes a single row to insert into a temporary knowledgebase.
+// A nil vector leaves the corresponding column NULL, mirroring a real
+// knowledgebase where only the building provider's column is populated.
+type testChunk struct {
+	text           string
+	title          string
+	projectName    string
+	projectVersion string
+	openai         []float32
+	voyage         []float32
+	ollama         []float32
+	gemini         []float32
+}
+
+// serialiseEmbedding encodes a vector the same way the knowledgebase builder
+// does, as little endian float32 values.
+func serialiseEmbedding(vector []float32) []byte {
+	if vector == nil {
+		return nil
+	}
+	buf := make([]byte, len(vector)*4)
+	for i, v := range vector {
+		binary.LittleEndian.PutUint32(buf[i*4:], math.Float32bits(v))
+	}
+	return buf
+}
+
+// newTestKB creates a temporary knowledgebase database and returns its path.
+// When withGemini is false the chunks table omits the gemini_embedding
+// column, reproducing a knowledgebase built before Gemini support landed.
+// The database lives under the test's temporary directory, so the testing
+// package removes it once the test finishes.
+func newTestKB(t *testing.T, withGemini bool, chunks []testChunk) string {
+	t.Helper()
+
+	path := filepath.Join(t.TempDir(), "kb.db")
+	db, err := sql.Open("sqlite", path)
+	if err != nil {
+		t.Fatalf("failed to open test knowledgebase: %v", err)
+	}
+	defer db.Close()
+
+	schema := `
+        CREATE TABLE chunks (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            text TEXT NOT NULL,
+            title TEXT,
+            section TEXT,
+            project_name TEXT NOT NULL,
+            project_version TEXT NOT NULL,
+            file_path TEXT,
+            source_file_checksum TEXT,
+            openai_embedding BLOB,
+            voyage_embedding BLOB,
+            ollama_embedding BLOB,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )`
+	if _, err := db.Exec(schema); err != nil {
+		t.Fatalf("failed to create chunks table: %v", err)
+	}
+	if withGemini {
+		if _, err := db.Exec("ALTER TABLE chunks ADD COLUMN gemini_embedding BLOB"); err != nil {
+			t.Fatalf("failed to add gemini_embedding column: %v", err)
+		}
+	}
+
+	insert := `
+        INSERT INTO chunks (text, title, section, project_name, project_version,
+                            file_path, openai_embedding, voyage_embedding,
+                            ollama_embedding)
+        VALUES (?, ?, '', ?, ?, '', ?, ?, ?)`
+	for _, chunk := range chunks {
+		res, err := db.Exec(insert, chunk.text, chunk.title, chunk.projectName,
+			chunk.projectVersion, serialiseEmbedding(chunk.openai),
+			serialiseEmbedding(chunk.voyage), serialiseEmbedding(chunk.ollama))
+		if err != nil {
+			t.Fatalf("failed to insert chunk %q: %v", chunk.text, err)
+		}
+		if !withGemini || chunk.gemini == nil {
+			continue
+		}
+		id, err := res.LastInsertId()
+		if err != nil {
+			t.Fatalf("failed to read chunk id: %v", err)
+		}
+		if _, err := db.Exec("UPDATE chunks SET gemini_embedding = ? WHERE id = ?",
+			serialiseEmbedding(chunk.gemini), id); err != nil {
+			t.Fatalf("failed to set gemini embedding: %v", err)
+		}
+	}
+
+	return path
+}
+
+func TestSearchKBProviderSelection(t *testing.T) {
+	// A three dimensional query, so that four dimensional vectors from a
+	// different provider are recognisably incompatible.
+	query := []float32{1, 0, 0}
+
+	geminiChunks := []testChunk{
+		{text: "gemini match", title: "Match", projectName: "PostgreSQL",
+			projectVersion: "17", gemini: []float32{1, 0, 0}},
+		{text: "gemini other", title: "Other", projectName: "PostgreSQL",
+			projectVersion: "17", gemini: []float32{0, 1, 0}},
+	}
+	openaiChunks := []testChunk{
+		{text: "openai match", title: "Match", projectName: "PostgreSQL",
+			projectVersion: "17", openai: []float32{1, 0, 0}},
+		{text: "openai other", title: "Other", projectName: "PostgreSQL",
+			projectVersion: "17", openai: []float32{0, 1, 0}},
+	}
+	voyageChunks := []testChunk{
+		{text: "voyage match", title: "Match", projectName: "pgEdge",
+			projectVersion: "1", voyage: []float32{1, 0, 0}},
+	}
+	ollamaChunks := []testChunk{
+		{text: "ollama match", title: "Match", projectName: "pgEdge",
+			projectVersion: "1", ollama: []float32{1, 0, 0}},
+	}
+	// A Gemini built knowledgebase where one chunk only ever received
+	// OpenAI vectors of a different width, which must not be ranked.
+	mixedChunks := []testChunk{
+		{text: "gemini match", title: "Match", projectName: "PostgreSQL",
+			projectVersion: "17", gemini: []float32{1, 0, 0}},
+		{text: "wrong width", title: "Wrong", projectName: "PostgreSQL",
+			projectVersion: "17", openai: []float32{1, 0, 0, 0}},
+	}
+
+	tests := []struct {
+		name        string
+		withGemini  bool
+		chunks      []testChunk
+		provider    string
+		projects    []string
+		wantErr     string
+		wantTexts   []string
+		wantTopSim  float64
+		checkTopSim bool
+	}{
+		{
+			name:        "gemini provider reads gemini column",
+			withGemini:  true,
+			chunks:      geminiChunks,
+			provider:    "gemini",
+			wantTexts:   []string{"gemini match", "gemini other"},
+			wantTopSim:  1.0,
+			checkTopSim: true,
+		},
+		{
+			name:        "openai provider on legacy schema",
+			withGemini:  false,
+			chunks:      openaiChunks,
+			provider:    "openai",
+			wantTexts:   []string{"openai match", "openai other"},
+			wantTopSim:  1.0,
+			checkTopSim: true,
+		},
+		{
+			name:       "voyage provider on legacy schema",
+			withGemini: false,
+			chunks:     voyageChunks,
+			provider:   "voyage",
+			wantTexts:  []string{"voyage match"},
+		},
+		{
+			name:       "ollama provider on legacy schema",
+			withGemini: false,
+			chunks:     ollamaChunks,
+			provider:   "ollama",
+			wantTexts:  []string{"ollama match"},
+		},
+		{
+			name:       "gemini provider on legacy schema reports rebuild",
+			withGemini: false,
+			chunks:     openaiChunks,
+			provider:   "gemini",
+			wantErr:    "contains no gemini embeddings",
+		},
+		{
+			name:       "gemini provider against openai only database",
+			withGemini: true,
+			chunks:     openaiChunks,
+			provider:   "gemini",
+			wantErr:    "contains no gemini embeddings",
+		},
+		{
+			name:       "gemini provider skips mismatched fallback vectors",
+			withGemini: true,
+			chunks:     mixedChunks,
+			provider:   "gemini",
+			wantTexts:  []string{"gemini match"},
+		},
+		{
+			name:       "mismatched fallback width reports rebuild",
+			withGemini: false,
+			chunks: []testChunk{
+				{text: "wrong width", projectName: "PostgreSQL",
+					projectVersion: "17", openai: []float32{1, 0, 0, 0}},
+			},
+			provider: "ollama",
+			wantErr:  "contains no ollama embeddings",
+		},
+		{
+			name:       "existing fallback across providers is preserved",
+			withGemini: false,
+			chunks:     openaiChunks,
+			provider:   "voyage",
+			wantTexts:  []string{"openai match", "openai other"},
+		},
+		{
+			name:       "filters matching nothing return no results",
+			withGemini: true,
+			chunks:     geminiChunks,
+			provider:   "gemini",
+			projects:   []string{"Nonexistent"},
+			wantTexts:  nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			path := newTestKB(t, tt.withGemini, tt.chunks)
+
+			results, err := searchKB(path, query, tt.projects, nil, 5, tt.provider)
+			if tt.wantErr != "" {
+				if err == nil {
+					t.Fatalf("searchKB() returned %d results, want error containing %q",
+						len(results), tt.wantErr)
+				}
+				if !strings.Contains(err.Error(), tt.wantErr) {
+					t.Fatalf("searchKB() error = %q, want it to contain %q", err, tt.wantErr)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("searchKB() unexpected error: %v", err)
+			}
+
+			if len(results) != len(tt.wantTexts) {
+				t.Fatalf("searchKB() returned %d results, want %d: %+v",
+					len(results), len(tt.wantTexts), results)
+			}
+			for i, want := range tt.wantTexts {
+				if results[i].Text != want {
+					t.Errorf("result %d text = %q, want %q", i, results[i].Text, want)
+				}
+			}
+			if tt.checkTopSim && len(results) > 0 {
+				if math.Abs(results[0].Similarity-tt.wantTopSim) > 1e-6 {
+					t.Errorf("top similarity = %f, want %f", results[0].Similarity, tt.wantTopSim)
+				}
+			}
+		})
+	}
+}
+
+func TestKBHasGeminiColumn(t *testing.T) {
+	tests := []struct {
+		name       string
+		withGemini bool
+		want       bool
+	}{
+		{name: "modern schema", withGemini: true, want: true},
+		{name: "legacy schema", withGemini: false, want: false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			path := newTestKB(t, tt.withGemini, nil)
+			db, err := sql.Open("sqlite", path)
+			if err != nil {
+				t.Fatalf("failed to open test knowledgebase: %v", err)
+			}
+			defer db.Close()
+
+			got, err := kbHasGeminiColumn(db)
+			if err != nil {
+				t.Fatalf("kbHasGeminiColumn() unexpected error: %v", err)
+			}
+			if got != tt.want {
+				t.Errorf("kbHasGeminiColumn() = %v, want %v", got, tt.want)
+			}
+		})
 	}
 }
 

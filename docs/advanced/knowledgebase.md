@@ -113,6 +113,13 @@ knowledgebase:
     # embedding_voyage_api_key: ""
     # embedding_openai_api_key: ""
     # embedding_gemini_api_key: ""
+
+    # Optional: custom base URLs, for proxies or self-hosted endpoints
+    # embedding_voyage_base_url: ""
+    # embedding_openai_base_url: ""
+    # embedding_gemini_base_url: ""
+    # The matching environment variables are PGEDGE_KB_VOYAGE_BASE_URL,
+    # PGEDGE_KB_OPENAI_BASE_URL, and PGEDGE_KB_GEMINI_BASE_URL.
 ```
 
 **IMPORTANT:** The knowledgebase embedding configuration is

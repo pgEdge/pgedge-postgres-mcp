@@ -55,6 +55,7 @@ services:
             PGEDGE_ANTHROPIC_API_KEY: ${PGEDGE_ANTHROPIC_API_KEY}
             PGEDGE_OPENAI_API_KEY: ${PGEDGE_OPENAI_API_KEY}
             PGEDGE_GEMINI_API_KEY: ${PGEDGE_GEMINI_API_KEY:-}
+            GEMINI_API_KEY: ${GEMINI_API_KEY:-}
             PGEDGE_OLLAMA_URL: ${PGEDGE_OLLAMA_URL:-}
             # Custom base URLs (for proxies or self-hosted endpoints)
             PGEDGE_ANTHROPIC_BASE_URL: ${PGEDGE_ANTHROPIC_BASE_URL:-}

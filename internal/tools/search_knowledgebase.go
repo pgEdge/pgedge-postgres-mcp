@@ -298,13 +298,26 @@ func searchKB(kbPath string, queryEmbedding []float32, projectNames, projectVers
 	}
 	defer db.Close()
 
+	// Knowledgebases built before Gemini support lack the gemini_embedding
+	// column, and this server opens the database read-only so it cannot add
+	// the column itself. Select a NULL placeholder in that case, so that
+	// older knowledgebases keep working for the other providers.
+	hasGemini, err := kbHasGeminiColumn(db)
+	if err != nil {
+		return nil, err
+	}
+	geminiColumn := "NULL"
+	if hasGemini {
+		geminiColumn = "gemini_embedding"
+	}
+
 	// Build query
-	query := `
+	query := fmt.Sprintf(`
         SELECT text, title, section, project_name, project_version, file_path,
-               openai_embedding, voyage_embedding, ollama_embedding
+               openai_embedding, voyage_embedding, ollama_embedding, %s
         FROM chunks
         WHERE 1=1
-    `
+    `, geminiColumn)
 	args := []any{}
 
 	// Add project_names filter with IN clause
@@ -335,15 +348,24 @@ func searchKB(kbPath string, queryEmbedding []float32, projectNames, projectVers
 
 	var results []KBSearchResult
 
+	// Track whether any row was examined at all, and whether the configured
+	// provider's own column ever held a vector, so that a knowledgebase
+	// built with a different provider can be reported clearly rather than
+	// looking like an ordinary empty result set.
+	scanned := 0
+	providerHasVectors := false
+	isGemini := strings.EqualFold(provider, "gemini")
+
 	for rows.Next() {
 		var text, title, section, pName, pVersion, filePath string
-		var openaiBlob, voyageBlob, ollamaBlob []byte
+		var openaiBlob, voyageBlob, ollamaBlob, geminiBlob []byte
 
 		err := rows.Scan(&text, &title, &section, &pName, &pVersion, &filePath,
-			&openaiBlob, &voyageBlob, &ollamaBlob)
+			&openaiBlob, &voyageBlob, &ollamaBlob, &geminiBlob)
 		if err != nil {
 			continue
 		}
+		scanned++
 
 		// Select appropriate embedding based on provider
 		var embBlob []byte
@@ -352,25 +374,38 @@ func searchKB(kbPath string, queryEmbedding []float32, projectNames, projectVers
 			embBlob = voyageBlob
 		case "ollama":
 			embBlob = ollamaBlob
+		case "gemini":
+			embBlob = geminiBlob
 		default: // openai
 			embBlob = openaiBlob
 		}
 
-		if len(embBlob) == 0 {
-			// Try other providers if selected one is empty
-			if len(openaiBlob) > 0 {
-				embBlob = openaiBlob
-			} else if len(voyageBlob) > 0 {
-				embBlob = voyageBlob
-			} else if len(ollamaBlob) > 0 {
-				embBlob = ollamaBlob
-			} else {
-				continue // No embeddings available
+		var docEmbedding []float32
+		if len(embBlob) > 0 {
+			providerHasVectors = true
+			docEmbedding = deserializeEmbedding(embBlob)
+		} else if !isGemini {
+			// Fall back to another provider's vectors, keeping the
+			// existing preference order, but only where the vector has
+			// the same dimensions as the query. Comparing vectors of
+			// differing dimensions scores zero anyway, and accepting a
+			// mismatched vector would silently rank nonsense.
+			//
+			// Gemini takes no part in this, in either direction: several
+			// Gemini and OpenAI models share a width, so a dimension check
+			// alone would let the two be scored against each other and
+			// return plausible looking but meaningless results.
+			for _, candidate := range [][]byte{openaiBlob, voyageBlob, ollamaBlob} {
+				if len(candidate) == 0 {
+					continue
+				}
+				if vector := deserializeEmbedding(candidate); len(vector) == len(queryEmbedding) {
+					docEmbedding = vector
+					break
+				}
 			}
 		}
 
-		// Deserialize embedding
-		docEmbedding := deserializeEmbedding(embBlob)
 		if len(docEmbedding) == 0 {
 			continue
 		}
@@ -389,6 +424,17 @@ func searchKB(kbPath string, queryEmbedding []float32, projectNames, projectVers
 		})
 	}
 
+	// Rows matched the filters, but none of them carried a usable vector for
+	// the configured provider, so the knowledgebase was built with a
+	// different provider (or predates support for this one). Report that
+	// explicitly rather than returning a misleading empty result set.
+	if len(results) == 0 && scanned > 0 && !providerHasVectors {
+		return nil, fmt.Errorf(
+			"the knowledgebase contains no %s embeddings; rebuild it with %s, "+
+				"or set knowledgebase.embedding_provider to the provider used to build it",
+			provider, provider)
+	}
+
 	// Sort by similarity (descending)
 	sort.Slice(results, func(i, j int) bool {
 		return results[i].Similarity > results[j].Similarity
@@ -400,6 +446,58 @@ func searchKB(kbPath string, queryEmbedding []float32, projectNames, projectVers
 	}
 
 	return results, nil
+}
+
+// kbHasGeminiColumn reports whether the chunks table carries a
+// gemini_embedding column. The knowledgebase builder adds the column to
+// existing databases on first open, but this server only ever opens the
+// database for reading, so a knowledgebase built before Gemini support was
+// added will not have it.
+func kbHasGeminiColumn(db *sql.DB) (bool, error) {
+	rows, err := db.Query("PRAGMA table_info(chunks)")
+	if err != nil {
+		return false, fmt.Errorf("failed to inspect knowledgebase schema: %w", err)
+	}
+	defer rows.Close()
+
+	columns, err := rows.Columns()
+	if err != nil {
+		return false, fmt.Errorf("failed to inspect knowledgebase schema: %w", err)
+	}
+
+	// PRAGMA table_info returns cid, name, type, notnull, dflt_value and pk;
+	// only the name is of interest, and dflt_value may be NULL, so scan
+	// everything into nullable holders.
+	nameIndex := -1
+	for i, column := range columns {
+		if strings.EqualFold(column, "name") {
+			nameIndex = i
+			break
+		}
+	}
+	if nameIndex < 0 {
+		return false, fmt.Errorf("failed to inspect knowledgebase schema: unexpected PRAGMA output")
+	}
+
+	values := make([]sql.NullString, len(columns))
+	dest := make([]any, len(columns))
+	for i := range values {
+		dest[i] = &values[i]
+	}
+
+	for rows.Next() {
+		if err := rows.Scan(dest...); err != nil {
+			return false, fmt.Errorf("failed to inspect knowledgebase schema: %w", err)
+		}
+		if values[nameIndex].Valid && values[nameIndex].String == "gemini_embedding" {
+			return true, nil
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return false, fmt.Errorf("failed to inspect knowledgebase schema: %w", err)
+	}
+
+	return false, nil
 }
 
 func deserializeEmbedding(data []byte) []float32 {
