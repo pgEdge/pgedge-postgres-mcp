@@ -315,16 +315,17 @@ embedding:
     # Default: false
     enabled: true
 
-    # Embedding provider: "openai", "voyage", or "ollama"
+    # Embedding provider: "openai", "voyage", "gemini", or "ollama"
     # Default: ollama
     provider: "openai"
 
     # Model name (provider-specific)
     # OpenAI: text-embedding-3-small (1536 dim), text-embedding-3-large (3072 dim)
     # Voyage: voyage-3 (1024 dim), voyage-3-lite (512 dim)
+    # Gemini: gemini-embedding-001 (3072 dim)
     # Ollama: nomic-embed-text (768 dim), mxbai-embed-large (1024 dim)
     # Default: nomic-embed-text (ollama), text-embedding-3-small (openai),
-    #          voyage-3 (voyage)
+    #          voyage-3 (voyage), gemini-embedding-001 (gemini)
     model: "text-embedding-3-small"
 
     # API key configuration (see notes below for priority)
@@ -343,6 +344,14 @@ embedding:
     # Optional: Custom Voyage API base URL (for proxies)
     # Leave empty to use default (https://api.voyageai.com/v1/embeddings)
     # voyage_base_url: "https://your-proxy.example.com/v1/embeddings"
+
+    # For Google Gemini
+    # gemini_api_key_file: "~/.gemini-api-key"
+    # gemini_api_key: ""  # Not recommended - use file or env var
+
+    # Optional: Custom Gemini API base URL (for proxies)
+    # Leave empty to use default (https://generativelanguage.googleapis.com)
+    # gemini_base_url: "https://your-proxy.example.com"
 
     # For Ollama
     ollama_url: "http://localhost:11434"
@@ -411,14 +420,14 @@ knowledgebase:
     # IMPORTANT: This is INDEPENDENT from the embedding.provider setting above.
     # You can use different providers for semantic search vs. generate_embeddings tool.
     # Must match the provider used to build the knowledgebase
-    # Options: "voyage", "openai", or "ollama"
+    # Options: "voyage", "openai", "gemini", or "ollama"
     # Default: ollama
     embedding_provider: "voyage"
 
     # Embedding model (provider-specific)
     # Must match the model used to build the knowledgebase
     # Default: nomic-embed-text (ollama), text-embedding-3-small (openai),
-    #          voyage-3 (voyage)
+    #          voyage-3 (voyage), gemini-embedding-001 (gemini)
     embedding_model: "voyage-3"
 
     # API Key Configuration (INDEPENDENT from embedding and LLM sections)
@@ -427,19 +436,23 @@ knowledgebase:
     # Environment variables:
     #   - PGEDGE_KB_VOYAGE_API_KEY or VOYAGE_API_KEY
     #   - PGEDGE_KB_OPENAI_API_KEY or OPENAI_API_KEY
+    #   - PGEDGE_KB_GEMINI_API_KEY or GEMINI_API_KEY
     #   - PGEDGE_KB_OLLAMA_URL
 
     # Option 1: API key files (RECOMMENDED)
     embedding_voyage_api_key_file: "~/.voyage-api-key"  # For Voyage AI
     # embedding_openai_api_key_file: "~/.openai-api-key"  # For OpenAI
+    # embedding_gemini_api_key_file: "~/.gemini-api-key"  # For Gemini
 
     # Option 2: Direct API keys (NOT RECOMMENDED)
     # embedding_voyage_api_key: ""  # Leave empty - use env var or file instead
     # embedding_openai_api_key: ""  # Leave empty - use env var or file instead
+    # embedding_gemini_api_key: ""  # Leave empty - use env var or file instead
 
     # Optional: Custom base URLs for API proxies
     # embedding_voyage_base_url: "https://your-proxy.example.com/v1/embeddings"
     # embedding_openai_base_url: "https://your-proxy.example.com/v1"
+    # embedding_gemini_base_url: "https://your-proxy.example.com"
 
     # For Ollama (local)
     embedding_ollama_url: "http://localhost:11434"
@@ -537,13 +550,16 @@ custom_definitions_path: ""
 #    Embedding tool (generate_embeddings):
 #      - PGEDGE_OPENAI_API_KEY or OPENAI_API_KEY
 #      - PGEDGE_VOYAGE_API_KEY or VOYAGE_API_KEY
+#      - PGEDGE_GEMINI_API_KEY or GEMINI_API_KEY
 #      - PGEDGE_OLLAMA_URL
 #    LLM proxy (web client):
 #      - PGEDGE_ANTHROPIC_API_KEY or ANTHROPIC_API_KEY
 #      - PGEDGE_OPENAI_API_KEY or OPENAI_API_KEY
+#      - PGEDGE_GEMINI_API_KEY or GEMINI_API_KEY
 #    Knowledgebase search (INDEPENDENT):
 #      - PGEDGE_KB_VOYAGE_API_KEY or VOYAGE_API_KEY
 #      - PGEDGE_KB_OPENAI_API_KEY or OPENAI_API_KEY
+#      - PGEDGE_KB_GEMINI_API_KEY or GEMINI_API_KEY
 #      - PGEDGE_KB_OLLAMA_URL
 #
 # 2. API key files (RECOMMENDED):
@@ -568,9 +584,12 @@ custom_definitions_path: ""
 #   Embedding providers:
 #     - PGEDGE_VOYAGE_BASE_URL (default: https://api.voyageai.com/v1/embeddings)
 #     - PGEDGE_OPENAI_EMBEDDING_BASE_URL (default: https://api.openai.com/v1)
+#     - PGEDGE_GEMINI_EMBEDDING_BASE_URL
+#       (default: https://generativelanguage.googleapis.com)
 #   Knowledgebase embedding:
 #     - PGEDGE_KB_VOYAGE_BASE_URL
 #     - PGEDGE_KB_OPENAI_BASE_URL
+#     - PGEDGE_KB_GEMINI_BASE_URL
 #
 # Leave empty to use the default provider URLs.
 ```

@@ -205,7 +205,7 @@ client manages its own LLM connection and does not use these settings.
 | Configuration File Option | CLI Flag | Environment Variable | Description |
 |--------------------------|----------|---------------------|-------------|
 | `embedding.enabled` | N/A | `PGEDGE_EMBEDDING_ENABLED` | Enable embedding generation (default: false) |
-| `embedding.provider` | N/A | `PGEDGE_EMBEDDING_PROVIDER` | Embedding provider: "ollama", "voyage", or "openai" |
+| `embedding.provider` | N/A | `PGEDGE_EMBEDDING_PROVIDER` | Embedding provider: "ollama", "voyage", "openai", or "gemini" |
 | `embedding.model` | N/A | `PGEDGE_EMBEDDING_MODEL` | Embedding model name (provider-specific) |
 | `embedding.ollama_url` | N/A | `PGEDGE_OLLAMA_URL` | Ollama API URL (default: "http://localhost:11434") |
 | `embedding.voyage_api_key` | N/A | `PGEDGE_VOYAGE_API_KEY`, `VOYAGE_API_KEY` | Voyage AI API key for embeddings |
@@ -214,6 +214,9 @@ client manages its own LLM connection and does not use these settings.
 | `embedding.openai_api_key` | N/A | `PGEDGE_OPENAI_API_KEY`, `OPENAI_API_KEY` | OpenAI API key for embeddings |
 | `embedding.openai_api_key_file` | N/A | N/A | Path to file containing OpenAI API key |
 | `embedding.openai_base_url` | N/A | `PGEDGE_OPENAI_EMBEDDING_BASE_URL` | Custom OpenAI embedding base URL for proxies |
+| `embedding.gemini_api_key` | N/A | `PGEDGE_GEMINI_API_KEY`, `GEMINI_API_KEY` | Google Gemini API key for embeddings |
+| `embedding.gemini_api_key_file` | N/A | N/A | Path to file containing Gemini API key |
+| `embedding.gemini_base_url` | N/A | `PGEDGE_GEMINI_EMBEDDING_BASE_URL` | Custom Gemini embedding base URL for proxies |
 
 ### Knowledgebase
 
@@ -224,12 +227,15 @@ The knowledgebase embedding configuration is independent of the
 |--------------------------|----------|---------------------|-------------|
 | `knowledgebase.enabled` | N/A | `PGEDGE_KB_ENABLED` | Enable knowledgebase search (default: false) |
 | `knowledgebase.database_path` | N/A | `PGEDGE_KB_DATABASE_PATH` | Path to knowledgebase SQLite database |
-| `knowledgebase.embedding_provider` | N/A | `PGEDGE_KB_EMBEDDING_PROVIDER` | Embedding provider for KB search: "openai", "voyage", or "ollama" |
+| `knowledgebase.embedding_provider` | N/A | `PGEDGE_KB_EMBEDDING_PROVIDER` | Embedding provider for KB search: "openai", "voyage", "gemini", or "ollama" |
 | `knowledgebase.embedding_model` | N/A | `PGEDGE_KB_EMBEDDING_MODEL` | Embedding model for KB search (must match KB build) |
 | `knowledgebase.embedding_voyage_api_key` | N/A | `PGEDGE_KB_VOYAGE_API_KEY`, `VOYAGE_API_KEY` | Voyage AI API key for KB search |
 | `knowledgebase.embedding_voyage_api_key_file` | N/A | N/A | Path to file containing Voyage API key for KB search |
 | `knowledgebase.embedding_openai_api_key` | N/A | `PGEDGE_KB_OPENAI_API_KEY`, `OPENAI_API_KEY` | OpenAI API key for KB search |
 | `knowledgebase.embedding_openai_api_key_file` | N/A | N/A | Path to file containing OpenAI API key for KB search |
+| `knowledgebase.embedding_gemini_api_key` | N/A | `PGEDGE_KB_GEMINI_API_KEY`, `GEMINI_API_KEY` | Google Gemini API key for KB search |
+| `knowledgebase.embedding_gemini_api_key_file` | N/A | N/A | Path to file containing Gemini API key for KB search |
+| `knowledgebase.embedding_gemini_base_url` | N/A | `PGEDGE_KB_GEMINI_BASE_URL` | Custom Gemini base URL for KB search |
 | `knowledgebase.embedding_ollama_url` | N/A | `PGEDGE_KB_OLLAMA_URL` | Ollama API URL for KB search |
 
 ### Built-in Features

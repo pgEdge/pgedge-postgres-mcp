@@ -1,13 +1,13 @@
 # Embedding Provider Configurations
 
-The server supports generating embeddings from text using three providers: OpenAI (cloud-based), Voyage AI (cloud-based), or Ollama (local, self-hosted). This enables you to convert natural language queries into vector embeddings for semantic search.
+The server supports generating embeddings from text using four providers: OpenAI (cloud-based), Voyage AI (cloud-based), Google Gemini (cloud-based), or Ollama (local, self-hosted). This enables you to convert natural language queries into vector embeddings for semantic search.
 
 ## Configuration File
 
 ```yaml
 embedding:
   enabled: true
-  provider: "openai"  # Options: "openai", "voyage", or "ollama"
+  provider: "openai"  # Options: "openai", "voyage", "gemini", or "ollama"
   model: "text-embedding-3-small"
   openai_api_key: ""  # Set via OPENAI_API_KEY environment variable
 ```
@@ -130,6 +130,65 @@ API keys are loaded in the following priority order (highest to lowest):
 
 **Note**: Both `PGEDGE_VOYAGE_API_KEY` and `VOYAGE_API_KEY` are supported.
 The prefixed version takes priority if both are set.
+
+### Using Gemini (Cloud Embeddings)
+
+**Advantages**: High quality, large vectors, shares a key with the Gemini
+LLM provider
+
+**Configuration**:
+
+```yaml
+embedding:
+  enabled: true
+  provider: "gemini"
+  model: "gemini-embedding-001"  # 3072 dimensions
+
+  # API key configuration (priority: env vars > key file > direct value)
+  # Option 1: Environment variable (recommended for development)
+  # Option 2: API key file (recommended for production)
+  gemini_api_key_file: "~/.gemini-api-key"
+  # Option 3: Direct value (not recommended - use env var or file)
+  # gemini_api_key: "your-key-here"
+
+  # Optional: Custom base URL for API proxy
+  # Leave empty to use the default
+  # (https://generativelanguage.googleapis.com)
+  # gemini_base_url: "https://your-proxy.example.com"
+```
+
+**Supported Models**:
+
+- `gemini-embedding-001`: 3072 dimensions (recommended, and the default
+  when you leave the model unset)
+
+**API Key Configuration**:
+
+API keys are loaded in the following priority order (highest to lowest):
+
+1. **Environment variables**:
+   ```bash
+   # Use PGEDGE-prefixed environment variable (recommended for isolation)
+   export PGEDGE_GEMINI_API_KEY="your-key-here"
+
+   # Or use standard environment variable (also supported)
+   export GEMINI_API_KEY="your-key-here"
+   ```
+
+2. **API key files** (recommended for production):
+   ```bash
+   # Create API key file
+   echo "your-key-here" > ~/.gemini-api-key
+   chmod 600 ~/.gemini-api-key
+   ```
+
+3. **Direct configuration value** (not recommended - use env vars or files
+   instead)
+
+**Note**: Both `PGEDGE_GEMINI_API_KEY` and `GEMINI_API_KEY` are supported.
+The prefixed version takes priority if both are set. The embedding and LLM
+providers read the same key variables, so a single Gemini key drives both
+chat and embeddings.
 
 ### Using Ollama (Local Embeddings)
 

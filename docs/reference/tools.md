@@ -181,9 +181,9 @@ Analysis:
 ## generate_embedding
 
 The `generate_embedding` tool generates vector embeddings from text
-using OpenAI, Voyage AI (cloud), or Ollama (local). This tool enables
-converting natural language queries into embedding vectors for semantic
-search.
+using OpenAI, Voyage AI, Google Gemini (cloud), or Ollama (local). This
+tool enables converting natural language queries into embedding vectors
+for semantic search.
 
 **Use Cases**
 
@@ -201,6 +201,7 @@ search.
     * Your server configuration must enable embedding generation.
     * OpenAI requires a valid API key.
     * Voyage AI requires a valid API key.
+    * Google Gemini requires a valid API key.
     * Ollama must be running with an embedding model installed.
 
 Use the following syntax to enable the `generate_embedding` tool in
@@ -209,7 +210,7 @@ your server configuration file:
 ```yaml
 embedding:
   enabled: true
-  provider: "openai"  # Options: "openai", "voyage", or "ollama"
+  provider: "openai"  # Options: "openai", "voyage", "gemini", or "ollama"
   model: "text-embedding-3-small"
   openai_api_key: ""  # Set via OPENAI_API_KEY environment variable
 ```
@@ -249,6 +250,10 @@ Voyage AI (Cloud):
 * `voyage-3-lite`: 512 dimensions (cost-effective).
 * `voyage-2`: 1024 dimensions.
 * `voyage-2-lite`: 1024 dimensions.
+
+Google Gemini (Cloud):
+
+* `gemini-embedding-001`: 3072 dimensions (recommended, the default).
 
 Ollama (Local):
 

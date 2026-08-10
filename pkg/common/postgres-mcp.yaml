@@ -64,18 +64,21 @@ builtins:
 # Enable to allow generating embeddings for semantic search
 #embedding:
     #enabled: false
-    #provider: "openai"  # Options: "voyage", "openai", "ollama"
+    #provider: "openai"  # Options: "voyage", "openai", "gemini", "ollama"
     #model: "text-embedding-3-small"
 
     # API key files (recommended for production)
     # voyage_api_key_file: "~/.voyage-api-key"
     # openai_api_key_file: "~/.openai-api-key"
+    # gemini_api_key_file: "~/.gemini-api-key"
 
-    # Or use environment variables: VOYAGE_API_KEY, OPENAI_API_KEY
+    # Or use environment variables: VOYAGE_API_KEY, OPENAI_API_KEY,
+    # GEMINI_API_KEY
 
     # Optional: Custom base URLs for API proxies
     # voyage_base_url: ""  # Default: https://api.voyageai.com/v1/embeddings
     # openai_base_url: ""  # Default: https://api.openai.com/v1
+    # gemini_base_url: ""  # Default: https://generativelanguage.googleapis.com
 
 # HTTP server settings
 http:
@@ -109,16 +112,18 @@ llm:
 knowledgebase:
   enabled: true
   database_path: /usr/share/pgedge/pgedge-ai-kb/kb.db
-  #embedding_provider: "voyage"
+  #embedding_provider: "voyage"  # Options: "voyage", "openai", "gemini", "ollama"
   #embedding_model: "voyage-3"
 
   # API key files for knowledgebase embeddings
   # embedding_voyage_api_key_file: "~/.voyage-api-key"
   # embedding_openai_api_key_file: "~/.openai-api-key"
+  # embedding_gemini_api_key_file: "~/.gemini-api-key"
 
   # Optional: Custom base URLs for knowledgebase embedding API proxies
   # embedding_voyage_base_url: ""  # Default: https://api.voyageai.com/v1/embeddings
   # embedding_openai_base_url: ""  # Default: https://api.openai.com/v1
+  # embedding_gemini_base_url: ""  # Default: https://generativelanguage.googleapis.com
 
 # Custom prompts and resources (optional)
 # custom_definitions_path: /etc/pgedge/custom-definitions.yaml

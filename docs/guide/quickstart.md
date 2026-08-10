@@ -179,6 +179,8 @@ databases:
 #     # openai_base_url: ""
 #     # voyage_api_key_file: "~/.voyage-api-key"
 #     # voyage_base_url: ""
+#     # gemini_api_key_file: "~/.gemini-api-key"
+#     # gemini_base_url: ""
 #     # ollama_url: "http://localhost:11434"
 
 # Knowledgebase search
@@ -191,6 +193,8 @@ databases:
 #     # embedding_voyage_base_url: ""
 #     # embedding_openai_api_key_file: ""
 #     # embedding_openai_base_url: ""
+#     # embedding_gemini_api_key_file: ""
+#     # embedding_gemini_base_url: ""
 #     # embedding_ollama_url: "http://localhost:11434"
 
 # Built-in features (all enabled by default)

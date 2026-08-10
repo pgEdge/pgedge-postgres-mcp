@@ -424,8 +424,10 @@ func main() {
 		cfg.LLM.GeminiAPIKey,
 		cfg.Embedding.VoyageAPIKey,
 		cfg.Embedding.OpenAIAPIKey,
+		cfg.Embedding.GeminiAPIKey,
 		cfg.Knowledgebase.EmbeddingVoyageAPIKey,
 		cfg.Knowledgebase.EmbeddingOpenAIAPIKey,
+		cfg.Knowledgebase.EmbeddingGeminiAPIKey,
 	)
 
 	// Set default token file path if not specified and HTTP is enabled
@@ -1056,6 +1058,8 @@ func main() {
 			if cfg.Knowledgebase.EmbeddingVoyageAPIKey != "" {
 				apiKeyStatus = "loaded"
 			} else if cfg.Knowledgebase.EmbeddingOpenAIAPIKey != "" {
+				apiKeyStatus = "loaded"
+			} else if cfg.Knowledgebase.EmbeddingGeminiAPIKey != "" {
 				apiKeyStatus = "loaded"
 			}
 			fmt.Fprintf(os.Stderr, "Knowledgebase: ENABLED (provider: %s, model: %s, API key: %s)\n",

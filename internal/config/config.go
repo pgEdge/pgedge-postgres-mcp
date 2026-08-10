@@ -491,7 +491,7 @@ func (cfg *NamedDatabaseConfig) IsAllowedForLLMSwitching() bool {
 // EmbeddingConfig holds embedding generation settings
 type EmbeddingConfig struct {
 	Enabled           bool   `yaml:"enabled"`             // Whether embedding generation is enabled (default: false)
-	Provider          string `yaml:"provider"`            // "voyage", "openai", or "ollama"
+	Provider          string `yaml:"provider"`            // "voyage", "openai", "gemini", or "ollama"
 	Model             string `yaml:"model"`               // Provider-specific model name
 	VoyageAPIKey      string `yaml:"voyage_api_key"`      // API key for Voyage AI (direct - discouraged, use api_key_file or env var)
 	VoyageAPIKeyFile  string `yaml:"voyage_api_key_file"` // Path to file containing Voyage API key
@@ -499,6 +499,9 @@ type EmbeddingConfig struct {
 	OpenAIAPIKey      string `yaml:"openai_api_key"`      // API key for OpenAI (direct - discouraged, use api_key_file or env var)
 	OpenAIAPIKeyFile  string `yaml:"openai_api_key_file"` // Path to file containing OpenAI API key
 	OpenAIBaseURL     string `yaml:"openai_base_url"`     // Base URL for OpenAI API (default: https://api.openai.com/v1)
+	GeminiAPIKey      string `yaml:"gemini_api_key"`      // API key for Google Gemini (direct - discouraged, use api_key_file or env var)
+	GeminiAPIKeyFile  string `yaml:"gemini_api_key_file"` // Path to file containing Gemini API key
+	GeminiBaseURL     string `yaml:"gemini_base_url"`     // Base URL for Gemini API (default: https://generativelanguage.googleapis.com)
 	OllamaURL         string `yaml:"ollama_url"`          // URL for Ollama service (default: http://localhost:11434)
 	PerAttemptTimeout int    `yaml:"per_attempt_timeout"` // Per-attempt HTTP timeout in seconds (0 = unlimited; default: 60)
 }
@@ -527,7 +530,7 @@ type KnowledgebaseConfig struct {
 	DatabasePath string `yaml:"database_path"` // Path to SQLite knowledgebase database
 
 	// Embedding provider configuration for KB similarity search (independent of generate_embeddings tool)
-	EmbeddingProvider          string `yaml:"embedding_provider"`            // "voyage", "openai", or "ollama"
+	EmbeddingProvider          string `yaml:"embedding_provider"`            // "voyage", "openai", "gemini", or "ollama"
 	EmbeddingModel             string `yaml:"embedding_model"`               // Provider-specific model name
 	EmbeddingVoyageAPIKey      string `yaml:"embedding_voyage_api_key"`      // API key for Voyage AI
 	EmbeddingVoyageAPIKeyFile  string `yaml:"embedding_voyage_api_key_file"` // Path to file containing Voyage API key
@@ -535,6 +538,9 @@ type KnowledgebaseConfig struct {
 	EmbeddingOpenAIAPIKey      string `yaml:"embedding_openai_api_key"`      // API key for OpenAI
 	EmbeddingOpenAIAPIKeyFile  string `yaml:"embedding_openai_api_key_file"` // Path to file containing OpenAI API key
 	EmbeddingOpenAIBaseURL     string `yaml:"embedding_openai_base_url"`     // Base URL for OpenAI API (default: https://api.openai.com/v1)
+	EmbeddingGeminiAPIKey      string `yaml:"embedding_gemini_api_key"`      // API key for Google Gemini
+	EmbeddingGeminiAPIKeyFile  string `yaml:"embedding_gemini_api_key_file"` // Path to file containing Gemini API key
+	EmbeddingGeminiBaseURL     string `yaml:"embedding_gemini_base_url"`     // Base URL for Gemini API (default: https://generativelanguage.googleapis.com)
 	EmbeddingOllamaURL         string `yaml:"embedding_ollama_url"`          // URL for Ollama service (default: http://localhost:11434)
 	EmbeddingPerAttemptTimeout int    `yaml:"embedding_per_attempt_timeout"` // Per-attempt HTTP timeout in seconds for KB embeddings (0 = unlimited; default: 60)
 }
@@ -809,6 +815,15 @@ func mergeConfig(dest, src *Config) {
 		if src.Embedding.OpenAIBaseURL != "" {
 			dest.Embedding.OpenAIBaseURL = src.Embedding.OpenAIBaseURL
 		}
+		if src.Embedding.GeminiAPIKey != "" {
+			dest.Embedding.GeminiAPIKey = src.Embedding.GeminiAPIKey
+		}
+		if src.Embedding.GeminiAPIKeyFile != "" {
+			dest.Embedding.GeminiAPIKeyFile = src.Embedding.GeminiAPIKeyFile
+		}
+		if src.Embedding.GeminiBaseURL != "" {
+			dest.Embedding.GeminiBaseURL = src.Embedding.GeminiBaseURL
+		}
 		if src.Embedding.OllamaURL != "" {
 			dest.Embedding.OllamaURL = src.Embedding.OllamaURL
 		}
@@ -890,6 +905,15 @@ func mergeConfig(dest, src *Config) {
 		}
 		if src.Knowledgebase.EmbeddingOpenAIBaseURL != "" {
 			dest.Knowledgebase.EmbeddingOpenAIBaseURL = src.Knowledgebase.EmbeddingOpenAIBaseURL
+		}
+		if src.Knowledgebase.EmbeddingGeminiAPIKey != "" {
+			dest.Knowledgebase.EmbeddingGeminiAPIKey = src.Knowledgebase.EmbeddingGeminiAPIKey
+		}
+		if src.Knowledgebase.EmbeddingGeminiAPIKeyFile != "" {
+			dest.Knowledgebase.EmbeddingGeminiAPIKeyFile = src.Knowledgebase.EmbeddingGeminiAPIKeyFile
+		}
+		if src.Knowledgebase.EmbeddingGeminiBaseURL != "" {
+			dest.Knowledgebase.EmbeddingGeminiBaseURL = src.Knowledgebase.EmbeddingGeminiBaseURL
 		}
 		if src.Knowledgebase.EmbeddingOllamaURL != "" {
 			dest.Knowledgebase.EmbeddingOllamaURL = src.Knowledgebase.EmbeddingOllamaURL
@@ -1181,6 +1205,7 @@ func applyEnvironmentVariables(cfg *Config) {
 	// 1. Try environment variables first (PGEDGE_ prefixed, then standard)
 	setStringFromEnvWithFallback(&cfg.Embedding.VoyageAPIKey, "PGEDGE_VOYAGE_API_KEY", "VOYAGE_API_KEY")
 	setStringFromEnvWithFallback(&cfg.Embedding.OpenAIAPIKey, "PGEDGE_OPENAI_API_KEY", "OPENAI_API_KEY")
+	setStringFromEnvWithFallback(&cfg.Embedding.GeminiAPIKey, "PGEDGE_GEMINI_API_KEY", "GEMINI_API_KEY")
 	// 2. If env vars not set and api_key_file is specified, load from file
 	if cfg.Embedding.VoyageAPIKey == "" && cfg.Embedding.VoyageAPIKeyFile != "" {
 		if key, err := readAPIKeyFromFile(cfg.Embedding.VoyageAPIKeyFile); err == nil && key != "" {
@@ -1194,11 +1219,18 @@ func applyEnvironmentVariables(cfg *Config) {
 		}
 		// Note: errors are silently ignored - file may not exist and that's ok
 	}
-	// 3. Direct config value (if set) is already in cfg.Embedding.VoyageAPIKey/OpenAIAPIKey from mergeConfig
+	if cfg.Embedding.GeminiAPIKey == "" && cfg.Embedding.GeminiAPIKeyFile != "" {
+		if key, err := readAPIKeyFromFile(cfg.Embedding.GeminiAPIKeyFile); err == nil && key != "" {
+			cfg.Embedding.GeminiAPIKey = key
+		}
+		// Note: errors are silently ignored - file may not exist and that's ok
+	}
+	// 3. Direct config value (if set) is already in cfg.Embedding.VoyageAPIKey/OpenAIAPIKey/GeminiAPIKey from mergeConfig
 	setStringFromEnv(&cfg.Embedding.OllamaURL, "PGEDGE_OLLAMA_URL")
 	// Base URL overrides for embedding providers (useful for proxies)
 	setStringFromEnv(&cfg.Embedding.VoyageBaseURL, "PGEDGE_VOYAGE_BASE_URL")
 	setStringFromEnv(&cfg.Embedding.OpenAIBaseURL, "PGEDGE_OPENAI_EMBEDDING_BASE_URL")
+	setStringFromEnv(&cfg.Embedding.GeminiBaseURL, "PGEDGE_GEMINI_EMBEDDING_BASE_URL")
 	setIntFromEnv(&cfg.Embedding.PerAttemptTimeout, "PGEDGE_EMBEDDING_PER_ATTEMPT_TIMEOUT")
 
 	// LLM
@@ -1245,6 +1277,7 @@ func applyEnvironmentVariables(cfg *Config) {
 	// 1. Try environment variables first (PGEDGE_ prefixed, then standard)
 	setStringFromEnvWithFallback(&cfg.Knowledgebase.EmbeddingVoyageAPIKey, "PGEDGE_KB_VOYAGE_API_KEY", "VOYAGE_API_KEY")
 	setStringFromEnvWithFallback(&cfg.Knowledgebase.EmbeddingOpenAIAPIKey, "PGEDGE_KB_OPENAI_API_KEY", "OPENAI_API_KEY")
+	setStringFromEnvWithFallback(&cfg.Knowledgebase.EmbeddingGeminiAPIKey, "PGEDGE_KB_GEMINI_API_KEY", "GEMINI_API_KEY")
 	// 2. If env vars not set and api_key_file is specified, load from file
 	if cfg.Knowledgebase.EmbeddingVoyageAPIKey == "" && cfg.Knowledgebase.EmbeddingVoyageAPIKeyFile != "" {
 		if key, err := readAPIKeyFromFile(cfg.Knowledgebase.EmbeddingVoyageAPIKeyFile); err == nil && key != "" {
@@ -1258,11 +1291,18 @@ func applyEnvironmentVariables(cfg *Config) {
 		}
 		// Note: errors are silently ignored - file may not exist and that's ok
 	}
-	// 3. Direct config value (if set) is already in cfg.Knowledgebase.EmbeddingVoyageAPIKey/EmbeddingOpenAIAPIKey from mergeConfig
+	if cfg.Knowledgebase.EmbeddingGeminiAPIKey == "" && cfg.Knowledgebase.EmbeddingGeminiAPIKeyFile != "" {
+		if key, err := readAPIKeyFromFile(cfg.Knowledgebase.EmbeddingGeminiAPIKeyFile); err == nil && key != "" {
+			cfg.Knowledgebase.EmbeddingGeminiAPIKey = key
+		}
+		// Note: errors are silently ignored - file may not exist and that's ok
+	}
+	// 3. Direct config value (if set) is already in cfg.Knowledgebase.EmbeddingVoyageAPIKey/EmbeddingOpenAIAPIKey/EmbeddingGeminiAPIKey from mergeConfig
 	setStringFromEnv(&cfg.Knowledgebase.EmbeddingOllamaURL, "PGEDGE_KB_OLLAMA_URL")
 	// Base URL overrides for KB embedding providers (useful for proxies)
 	setStringFromEnv(&cfg.Knowledgebase.EmbeddingVoyageBaseURL, "PGEDGE_KB_VOYAGE_BASE_URL")
 	setStringFromEnv(&cfg.Knowledgebase.EmbeddingOpenAIBaseURL, "PGEDGE_KB_OPENAI_BASE_URL")
+	setStringFromEnv(&cfg.Knowledgebase.EmbeddingGeminiBaseURL, "PGEDGE_KB_GEMINI_BASE_URL")
 	setIntFromEnv(&cfg.Knowledgebase.EmbeddingPerAttemptTimeout, "PGEDGE_KB_EMBEDDING_PER_ATTEMPT_TIMEOUT")
 
 	// Secret file

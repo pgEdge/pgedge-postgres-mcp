@@ -75,14 +75,16 @@ builtins:
 # Enable to allow generating embeddings for semantic search
 embedding:
     enabled: false
-    provider: "openai"  # Options: "voyage", "openai", "ollama"
+    provider: "openai"  # Options: "voyage", "openai", "gemini", "ollama"
     model: "text-embedding-3-small"
 
     # API key files (recommended for production)
     # voyage_api_key_file: "~/.voyage-api-key"
     # openai_api_key_file: "~/.openai-api-key"
+    # gemini_api_key_file: "~/.gemini-api-key"
 
-    # Or use environment variables: VOYAGE_API_KEY, OPENAI_API_KEY
+    # Or use environment variables: VOYAGE_API_KEY, OPENAI_API_KEY,
+    # GEMINI_API_KEY
 
     # Model Dimensions by Provider:
     # Voyage AI:
@@ -91,6 +93,8 @@ embedding:
     # OpenAI:
     #   - text-embedding-3-large: 3072 dimensions
     #   - text-embedding-3-small: 1536 dimensions
+    # Gemini:
+    #   - gemini-embedding-001: 3072 dimensions
     # Ollama:
     #   - nomic-embed-text: 768 dimensions
     #   - mxbai-embed-large: 1024 dimensions
@@ -104,12 +108,14 @@ llm:
 knowledgebase:
     enabled: false
     database_path: "./pgedge-nla-kb.db"
+    # Options: "voyage", "openai", "gemini", "ollama"
     embedding_provider: "voyage"
     embedding_model: "voyage-3"
 
     # API key files for knowledgebase embeddings
     # embedding_voyage_api_key_file: "~/.voyage-api-key"
     # embedding_openai_api_key_file: "~/.openai-api-key"
+    # embedding_gemini_api_key_file: "~/.gemini-api-key"
 
 # Trace file for logging MCP requests and responses
 # (for debugging). Produces JSONL output.

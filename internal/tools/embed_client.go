@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/pgEdge/pgedge-go-llm-lib/llm"
+	_ "github.com/pgEdge/pgedge-go-llm-lib/llm/provider/gemini"
 	_ "github.com/pgEdge/pgedge-go-llm-lib/llm/provider/ollama"
 	_ "github.com/pgEdge/pgedge-go-llm-lib/llm/provider/openai"
 	_ "github.com/pgEdge/pgedge-go-llm-lib/llm/provider/voyage"
@@ -30,6 +31,8 @@ type embedClientConfig struct {
 	VoyageBaseURL string
 	OpenAIAPIKey  string
 	OpenAIBaseURL string
+	GeminiAPIKey  string
+	GeminiBaseURL string
 	OllamaURL     string
 
 	PerAttemptTimeout int
@@ -38,7 +41,9 @@ type embedClientConfig struct {
 // newEmbedClient builds an llm.Client for the configured embedding
 // provider, applying the same defaults the previous embedding.Provider
 // wrapper applied (voyage-3-lite model default, nomic-embed-text for
-// ollama, localhost:11434 for the ollama URL). It returns the client
+// ollama, localhost:11434 for the ollama URL), along with a
+// gemini-embedding-001 default for gemini, whose request URL embeds the
+// model name and so cannot be left empty. It returns the client
 // and the resolved model name (after defaults are applied) so callers
 // can display it without re-deriving the default logic.
 func newEmbedClient(cfg embedClientConfig) (llm.Client, string, error) {
@@ -67,6 +72,19 @@ func newEmbedClient(cfg embedClientConfig) (llm.Client, string, error) {
 			Model:   cfg.Model,
 			BaseURL: cfg.OpenAIBaseURL,
 		}
+	case "gemini":
+		if cfg.GeminiAPIKey == "" {
+			return nil, "", fmt.Errorf("missing Gemini API key for embedding provider 'gemini'")
+		}
+		model := cfg.Model
+		if model == "" {
+			model = "gemini-embedding-001"
+		}
+		opts = llm.Options{
+			APIKey:  cfg.GeminiAPIKey,
+			Model:   model,
+			BaseURL: cfg.GeminiBaseURL,
+		}
 	case "ollama":
 		baseURL := cfg.OllamaURL
 		if baseURL == "" {
@@ -82,7 +100,7 @@ func newEmbedClient(cfg embedClientConfig) (llm.Client, string, error) {
 		}
 	default:
 		return nil, "", fmt.Errorf(
-			"unsupported embedding provider: %s (supported: voyage, openai, ollama)",
+			"unsupported embedding provider: %s (supported: voyage, openai, gemini, ollama)",
 			provider,
 		)
 	}

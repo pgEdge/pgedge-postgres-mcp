@@ -62,6 +62,8 @@ func GenerateEmbeddingTool(cfg *config.Config) Tool {
 				VoyageBaseURL: cfg.Embedding.VoyageBaseURL,
 				OpenAIAPIKey:  cfg.Embedding.OpenAIAPIKey,
 				OpenAIBaseURL: cfg.Embedding.OpenAIBaseURL,
+				GeminiAPIKey:  cfg.Embedding.GeminiAPIKey,
+				GeminiBaseURL: cfg.Embedding.GeminiBaseURL,
 				OllamaURL:     cfg.Embedding.OllamaURL,
 
 				PerAttemptTimeout: cfg.Embedding.PerAttemptTimeout,

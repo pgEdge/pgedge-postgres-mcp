@@ -91,12 +91,13 @@ Specify the name of your embedding provider in the `EMBEDDING PROVIDER CONFIGURA
 # ============================================================================
 # EMBEDDING PROVIDER CONFIGURATION
 # ============================================================================
-# Provider for text embeddings: voyage, openai, or ollama
+# Provider for text embeddings: voyage, openai, gemini, or ollama
 PGEDGE_EMBEDDING_PROVIDER=voyage
 
 # Model to use for embeddings
 # Voyage: voyage-3, voyage-3-large (requires API key)
 # OpenAI: text-embedding-3-small, text-embedding-3-large (requires API key)
+# Gemini: gemini-embedding-001 (requires API key)
 # Ollama: nomic-embed-text, mxbai-embed-large (requires local Ollama)
 PGEDGE_EMBEDDING_MODEL=voyage-3
 ```
@@ -114,6 +115,10 @@ PGEDGE_ANTHROPIC_API_KEY=your-anthropic-api-key-here
 # OpenAI API key (for GPT models and OpenAI embeddings)
 # Get your key from: https://platform.openai.com/
 PGEDGE_OPENAI_API_KEY=your-openai-api-key-here
+
+# Google Gemini API key (for Gemini models and Gemini embeddings)
+# Get your key from: https://aistudio.google.com/apikey
+PGEDGE_GEMINI_API_KEY=your-gemini-api-key-here
 
 # Ollama server URL (for local models)
 # Default: http://localhost:11434 (change if Ollama runs elsewhere)
@@ -301,6 +306,7 @@ PGEDGE_EMBEDDING_MODEL=voyage-3
 # ============================================================
 PGEDGE_ANTHROPIC_API_KEY=your-anthropic-api-key
 PGEDGE_OPENAI_API_KEY=your-openai-api-key
+PGEDGE_GEMINI_API_KEY=your-gemini-api-key
 PGEDGE_OLLAMA_URL=http://localhost:11434
 
 # ============================================================
@@ -324,6 +330,7 @@ MCP_CLIENT_TOKEN=
 # PGEDGE_KB_EMBEDDING_PROVIDER=voyage
 # PGEDGE_KB_EMBEDDING_MODEL=voyage-3
 # PGEDGE_KB_VOYAGE_API_KEY=your-voyage-key
+# PGEDGE_KB_GEMINI_API_KEY=your-gemini-key
 
 # ============================================================
 # SERVER CONFIGURATION

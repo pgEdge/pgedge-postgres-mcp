@@ -149,13 +149,17 @@ configuration for the `generate_embedding` tool:
 - **`PGEDGE_EMBEDDING_ENABLED`**: Enable embedding generation
   ("true", "1", "yes" to enable)
 - **`PGEDGE_EMBEDDING_PROVIDER`**: Embedding provider ("ollama",
-  "voyage", or "openai")
+  "voyage", "openai", or "gemini")
 - **`PGEDGE_EMBEDDING_MODEL`**: Embedding model name
 - **`PGEDGE_VOYAGE_API_KEY`**: Voyage AI API key (or
   `VOYAGE_API_KEY`)
 - **`PGEDGE_VOYAGE_BASE_URL`**: Custom Voyage API base URL
   (for proxies)
 - **`PGEDGE_OPENAI_EMBEDDING_BASE_URL`**: Custom OpenAI embeddings
+  base URL (for proxies)
+- **`PGEDGE_GEMINI_API_KEY`**: Google Gemini API key (or
+  `GEMINI_API_KEY`); the LLM proxy reads the same variables
+- **`PGEDGE_GEMINI_EMBEDDING_BASE_URL`**: Custom Gemini embeddings
   base URL (for proxies)
 
 ## Knowledgebase Configuration
@@ -169,7 +173,7 @@ of the embedding provider settings above.
 - **`PGEDGE_KB_DATABASE_PATH`**: Path to knowledgebase SQLite
   database
 - **`PGEDGE_KB_EMBEDDING_PROVIDER`**: Embedding provider for KB
-  search ("openai", "voyage", or "ollama")
+  search ("openai", "voyage", "gemini", or "ollama")
 - **`PGEDGE_KB_EMBEDDING_MODEL`**: Embedding model for KB search
 - **`PGEDGE_KB_VOYAGE_API_KEY`**: Voyage API key for knowledgebase
   (or `VOYAGE_API_KEY`)
@@ -178,6 +182,10 @@ of the embedding provider settings above.
 - **`PGEDGE_KB_OPENAI_API_KEY`**: OpenAI API key for knowledgebase
   (or `OPENAI_API_KEY`)
 - **`PGEDGE_KB_OPENAI_BASE_URL`**: Custom OpenAI base URL for
+  knowledgebase
+- **`PGEDGE_KB_GEMINI_API_KEY`**: Gemini API key for knowledgebase
+  (or `GEMINI_API_KEY`)
+- **`PGEDGE_KB_GEMINI_BASE_URL`**: Custom Gemini base URL for
   knowledgebase
 - **`PGEDGE_KB_OLLAMA_URL`**: Ollama URL for knowledgebase
 

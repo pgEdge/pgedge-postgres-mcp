@@ -105,11 +105,12 @@ databases:
 # Embedding generation (optional)
 embedding:
   enabled: false  # Enable embedding generation from text
-  provider: "ollama"  # Options: "ollama", "voyage", or "openai"
+  provider: "ollama"  # Options: "ollama", "voyage", "openai", or "gemini"
   model: "nomic-embed-text"  # Model name (provider-specific)
   ollama_url: "http://localhost:11434"  # Ollama API URL (for ollama provider)
   # voyage_api_key: "pa-..."  # Voyage AI API key (for voyage provider)
   # openai_api_key: "sk-..."  # OpenAI API key (for openai provider)
+  # gemini_api_key: "..."  # Google Gemini API key (for gemini provider)
 
 # Knowledgebase configuration (optional)
 # IMPORTANT: This section has INDEPENDENT API key configuration from the embedding
@@ -118,17 +119,22 @@ embedding:
 knowledgebase:
   enabled: false  # Enable knowledgebase search
   database_path: ""  # Path to knowledgebase SQLite database
-  embedding_provider: "voyage"  # Provider for KB search: "voyage", "openai", or "ollama"
+  embedding_provider: "voyage"  # Provider for KB search: "voyage", "openai", "gemini", or "ollama"
   embedding_model: "voyage-3"  # Model for KB search (must match KB build)
 
   # API Key Configuration Priority (highest to lowest):
-  # 1. Environment variables: PGEDGE_KB_VOYAGE_API_KEY, PGEDGE_KB_OPENAI_API_KEY
-  # 2. API key file: embedding_voyage_api_key_file, embedding_openai_api_key_file
-  # 3. Direct config value: embedding_voyage_api_key, embedding_openai_api_key
+  # 1. Environment variables: PGEDGE_KB_VOYAGE_API_KEY, PGEDGE_KB_OPENAI_API_KEY,
+  #    PGEDGE_KB_GEMINI_API_KEY
+  # 2. API key file: embedding_voyage_api_key_file, embedding_openai_api_key_file,
+  #    embedding_gemini_api_key_file
+  # 3. Direct config value: embedding_voyage_api_key, embedding_openai_api_key,
+  #    embedding_gemini_api_key
   embedding_voyage_api_key_file: "~/.voyage-api-key"  # For voyage provider
   # embedding_openai_api_key_file: "~/.openai-api-key"  # For openai provider
+  # embedding_gemini_api_key_file: "~/.gemini-api-key"  # For gemini provider
   # embedding_voyage_api_key: ""  # Direct key (NOT RECOMMENDED)
   # embedding_openai_api_key: ""  # Direct key (NOT RECOMMENDED)
+  # embedding_gemini_api_key: ""  # Direct key (NOT RECOMMENDED)
   embedding_ollama_url: "http://localhost:11434"  # For ollama provider
 
 # Encryption secret file path (optional)
