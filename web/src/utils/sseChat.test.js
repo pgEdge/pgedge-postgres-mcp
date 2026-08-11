@@ -126,6 +126,20 @@ describe('sseChat', () => {
         ]);
     });
 
+    it('takes start-event arguments already encoded as a JSON string as-is', async () => {
+        // A provider delivering pre-encoded arguments must not have them
+        // re-encoded, which would parse back to a quoted string rather
+        // than the object the tool executor expects.
+        globalThis.fetch = vi.fn().mockResolvedValue(buildStreamResponse([
+            'data: {"type":"tool_use_start","tool_use":{"id":"tu_1","name":"count_rows","input":"{\\"table\\":\\"docs\\"}"}}\n\n',
+            'event: done\ndata: {"stop_reason":"tool_use"}\n\n',
+        ]));
+
+        const result = await sseChat({ messages: [] });
+
+        expect(result.content[0].tool_use.input).toEqual({ table: 'docs' });
+    });
+
     it('carries a provider signature on tool_use through to the assembled block', async () => {
         globalThis.fetch = vi.fn().mockResolvedValue(buildStreamResponse([
             'data: {"type":"tool_use_start","tool_use":{"id":"tu_1","name":"get_weather","input":{"city":"Rome"},"signature":"sig-abc123"}}\n\n',

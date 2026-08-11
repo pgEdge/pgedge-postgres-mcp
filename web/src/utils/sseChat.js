@@ -9,6 +9,27 @@
  */
 
 /**
+ * Normalises a tool call's arguments as they arrive on a
+ * `tool_use_start` event into the same partial-JSON string that
+ * `tool_use_delta` chunks accumulate, so both delivery styles converge
+ * on one representation before being parsed.
+ *
+ * A missing or null `input` yields the empty string, because the wire
+ * format sends `input: null` for the providers that stream arguments as
+ * deltas instead. Arguments already encoded as a JSON string are passed
+ * through untouched rather than re-encoded, which would otherwise parse
+ * back to a quoted string instead of an object.
+ *
+ * @param {*} input - The start event's `tool_use.input`, if any.
+ * @returns {string} Partial JSON to seed the accumulator with.
+ */
+function encodeStartArgs(input) {
+    if (input == null) return '';
+    if (typeof input === 'string') return input;
+    return JSON.stringify(input);
+}
+
+/**
  * Posts to the library proxy's streaming chat endpoint
  * (/api/llm/v1/chat/stream), parses Server-Sent Events, and assembles
  * the final response into the same shape returned by the non-streaming
@@ -34,8 +55,8 @@
  *                          thinking models require it back on this same
  *                          call the next time it appears in history). May
  *                          also carry the complete arguments directly, for
- *                          providers (Gemini) that never stream them
- *                          incrementally.
+ *                          providers (Gemini, Ollama) that never stream
+ *                          them incrementally.
  *   - "tool_use_delta"  -> accumulates partial JSON input string for
  *                          the current tool_use; parsed at done. Providers
  *                          that deliver complete arguments on the start
@@ -211,15 +232,19 @@ export async function sseChat(body, options = {}) {
                 }
                 pendingTools.set(id, {
                     name: tu.name || '',
-                    // Some providers (Gemini) deliver the complete
-                    // arguments on this event and send no delta chunks
-                    // at all; seed the buffer from them when present
-                    // rather than assuming a delta always follows. The
-                    // wire format sends `input: null` (no omitempty on
-                    // the Go side) for providers still to come via
-                    // deltas, so null must be treated the same as
-                    // absent rather than as a literal complete value.
-                    partial: tu.input != null ? JSON.stringify(tu.input) : '',
+                    // Some providers (Gemini, Ollama) deliver the
+                    // complete arguments on this event and send no delta
+                    // chunks at all; seed the buffer from them when
+                    // present rather than assuming a delta always
+                    // follows. The wire format sends `input: null` (no
+                    // omitempty on the Go side) for providers still to
+                    // come via deltas, so null must be treated the same
+                    // as absent rather than as a literal complete value.
+                    // A provider sending pre-encoded arguments as a JSON
+                    // string is taken as-is, since re-encoding it would
+                    // yield a quoted string rather than the object the
+                    // caller expects.
+                    partial: encodeStartArgs(tu.input),
                     signature: tu.signature || '',
                 });
                 break;

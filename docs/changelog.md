@@ -43,6 +43,12 @@ and this project adheres to
 
 ### Changed
 
+- The LLM library moves to `pgedge-go-llm-lib` v0.3.0, which adds the
+  `signature` field to a tool call and carries it through the streaming
+  API, the SSE proxy, and the outbound Gemini request as that provider's
+  `thoughtSignature`. The web client needs the field on the wire for its
+  own signature handling to have anything to preserve.
+
 - The example configuration files now show the `sslcert`, `sslkey`, and
   `sslrootcert` database settings, commented out alongside `sslmode`,
   together with the matching `PGEDGE_DB_SSLCERT`, `PGEDGE_DB_SSLKEY`,
@@ -101,14 +107,15 @@ and this project adheres to
   on the start event itself and never sends a single delta chunk (unlike
   Anthropic and OpenAI, which stream them incrementally), so every Gemini
   tool call ran with empty arguments regardless of what the model actually
-  asked for — the root cause behind issue #235's reported retry loop. The
-  handler now seeds the argument buffer from the start event when it
-  already carries complete arguments. Separately, the handler never
-  captured a tool call's provider signature at all, so a Gemini thinking
-  model's required `thought_signature` was dropped before it was ever
-  stored, breaking the next tool-calling turn regardless of whether the
-  underlying library sends it correctly. Both are fixed; a response with
-  no signature is unaffected.
+  asked for; this was the root cause behind issue #235's reported retry
+  loop. The handler now seeds the argument buffer from the start event when
+  it already carries complete arguments. Ollama delivers its arguments the
+  same way, so its tool calls are fixed by the same change. Separately, the
+  handler never captured a tool call's provider signature at all, so a
+  Gemini thinking model's required `thought_signature` was dropped before
+  it was ever stored, breaking the next tool-calling turn. The signature is
+  now carried through unchanged, and a response that has none is
+  unaffected. (#244)
 
 - The web client no longer keeps re-running a tool call that cannot
   succeed. Where a model responded to a tool error by reissuing the
