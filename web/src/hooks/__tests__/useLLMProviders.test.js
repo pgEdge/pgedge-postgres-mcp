@@ -56,13 +56,18 @@ describe('useLLMProviders model list failures', () => {
         });
     };
 
+    // Node and jsdom both supply a global fetch, so put the original
+    // back rather than deleting the property; other suites sharing this
+    // worker would otherwise find it missing.
+    const originalFetch = globalThis.fetch;
+
     beforeEach(() => {
         localStorage.clear();
         vi.clearAllMocks();
     });
 
     afterEach(() => {
-        delete globalThis.fetch;
+        globalThis.fetch = originalFetch;
         localStorage.clear();
     });
 
