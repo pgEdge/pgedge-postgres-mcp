@@ -400,6 +400,99 @@ func TestLoadConfig_GeminiEmbeddingBaseURLIgnored(t *testing.T) {
 	}
 }
 
+// The environment must beat the configuration file, as it does on the
+// server. The client used to read the environment into its defaults before
+// the file was parsed, so the file quietly won instead, which meant the same
+// variable resolved differently depending on which binary read it.
+func TestLoadConfig_EnvironmentBeatsTheFile(t *testing.T) {
+	t.Setenv("PGEDGE_GEMINI_API_KEY", "")
+	t.Setenv("GEMINI_API_KEY", "")
+
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "test-config.yaml")
+	configContent := "" +
+		"mcp:\n" +
+		"  mode: http\n" +
+		"llm:\n" +
+		"  provider: openai\n" +
+		"  model: gpt-4o\n" +
+		"  gemini_base_url: https://file.example.com\n" +
+		"  ollama_url: http://file.example.com:11434\n"
+	if err := os.WriteFile(configPath, []byte(configContent), 0644); err != nil {
+		t.Fatalf("Failed to write config file: %v", err)
+	}
+
+	t.Setenv("PGEDGE_MCP_MODE", "stdio")
+	t.Setenv("PGEDGE_LLM_PROVIDER", "gemini")
+	t.Setenv("PGEDGE_LLM_MODEL", "gemini-2.5-flash")
+	t.Setenv("PGEDGE_GEMINI_BASE_URL", "https://env.example.com")
+	t.Setenv("PGEDGE_OLLAMA_URL", "http://env.example.com:11434")
+
+	cfg, err := LoadConfig(configPath)
+	if err != nil {
+		t.Fatalf("LoadConfig failed: %v", err)
+	}
+
+	checks := []struct {
+		name string
+		got  string
+		want string
+	}{
+		{"MCP.Mode", cfg.MCP.Mode, "stdio"},
+		{"LLM.Provider", cfg.LLM.Provider, "gemini"},
+		{"LLM.Model", cfg.LLM.Model, "gemini-2.5-flash"},
+		{"LLM.GeminiBaseURL", cfg.LLM.GeminiBaseURL, "https://env.example.com"},
+		{"LLM.OllamaURL", cfg.LLM.OllamaURL, "http://env.example.com:11434"},
+	}
+	for _, c := range checks {
+		if c.got != c.want {
+			t.Errorf("%s = %q, want the environment value %q", c.name, c.got, c.want)
+		}
+	}
+}
+
+// An absent variable must leave the file's value in place, which is what
+// stops the environment pass from flattening a configuration back to the
+// defaults.
+func TestLoadConfig_FileSurvivesAnAbsentEnvironment(t *testing.T) {
+	for _, key := range []string{
+		"PGEDGE_MCP_MODE", "PGEDGE_LLM_PROVIDER", "PGEDGE_LLM_MODEL",
+		"PGEDGE_GEMINI_BASE_URL", "PGEDGE_OLLAMA_URL",
+	} {
+		t.Setenv(key, "")
+	}
+
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "test-config.yaml")
+	configContent := "" +
+		"llm:\n" +
+		"  provider: openai\n" +
+		"  model: gpt-4o\n" +
+		"  gemini_base_url: https://file.example.com\n"
+	if err := os.WriteFile(configPath, []byte(configContent), 0644); err != nil {
+		t.Fatalf("Failed to write config file: %v", err)
+	}
+
+	cfg, err := LoadConfig(configPath)
+	if err != nil {
+		t.Fatalf("LoadConfig failed: %v", err)
+	}
+
+	if cfg.LLM.Provider != "openai" {
+		t.Errorf("LLM.Provider = %q, want the file value", cfg.LLM.Provider)
+	}
+	if cfg.LLM.Model != "gpt-4o" {
+		t.Errorf("LLM.Model = %q, want the file value", cfg.LLM.Model)
+	}
+	if cfg.LLM.GeminiBaseURL != "https://file.example.com" {
+		t.Errorf("LLM.GeminiBaseURL = %q, want the file value", cfg.LLM.GeminiBaseURL)
+	}
+	// Untouched by either source, so still the built-in default.
+	if cfg.LLM.OllamaURL != "http://localhost:11434" {
+		t.Errorf("LLM.OllamaURL = %q, want the default", cfg.LLM.OllamaURL)
+	}
+}
+
 func TestLoadConfig_GeminiAPIKeyFromFile(t *testing.T) {
 	t.Setenv("PGEDGE_GEMINI_API_KEY", "")
 	t.Setenv("GEMINI_API_KEY", "")

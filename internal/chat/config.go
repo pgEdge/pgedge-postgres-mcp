@@ -73,39 +73,78 @@ type UIConfig struct {
 	Debug                 bool `yaml:"debug"`                   // Display debug messages (e.g., LLM token usage)
 }
 
-// LoadConfig loads configuration from file, environment variables, and defaults
-func LoadConfig(configPath string) (*Config, error) {
-	cfg := &Config{
+// defaultConfig returns the configuration the client uses before anything
+// else is read. It holds literal defaults only: the configuration file is
+// merged over these, and the environment over that, so that the resolution
+// order is defaults, then file, then environment, then flags.
+func defaultConfig() *Config {
+	return &Config{
 		MCP: MCPConfig{
-			Mode:             getEnvOrDefault("PGEDGE_MCP_MODE", "stdio"),
-			URL:              os.Getenv("PGEDGE_MCP_URL"),
-			ServerPath:       getEnvOrDefault("PGEDGE_MCP_SERVER_PATH", "../../bin/pgedge-postgres-mcp"),
-			ServerConfigPath: getEnvOrDefault("PGEDGE_MCP_SERVER_CONFIG_PATH", ""),
-			AuthMode:         getEnvOrDefault("PGEDGE_MCP_AUTH_MODE", "user"),
-			Token:            "", // Will be loaded separately
-			Username:         os.Getenv("PGEDGE_MCP_USERNAME"),
-			Password:         os.Getenv("PGEDGE_MCP_PASSWORD"),
-			TLS:              false,
+			Mode:       "stdio",
+			ServerPath: "../../bin/pgedge-postgres-mcp",
+			AuthMode:   "user",
+			Token:      "", // Will be loaded separately
+			TLS:        false,
 		},
 		LLM: LLMConfig{
-			Provider:         getEnvOrDefault("PGEDGE_LLM_PROVIDER", "anthropic"),
-			Model:            getEnvOrDefault("PGEDGE_LLM_MODEL", "claude-sonnet-4-5-20250929"),
-			AnthropicAPIKey:  getEnvWithFallback("PGEDGE_ANTHROPIC_API_KEY", "ANTHROPIC_API_KEY"),
-			AnthropicBaseURL: os.Getenv("PGEDGE_ANTHROPIC_BASE_URL"), // Empty string uses default
-			OpenAIAPIKey:     getEnvWithFallback("PGEDGE_OPENAI_API_KEY", "OPENAI_API_KEY"),
-			OpenAIBaseURL:    os.Getenv("PGEDGE_OPENAI_BASE_URL"), // Empty string uses default
-			GeminiAPIKey:     getEnvWithFallback("PGEDGE_GEMINI_API_KEY", "GEMINI_API_KEY"),
-			GeminiBaseURL:    os.Getenv("PGEDGE_GEMINI_BASE_URL"), // Empty string uses default
-			OllamaURL:        getEnvOrDefault("PGEDGE_OLLAMA_URL", "http://localhost:11434"),
-			MaxTokens:        4096,
+			Provider:  "anthropic",
+			Model:     "claude-sonnet-4-5-20250929",
+			OllamaURL: "http://localhost:11434",
+			MaxTokens: 4096,
 		},
 		UI: UIConfig{
-			NoColor:               os.Getenv("NO_COLOR") != "",
 			DisplayStatusMessages: true, // Default to showing status messages
 			RenderMarkdown:        true, // Default to rendering markdown
 		},
 		HistoryFile: filepath.Join(os.Getenv("HOME"), ".pgedge-nla-cli-history"),
 	}
+}
+
+// applyEnvironmentVariables overrides the configuration with any variables
+// that are set, and is called after the configuration file has been read so
+// that the environment wins, as it does on the server.
+//
+// An unset or empty variable changes nothing, which is what lets a value in
+// the file survive; there is deliberately no way to blank a configured
+// setting by exporting an empty variable.
+func applyEnvironmentVariables(cfg *Config) {
+	setStringFromEnv(&cfg.MCP.Mode, "PGEDGE_MCP_MODE")
+	setStringFromEnv(&cfg.MCP.URL, "PGEDGE_MCP_URL")
+	setStringFromEnv(&cfg.MCP.ServerPath, "PGEDGE_MCP_SERVER_PATH")
+	setStringFromEnv(&cfg.MCP.ServerConfigPath, "PGEDGE_MCP_SERVER_CONFIG_PATH")
+	setStringFromEnv(&cfg.MCP.AuthMode, "PGEDGE_MCP_AUTH_MODE")
+	setStringFromEnv(&cfg.MCP.Username, "PGEDGE_MCP_USERNAME")
+	setStringFromEnv(&cfg.MCP.Password, "PGEDGE_MCP_PASSWORD")
+
+	setStringFromEnv(&cfg.LLM.Provider, "PGEDGE_LLM_PROVIDER")
+	setStringFromEnv(&cfg.LLM.Model, "PGEDGE_LLM_MODEL")
+	setStringFromEnv(&cfg.LLM.AnthropicAPIKey, "PGEDGE_ANTHROPIC_API_KEY", "ANTHROPIC_API_KEY")
+	setStringFromEnv(&cfg.LLM.AnthropicBaseURL, "PGEDGE_ANTHROPIC_BASE_URL")
+	setStringFromEnv(&cfg.LLM.OpenAIAPIKey, "PGEDGE_OPENAI_API_KEY", "OPENAI_API_KEY")
+	setStringFromEnv(&cfg.LLM.OpenAIBaseURL, "PGEDGE_OPENAI_BASE_URL")
+	setStringFromEnv(&cfg.LLM.GeminiAPIKey, "PGEDGE_GEMINI_API_KEY", "GEMINI_API_KEY")
+	setStringFromEnv(&cfg.LLM.GeminiBaseURL, "PGEDGE_GEMINI_BASE_URL")
+	setStringFromEnv(&cfg.LLM.OllamaURL, "PGEDGE_OLLAMA_URL")
+
+	// NO_COLOR follows the convention that any non-empty value disables
+	// colour; it can turn colour off but never back on, so no_color in the
+	// configuration file still stands when the variable is absent.
+	if os.Getenv("NO_COLOR") != "" {
+		cfg.UI.NoColor = true
+	}
+}
+
+// setStringFromEnv assigns the first of the named environment variables that
+// is set and non-empty, and leaves the destination alone when none is.
+func setStringFromEnv(dest *string, keys ...string) {
+	if value := getEnvWithFallback(keys...); value != "" {
+		*dest = value
+	}
+}
+
+// LoadConfig loads configuration from file, environment variables, and defaults
+func LoadConfig(configPath string) (*Config, error) {
+	cfg := defaultConfig()
 
 	// Load from config file if provided
 	if configPath != "" {
@@ -127,6 +166,13 @@ func LoadConfig(configPath string) (*Config, error) {
 			}
 		}
 	}
+
+	// Environment variables override the configuration file, matching the
+	// server. They used to seed the defaults instead, before the file was
+	// read, which meant a value in the file quietly beat an exported
+	// variable, the opposite of what the server did with the same variable
+	// names and of what the key priority below has always documented.
+	applyEnvironmentVariables(cfg)
 
 	// API key loading priority: env vars > api_key_file > direct config value
 	// Environment variables were already loaded above, now check for API key files
@@ -299,14 +345,6 @@ func (c *Config) GetConfiguredProviders() []string {
 		providers = append(providers, "ollama")
 	}
 	return providers
-}
-
-// getEnvOrDefault returns the environment variable value or default
-func getEnvOrDefault(key, defaultValue string) string {
-	if value := os.Getenv(key); value != "" {
-		return value
-	}
-	return defaultValue
 }
 
 // getEnvWithFallback checks multiple environment variable names in priority order
