@@ -118,6 +118,26 @@ and this project adheres to
 
 ### Fixed
 
+- A configuration file that sets an LLM or embedding option without also
+  naming the provider, or enabling the section, is no longer discarded.
+  The merge tested only those two fields, so a file that configured just a
+  base URL, a key, a key file, or a token limit was silently ignored and
+  the setting never took effect. Every field in both sections now merges
+  independently. The `enabled` flag is the one exception: a plain boolean
+  cannot distinguish an omitted setting from a false one, so, as elsewhere
+  in the merge, only a true is carried across, and a file that mentions
+  neither cannot switch off a section another source enabled. (#250)
+
+- The CLI client now lets environment variables override the
+  configuration file, which is what the documentation has always
+  described and what the server has always done. The client read the
+  environment into its defaults before parsing the file, so the file
+  quietly won instead, and the same variable resolved differently
+  depending on which of the two binaries read it. Settings resolve as
+  documented: command-line flags, then environment variables, then the
+  configuration file, then the built-in defaults. An unset or empty
+  variable still leaves a configured value alone. (#251)
+
 - Switching LLM providers and sending a message immediately afterwards no
   longer pairs the new provider with the previous provider's model. The
   model list for the newly selected provider refreshes asynchronously, but
