@@ -906,7 +906,9 @@ func TestApplyEnvironmentVariables_LLMBaseURLs(t *testing.T) {
 // TestGeminiBaseURLNamespaces guards the naming split between the chat side
 // and the embedding side. The embedding providers deliberately carry an
 // _EMBEDDING_ infix so that PGEDGE_GEMINI_BASE_URL stays free for the LLM,
-// and neither variable may bleed into the other's configuration.
+// and neither variable may bleed into the other's configuration. Both
+// directions are now observable, since Gemini embedding support supplies the
+// embedding half of the pair.
 func TestGeminiBaseURLNamespaces(t *testing.T) {
 	t.Run("embedding variable leaves the LLM base URL alone", func(t *testing.T) {
 		t.Setenv("PGEDGE_GEMINI_BASE_URL", "")
@@ -918,6 +920,10 @@ func TestGeminiBaseURLNamespaces(t *testing.T) {
 		if cfg.LLM.GeminiBaseURL != "" {
 			t.Errorf("LLM.GeminiBaseURL = %q, want it untouched by the embedding variable",
 				cfg.LLM.GeminiBaseURL)
+		}
+		if cfg.Embedding.GeminiBaseURL != "https://embed.proxy.example.com" {
+			t.Errorf("Embedding.GeminiBaseURL = %q, want the environment value",
+				cfg.Embedding.GeminiBaseURL)
 		}
 	})
 
@@ -932,8 +938,13 @@ func TestGeminiBaseURLNamespaces(t *testing.T) {
 		if cfg.LLM.GeminiBaseURL != "https://gemini.proxy.example.com" {
 			t.Errorf("LLM.GeminiBaseURL = %q, want the environment value", cfg.LLM.GeminiBaseURL)
 		}
-		// The embedding block has no Gemini provider of its own yet, so the
-		// assertion is simply that the LLM variable changes nothing there.
+		// Gemini embedding support landed separately, so the embedding block
+		// now has a Gemini base URL of its own; the LLM variable must leave
+		// it, and the rest of the block, alone.
+		if cfg.Embedding.GeminiBaseURL != "" {
+			t.Errorf("Embedding.GeminiBaseURL = %q, want it untouched by the LLM variable",
+				cfg.Embedding.GeminiBaseURL)
+		}
 		if cfg.Embedding != before {
 			t.Errorf("Embedding config = %+v, want it unchanged at %+v", cfg.Embedding, before)
 		}
