@@ -398,6 +398,11 @@ export const useLLMProviders = (sessionToken) => {
                     }
                 } else {
                     console.warn('No models returned from API');
+                    // Nothing to select for this provider, so the model
+                    // left over from the previous one must not survive;
+                    // see the note on the catch below.
+                    usingFallbackModelRef.current = false;
+                    setSelectedModel('');
                 }
             } catch (err) {
                 if (err.name === 'AbortError') {
@@ -407,6 +412,16 @@ export const useLLMProviders = (sessionToken) => {
                 console.error('Error fetching models:', err);
                 setModels([]);
                 setError('Failed to load models. Please check browser console.');
+                // selectedModel still holds the model belonging to the
+                // provider we have just switched away from, and the
+                // finally below re-enables sending. Leaving it in place
+                // would let a request go out pairing the new provider
+                // with a model it never advertised, which is the same
+                // mismatch the loadingModels gate prevents whilst the
+                // fetch is in flight. Clearing it makes the proxy fall
+                // back to the provider's configured default instead.
+                usingFallbackModelRef.current = false;
+                setSelectedModel('');
             } finally {
                 // Only clear loading state if this effect run is still
                 // current. The newer run will manage its own loading

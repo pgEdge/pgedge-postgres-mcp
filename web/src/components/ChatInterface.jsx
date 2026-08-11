@@ -1855,6 +1855,7 @@ const ChatInterface = ({ conversations }) => {
                 prompts={prompts}
                 onExecute={handlePromptExecute}
                 executing={executingPrompt}
+                disabled={llmProviders.loadingModels}
             />
 
             {/* Write Query Confirmation Dialog */}

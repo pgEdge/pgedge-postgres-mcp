@@ -41,6 +41,7 @@ const PromptPopover = ({
     prompts = [],
     onExecute,
     executing = false,
+    disabled = false,
 }) => {
     const [selectedPromptName, setSelectedPromptName] = useState('');
     const [argumentValues, setArgumentValues] = useState({});
@@ -391,7 +392,7 @@ const PromptPopover = ({
                             fullWidth
                             variant="contained"
                             onClick={handleExecute}
-                            disabled={executing}
+                            disabled={executing || disabled}
                             startIcon={executing ? <CircularProgress size={16} sx={{ color: '#FFFFFF' }} /> : <PlayArrowIcon />}
                             sx={{
                                 bgcolor: '#15AABF',
@@ -443,6 +444,7 @@ PromptPopover.propTypes = {
     })),
     onExecute: PropTypes.func.isRequired,
     executing: PropTypes.bool,
+    disabled: PropTypes.bool,
 };
 
 export default PromptPopover;

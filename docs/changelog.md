@@ -107,8 +107,13 @@ and this project adheres to
   neither the send handlers nor the message input were gated on that
   fetch still being in flight, so a fast switch-and-send could reach the
   server as e.g. `{"provider": "openai", "model": "gemini-flash-latest"}`.
-  The chat input and Send button are now disabled while the new
-  provider's model list is loading.
+  The chat input, the Send button, and prompt execution are now disabled
+  whilst the new provider's model list is loading. The same mismatch was
+  reachable when that fetch failed outright, or when a provider returned
+  no models at all, because sending was re-enabled whilst the previous
+  provider's model was still selected; the selection is now cleared in
+  both cases, which leaves the server to fall back to the provider's own
+  configured default.
 
 - Gemini tool calls now work through the web client. `sseChat.js`'s
   `tool_use_start` handler only ever populated a tool call's arguments from

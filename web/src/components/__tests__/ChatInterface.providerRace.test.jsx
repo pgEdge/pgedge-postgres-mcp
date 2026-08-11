@@ -71,7 +71,10 @@ vi.mock('../../hooks/useLLMProviders', () => ({
     useLLMProviders: () => ({
         providers: [{ name: 'openai', display: 'OpenAI', model: 'gpt-4', isDefault: false }],
         selectedProvider: 'openai',
-        selectedModel: 'gemini-flash-latest', // stale model left over from the previous provider
+        // Whilst the fetch is in flight the model is still the previous
+        // provider's; once it resolves the hook has replaced it with one
+        // the new provider actually advertises.
+        selectedModel: mockLoadingModels ? 'gemini-flash-latest' : 'gpt-4',
         setSelectedProvider: vi.fn(),
         models: mockLoadingModels ? [] : [{ name: 'gpt-4', description: '' }],
         setSelectedModel: vi.fn(),
@@ -164,7 +167,12 @@ describe('ChatInterface provider/model switch race', () => {
 
         // Whatever request went out was built with the provider/model
         // pairing the hook actually reports, never a mismatched leftover.
+        // Asserting the model matters as much as the provider: the bug
+        // being fixed sent the right provider with the wrong model, so a
+        // test that checks only the provider would pass on the very
+        // payload this PR exists to prevent.
         const [requestBody] = mockSseChat.mock.calls[0];
         expect(requestBody.provider).toBe('openai');
+        expect(requestBody.model).toBe('gpt-4');
     });
 });
