@@ -101,6 +101,15 @@ and this project adheres to
 
 ### Fixed
 
+- Switching LLM providers and sending a message immediately afterwards no
+  longer pairs the new provider with the previous provider's model. The
+  model list for the newly selected provider refreshes asynchronously, but
+  neither the send handlers nor the message input were gated on that
+  fetch still being in flight, so a fast switch-and-send could reach the
+  server as e.g. `{"provider": "openai", "model": "gemini-flash-latest"}`.
+  The chat input and Send button are now disabled while the new
+  provider's model list is loading.
+
 - Gemini tool calls now work through the web client. `sseChat.js`'s
   `tool_use_start` handler only ever populated a tool call's arguments from
   later `tool_use_delta` chunks, but Gemini delivers the complete arguments

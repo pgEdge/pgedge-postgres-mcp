@@ -690,7 +690,11 @@ const ChatInterface = ({ conversations }) => {
 
     // Handle message sending
     const handleSend = useCallback(async () => {
-        if (!input.trim() || loading || !mcpClient) return;
+        // Switching providers refetches that provider's model list
+        // asynchronously; selectedModel still holds the previous
+        // provider's model until it resolves. Sending in that window
+        // would pair the new provider with a model it never advertised.
+        if (!input.trim() || loading || !mcpClient || llmProviders.loadingModels) return;
 
         const userMessage = {
             role: 'user',
@@ -1204,7 +1208,7 @@ const ChatInterface = ({ conversations }) => {
             setLoading(false);
             abortControllerRef.current = null;
         }
-    }, [input, loading, mcpClient, messages, sessionToken, tools, llmProviders.selectedProvider, llmProviders.selectedModel, queryHistory, forceLogout, refreshTools, fetchDatabases, isWriteAccessEnabled, requestWriteConfirmation]);
+    }, [input, loading, mcpClient, messages, sessionToken, tools, llmProviders.selectedProvider, llmProviders.selectedModel, llmProviders.loadingModels, queryHistory, forceLogout, refreshTools, fetchDatabases, isWriteAccessEnabled, requestWriteConfirmation]);
 
     // Handle request cancellation
     const handleCancel = useCallback(() => {
@@ -1304,7 +1308,7 @@ const ChatInterface = ({ conversations }) => {
 
     // Handle prompt execution
     const handlePromptExecute = useCallback(async (promptName, args) => {
-        if (!mcpClient || loading) return;
+        if (!mcpClient || loading || llmProviders.loadingModels) return;
 
         setExecutingPrompt(true);
 
@@ -1783,7 +1787,7 @@ const ChatInterface = ({ conversations }) => {
             setLoading(false);
             abortControllerRef.current = null;
         }
-    }, [mcpClient, loading, messages, sessionToken, tools, llmProviders.selectedProvider, llmProviders.selectedModel, forceLogout, refreshTools, fetchDatabases, isWriteAccessEnabled, requestWriteConfirmation]);
+    }, [mcpClient, loading, messages, sessionToken, tools, llmProviders.selectedProvider, llmProviders.selectedModel, llmProviders.loadingModels, forceLogout, refreshTools, fetchDatabases, isWriteAccessEnabled, requestWriteConfirmation]);
 
     return (
         <Box
@@ -1819,7 +1823,7 @@ const ChatInterface = ({ conversations }) => {
                     onSend={handleSend}
                     onCancel={handleCancel}
                     onKeyDown={handleKeyDown}
-                    disabled={loading}
+                    disabled={loading || llmProviders.loadingModels}
                     isLoading={loading}
                     onPromptClick={handlePromptClick}
                     hasPrompts={prompts && prompts.length > 0}
