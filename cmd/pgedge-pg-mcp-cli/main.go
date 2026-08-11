@@ -36,7 +36,9 @@ func main() {
 	llmProvider := flag.String("llm-provider", "", "LLM provider: anthropic, openai, gemini, or ollama (default: anthropic)")
 	llmModel := flag.String("llm-model", "", "LLM model to use")
 	anthropicAPIKey := flag.String("anthropic-api-key", "", "API key for Anthropic")
+	anthropicAPIKeyFile := flag.String("anthropic-api-key-file", "", "Path to a file containing the Anthropic API key")
 	openaiAPIKey := flag.String("openai-api-key", "", "API key for OpenAI")
+	openaiAPIKeyFile := flag.String("openai-api-key-file", "", "Path to a file containing the OpenAI API key")
 	geminiAPIKey := flag.String("gemini-api-key", "", "API key for Google Gemini")
 	geminiAPIKeyFile := flag.String("gemini-api-key-file", "", "Path to a file containing the Google Gemini API key")
 	ollamaURL := flag.String("ollama-url", "", "Ollama server URL (default: http://localhost:11434)")
@@ -94,30 +96,28 @@ func main() {
 	if *llmModel != "" {
 		cfg.LLM.Model = *llmModel
 	}
-	if *anthropicAPIKey != "" {
-		cfg.LLM.AnthropicAPIKey = *anthropicAPIKey
+	// The key files are read here rather than by the loader, because the
+	// loader resolves the files named in the configuration before any flag is
+	// seen. A key given directly on the command line wins over one in a file.
+	keyFlags := []struct {
+		provider string
+		key      string
+		keyFile  string
+		destKey  *string
+		destFile *string
+	}{
+		{"Anthropic", *anthropicAPIKey, *anthropicAPIKeyFile,
+			&cfg.LLM.AnthropicAPIKey, &cfg.LLM.AnthropicAPIKeyFile},
+		{"OpenAI", *openaiAPIKey, *openaiAPIKeyFile,
+			&cfg.LLM.OpenAIAPIKey, &cfg.LLM.OpenAIAPIKeyFile},
+		{"Gemini", *geminiAPIKey, *geminiAPIKeyFile,
+			&cfg.LLM.GeminiAPIKey, &cfg.LLM.GeminiAPIKeyFile},
 	}
-	if *openaiAPIKey != "" {
-		cfg.LLM.OpenAIAPIKey = *openaiAPIKey
-	}
-	// The key file is read here rather than by the loader, because the loader
-	// resolves the files named in the configuration before any flag is seen.
-	// A key given directly on the command line wins over one in a file.
-	if *geminiAPIKeyFile != "" {
-		cfg.LLM.GeminiAPIKeyFile = *geminiAPIKeyFile
-		key, err := chat.ReadAPIKeyFile(*geminiAPIKeyFile)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error reading Gemini API key file: %v\n", err)
+	for _, f := range keyFlags {
+		if err := applyAPIKeyFlags(f.provider, f.key, f.keyFile, f.destKey, f.destFile); err != nil {
+			fmt.Fprintf(os.Stderr, "%v\n", err)
 			os.Exit(1)
 		}
-		if key == "" {
-			fmt.Fprintf(os.Stderr, "Gemini API key file %s is missing or empty\n", *geminiAPIKeyFile)
-			os.Exit(1)
-		}
-		cfg.LLM.GeminiAPIKey = key
-	}
-	if *geminiAPIKey != "" {
-		cfg.LLM.GeminiAPIKey = *geminiAPIKey
 	}
 	if *ollamaURL != "" {
 		cfg.LLM.OllamaURL = *ollamaURL
@@ -167,4 +167,31 @@ func main() {
 		fmt.Fprintf(os.Stderr, "Error running chat client: %v\n", err)
 		os.Exit(1)
 	}
+}
+
+// applyAPIKeyFlags applies one provider's -<provider>-api-key and
+// -<provider>-api-key-file flags to the loaded configuration. The file named
+// on the command line is read here, because the loader has already resolved
+// the key files named in the configuration by the time any flag is seen, and
+// a path given on the command line that cannot be read or that yields an
+// empty key is an error rather than a silent fallback. A key supplied
+// directly beats one read from a file. Either flag may be empty, in which
+// case the corresponding configured value is left alone. The provider label
+// is used only to name the provider in the error messages.
+func applyAPIKeyFlags(provider, key, keyFile string, destKey, destKeyFile *string) error {
+	if keyFile != "" {
+		*destKeyFile = keyFile
+		fileKey, err := chat.ReadAPIKeyFile(keyFile)
+		if err != nil {
+			return fmt.Errorf("error reading %s API key file: %w", provider, err)
+		}
+		if fileKey == "" {
+			return fmt.Errorf("%s API key file %s is missing or empty", provider, keyFile)
+		}
+		*destKey = fileKey
+	}
+	if key != "" {
+		*destKey = key
+	}
+	return nil
 }

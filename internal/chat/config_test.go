@@ -362,6 +362,44 @@ func TestLoadConfig_GeminiAPIKeyFromEnvironment(t *testing.T) {
 	}
 }
 
+func TestLoadConfig_LLMBaseURLsFromEnvironment(t *testing.T) {
+	t.Setenv("PGEDGE_ANTHROPIC_BASE_URL", "https://anthropic.proxy.example.com")
+	t.Setenv("PGEDGE_OPENAI_BASE_URL", "https://openai.proxy.example.com")
+	t.Setenv("PGEDGE_GEMINI_BASE_URL", "https://gemini.proxy.example.com")
+
+	cfg, err := LoadConfig("")
+	if err != nil {
+		t.Fatalf("LoadConfig failed: %v", err)
+	}
+
+	if cfg.LLM.AnthropicBaseURL != "https://anthropic.proxy.example.com" {
+		t.Errorf("Expected the Anthropic base URL from the environment, got '%s'", cfg.LLM.AnthropicBaseURL)
+	}
+	if cfg.LLM.OpenAIBaseURL != "https://openai.proxy.example.com" {
+		t.Errorf("Expected the OpenAI base URL from the environment, got '%s'", cfg.LLM.OpenAIBaseURL)
+	}
+	if cfg.LLM.GeminiBaseURL != "https://gemini.proxy.example.com" {
+		t.Errorf("Expected the Gemini base URL from the environment, got '%s'", cfg.LLM.GeminiBaseURL)
+	}
+}
+
+// The embedding variables belong to the server, and carry an _EMBEDDING_
+// infix so that PGEDGE_GEMINI_BASE_URL stays free for the chat side; the CLI
+// must therefore ignore the embedding name entirely.
+func TestLoadConfig_GeminiEmbeddingBaseURLIgnored(t *testing.T) {
+	t.Setenv("PGEDGE_GEMINI_BASE_URL", "")
+	t.Setenv("PGEDGE_GEMINI_EMBEDDING_BASE_URL", "https://embed.proxy.example.com")
+
+	cfg, err := LoadConfig("")
+	if err != nil {
+		t.Fatalf("LoadConfig failed: %v", err)
+	}
+
+	if cfg.LLM.GeminiBaseURL != "" {
+		t.Errorf("Expected an empty Gemini base URL, got '%s'", cfg.LLM.GeminiBaseURL)
+	}
+}
+
 func TestLoadConfig_GeminiAPIKeyFromFile(t *testing.T) {
 	t.Setenv("PGEDGE_GEMINI_API_KEY", "")
 	t.Setenv("GEMINI_API_KEY", "")

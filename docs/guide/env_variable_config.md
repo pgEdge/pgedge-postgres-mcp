@@ -127,7 +127,7 @@ configuration for the web client chat proxy:
 - **`PGEDGE_LLM_ENABLED`**: Enable LLM proxy for web clients
   ("true", "1", "yes" to enable)
 - **`PGEDGE_LLM_PROVIDER`**: LLM provider ("anthropic", "openai",
-  or "ollama")
+  "gemini", or "ollama")
 - **`PGEDGE_LLM_MODEL`**: Default model to use
 - **`PGEDGE_LLM_MAX_TOKENS`**: Maximum tokens for LLM response
   (default: 4096)
@@ -138,6 +138,10 @@ configuration for the web client chat proxy:
 - **`PGEDGE_OPENAI_API_KEY`**: OpenAI API key (or
   `OPENAI_API_KEY`)
 - **`PGEDGE_OPENAI_BASE_URL`**: Custom OpenAI API base URL
+  (for proxies)
+- **`PGEDGE_GEMINI_API_KEY`**: Google Gemini API key (or
+  `GEMINI_API_KEY`)
+- **`PGEDGE_GEMINI_BASE_URL`**: Custom Gemini API base URL
   (for proxies)
 - **`PGEDGE_OLLAMA_URL`**: Ollama server URL
 

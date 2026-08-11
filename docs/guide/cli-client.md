@@ -43,9 +43,11 @@ Before running the startup script, make sure you have:
 
 * **LLM Provider** (at least one):
    - Anthropic: Set `ANTHROPIC_API_KEY` or `PGEDGE_ANTHROPIC_API_KEY`
-     environment variable, OR create `~/.anthropic-api-key` file
+     environment variable, OR create `~/.anthropic-api-key` file, OR pass
+     `-anthropic-api-key-file` with the path to a key file
    - OpenAI: Set `OPENAI_API_KEY` or `PGEDGE_OPENAI_API_KEY` environment
-     variable, OR create `~/.openai-api-key` file
+     variable, OR create `~/.openai-api-key` file, OR pass
+     `-openai-api-key-file` with the path to a key file
    - Gemini: Set `GEMINI_API_KEY` or `PGEDGE_GEMINI_API_KEY` environment
      variable, OR pass `-gemini-api-key-file` with the path to a key file
    - Ollama: Set `PGEDGE_OLLAMA_URL` (e.g., `http://localhost:11434`)
@@ -110,15 +112,17 @@ API keys are loaded in the following order (highest to lowest):
    the unprefixed form (`ANTHROPIC_API_KEY`, `OPENAI_API_KEY`,
    `GEMINI_API_KEY`), which is consulted only when the prefixed
    variable is unset.
-2. API key files (`~/.anthropic-api-key`, `~/.openai-api-key`, and the file
-   named by `gemini_api_key_file` or `-gemini-api-key-file`)
+2. API key files (`~/.anthropic-api-key`, `~/.openai-api-key`, and the files
+   named by `anthropic_api_key_file`, `openai_api_key_file`,
+   `gemini_api_key_file`, or the matching `-<provider>-api-key-file` flag)
 3. Configuration file values (not recommended)
 
-The `-gemini-api-key` and `-gemini-api-key-file` flags override every other
-source, because command-line flags take precedence over the configuration
-the client has already loaded. Where both are given, `-gemini-api-key`
-wins, and a key file named on the command line that cannot be read is an
-error rather than a silent fallback.
+Every provider accepts both a direct key flag and a key file flag, and each
+pair overrides every other source, because command-line flags take
+precedence over the configuration the client has already loaded. Where both
+are given, the direct key wins, and a key file named on the command line
+that cannot be read, or that holds nothing, is an error rather than a
+silent fallback.
 
 ### Using Command-Line Flags
 
@@ -139,7 +143,11 @@ Flags:
   -llm-provider string      LLM provider: anthropic, openai, gemini, or ollama
   -llm-model string         LLM model to use
   -anthropic-api-key string API key for Anthropic
+  -anthropic-api-key-file string
+                            Path to a file containing the Anthropic API key
   -openai-api-key string    API key for OpenAI
+  -openai-api-key-file string
+                            Path to a file containing the OpenAI API key
   -gemini-api-key string    API key for Google Gemini
   -gemini-api-key-file string
                             Path to a file containing the Google Gemini API key
@@ -161,6 +169,9 @@ Flags:
 - `PGEDGE_OPENAI_API_KEY`: OpenAI API key (falls back to `OPENAI_API_KEY`)
 - `PGEDGE_GEMINI_API_KEY`: Google Gemini API key (falls back to
   `GEMINI_API_KEY`)
+- `PGEDGE_ANTHROPIC_BASE_URL`: Custom Anthropic API base URL (for proxies)
+- `PGEDGE_OPENAI_BASE_URL`: Custom OpenAI API base URL (for proxies)
+- `PGEDGE_GEMINI_BASE_URL`: Custom Gemini API base URL (for proxies)
 - `PGEDGE_OLLAMA_URL`: Ollama server URL (default: http://localhost:11434)
 - `NO_COLOR`: Disable colored output
 

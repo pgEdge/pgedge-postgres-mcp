@@ -41,6 +41,23 @@ and this project adheres to
   provider can also be switched at runtime with `/set provider
   gemini`, and defaults to the `gemini-2.5-flash` model. (#238)
 
+- Gemini can now be pointed at a proxy on the chat side, in the same way
+  that Anthropic and OpenAI already could. The server gains an
+  `llm.gemini_base_url` setting and the CLI client gains a
+  `gemini_base_url` setting, both of which also read the new
+  `PGEDGE_GEMINI_BASE_URL` environment variable, and both of which
+  default to `https://generativelanguage.googleapis.com`. The embedding
+  side is untouched and keeps its own separate variable, so routing chat
+  traffic through a proxy leaves embedding traffic alone.
+
+- The CLI client now accepts `-anthropic-api-key-file` and
+  `-openai-api-key-file`, so that every provider offers a key file flag
+  rather than Gemini alone. Each behaves as the Gemini flag does: the
+  file is read when the flag is applied, a direct `-<provider>-api-key`
+  flag beats the corresponding file, and a path given on the command
+  line that cannot be read, or that holds nothing, is an error rather
+  than a silent fallback.
+
 ### Changed
 
 - The example configuration files now show the `sslcert`, `sslkey`, and

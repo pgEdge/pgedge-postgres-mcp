@@ -854,6 +854,92 @@ func TestMergePerAttemptTimeout(t *testing.T) {
 	}
 }
 
+func TestMergeLLMBaseURLs(t *testing.T) {
+	dest := defaultConfig()
+	src := &Config{
+		LLM: LLMConfig{
+			Provider:         "gemini",
+			AnthropicBaseURL: "https://anthropic.proxy.example.com",
+			OpenAIBaseURL:    "https://openai.proxy.example.com",
+			GeminiBaseURL:    "https://gemini.proxy.example.com",
+		},
+	}
+
+	mergeConfig(dest, src)
+
+	if dest.LLM.AnthropicBaseURL != "https://anthropic.proxy.example.com" {
+		t.Errorf("LLM.AnthropicBaseURL = %q, want the merged value", dest.LLM.AnthropicBaseURL)
+	}
+	if dest.LLM.OpenAIBaseURL != "https://openai.proxy.example.com" {
+		t.Errorf("LLM.OpenAIBaseURL = %q, want the merged value", dest.LLM.OpenAIBaseURL)
+	}
+	if dest.LLM.GeminiBaseURL != "https://gemini.proxy.example.com" {
+		t.Errorf("LLM.GeminiBaseURL = %q, want the merged value", dest.LLM.GeminiBaseURL)
+	}
+
+	// An empty source value must leave an already merged value alone.
+	mergeConfig(dest, &Config{LLM: LLMConfig{Provider: "gemini"}})
+	if dest.LLM.GeminiBaseURL != "https://gemini.proxy.example.com" {
+		t.Errorf("LLM.GeminiBaseURL = %q after an empty merge, want it preserved", dest.LLM.GeminiBaseURL)
+	}
+}
+
+func TestApplyEnvironmentVariables_LLMBaseURLs(t *testing.T) {
+	t.Setenv("PGEDGE_ANTHROPIC_BASE_URL", "https://anthropic.proxy.example.com")
+	t.Setenv("PGEDGE_OPENAI_BASE_URL", "https://openai.proxy.example.com")
+	t.Setenv("PGEDGE_GEMINI_BASE_URL", "https://gemini.proxy.example.com")
+
+	cfg := defaultConfig()
+	applyEnvironmentVariables(cfg)
+
+	if cfg.LLM.AnthropicBaseURL != "https://anthropic.proxy.example.com" {
+		t.Errorf("LLM.AnthropicBaseURL = %q, want the environment value", cfg.LLM.AnthropicBaseURL)
+	}
+	if cfg.LLM.OpenAIBaseURL != "https://openai.proxy.example.com" {
+		t.Errorf("LLM.OpenAIBaseURL = %q, want the environment value", cfg.LLM.OpenAIBaseURL)
+	}
+	if cfg.LLM.GeminiBaseURL != "https://gemini.proxy.example.com" {
+		t.Errorf("LLM.GeminiBaseURL = %q, want the environment value", cfg.LLM.GeminiBaseURL)
+	}
+}
+
+// TestGeminiBaseURLNamespaces guards the naming split between the chat side
+// and the embedding side. The embedding providers deliberately carry an
+// _EMBEDDING_ infix so that PGEDGE_GEMINI_BASE_URL stays free for the LLM,
+// and neither variable may bleed into the other's configuration.
+func TestGeminiBaseURLNamespaces(t *testing.T) {
+	t.Run("embedding variable leaves the LLM base URL alone", func(t *testing.T) {
+		t.Setenv("PGEDGE_GEMINI_BASE_URL", "")
+		t.Setenv("PGEDGE_GEMINI_EMBEDDING_BASE_URL", "https://embed.proxy.example.com")
+
+		cfg := defaultConfig()
+		applyEnvironmentVariables(cfg)
+
+		if cfg.LLM.GeminiBaseURL != "" {
+			t.Errorf("LLM.GeminiBaseURL = %q, want it untouched by the embedding variable",
+				cfg.LLM.GeminiBaseURL)
+		}
+	})
+
+	t.Run("LLM variable leaves the embedding settings alone", func(t *testing.T) {
+		t.Setenv("PGEDGE_GEMINI_EMBEDDING_BASE_URL", "")
+		t.Setenv("PGEDGE_GEMINI_BASE_URL", "https://gemini.proxy.example.com")
+
+		cfg := defaultConfig()
+		before := cfg.Embedding
+		applyEnvironmentVariables(cfg)
+
+		if cfg.LLM.GeminiBaseURL != "https://gemini.proxy.example.com" {
+			t.Errorf("LLM.GeminiBaseURL = %q, want the environment value", cfg.LLM.GeminiBaseURL)
+		}
+		// The embedding block has no Gemini provider of its own yet, so the
+		// assertion is simply that the LLM variable changes nothing there.
+		if cfg.Embedding != before {
+			t.Errorf("Embedding config = %+v, want it unchanged at %+v", cfg.Embedding, before)
+		}
+	})
+}
+
 func TestApplyCLIFlags(t *testing.T) {
 	cfg := defaultConfig()
 	flags := CLIFlags{

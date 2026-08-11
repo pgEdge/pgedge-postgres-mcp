@@ -485,6 +485,7 @@ func (c *Client) newLLMClient(provider, model string, debug bool) (llmlib.Client
 		opts.BaseURL = c.config.LLM.OpenAIBaseURL
 	case "gemini":
 		opts.APIKey = c.config.LLM.GeminiAPIKey
+		opts.BaseURL = c.config.LLM.GeminiBaseURL
 	case "ollama":
 		// Ollama has no API key. Empty BaseURL keeps the library
 		// default (http://localhost:11434).
