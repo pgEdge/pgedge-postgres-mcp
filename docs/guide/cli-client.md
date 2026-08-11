@@ -117,12 +117,12 @@ API keys are loaded in the following order (highest to lowest):
    `gemini_api_key_file`, or the matching `-<provider>-api-key-file` flag)
 3. Configuration file values (not recommended)
 
-Every provider accepts both a direct key flag and a key file flag, and each
-pair overrides every other source, because command-line flags take
-precedence over the configuration the client has already loaded. Where both
-are given, the direct key wins, and a key file named on the command line
-that cannot be read, or that holds nothing, is an error rather than a
-silent fallback.
+Each API-key provider accepts both a direct key flag and a key file flag, and
+each pair overrides every other source, because command-line flags take
+precedence over the configuration the client has already loaded. Where both are
+given, the direct key wins, and a key file named on the command line that
+cannot be read, or that holds nothing, is an error rather than a silent
+fallback.
 
 ### Using Command-Line Flags
 

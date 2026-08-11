@@ -51,12 +51,12 @@ and this project adheres to
   traffic through a proxy leaves embedding traffic alone.
 
 - The CLI client now accepts `-anthropic-api-key-file` and
-  `-openai-api-key-file`, so that every provider offers a key file flag
-  rather than Gemini alone. Each behaves as the Gemini flag does: the
+  `-openai-api-key-file`, so that each API-key provider offers a key file
+  flag rather than Gemini alone. Each behaves as the Gemini flag does: the
   file is read when the flag is applied, a direct `-<provider>-api-key`
-  flag beats the corresponding file, and a path given on the command
-  line that cannot be read, or that holds nothing, is an error rather
-  than a silent fallback.
+  flag beats the corresponding file, and a path given on the command line
+  that cannot be read, or that holds nothing, is an error rather than a
+  silent fallback.
 
 ### Changed
 

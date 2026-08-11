@@ -376,15 +376,17 @@ llm:
     # Default: false (disabled for stdio mode)
     enabled: false
 
-    # LLM provider: "anthropic", "openai", or "ollama"
+    # LLM provider: "anthropic", "openai", "gemini", or "ollama"
     # Default: anthropic
     provider: "anthropic"
 
     # Model name (provider-specific)
     # Anthropic: claude-sonnet-4-5, claude-opus-4-5
     # OpenAI: gpt-5, gpt-4o, gpt-4-turbo
+    # Gemini: gemini-2.5-flash, gemini-2.5-pro
     # Ollama: llama3, llama3.1, mistral
-    # Default: claude-sonnet-4-5 (anthropic), gpt-5 (openai), llama3 (ollama)
+    # Default: claude-sonnet-4-5 (anthropic), gpt-5 (openai),
+    #          gemini-2.5-flash (gemini), llama3 (ollama)
     model: "claude-sonnet-4-5"
 
     # API key configuration (see notes below for priority)

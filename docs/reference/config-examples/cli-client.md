@@ -44,10 +44,11 @@ All configuration options can be overridden with command line flags:
     -no-color
 ```
 
-Each provider's key can be given directly or read from a file, and either
-flag overrides the environment variable and the configuration file. Where
-both flags are given, the direct key takes precedence, and a key file named
-on the command line that cannot be read, or that holds nothing, is an error:
+Each API-key provider's key can be given directly or read from a file, and
+either flag overrides the environment variable and the configuration file.
+Where both flags are given, the direct key takes precedence, and a key file
+named on the command line that cannot be read, or that holds nothing, is an
+error:
 
 ```bash
 ./bin/pgedge-nla-cli \

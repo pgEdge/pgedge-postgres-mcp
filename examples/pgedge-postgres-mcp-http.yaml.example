@@ -161,8 +161,10 @@ llm:
     # API key files (recommended for production)
     anthropic_api_key_file: "~/.anthropic-api-key"
     openai_api_key_file: "~/.openai-api-key"
+    # gemini_api_key_file: "~/.gemini-api-key"
 
-    # Or use environment variables: ANTHROPIC_API_KEY, OPENAI_API_KEY
+    # Or use environment variables: ANTHROPIC_API_KEY, OPENAI_API_KEY,
+    # GEMINI_API_KEY
 
     # Ollama configuration (for local LLM)
     ollama_url: "http://127.0.0.1:11434"
@@ -170,7 +172,6 @@ llm:
     # Optional: Custom base URLs for API proxies
     # anthropic_base_url: ""  # Default: https://api.anthropic.com
     # openai_base_url: ""  # Default: https://api.openai.com
-    # gemini_base_url: ""  # Default: https://generativelanguage.googleapis.com
     # gemini_base_url: ""  # Default: https://generativelanguage.googleapis.com
 
     max_tokens: 4096

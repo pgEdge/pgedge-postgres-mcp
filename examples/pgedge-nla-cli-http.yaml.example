@@ -46,7 +46,6 @@ llm:
     # anthropic_base_url: ""  # Default: https://api.anthropic.com
     # openai_base_url: ""  # Default: https://api.openai.com
     # gemini_base_url: ""  # Default: https://generativelanguage.googleapis.com
-    # gemini_base_url: ""  # Default: https://generativelanguage.googleapis.com
 
     max_tokens: 4096
 
