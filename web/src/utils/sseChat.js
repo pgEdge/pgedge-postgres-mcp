@@ -28,9 +28,18 @@
  *   - "text"            -> appended to the current text block; also
  *                          surfaced via the onTextChunk callback so the
  *                          UI can update incrementally.
- *   - "tool_use_start"  -> begins a new tool_use block (id + name).
+ *   - "tool_use_start"  -> begins a new tool_use block (id, name, and
+ *                          an optional provider-specific signature that
+ *                          must be carried through unchanged; Gemini's
+ *                          thinking models require it back on this same
+ *                          call the next time it appears in history). May
+ *                          also carry the complete arguments directly, for
+ *                          providers (Gemini) that never stream them
+ *                          incrementally.
  *   - "tool_use_delta"  -> accumulates partial JSON input string for
- *                          the current tool_use; parsed at done.
+ *                          the current tool_use; parsed at done. Providers
+ *                          that deliver complete arguments on the start
+ *                          event send no delta chunks at all.
  *
  * @param {object} body - Request body matching the /v1/chat schema
  *     (messages, tools, provider, model, etc.).
@@ -89,7 +98,7 @@ export async function sseChat(body, options = {}) {
     let pendingTextBlock = null;
     // Ordered list of tool_use ids so we preserve emission order at done.
     const toolOrder = [];
-    // Map of tool_use id -> { name, partial } accumulator.
+    // Map of tool_use id -> { name, partial, signature } accumulator.
     const pendingTools = new Map();
     let currentToolId = null;
     let streamError = null;
@@ -117,9 +126,18 @@ export async function sseChat(body, options = {}) {
                     input = { _raw: partial };
                 }
             }
+            const toolUse = { id, name: info.name, input };
+            // Gemini's thinking models attach an opaque signature to a
+            // function call and require it echoed back unchanged on
+            // that same call the next time it appears in conversation
+            // history, or the next turn is rejected outright; carry it
+            // through rather than reconstructing the block without it.
+            if (info.signature) {
+                toolUse.signature = info.signature;
+            }
             assembled.content.push({
                 type: 'tool_use',
-                tool_use: { id, name: info.name, input },
+                tool_use: toolUse,
             });
         }
     };
@@ -193,7 +211,16 @@ export async function sseChat(body, options = {}) {
                 }
                 pendingTools.set(id, {
                     name: tu.name || '',
-                    partial: '',
+                    // Some providers (Gemini) deliver the complete
+                    // arguments on this event and send no delta chunks
+                    // at all; seed the buffer from them when present
+                    // rather than assuming a delta always follows. The
+                    // wire format sends `input: null` (no omitempty on
+                    // the Go side) for providers still to come via
+                    // deltas, so null must be treated the same as
+                    // absent rather than as a literal complete value.
+                    partial: tu.input != null ? JSON.stringify(tu.input) : '',
+                    signature: tu.signature || '',
                 });
                 break;
             }

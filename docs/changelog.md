@@ -95,6 +95,21 @@ and this project adheres to
 
 ### Fixed
 
+- Gemini tool calls now work through the web client. `sseChat.js`'s
+  `tool_use_start` handler only ever populated a tool call's arguments from
+  later `tool_use_delta` chunks, but Gemini delivers the complete arguments
+  on the start event itself and never sends a single delta chunk (unlike
+  Anthropic and OpenAI, which stream them incrementally), so every Gemini
+  tool call ran with empty arguments regardless of what the model actually
+  asked for — the root cause behind issue #235's reported retry loop. The
+  handler now seeds the argument buffer from the start event when it
+  already carries complete arguments. Separately, the handler never
+  captured a tool call's provider signature at all, so a Gemini thinking
+  model's required `thought_signature` was dropped before it was ever
+  stored, breaking the next tool-calling turn regardless of whether the
+  underlying library sends it correctly. Both are fixed; a response with
+  no signature is unaffected.
+
 - The web client no longer keeps re-running a tool call that cannot
   succeed. Where a model responded to a tool error by reissuing the
   identical call, the agentic loop would repeat it up to fifty times,

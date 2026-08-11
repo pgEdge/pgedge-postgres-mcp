@@ -102,6 +102,62 @@ describe('sseChat', () => {
         ]);
     });
 
+    it('reads tool_use arguments delivered complete on the start event, with no deltas', async () => {
+        // Gemini sends the complete arguments on tool_use_start and never
+        // emits a single tool_use_delta; unlike Anthropic/OpenAI's
+        // incremental-delta style, this must not require a delta to
+        // populate the tool call's input.
+        globalThis.fetch = vi.fn().mockResolvedValue(buildStreamResponse([
+            'data: {"type":"tool_use_start","tool_use":{"id":"tu_1","name":"count_rows","input":{"table":"docs"}}}\n\n',
+            'event: done\ndata: {"stop_reason":"tool_use","usage":{"prompt_tokens":1,"completion_tokens":1,"total_tokens":2}}\n\n',
+        ]));
+
+        const result = await sseChat({ messages: [] });
+
+        expect(result.content).toEqual([
+            {
+                type: 'tool_use',
+                tool_use: {
+                    id: 'tu_1',
+                    name: 'count_rows',
+                    input: { table: 'docs' },
+                },
+            },
+        ]);
+    });
+
+    it('carries a provider signature on tool_use through to the assembled block', async () => {
+        globalThis.fetch = vi.fn().mockResolvedValue(buildStreamResponse([
+            'data: {"type":"tool_use_start","tool_use":{"id":"tu_1","name":"get_weather","input":{"city":"Rome"},"signature":"sig-abc123"}}\n\n',
+            'event: done\ndata: {"stop_reason":"tool_use","usage":{"prompt_tokens":1,"completion_tokens":1,"total_tokens":2}}\n\n',
+        ]));
+
+        const result = await sseChat({ messages: [] });
+
+        expect(result.content).toEqual([
+            {
+                type: 'tool_use',
+                tool_use: {
+                    id: 'tu_1',
+                    name: 'get_weather',
+                    input: { city: 'Rome' },
+                    signature: 'sig-abc123',
+                },
+            },
+        ]);
+    });
+
+    it('omits the signature field entirely when the server sends none', async () => {
+        globalThis.fetch = vi.fn().mockResolvedValue(buildStreamResponse([
+            'data: {"type":"tool_use_start","tool_use":{"id":"tu_1","name":"count_rows","input":{"table":"docs"}}}\n\n',
+            'event: done\ndata: {"stop_reason":"tool_use"}\n\n',
+        ]));
+
+        const result = await sseChat({ messages: [] });
+
+        expect(result.content[0].tool_use).not.toHaveProperty('signature');
+    });
+
     it('throws when the server emits an error event', async () => {
         globalThis.fetch = vi.fn().mockResolvedValue(buildStreamResponse([
             'data: {"type":"text","text":"partial"}\n\n',
