@@ -33,6 +33,16 @@
  * Reads the response modalities a model will accept out of the error it
  * returns when asked for text, e.g. "AUDIO" for a text-to-speech model.
  *
+ * Capturing to the end of the string is wrong here: the streaming send
+ * path (sseChat.js) wraps a failed response as `HTTP <status>: <raw body
+ * text>` rather than handing back the provider's message alone, so the
+ * text this actually receives in production can carry trailing JSON
+ * syntax (a stray `"}` closing the body it was embedded in) after the
+ * modality list. Gemini's modality names are themselves a fixed,
+ * all-uppercase set (TEXT, IMAGE, AUDIO), so filtering each candidate
+ * line down to that shape discards whatever follows without needing to
+ * know what the wrapping looks like.
+ *
  * @param {string} text - The full error text.
  * @returns {string|null} The modalities, or null when absent.
  */
@@ -44,7 +54,7 @@ const acceptedModalities = (text) => {
     const names = match[1]
         .split('\n')
         .map(line => line.replace(/^[\s*-]+/, '').trim())
-        .filter(Boolean);
+        .filter(name => /^[A-Z]+$/.test(name));
     return names.length > 0 ? names.join(', ') : null;
 };
 

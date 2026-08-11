@@ -96,7 +96,26 @@ export async function sseChat(body, options = {}) {
 
     if (!response.ok) {
         const text = await response.text();
-        const err = new Error(`HTTP ${response.status}: ${text}`);
+        // The proxy's error responses are `{"error": "<provider message>"}`.
+        // Prefer that clean message over the raw body: the body is still
+        // JSON-encoded at this point, so any escape sequence the provider's
+        // own message contains (Gemini's response-modality errors carry a
+        // literal `\n` between each accepted modality) reaches consumers
+        // un-decoded otherwise, which breaks any caller that expects real
+        // newlines rather than the two-character escape sequence. err.body
+        // keeps the raw text unparsed, since callers matching on the wire
+        // shape (rate-limit detection) need it as-is.
+        let message = `HTTP ${response.status}: ${text}`;
+        try {
+            const parsed = JSON.parse(text);
+            if (parsed && typeof parsed.error === 'string' && parsed.error) {
+                message = parsed.error;
+            }
+        } catch (_err) {
+            // Not JSON, or no `error` field; keep the HTTP-status-prefixed
+            // raw text so the failure is still visible somewhere.
+        }
+        const err = new Error(message);
         err.status = response.status;
         err.body = text;
         throw err;

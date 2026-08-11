@@ -193,6 +193,50 @@ describe('sseChat', () => {
         await expect(sseChat({ messages: [] })).rejects.toThrow(/HTTP 500/);
     });
 
+    it('throws the proxy\'s own error message, not the wrapped JSON body', async () => {
+        // The proxy's error responses are `{"error": "<message>"}`. A
+        // caller matching on the message text (e.g. modelErrors.js
+        // recognising a non-chat-model failure) needs the clean message,
+        // not "HTTP 502: {\"error\":\"...\"}" — the un-decoded JSON escape
+        // sequences a provider's own message can carry (Gemini's
+        // response-modality errors carry a literal `\n` between each
+        // accepted modality) would otherwise reach the caller as the
+        // literal two-character sequence rather than a real newline.
+        globalThis.fetch = vi.fn().mockResolvedValue({
+            ok: false,
+            status: 502,
+            statusText: 'Bad Gateway',
+            body: null,
+            text: async () => '{"error":"gemini (400): accepts the following combination of response modalities:\\n* AUDIO\\n"}',
+        });
+
+        let caught;
+        try {
+            await sseChat({ messages: [] });
+        } catch (err) {
+            caught = err;
+        }
+        expect(caught).toBeDefined();
+        expect(caught.message).toBe('gemini (400): accepts the following combination of response modalities:\n* AUDIO\n');
+        expect(caught.message).not.toContain('HTTP 502');
+        // err.body stays the raw, still-JSON-encoded text: rate-limit
+        // detection elsewhere matches on the wire shape, not the decoded
+        // message.
+        expect(caught.body).toContain('{"error"');
+    });
+
+    it('falls back to the HTTP-prefixed raw text when the body is not the expected JSON shape', async () => {
+        globalThis.fetch = vi.fn().mockResolvedValue({
+            ok: false,
+            status: 500,
+            statusText: 'Internal Server Error',
+            body: null,
+            text: async () => 'not json at all',
+        });
+
+        await expect(sseChat({ messages: [] })).rejects.toThrow('HTTP 500: not json at all');
+    });
+
     it('forwards Authorization header when sessionToken is provided', async () => {
         const fetchMock = vi.fn().mockResolvedValue(buildStreamResponse([
             'event: done\ndata: {"stop_reason":"end_turn"}\n\n',

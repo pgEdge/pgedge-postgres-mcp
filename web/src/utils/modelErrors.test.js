@@ -28,6 +28,19 @@ describe('describeUnusableModelError', () => {
         expect(out).toContain('gemini-2.5-flash-preview-tts');
         expect(out).toContain('cannot be used for chat');
         expect(out).toContain('AUDIO');
+    });
+
+    // sseChat.js wraps a failed streaming response as "HTTP <status>: <raw
+    // body text>" when the body isn't the expected {"error": "..."} shape,
+    // and that raw text can carry a trailing JSON artifact after the
+    // modality list. The extraction must stop at the modality names
+    // themselves rather than swallowing whatever follows them.
+    it('ignores trailing garbage after the modality list rather than including it', () => {
+        const wrapped = 'HTTP 502: {"error":"gemini (400): accepts the following '
+            + 'combination of response modalities:\n* AUDIO\n"}';
+        const out = describeUnusableModelError(wrapped, 'gemini-2.5-flash-preview-tts');
+        expect(out).toContain('AUDIO');
+        expect(out).not.toContain('"}');
         expect(out).toContain('Choose a different model');
     });
 

@@ -1512,7 +1512,12 @@ const ChatInterface = ({ conversations }) => {
                         }
                     }
 
-                    throw new Error(`Server error: ${errorText || streamErr.message}`);
+                    // errorText prefers the raw body, which is right for the
+                    // rate-limit pattern matching above but wrong here: it
+                    // would show the still-JSON-encoded wrapper text sseChat
+                    // falls back to instead of its cleaned message. Prefer
+                    // the clean message, as the send-message path above does.
+                    throw new Error(`Server error: ${streamErr.message || errorText}`);
                 }
 
                 // Track token usage for rate limit awareness. Proxy now
