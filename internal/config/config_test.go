@@ -854,6 +854,110 @@ func TestMergePerAttemptTimeout(t *testing.T) {
 	}
 }
 
+// A configuration source is free to set a single subordinate field and say
+// nothing about the provider or the enabled flag. Gating the section on those
+// two alone discarded the whole source, so a file that named only a base URL
+// or a key file was silently ignored.
+func TestMergeLLMSectionWithoutProviderOrEnabled(t *testing.T) {
+	tests := []struct {
+		name string
+		src  LLMConfig
+		want func(*testing.T, *LLMConfig)
+	}{
+		{
+			name: "base URL alone",
+			src:  LLMConfig{GeminiBaseURL: "https://gemini.proxy.example.com"},
+			want: func(t *testing.T, got *LLMConfig) {
+				if got.GeminiBaseURL != "https://gemini.proxy.example.com" {
+					t.Errorf("LLM.GeminiBaseURL = %q, want the merged value", got.GeminiBaseURL)
+				}
+			},
+		},
+		{
+			name: "key file alone",
+			src:  LLMConfig{AnthropicAPIKeyFile: "/etc/pgedge/anthropic.key"},
+			want: func(t *testing.T, got *LLMConfig) {
+				if got.AnthropicAPIKeyFile != "/etc/pgedge/anthropic.key" {
+					t.Errorf("LLM.AnthropicAPIKeyFile = %q, want the merged value", got.AnthropicAPIKeyFile)
+				}
+			},
+		},
+		{
+			name: "max tokens alone",
+			src:  LLMConfig{MaxTokens: 8192},
+			want: func(t *testing.T, got *LLMConfig) {
+				if got.MaxTokens != 8192 {
+					t.Errorf("LLM.MaxTokens = %d, want the merged value", got.MaxTokens)
+				}
+			},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			dest := defaultConfig()
+			mergeConfig(dest, &Config{LLM: tc.src})
+			tc.want(t, &dest.LLM)
+		})
+	}
+}
+
+// The enabled flag is a plain bool, so an omitted one is indistinguishable
+// from an explicit false. Now that a source setting only a subordinate field
+// merges at all, copying the flag unconditionally would let such a source
+// switch off an LLM that another source had turned on.
+func TestMergeLLMEnabledSurvivesASubordinateOnlySource(t *testing.T) {
+	dest := defaultConfig()
+	dest.LLM.Enabled = true
+	dest.LLM.Provider = "anthropic"
+
+	mergeConfig(dest, &Config{LLM: LLMConfig{GeminiBaseURL: "https://gemini.proxy.example.com"}})
+
+	if !dest.LLM.Enabled {
+		t.Error("LLM.Enabled = false, want it left enabled by a source that says nothing about it")
+	}
+	if dest.LLM.Provider != "anthropic" {
+		t.Errorf("LLM.Provider = %q, want it left alone", dest.LLM.Provider)
+	}
+	if dest.LLM.GeminiBaseURL != "https://gemini.proxy.example.com" {
+		t.Errorf("LLM.GeminiBaseURL = %q, want the merged value", dest.LLM.GeminiBaseURL)
+	}
+}
+
+// The embedding section carried the identical guard, so it merges on the same
+// terms and needs the same two guarantees.
+func TestMergeEmbeddingSectionWithoutProviderOrEnabled(t *testing.T) {
+	dest := defaultConfig()
+	dest.Embedding.Enabled = true
+
+	mergeConfig(dest, &Config{Embedding: EmbeddingConfig{
+		GeminiBaseURL: "https://embed.proxy.example.com",
+	}})
+
+	if dest.Embedding.GeminiBaseURL != "https://embed.proxy.example.com" {
+		t.Errorf("Embedding.GeminiBaseURL = %q, want the merged value", dest.Embedding.GeminiBaseURL)
+	}
+	if !dest.Embedding.Enabled {
+		t.Error("Embedding.Enabled = false, want it left enabled by a source that says nothing about it")
+	}
+}
+
+// An entirely empty source must still change nothing, which is what stops the
+// relaxed guard from turning every merge into a full overwrite.
+func TestMergeEmptySourceLeavesTheConfigurationAlone(t *testing.T) {
+	dest := defaultConfig()
+	dest.LLM.Enabled = true
+	dest.LLM.Provider = "openai"
+	dest.LLM.MaxTokens = 1234
+	before := dest.LLM
+
+	mergeConfig(dest, &Config{})
+
+	if dest.LLM != before {
+		t.Errorf("LLM = %+v after an empty merge, want it unchanged at %+v", dest.LLM, before)
+	}
+}
+
 func TestMergeLLMBaseURLs(t *testing.T) {
 	dest := defaultConfig()
 	src := &Config{

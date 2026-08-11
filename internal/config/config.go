@@ -738,6 +738,21 @@ func loadConfigFile(path string) (*Config, error) {
 	return &cfg, nil
 }
 
+// llmSectionSet reports whether a configuration source says anything at all
+// about the LLM. Comparing against the zero value rather than naming
+// individual fields means a field added later is covered without anyone
+// having to remember to extend this, which is how the section came to drop
+// sources that set only a base URL or a key file.
+func llmSectionSet(c *LLMConfig) bool {
+	return *c != LLMConfig{}
+}
+
+// embeddingSectionSet reports whether a configuration source says anything at
+// all about embeddings, on the same terms as llmSectionSet.
+func embeddingSectionSet(c *EmbeddingConfig) bool {
+	return *c != EmbeddingConfig{}
+}
+
 // mergeConfig merges source config into dest, only overriding non-zero values
 func mergeConfig(dest, src *Config) {
 	// HTTP
@@ -801,9 +816,13 @@ func mergeConfig(dest, src *Config) {
 		dest.Databases = src.Databases
 	}
 
-	// Embedding - merge if any embedding fields are set
-	if src.Embedding.Provider != "" || src.Embedding.Enabled {
-		dest.Embedding.Enabled = src.Embedding.Enabled
+	// Embedding - merged on the same terms as the LLM section below, and
+	// for the same reason: a source setting only a key file or a base URL
+	// was being thrown away.
+	if embeddingSectionSet(&src.Embedding) {
+		if src.Embedding.Enabled {
+			dest.Embedding.Enabled = src.Embedding.Enabled
+		}
 		if src.Embedding.Provider != "" {
 			dest.Embedding.Provider = src.Embedding.Provider
 		}
@@ -845,9 +864,18 @@ func mergeConfig(dest, src *Config) {
 		}
 	}
 
-	// LLM - merge if any LLM fields are set
-	if src.LLM.Provider != "" || src.LLM.Enabled {
-		dest.LLM.Enabled = src.LLM.Enabled
+	// LLM - merge when the section carries anything at all. Testing only
+	// the provider and the enabled flag dropped a source that set just one
+	// subordinate field, so a configuration naming only, say, a base URL or
+	// a key file was silently discarded.
+	if llmSectionSet(&src.LLM) {
+		// A bool cannot distinguish "absent" from "false", so only a true
+		// propagates, as with every other bool in this function. Merging
+		// it unconditionally would let a source that sets nothing but a
+		// base URL switch off an LLM another source had enabled.
+		if src.LLM.Enabled {
+			dest.LLM.Enabled = src.LLM.Enabled
+		}
 		if src.LLM.Provider != "" {
 			dest.LLM.Provider = src.LLM.Provider
 		}
