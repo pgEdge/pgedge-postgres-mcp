@@ -1,5 +1,7 @@
 # pgEdge Postgres MCP Server and Natural Language Agent
 
+[![MCP Toplist](https://mcptoplist.com/badge/io.github.pgEdge%2Fpostgres-mcp.svg)](https://mcptoplist.com/server/io.github.pgEdge%2Fpostgres-mcp)
+
 [![CI - MCP Server](https://github.com/pgEdge/pgedge-postgres-mcp/actions/workflows/ci-server.yml/badge.svg?branch=main)](https://github.com/pgEdge/pgedge-postgres-mcp/actions/workflows/ci-server.yml?query=branch%3Amain)
 [![CI - CLI Client](https://github.com/pgEdge/pgedge-postgres-mcp/actions/workflows/ci-cli-client.yml/badge.svg?branch=main)](https://github.com/pgEdge/pgedge-postgres-mcp/actions/workflows/ci-cli-client.yml?query=branch%3Amain)
 [![CI - Web Client](https://github.com/pgEdge/pgedge-postgres-mcp/actions/workflows/ci-web-client.yml/badge.svg?branch=main)](https://github.com/pgEdge/pgedge-postgres-mcp/actions/workflows/ci-web-client.yml?query=branch%3Amain)
