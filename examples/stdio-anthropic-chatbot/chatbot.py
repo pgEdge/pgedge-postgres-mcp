@@ -1,4 +1,14 @@
 #!/usr/bin/env python3
+
+#--------------------------------------------------------------------------
+#
+# pgEdge MCP Chatbot Client (Stdio + Anthropic Claude)
+#
+# Copyright (c) 2025 - 2026, pgEdge, Inc.
+# This software is released under The PostgreSQL License
+#
+#--------------------------------------------------------------------------
+
 """
 pgEdge Postgres MCP Chatbot Client (Stdio + Anthropic Claude)
 

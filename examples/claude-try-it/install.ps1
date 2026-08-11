@@ -1,3 +1,12 @@
+#--------------------------------------------------------------------------
+#
+# pgEdge MCP Server — One-Command Installer for Windows
+#
+# Copyright (c) 2025 - 2026, pgEdge, Inc.
+# This software is released under The PostgreSQL License
+#
+#--------------------------------------------------------------------------
+
 # pgEdge MCP Server — one-command installer for Windows
 #
 # Usage (interactive, in PowerShell):

@@ -1,4 +1,14 @@
 #!/usr/bin/env bash
+
+#--------------------------------------------------------------------------
+#
+# pgEdge MCP Debian Packaging Script
+#
+# Copyright (c) 2025 - 2026, pgEdge, Inc.
+# This software is released under The PostgreSQL License
+#
+#--------------------------------------------------------------------------
+
 set -euo pipefail
 
 # Environment variables

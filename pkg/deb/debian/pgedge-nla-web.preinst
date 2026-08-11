@@ -1,4 +1,14 @@
 #!/bin/sh
+
+#--------------------------------------------------------------------------
+#
+# pgEdge MCP Web Package Pre-Install Script
+#
+# Copyright (c) 2025 - 2026, pgEdge, Inc.
+# This software is released under The PostgreSQL License
+#
+#--------------------------------------------------------------------------
+
 set -e
 
 case "$1" in

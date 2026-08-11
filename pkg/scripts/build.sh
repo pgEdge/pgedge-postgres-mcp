@@ -1,4 +1,14 @@
 #!/usr/bin/env bash
+
+#--------------------------------------------------------------------------
+#
+# pgEdge MCP Packaging Build Script
+#
+# Copyright (c) 2025 - 2026, pgEdge, Inc.
+# This software is released under The PostgreSQL License
+#
+#--------------------------------------------------------------------------
+
 set -euo pipefail
 
 COMPONENT_NAME=$1

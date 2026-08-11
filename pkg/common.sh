@@ -1,4 +1,14 @@
 #!/usr/bin/env bash
+
+#--------------------------------------------------------------------------
+#
+# pgEdge MCP Packaging Environment
+#
+# Copyright (c) 2025 - 2026, pgEdge, Inc.
+# This software is released under The PostgreSQL License
+#
+#--------------------------------------------------------------------------
+
 # common.sh - packaging environment for pgedge-postgres-mcp.
 #
 # Sourced by pkg/scripts/build.sh (via the common/build.sh bridge wrapper)

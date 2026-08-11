@@ -14,6 +14,14 @@
 // misaligned header is caught here rather than noticed by eye some releases
 // later. Twelve files had drifted to an unaligned banner and four had no
 // notice at all before this test was written.
+//
+// The original pass covered only Go and JavaScript. A follow-up review found
+// the same gap in eighteen more files the extension list did not reach at
+// all: shell scripts, the two example chatbots' Python, the Windows
+// installer's PowerShell, and four Debian maintainer scripts named by
+// suffix rather than a conventional extension. All eighteen got the notice
+// and their languages joined checkedExtensions below, on the same reasoning
+// as the original fix: a gap nothing enforces is a gap that reopens.
 package sourceheader
 
 import (
@@ -36,9 +44,14 @@ const (
 	licenceLine   = "This software is released under The PostgreSQL License"
 )
 
-// checkedExtensions are the source languages the rule covers.
+// checkedExtensions are the source languages the rule covers. The Debian
+// maintainer scripts are named "<package>.preinst" and so on rather than
+// carrying a language extension, but filepath.Ext still isolates the
+// suffix correctly, so they need no special-casing beyond being listed here.
 var checkedExtensions = map[string]bool{
 	".go": true, ".js": true, ".jsx": true, ".mjs": true,
+	".sh": true, ".py": true, ".ps1": true,
+	".preinst": true, ".postinst": true, ".prerm": true, ".postrm": true,
 }
 
 // skippedDirs are not ours to head: dependencies, build output, and anything

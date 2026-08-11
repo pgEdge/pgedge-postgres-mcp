@@ -1,4 +1,14 @@
 #!/usr/bin/env python3
+
+#--------------------------------------------------------------------------
+#
+# pgEdge MCP Chatbot Client (HTTP + Ollama)
+#
+# Copyright (c) 2025 - 2026, pgEdge, Inc.
+# This software is released under The PostgreSQL License
+#
+#--------------------------------------------------------------------------
+
 """
 pgEdge Postgres MCP Chatbot Client (HTTP + Ollama)
 

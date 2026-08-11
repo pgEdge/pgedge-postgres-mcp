@@ -1,4 +1,14 @@
 #!/bin/bash
+
+#--------------------------------------------------------------------------
+#
+# pgEdge MCP Server Codespaces Demo Startup Script
+#
+# Copyright (c) 2025 - 2026, pgEdge, Inc.
+# This software is released under The PostgreSQL License
+#
+#--------------------------------------------------------------------------
+
 # Starts the pgEdge MCP Server Codespaces demo.
 #
 # Usage (from repo root):

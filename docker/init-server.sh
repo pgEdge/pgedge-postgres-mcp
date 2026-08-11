@@ -1,4 +1,14 @@
 #!/bin/bash
+
+#--------------------------------------------------------------------------
+#
+# pgEdge MCP Docker Initialization Script
+#
+# Copyright (c) 2025 - 2026, pgEdge, Inc.
+# This software is released under The PostgreSQL License
+#
+#--------------------------------------------------------------------------
+
 set -e
 
 # Redirect init script output to stderr. In stdio mode, stdout is the MCP
