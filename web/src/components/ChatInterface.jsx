@@ -25,6 +25,7 @@ import PromptPopover from './PromptPopover';
 import WriteQueryConfirmDialog from './WriteQueryConfirmDialog';
 import { writeConfirmationSubject } from '../utils/queryClassify';
 import { sseChat } from '../utils/sseChat';
+import { formatChatError } from '../utils/modelErrors';
 import {
     createToolRepeatGuard,
     buildRepeatedToolFailureMessage,
@@ -1193,7 +1194,7 @@ const ChatInterface = ({ conversations }) => {
                     const thinkingMsg = newMessages[newMessages.length - 1];
                     newMessages[newMessages.length - 1] = {
                         role: 'assistant',
-                        content: `Error: ${err.message || 'Failed to send message'}`,
+                        content: `Error: ${formatChatError(err, thinkingMsg.model)}`,
                         timestamp: new Date().toISOString(),
                         provider: thinkingMsg.provider,
                         model: thinkingMsg.model,
@@ -1771,7 +1772,7 @@ const ChatInterface = ({ conversations }) => {
                     const thinkingMsg = newMessages[newMessages.length - 1];
                     newMessages[newMessages.length - 1] = {
                         role: 'assistant',
-                        content: `Error: ${err.message || 'Failed to execute prompt'}`,
+                        content: `Error: ${formatChatError(err, thinkingMsg.model, 'Failed to execute prompt')}`,
                         timestamp: new Date().toISOString(),
                         provider: thinkingMsg.provider,
                         model: thinkingMsg.model,

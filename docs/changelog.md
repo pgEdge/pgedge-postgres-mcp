@@ -138,6 +138,21 @@ and this project adheres to
   configuration file, then the built-in defaults. An unset or empty
   variable still leaves a configured value alone. (#251)
 
+- Choosing a model that cannot hold a conversation now says so. A
+  provider's model list is not confined to chat models; Gemini advertises
+  text-to-speech, image, music and agent models alongside the
+  conversational ones, and they cannot be told apart from the metadata,
+  because all of them report `generateContent` and the API describes no
+  multi-turn capability. Picking one used to fail with the provider's own
+  words about response modalities or an unfamiliar API, which reads like a
+  misconfiguration rather than the wrong sort of model. The web client now
+  recognises those replies and explains that the selected model cannot be
+  used for chat, naming it and saying what it does produce where the
+  provider says so. An error it does not recognise still reaches the user
+  exactly as the provider phrased it. Filtering such models out of the
+  list belongs with the library that serves it, and is tracked
+  separately. (#246)
+
 - Switching LLM providers and sending a message immediately afterwards no
   longer pairs the new provider with the previous provider's model. The
   model list for the newly selected provider refreshes asynchronously, but
