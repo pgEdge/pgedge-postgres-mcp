@@ -13,6 +13,7 @@ package chat
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -253,6 +254,189 @@ func TestClient_InitializeLLM_Ollama(t *testing.T) {
 
 	if client.llm == nil {
 		t.Error("Expected LLM client to be initialized")
+	}
+}
+
+// TestClient_InitializeLLM_Ollama_SkipsEmbeddingModel reproduces issue
+// #255 against the real HTTP path: an Ollama /api/tags response listing
+// an embedding model before a chat model, and no saved preference or
+// flag-provided model to short-circuit selection. Before the fix at the
+// tempClient.ListModels call site, this landed on the embedding model
+// and every subsequent chat message would have failed.
+func TestClient_InitializeLLM_Ollama_SkipsEmbeddingModel(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+
+	ollama := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.Path {
+		case "/api/tags":
+			fmt.Fprint(w, `{"models":[{"name":"nomic-embed-text:latest"},{"name":"llama3.2:latest"}]}`)
+		case "/api/show":
+			var req struct {
+				Name string `json:"name"`
+			}
+			_ = json.NewDecoder(r.Body).Decode(&req)
+			if req.Name == "nomic-embed-text:latest" {
+				fmt.Fprint(w, `{"capabilities":["embedding"]}`)
+			} else {
+				fmt.Fprint(w, `{"capabilities":["completion","tools"]}`)
+			}
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer ollama.Close()
+
+	cfg := &Config{
+		MCP: MCPConfig{
+			Mode:       "stdio",
+			ServerPath: "/fake/path",
+		},
+		LLM: LLMConfig{
+			Provider:  "ollama",
+			OllamaURL: ollama.URL,
+			MaxTokens: 4096,
+		},
+		UI: UIConfig{
+			NoColor: true,
+		},
+	}
+
+	client, err := NewClient(cfg, &ConfigOverrides{})
+	if err != nil {
+		t.Fatalf("NewClient failed: %v", err)
+	}
+
+	if err := client.initializeLLM(); err != nil {
+		t.Fatalf("initializeLLM failed: %v", err)
+	}
+
+	if client.config.LLM.Model != "llama3.2:latest" {
+		t.Errorf("expected the chat-capable model llama3.2:latest to be selected, got %q", client.config.LLM.Model)
+	}
+}
+
+// TestClient_InitializeLLM_Ollama_SavedPreferenceIsEmbeddingModel covers
+// the tier that TestClient_InitializeLLM_Ollama_SkipsEmbeddingModel
+// cannot reach: a saved preference that itself names an embedding
+// model still present in the provider's list. selectModel's saved-
+// preference tier returns as soon as isModelAvailable matches, without
+// ever reaching the name-marker fallback added for issue #255 — that
+// fallback only runs once the saved preference and the provider
+// default have both missed. Filtering at the ListModels call protects
+// every tier, including this one.
+func TestClient_InitializeLLM_Ollama_SavedPreferenceIsEmbeddingModel(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+
+	prefs := &Preferences{
+		Version:        CurrentPreferencesVersion,
+		ProviderModels: map[string]string{"ollama": "nomic-embed-text:latest"},
+	}
+	if err := SavePreferences(prefs); err != nil {
+		t.Fatalf("failed to seed preferences: %v", err)
+	}
+
+	ollama := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.Path {
+		case "/api/tags":
+			fmt.Fprint(w, `{"models":[{"name":"nomic-embed-text:latest"},{"name":"llama3.2:latest"}]}`)
+		case "/api/show":
+			var req struct {
+				Name string `json:"name"`
+			}
+			_ = json.NewDecoder(r.Body).Decode(&req)
+			if req.Name == "nomic-embed-text:latest" {
+				fmt.Fprint(w, `{"capabilities":["embedding"]}`)
+			} else {
+				fmt.Fprint(w, `{"capabilities":["completion","tools"]}`)
+			}
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer ollama.Close()
+
+	cfg := &Config{
+		MCP: MCPConfig{
+			Mode:       "stdio",
+			ServerPath: "/fake/path",
+		},
+		LLM: LLMConfig{
+			Provider:  "ollama",
+			OllamaURL: ollama.URL,
+			MaxTokens: 4096,
+		},
+		UI: UIConfig{
+			NoColor: true,
+		},
+	}
+
+	client, err := NewClient(cfg, &ConfigOverrides{})
+	if err != nil {
+		t.Fatalf("NewClient failed: %v", err)
+	}
+
+	if err := client.initializeLLM(); err != nil {
+		t.Fatalf("initializeLLM failed: %v", err)
+	}
+
+	if client.config.LLM.Model != "llama3.2:latest" {
+		t.Errorf("expected the chat-capable model llama3.2:latest to be selected over the stale embedding preference, got %q", client.config.LLM.Model)
+	}
+}
+
+// TestClient_InitializeLLM_Ollama_NoChatModelInstalled covers the case
+// the capability filter itself creates: a provider reachable and
+// answering normally, but with nothing chat-capable at all (here, only
+// an embedding model). availableModels ends up empty after filtering,
+// so without a real, unfiltered fallback the selection would reach for
+// the hardcoded per-provider default without ever confirming the
+// provider actually offers it — trading an honest "this model can't
+// chat" error for a confusing "model not found" one. This asserts the
+// real, installed embedding model is named instead.
+func TestClient_InitializeLLM_Ollama_NoChatModelInstalled(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+
+	ollama := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.Path {
+		case "/api/tags":
+			fmt.Fprint(w, `{"models":[{"name":"nomic-embed-text:latest"}]}`)
+		case "/api/show":
+			fmt.Fprint(w, `{"capabilities":["embedding"]}`)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer ollama.Close()
+
+	cfg := &Config{
+		MCP: MCPConfig{
+			Mode:       "stdio",
+			ServerPath: "/fake/path",
+		},
+		LLM: LLMConfig{
+			Provider:  "ollama",
+			OllamaURL: ollama.URL,
+			MaxTokens: 4096,
+		},
+		UI: UIConfig{
+			NoColor: true,
+		},
+	}
+
+	client, err := NewClient(cfg, &ConfigOverrides{})
+	if err != nil {
+		t.Fatalf("NewClient failed: %v", err)
+	}
+
+	if err := client.initializeLLM(); err != nil {
+		t.Fatalf("initializeLLM failed: %v", err)
+	}
+
+	if client.config.LLM.Model != "nomic-embed-text:latest" {
+		t.Errorf("expected the real installed model nomic-embed-text:latest to be named, got %q (the hardcoded default, which this provider never offered)", client.config.LLM.Model)
 	}
 }
 

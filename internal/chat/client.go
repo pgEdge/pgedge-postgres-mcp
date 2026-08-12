@@ -522,7 +522,13 @@ func (c *Client) initializeLLM() error {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	availableModels, err := tempClient.ListModels(ctx)
+	// Restrict the list to chat-capable models up front. The library
+	// backs this with real per-model data (e.g. Ollama's /api/show)
+	// rather than a name guess, and filtering here means every
+	// selection tier below — saved preference, family match, provider
+	// default, and the final fallback — only ever sees chat-capable
+	// models, not just the last of them.
+	availableModels, err := tempClient.ListModels(ctx, llmlib.WithCapabilities(llmlib.ModelCapabilityChat))
 	if err != nil {
 		if c.config.UI.Debug {
 			fmt.Fprintf(os.Stderr, "Warning: Failed to list models from %s: %s\n", provider, redact.Error(err))
@@ -530,8 +536,24 @@ func (c *Client) initializeLLM() error {
 		availableModels = nil
 	}
 
+	// If the provider answered but nothing on the list looks chat-capable
+	// (e.g. an Ollama instance with only an embedding model pulled),
+	// fetch the same list again without the filter. selectModel's final
+	// fallback uses this to name a model the provider actually offers
+	// rather than reaching for an unvalidated hardcoded default — the
+	// same guarantee it gave before the list was filtered by capability.
+	// Skipped when the first call already failed outright: a second,
+	// unfiltered request to an unreachable provider would only add
+	// latency to an already-failing path.
+	var rawModels []string
+	if err == nil && len(availableModels) == 0 {
+		if raw, rawErr := tempClient.ListModels(ctx); rawErr == nil {
+			rawModels = raw
+		}
+	}
+
 	// Select the best model to use
-	selection := c.selectModel(provider, availableModels)
+	selection := c.selectModel(provider, availableModels, rawModels)
 	c.config.LLM.Model = selection.model
 
 	if selection.usedFamilyMatch && c.config.UI.Debug {
@@ -1273,7 +1295,12 @@ type modelSelectionResult struct {
 // 3. Saved preference - family match (e.g., claude-opus-4-5-20251101 → claude-opus-4-5-20251217)
 // 4. Default for provider (if available)
 // 5. First available model from provider's list
-func (c *Client) selectModel(provider string, availableModels []string) modelSelectionResult {
+// rawModels is the same provider's model list without the chat-capability
+// filter, used only once every validated tier below has found nothing —
+// so the final fallback can still name a model the provider actually
+// offers instead of an unvalidated hardcoded default. Empty whenever
+// availableModels itself already held something.
+func (c *Client) selectModel(provider string, availableModels, rawModels []string) modelSelectionResult {
 	debug := c.config.UI.Debug
 
 	// If model was already set (via flag), use it (trust the user)
@@ -1364,6 +1391,18 @@ func (c *Client) selectModel(provider string, availableModels []string) modelSel
 				availableModels[0])
 		}
 		return modelSelectionResult{model: availableModels[0], fromSavedPref: false, hadSavedPref: hadSaved}
+	}
+
+	// The capability filter left nothing at all (e.g. only an embedding
+	// model is installed). Name a real model from the unfiltered list
+	// rather than reaching for the default below, which the provider may
+	// never have offered in the first place.
+	if len(rawModels) > 0 {
+		if debug {
+			fmt.Fprintf(os.Stderr, "[DEBUG] Falling back to first available model (unfiltered): %s (no chat-capable model on the list)\n",
+				rawModels[0])
+		}
+		return modelSelectionResult{model: rawModels[0], fromSavedPref: false, hadSavedPref: hadSaved}
 	}
 
 	// Last resort: use default even if not validated

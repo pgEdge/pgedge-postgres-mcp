@@ -401,7 +401,7 @@ func TestSelectModelFallbackSkipsNonChatModels(t *testing.T) {
 				},
 			}
 
-			got := c.selectModel("ollama", tt.availableModels)
+			got := c.selectModel("ollama", tt.availableModels, nil)
 			if got.model != tt.want {
 				t.Errorf("selectModel(ollama, %v) = %q, want %q",
 					tt.availableModels, got.model, tt.want)

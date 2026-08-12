@@ -458,6 +458,14 @@ func (c *Client) handleSetLLMModel(model string) bool {
 			"Model '%s' not available from %s", model, c.config.LLM.Provider))
 		c.ui.PrintSystemMessage("Use /list models to see available models")
 		return true
+	} else if !isChatCapableModel(model) {
+		// The model exists but its name marks it as embedding, rerank, or
+		// similar — the same mismatch issue #255 covers for automatic
+		// selection, just reached by naming a model directly. Warn rather
+		// than block: the marker is a name guess, and the model may hold a
+		// conversation despite it.
+		c.ui.PrintSystemMessage(fmt.Sprintf(
+			"Warning: '%s' looks like it may not support chat; the next message may fail", model))
 	}
 
 	// Update config

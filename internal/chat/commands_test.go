@@ -11,11 +11,32 @@
 package chat
 
 import (
+	"bytes"
 	"context"
+	"io"
+	"os"
+	"strings"
 	"testing"
 
 	"pgedge-postgres-mcp/internal/mcp"
+
+	llmlib "github.com/pgEdge/pgedge-go-llm-lib/llm"
 )
+
+// fixedModelListLLM is a minimal chatLLM whose ListModels always returns
+// the same fixed list, regardless of any capability options — enough to
+// drive handleSetLLMModel's validation without a real provider.
+type fixedModelListLLM struct {
+	models []string
+}
+
+func (m *fixedModelListLLM) Chat(_ context.Context, _ llmlib.ChatRequest) (*llmlib.ChatResponse, error) {
+	return &llmlib.ChatResponse{StopReason: llmlib.StopReasonEndTurn}, nil
+}
+
+func (m *fixedModelListLLM) ListModels(_ context.Context, _ ...llmlib.ListModelsOption) ([]string, error) {
+	return m.models, nil
+}
 
 func TestParseSlashCommand(t *testing.T) {
 	tests := []struct {
@@ -302,6 +323,51 @@ func TestHandleSetLLMProvider(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+// TestHandleSetLLMModel_WarnsOnNonChatModel covers the manual-selection
+// counterpart to issue #255: /model lets a user name an existing but
+// non-chat model directly, bypassing the automatic fallback entirely.
+// isModelAvailable only checks existence, so this asserts the missing
+// half — a warning naming the risk before the model is actually set,
+// using the same isChatCapableModel marker check added for #255 rather
+// than a second network round-trip.
+func TestHandleSetLLMModel_WarnsOnNonChatModel(t *testing.T) {
+	cfg := &Config{
+		LLM: LLMConfig{
+			Provider:  "ollama",
+			Model:     "llama3.2:latest",
+			OllamaURL: "http://localhost:11434",
+		},
+		UI: UIConfig{NoColor: true},
+	}
+	client, err := NewClient(cfg, &ConfigOverrides{ProviderSet: true, ModelSet: true})
+	if err != nil {
+		t.Fatalf("NewClient failed: %v", err)
+	}
+	client.llm = &fixedModelListLLM{models: []string{"nomic-embed-text:latest", "llama3.2:latest"}}
+
+	old := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	handled := client.handleSetLLMModel("nomic-embed-text:latest")
+
+	w.Close()
+	os.Stdout = old
+	var buf bytes.Buffer
+	io.Copy(&buf, r)
+	output := buf.String()
+
+	if !handled {
+		t.Error("expected handleSetLLMModel to return true")
+	}
+	if client.config.LLM.Model != "nomic-embed-text:latest" {
+		t.Errorf("expected the model to be set despite the warning, got %q", client.config.LLM.Model)
+	}
+	if !strings.Contains(output, "may not support chat") {
+		t.Errorf("expected a warning about chat support, got output: %s", output)
 	}
 }
 
