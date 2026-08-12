@@ -1394,9 +1394,19 @@ func (c *Client) selectModel(provider string, availableModels, rawModels []strin
 	}
 
 	// The capability filter left nothing at all (e.g. only an embedding
-	// model is installed). Name a real model from the unfiltered list
-	// rather than reaching for the default below, which the provider may
-	// never have offered in the first place.
+	// model is installed) — but rawModels is unfiltered, so it can still
+	// hold a real conversational model the filter missed. Try the same
+	// name check as above before falling back to its head, for the same
+	// reason: the filter is real per-provider data, not a guess, but
+	// trusting it completely here would silently reintroduce issue #255
+	// if that data is ever wrong.
+	if candidate := firstChatCapableModel(rawModels); candidate != "" {
+		if debug {
+			fmt.Fprintf(os.Stderr, "[DEBUG] Falling back to first available chat-looking model (unfiltered): %s\n", candidate)
+		}
+		return modelSelectionResult{model: candidate, fromSavedPref: false, hadSavedPref: hadSaved}
+	}
+
 	if len(rawModels) > 0 {
 		if debug {
 			fmt.Fprintf(os.Stderr, "[DEBUG] Falling back to first available model (unfiltered): %s (no chat-capable model on the list)\n",

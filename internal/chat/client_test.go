@@ -416,6 +416,30 @@ func TestSelectModelFallbackSkipsNonChatModels(t *testing.T) {
 	}
 }
 
+// TestSelectModelRawFallbackSkipsNonChatModels covers the raw-list
+// fallback tier (reached when capability filtering leaves
+// availableModels empty): it must apply the same name check to
+// rawModels as the filtered tiers above it, not just take its head.
+// Flagged by CodeRabbit on PR #257 — an embedding model sorting first
+// in the unfiltered list would otherwise reintroduce issue #255 if the
+// capability filter ever excludes a real chat model.
+func TestSelectModelRawFallbackSkipsNonChatModels(t *testing.T) {
+	c := &Client{
+		config:      &Config{},
+		preferences: &Preferences{},
+	}
+
+	// availableModels must be an empty (non-nil) slice, matching what
+	// initializeLLM actually gets back from a capability-filtered
+	// ListModels call that excludes everything: isModelAvailable treats
+	// a nil slice as "couldn't fetch, trust it" and would short-circuit
+	// on the provider default before ever reaching the raw fallback.
+	got := c.selectModel("ollama", []string{}, []string{"nomic-embed-text:latest", "llama3.2:latest"})
+	if got.model != "llama3.2:latest" {
+		t.Errorf("selectModel raw fallback = %q, want %q", got.model, "llama3.2:latest")
+	}
+}
+
 func TestHasToolResults(t *testing.T) {
 	// Create a client for testing
 	cfg := &Config{
