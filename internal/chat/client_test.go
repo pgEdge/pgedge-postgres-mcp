@@ -290,6 +290,132 @@ func TestFindModelFamilyMatch(t *testing.T) {
 	}
 }
 
+func TestIsChatCapableModel(t *testing.T) {
+	tests := []struct {
+		name  string
+		model string
+		want  bool
+	}{
+		{"anthropic chat model", "claude-sonnet-4-5-20250929", true},
+		{"openai chat model", "gpt-4o", true},
+		{"gemini chat model", "gemini-2.5-flash", true},
+		{"ollama chat model", "llama3.2:latest", true},
+		{"ollama embedding model", "nomic-embed-text:latest", false},
+		{"ollama embedding model, large", "mxbai-embed-large", false},
+		{"openai embedding model", "text-embedding-3-small", false},
+		{"gemini embedding model", "gemini-embedding-001", false},
+		{"reranking model", "rerank-2.5-lite", false},
+		{"moderation model", "omni-moderation-latest", false},
+		{"transcription model", "whisper-1", false},
+		{"newer transcription model", "gpt-4o-transcribe", false},
+		{"speech model", "gpt-4o-mini-tts", false},
+		{"image model", "dall-e-3", false},
+		{"gemini image model", "imagen-4.0-generate-001", false},
+		{"video model", "veo-3.0-generate-001", false},
+		{"music model", "lyria-002", false},
+		{"mixed case is matched", "TEXT-EMBEDDING-3-SMALL", false},
+		{"empty model", "", true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := isChatCapableModel(tt.model); got != tt.want {
+				t.Errorf("isChatCapableModel(%q) = %v, want %v", tt.model, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestFirstChatCapableModel(t *testing.T) {
+	tests := []struct {
+		name            string
+		availableModels []string
+		want            string
+	}{
+		{
+			"skips a leading embedding model",
+			[]string{"nomic-embed-text:latest", "llama3.2:latest"},
+			"llama3.2:latest",
+		},
+		{
+			"takes the head when it is usable",
+			[]string{"llama3.2:latest", "nomic-embed-text:latest"},
+			"llama3.2:latest",
+		},
+		{
+			"no usable model",
+			[]string{"nomic-embed-text:latest", "mxbai-embed-large"},
+			"",
+		},
+		{"empty list", []string{}, ""},
+		{"nil list", nil, ""},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := firstChatCapableModel(tt.availableModels); got != tt.want {
+				t.Errorf("firstChatCapableModel(%v) = %q, want %q", tt.availableModels, got, tt.want)
+			}
+		})
+	}
+}
+
+// TestSelectModelFallbackSkipsNonChatModels covers the case reported in
+// issue #255: a saved preference naming a model the provider no longer
+// serves, with an embedding model at the head of the list that replaced it,
+// which left every chat message failing whilst a usable model sat further
+// down the same list.
+func TestSelectModelFallbackSkipsNonChatModels(t *testing.T) {
+	tests := []struct {
+		name            string
+		savedModel      string
+		availableModels []string
+		want            string
+	}{
+		{
+			"embedding model sorts first",
+			"llama3.1:latest",
+			[]string{"nomic-embed-text:latest", "llama3.2:latest"},
+			"llama3.2:latest",
+		},
+		{
+			"provider default wins when it is served",
+			"llama3.1:latest",
+			[]string{"nomic-embed-text:latest", "qwen3-coder:latest", "llama3.2:latest"},
+			"qwen3-coder:latest",
+		},
+		{
+			"list holds nothing usable for chat",
+			"llama3.1:latest",
+			[]string{"nomic-embed-text:latest", "mxbai-embed-large"},
+			"nomic-embed-text:latest",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c := &Client{
+				config: &Config{},
+				preferences: &Preferences{
+					ProviderModels: map[string]string{"ollama": tt.savedModel},
+				},
+			}
+
+			got := c.selectModel("ollama", tt.availableModels)
+			if got.model != tt.want {
+				t.Errorf("selectModel(ollama, %v) = %q, want %q",
+					tt.availableModels, got.model, tt.want)
+			}
+			if !got.hadSavedPref {
+				t.Error("selectModel() reported no saved preference, want one recorded")
+			}
+			if got.fromSavedPref {
+				t.Error("selectModel() reported the saved preference was used, want a fallback")
+			}
+		})
+	}
+}
+
 func TestHasToolResults(t *testing.T) {
 	// Create a client for testing
 	cfg := &Config{

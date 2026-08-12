@@ -118,6 +118,19 @@ and this project adheres to
 
 ### Fixed
 
+- The CLI client no longer falls back to a model that cannot hold a
+  conversation. When a saved model preference named something the provider
+  no longer serves, and the provider's default was absent too, the client
+  took the first entry in the model list without checking what kind of
+  model it was; an embedding model sorting first left every message failing
+  with the provider's complaint that the model does not support chat,
+  whilst a usable model sat further down the same list. The fallback now
+  skips the model kinds that identify themselves by name, covering
+  embedding, reranking, moderation, transcription, speech, image, video and
+  music models across all four providers, and takes the first entry that
+  looks conversational. A model named on the command line, or held as a
+  saved preference the provider still serves, is used as before. (#255)
+
 - A configuration file that sets an LLM or embedding option without also
   naming the provider, or enabling the section, is no longer discarded.
   The merge tested only those two fields, so a file that configured just a
