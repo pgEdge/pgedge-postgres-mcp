@@ -11,9 +11,12 @@
 package chat
 
 import (
+	"bufio"
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -331,5 +334,96 @@ func TestNameOrURIFor(t *testing.T) {
 				t.Errorf("nameOrURIFor(%v) = %q, want %q", tc.params, got, tc.want)
 			}
 		})
+	}
+}
+
+func TestStdioClient_Initialize(t *testing.T) {
+	clientToServerR, clientToServerW := io.Pipe()
+	serverToClientR, serverToClientW := io.Pipe()
+
+	scanner := bufio.NewScanner(serverToClientR)
+	scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024)
+
+	c := &stdioClient{
+		stdin:   clientToServerW,
+		stdout:  serverToClientR,
+		scanner: scanner,
+	}
+
+	fakeServerErr := make(chan error, 1)
+	go func() {
+		reqScanner := bufio.NewScanner(clientToServerR)
+		reqScanner.Buffer(make([]byte, 0, 64*1024), 1024*1024)
+		if !reqScanner.Scan() {
+			fakeServerErr <- fmt.Errorf("no request received: %v", reqScanner.Err())
+			return
+		}
+
+		var req mcp.JSONRPCRequest
+		if err := json.Unmarshal(reqScanner.Bytes(), &req); err != nil {
+			fakeServerErr <- err
+			return
+		}
+		if req.Method != "server/discover" {
+			fakeServerErr <- fmt.Errorf("expected method 'server/discover', got %q", req.Method)
+			return
+		}
+
+		paramsMap, ok := req.Params.(map[string]interface{})
+		if !ok {
+			fakeServerErr <- fmt.Errorf("expected params to be a map, got %T", req.Params)
+			return
+		}
+		meta, ok := paramsMap["_meta"].(map[string]interface{})
+		if !ok {
+			fakeServerErr <- fmt.Errorf("expected _meta in params, got %v", paramsMap)
+			return
+		}
+		if meta["io.modelcontextprotocol/protocolVersion"] != mcp.ModernProtocolVersion {
+			fakeServerErr <- fmt.Errorf("unexpected protocolVersion: %v",
+				meta["io.modelcontextprotocol/protocolVersion"])
+			return
+		}
+		if _, ok := meta["io.modelcontextprotocol/clientCapabilities"]; !ok {
+			fakeServerErr <- fmt.Errorf("expected clientCapabilities in _meta, got %v", meta)
+			return
+		}
+
+		resp := map[string]interface{}{
+			"jsonrpc": "2.0",
+			"id":      req.ID,
+			"result": map[string]interface{}{
+				"_meta": map[string]interface{}{
+					"io.modelcontextprotocol/serverInfo": map[string]interface{}{
+						"name":    "test-server",
+						"version": "1.0.0",
+					},
+				},
+			},
+		}
+		respData, err := json.Marshal(resp)
+		if err != nil {
+			fakeServerErr <- err
+			return
+		}
+		if _, err := serverToClientW.Write(append(respData, '\n')); err != nil {
+			fakeServerErr <- err
+			return
+		}
+		fakeServerErr <- nil
+	}()
+
+	ctx := context.Background()
+	if err := c.Initialize(ctx); err != nil {
+		t.Fatalf("Initialize failed: %v", err)
+	}
+
+	if err := <-fakeServerErr; err != nil {
+		t.Fatalf("fake server error: %v", err)
+	}
+
+	name, version := c.GetServerInfo()
+	if name != "test-server" || version != "1.0.0" {
+		t.Errorf("Expected server info 'test-server'/'1.0.0', got '%s'/'%s'", name, version)
 	}
 }

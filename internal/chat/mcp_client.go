@@ -194,38 +194,12 @@ func NewStdioClient(serverPath, serverConfigPath string) (MCPClient, error) {
 }
 
 func (c *stdioClient) Initialize(ctx context.Context) error {
-	params := mcp.InitializeParams{
-		ProtocolVersion: mcp.ProtocolVersion,
-		Capabilities:    map[string]interface{}{},
-		ClientInfo: mcp.ClientInfo{
-			Name:    "pgedge-nla-cli",
-			Version: ClientVersion,
-		},
+	var result mcp.DiscoverResult
+	if err := c.sendRequest(ctx, "server/discover", nil, &result); err != nil {
+		return fmt.Errorf("discover failed: %w", err)
 	}
 
-	var result mcp.InitializeResult
-	if err := c.sendRequest(ctx, "initialize", params, &result); err != nil {
-		return fmt.Errorf("initialize failed: %w", err)
-	}
-
-	// Store server info
-	c.serverInfo = result.ServerInfo
-
-	// Send initialized notification
-	notification := mcp.JSONRPCRequest{
-		JSONRPC: "2.0",
-		Method:  "notifications/initialized",
-		Params:  map[string]interface{}{},
-	}
-
-	data, err := json.Marshal(notification)
-	if err != nil {
-		return fmt.Errorf("failed to marshal notification: %w", err)
-	}
-
-	if _, err := c.stdin.Write(append(data, '\n')); err != nil {
-		return fmt.Errorf("failed to send notification: %w", err)
-	}
+	c.serverInfo = result.Meta.ServerInfo
 
 	return nil
 }
@@ -337,7 +311,7 @@ func (c *stdioClient) sendRequest(ctx context.Context, method string, params int
 		JSONRPC: "2.0",
 		ID:      id,
 		Method:  method,
-		Params:  params,
+		Params:  withModernMeta(params),
 	}
 
 	reqData, err := json.Marshal(req)
