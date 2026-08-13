@@ -384,25 +384,46 @@ func TestStdioClient_Initialize(t *testing.T) {
 // serveFakeStdioDiscover reads one server/discover request from r, verifies
 // it carries the modern _meta envelope, and writes a matching DiscoverResult
 // response to w. Extracted from TestStdioClient_Initialize so that test's
-// setup stays a single, simple goroutine launch.
+// setup stays a single, simple goroutine launch; split further into
+// readDiscoverRequest/validateModernEnvelope to keep each function's
+// cyclomatic complexity low.
 func serveFakeStdioDiscover(r io.Reader, w io.Writer) error {
+	req, err := readDiscoverRequest(r)
+	if err != nil {
+		return err
+	}
+	if err := validateModernEnvelope(req.Params); err != nil {
+		return err
+	}
+	return writeDiscoverResponse(w, req.ID)
+}
+
+// readDiscoverRequest scans one JSON-RPC request line from r and confirms
+// its method is server/discover.
+func readDiscoverRequest(r io.Reader) (mcp.JSONRPCRequest, error) {
 	reqScanner := bufio.NewScanner(r)
 	reqScanner.Buffer(make([]byte, 0, 64*1024), 1024*1024)
 	if !reqScanner.Scan() {
-		return fmt.Errorf("no request received: %v", reqScanner.Err())
+		return mcp.JSONRPCRequest{}, fmt.Errorf("no request received: %v", reqScanner.Err())
 	}
 
 	var req mcp.JSONRPCRequest
 	if err := json.Unmarshal(reqScanner.Bytes(), &req); err != nil {
-		return err
+		return mcp.JSONRPCRequest{}, err
 	}
 	if req.Method != "server/discover" {
-		return fmt.Errorf("expected method 'server/discover', got %q", req.Method)
+		return mcp.JSONRPCRequest{}, fmt.Errorf("expected method 'server/discover', got %q", req.Method)
 	}
+	return req, nil
+}
 
-	paramsMap, ok := req.Params.(map[string]interface{})
+// validateModernEnvelope checks that params carries the modern _meta
+// envelope (protocolVersion and clientCapabilities) this test expects
+// stdioClient.sendRequest to attach to every outgoing request.
+func validateModernEnvelope(params interface{}) error {
+	paramsMap, ok := params.(map[string]interface{})
 	if !ok {
-		return fmt.Errorf("expected params to be a map, got %T", req.Params)
+		return fmt.Errorf("expected params to be a map, got %T", params)
 	}
 	meta, ok := paramsMap["_meta"].(map[string]interface{})
 	if !ok {
@@ -415,10 +436,15 @@ func serveFakeStdioDiscover(r io.Reader, w io.Writer) error {
 	if _, ok := meta["io.modelcontextprotocol/clientCapabilities"]; !ok {
 		return fmt.Errorf("expected clientCapabilities in _meta, got %v", meta)
 	}
+	return nil
+}
 
+// writeDiscoverResponse writes a DiscoverResult-shaped JSON-RPC response
+// for the given request id to w.
+func writeDiscoverResponse(w io.Writer, id interface{}) error {
 	resp := map[string]interface{}{
 		"jsonrpc": "2.0",
-		"id":      req.ID,
+		"id":      id,
 		"result": map[string]interface{}{
 			"_meta": map[string]interface{}{
 				"io.modelcontextprotocol/serverInfo": map[string]interface{}{
