@@ -1105,6 +1105,10 @@ func main() {
 			DBHostsSet:              cliFlags.DBHostsSet,
 			DBTargetSessionAttrs:    *dbTargetSessionAttrs,
 			DBTargetSessionAttrsSet: cliFlags.DBTargetSessionAttrsSet,
+			TraceFile:               *traceFile,
+			TraceFileSet:            cliFlags.TraceFileSet,
+			TraceMetadataOnly:       *traceMetadataOnly,
+			TraceMetadataOnlySet:    cliFlags.TraceMetadataOnlySet,
 		}
 		reloadableCfg := config.NewReloadableConfig(cfg, configPath, reloadCLIFlags)
 

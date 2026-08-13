@@ -910,6 +910,35 @@ func TestMetadataOnlyOmitsParametersAndResult(t *testing.T) {
 	}
 }
 
+func TestMetadataOnlyRedactsErrorText(t *testing.T) {
+	ResetForTesting()
+
+	tracePath := filepath.Join(t.TempDir(), "trace.jsonl")
+	Initialize(tracePath, true)
+	defer Close()
+
+	testErr := fmt.Errorf(`duplicate key value violates unique constraint "users_email_key" (Key (email)=(jane@example.com) already exists)`)
+	LogToolResult("sess-err", "tok-hash", "req-err", "query_database", nil, testErr, 5*time.Millisecond)
+
+	Close()
+
+	entries := parseJSONLFile(t, tracePath)
+	if len(entries) != 1 {
+		t.Fatalf("expected 1 entry, got %d", len(entries))
+	}
+
+	errField, ok := entries[0]["error"].(string)
+	if !ok {
+		t.Fatalf("expected \"error\" field to be a string, got %T", entries[0]["error"])
+	}
+	if errField != metadataOnlyErrorPlaceholder {
+		t.Errorf("error = %q, want generic placeholder %q", errField, metadataOnlyErrorPlaceholder)
+	}
+	if strings.Contains(errField, "jane@example.com") {
+		t.Error("expected error text to be redacted, but it leaked the underlying error message")
+	}
+}
+
 func TestMetadataOnlyFalsePreservesParametersAndResult(t *testing.T) {
 	ResetForTesting()
 

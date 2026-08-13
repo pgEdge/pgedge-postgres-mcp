@@ -187,10 +187,18 @@ func GetFilePath() string {
 	return instance.filePath
 }
 
+// metadataOnlyErrorPlaceholder replaces an entry's Error text in
+// metadata-only mode, since driver and query errors can themselves
+// echo back query text or data values (e.g. constraint violation
+// messages that quote the offending row).
+const metadataOnlyErrorPlaceholder = "error (detail omitted in metadata-only trace mode)"
+
 // Log writes a single trace entry to the JSONL file. It auto-sets
 // Timestamp to the current time if the field is zero. When the tracer
 // is configured for metadata-only mode, Parameters and Result are
-// dropped before the entry is written, regardless of entry type.
+// dropped before the entry is written, regardless of entry type, and
+// any Error text is replaced with a generic placeholder so failure is
+// still visible without leaking error-message detail.
 func Log(entry TraceEntry) {
 	if !IsEnabled() {
 		return
@@ -203,6 +211,9 @@ func Log(entry TraceEntry) {
 	if instance.metadataOnly {
 		entry.Parameters = nil
 		entry.Result = nil
+		if entry.Error != "" {
+			entry.Error = metadataOnlyErrorPlaceholder
+		}
 	}
 
 	instance.mu.Lock()

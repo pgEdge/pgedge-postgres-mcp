@@ -332,7 +332,7 @@ options:
 - `-trace-file` - Path to JSONL trace file for debugging MCP
   interactions (disabled by default)
 - `-trace-metadata-only` - Omit call parameters and results from
-  trace entries, keeping only metadata such as session, token,
+  trace entries, keeping only metadata such as session, token hash,
   name, duration, and error (disabled by default)
 
 **HTTP/HTTPS Options:**
