@@ -257,19 +257,21 @@ permissions. Consider re-examining the schema after switching.`,
 				return mcp.NewToolError(fmt.Sprintf("Access denied to database '%s'", name))
 			}
 
-			// Perform the switch
-			if err := clientManager.SetCurrentDatabase(tokenHash, name); err != nil {
-				return mcp.NewToolError(fmt.Sprintf("Failed to switch database: %v", err))
+			// Connect before committing the switch, as documented, rather
+			// than leaving the database "unavailable" in
+			// list_database_connections until some other tool happens to
+			// use it: a switch that reports success should leave the
+			// target database actually connected. Connecting first, before
+			// changing the current database, also means a switch to an
+			// unreachable database fails outright and leaves the previous
+			// selection in place instead of committing to a database that
+			// isn't there.
+			if _, err := clientManager.GetClientForDatabase(tokenHash, name); err != nil {
+				return mcp.NewToolError(fmt.Sprintf("Failed to connect to database '%s': %v", name, err))
 			}
 
-			// Connect now, as documented, rather than leaving the database
-			// "unavailable" in list_database_connections until some other
-			// tool happens to use it: a switch that reports success should
-			// leave the target database actually connected, and a switch to
-			// an unreachable database should fail here rather than silently
-			// succeed and only surface an error on first query.
-			if _, err := clientManager.GetClientForDatabase(tokenHash, name); err != nil {
-				return mcp.NewToolError(fmt.Sprintf("Switched to database '%s' but failed to connect: %v", name, err))
+			if err := clientManager.SetCurrentDatabase(tokenHash, name); err != nil {
+				return mcp.NewToolError(fmt.Sprintf("Failed to switch database: %v", err))
 			}
 
 			// Build success response

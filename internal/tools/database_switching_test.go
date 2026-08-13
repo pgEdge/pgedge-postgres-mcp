@@ -343,12 +343,18 @@ func TestSelectDatabaseConnectionTool_Success(t *testing.T) {
 // TestSelectDatabaseConnectionTool_ConnectFailure tests that switching to a
 // configured but unreachable database surfaces a connection error
 // immediately, rather than reporting success and leaving the failure for
-// whatever tool call happens to use the connection next.
+// whatever tool call happens to use the connection next, and that the
+// previously selected database remains current rather than being
+// committed to an unreachable one.
 func TestSelectDatabaseConnectionTool_ConnectFailure(t *testing.T) {
 	databases := createTestDatabaseConfigs()
 	cfg := &config.Config{Databases: databases}
 	clientManager := database.NewClientManager(databases)
 	defer clientManager.CloseAll()
+
+	if err := clientManager.SetCurrentDatabase("default", "db1"); err != nil {
+		t.Fatalf("Failed to set initial current database: %v", err)
+	}
 
 	tool := SelectDatabaseConnectionTool(clientManager, nil, cfg)
 
@@ -366,6 +372,10 @@ func TestSelectDatabaseConnectionTool_ConnectFailure(t *testing.T) {
 	}
 	if !strings.Contains(response.Content[0].Text, "failed to connect") {
 		t.Errorf("Expected a connect-failure message, got: %s", response.Content[0].Text)
+	}
+
+	if current := clientManager.GetCurrentDatabase("default"); current != "db1" {
+		t.Errorf("Expected current database to remain 'db1' after a failed switch, got %q", current)
 	}
 }
 
