@@ -12,6 +12,7 @@ package chat
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -29,22 +30,43 @@ func TestHTTPClient_Initialize(t *testing.T) {
 			t.Fatalf("Failed to decode request: %v", err)
 		}
 
-		if req.Method != "initialize" {
-			t.Errorf("Expected method 'initialize', got '%s'", req.Method)
+		if req.Method != "server/discover" {
+			t.Errorf("Expected method 'server/discover', got '%s'", req.Method)
+		}
+
+		if got := r.Header.Get("MCP-Protocol-Version"); got != mcp.ModernProtocolVersion {
+			t.Errorf("Expected MCP-Protocol-Version '%s', got '%s'", mcp.ModernProtocolVersion, got)
+		}
+		if got := r.Header.Get("Mcp-Method"); got != "server/discover" {
+			t.Errorf("Expected Mcp-Method 'server/discover', got '%s'", got)
+		}
+
+		paramsMap, ok := req.Params.(map[string]interface{})
+		if !ok {
+			t.Fatalf("Expected params to be a map, got %T", req.Params)
+		}
+		meta, ok := paramsMap["_meta"].(map[string]interface{})
+		if !ok {
+			t.Fatalf("Expected _meta in params, got %v", paramsMap)
+		}
+		if meta["io.modelcontextprotocol/protocolVersion"] != mcp.ModernProtocolVersion {
+			t.Errorf("Expected protocolVersion '%s' in _meta, got %v",
+				mcp.ModernProtocolVersion, meta["io.modelcontextprotocol/protocolVersion"])
+		}
+		if _, ok := meta["io.modelcontextprotocol/clientCapabilities"]; !ok {
+			t.Errorf("Expected clientCapabilities in _meta, got %v", meta)
 		}
 
 		// Send response
 		resp := mcp.JSONRPCResponse{
 			JSONRPC: "2.0",
 			ID:      req.ID,
-			Result: mcp.InitializeResult{
-				ProtocolVersion: mcp.ProtocolVersion,
-				Capabilities: map[string]interface{}{
-					"tools": map[string]interface{}{},
-				},
-				ServerInfo: mcp.Implementation{
-					Name:    "test-server",
-					Version: "1.0.0",
+			Result: mcp.DiscoverResult{
+				Meta: mcp.ResponseMeta{
+					ServerInfo: mcp.Implementation{
+						Name:    "test-server",
+						Version: "1.0.0",
+					},
 				},
 			},
 		}
@@ -61,6 +83,11 @@ func TestHTTPClient_Initialize(t *testing.T) {
 	ctx := context.Background()
 	if err := client.Initialize(ctx); err != nil {
 		t.Fatalf("Initialize failed: %v", err)
+	}
+
+	name, version := client.GetServerInfo()
+	if name != "test-server" || version != "1.0.0" {
+		t.Errorf("Expected server info 'test-server'/'1.0.0', got '%s'/'%s'", name, version)
 	}
 }
 
@@ -130,6 +157,9 @@ func TestHTTPClient_CallTool(t *testing.T) {
 
 		if req.Method != "tools/call" {
 			t.Errorf("Expected method 'tools/call', got '%s'", req.Method)
+		}
+		if got := r.Header.Get("Mcp-Name"); got != "test_tool" {
+			t.Errorf("Expected Mcp-Name 'test_tool', got '%s'", got)
 		}
 
 		// Send response
@@ -207,5 +237,99 @@ func TestHTTPClient_Authentication(t *testing.T) {
 	_, err := client.ListTools(ctx)
 	if err != nil {
 		t.Fatalf("Request failed: %v", err)
+	}
+}
+
+func TestModernMeta_HasRequiredFields(t *testing.T) {
+	meta := modernMeta()
+
+	if meta["io.modelcontextprotocol/protocolVersion"] != mcp.ModernProtocolVersion {
+		t.Errorf("Expected protocolVersion '%s', got %v",
+			mcp.ModernProtocolVersion, meta["io.modelcontextprotocol/protocolVersion"])
+	}
+
+	caps, ok := meta["io.modelcontextprotocol/clientCapabilities"]
+	if !ok {
+		t.Fatalf("Expected clientCapabilities key to be present, got %v", meta)
+	}
+
+	// The required field must survive a JSON round-trip even though it's
+	// an empty map -- this is the omitempty trap the RequestMeta struct
+	// would fall into if used for outgoing requests.
+	data, err := json.Marshal(map[string]interface{}{"_meta": meta})
+	if err != nil {
+		t.Fatalf("Marshal failed: %v", err)
+	}
+	var roundTripped struct {
+		Meta map[string]interface{} `json:"_meta"`
+	}
+	if err := json.Unmarshal(data, &roundTripped); err != nil {
+		t.Fatalf("Unmarshal failed: %v", err)
+	}
+	if _, ok := roundTripped.Meta["io.modelcontextprotocol/clientCapabilities"]; !ok {
+		t.Errorf("clientCapabilities was dropped by JSON round-trip: %s", data)
+	}
+
+	_ = caps
+}
+
+func TestEncodeHeaderValue(t *testing.T) {
+	cases := []struct {
+		name  string
+		value string
+		want  string
+	}{
+		{"plain ascii passes through", "test_tool", "test_tool"},
+		{"resource uri passes through", "pg://some/resource", "pg://some/resource"},
+		{"empty string passes through", "", ""},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := encodeHeaderValue(tc.value); got != tc.want {
+				t.Errorf("encodeHeaderValue(%q) = %q, want %q", tc.value, got, tc.want)
+			}
+		})
+	}
+
+	t.Run("non-ASCII value is base64-wrapped and round-trips", func(t *testing.T) {
+		const original = "tést_tool"
+		encoded := encodeHeaderValue(original)
+
+		const prefix, suffix = "=?base64?", "?="
+		if len(encoded) < len(prefix)+len(suffix) ||
+			encoded[:len(prefix)] != prefix || encoded[len(encoded)-len(suffix):] != suffix {
+			t.Fatalf("expected sentinel-wrapped value, got %q", encoded)
+		}
+
+		b64 := encoded[len(prefix) : len(encoded)-len(suffix)]
+		decoded, err := base64.StdEncoding.DecodeString(b64)
+		if err != nil {
+			t.Fatalf("base64 decode failed: %v", err)
+		}
+		if string(decoded) != original {
+			t.Errorf("round-trip mismatch: got %q, want %q", string(decoded), original)
+		}
+	})
+}
+
+func TestNameOrURIFor(t *testing.T) {
+	cases := []struct {
+		name   string
+		params interface{}
+		want   string
+	}{
+		{"tool call params", mcp.ToolCallParams{Name: "test_tool"}, "test_tool"},
+		{"resource read params", mcp.ResourceReadParams{URI: "pg://x"}, "pg://x"},
+		{"prompt get params", mcp.PromptGetParams{Name: "my_prompt"}, "my_prompt"},
+		{"nil params", nil, ""},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := nameOrURIFor(tc.params); got != tc.want {
+				t.Errorf("nameOrURIFor(%v) = %q, want %q", tc.params, got, tc.want)
+			}
+		})
 	}
 }

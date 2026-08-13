@@ -14,6 +14,7 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -63,6 +64,82 @@ type MCPClient interface {
 
 	// Close cleans up resources
 	Close() error
+}
+
+// methodsRequiringMcpName lists the methods for which the Streamable
+// HTTP transport spec requires an Mcp-Name header, mirroring
+// params.name (tools/call, prompts/get) or params.uri
+// (resources/read). Mirrors methodsRequiringMcpName in
+// internal/mcp/modern.go.
+var methodsRequiringMcpName = map[string]bool{
+	"tools/call":     true,
+	"resources/read": true,
+	"prompts/get":    true,
+}
+
+// modernMeta builds the _meta object every modern request this client
+// sends must carry. Deliberately a raw map literal, not the
+// mcp.RequestMeta struct: RequestMeta's ClientCapabilities field
+// carries json:",omitempty", and Go's encoding/json omits an *empty*
+// map under omitempty regardless of nilness, which would silently
+// drop this required key from the outgoing request.
+func modernMeta() map[string]interface{} {
+	return map[string]interface{}{
+		"io.modelcontextprotocol/protocolVersion":    mcp.ModernProtocolVersion,
+		"io.modelcontextprotocol/clientCapabilities": map[string]interface{}{},
+	}
+}
+
+// withModernMeta merges the modern _meta envelope into an arbitrary
+// request's params, via the same marshal-to-map idiom
+// internal/mcp/modern.go uses server-side (mergeModernFields).
+func withModernMeta(params interface{}) map[string]interface{} {
+	m := map[string]interface{}{}
+	if params != nil {
+		if data, err := json.Marshal(params); err == nil {
+			_ = json.Unmarshal(data, &m)
+		}
+	}
+	m["_meta"] = modernMeta()
+	return m
+}
+
+// nameOrURIFor extracts params.name or params.uri from an arbitrary
+// request's params, for the Mcp-Name header. Mirrors nameOrURI in
+// internal/mcp/modern.go.
+func nameOrURIFor(params interface{}) string {
+	if params == nil {
+		return ""
+	}
+	data, err := json.Marshal(params)
+	if err != nil {
+		return ""
+	}
+	var holder struct {
+		Name string `json:"name"`
+		URI  string `json:"uri"`
+	}
+	if err := json.Unmarshal(data, &holder); err != nil {
+		return ""
+	}
+	if holder.Name != "" {
+		return holder.Name
+	}
+	return holder.URI
+}
+
+// encodeHeaderValue is the encode-side mirror of decodeHeaderValue in
+// internal/mcp/modern.go: a value that round-trips safely as a raw
+// HTTP header value is returned as-is; anything else (non-ASCII or
+// control characters) is base64-encoded and wrapped in the spec's
+// "=?base64?<encoded>?=" sentinel.
+func encodeHeaderValue(v string) string {
+	for i := 0; i < len(v); i++ {
+		if v[i] < 0x20 || v[i] > 0x7E {
+			return "=?base64?" + base64.StdEncoding.EncodeToString([]byte(v)) + "?="
+		}
+	}
+	return v
 }
 
 // stdioClient implements MCPClient for stdio communication
@@ -327,22 +404,12 @@ func NewHTTPClient(url, token string) MCPClient {
 }
 
 func (c *httpClient) Initialize(ctx context.Context) error {
-	params := mcp.InitializeParams{
-		ProtocolVersion: mcp.ProtocolVersion,
-		Capabilities:    map[string]interface{}{},
-		ClientInfo: mcp.ClientInfo{
-			Name:    "pgedge-nla-cli",
-			Version: ClientVersion,
-		},
+	var result mcp.DiscoverResult
+	if err := c.sendRequest(ctx, "server/discover", nil, &result); err != nil {
+		return fmt.Errorf("discover failed: %w", err)
 	}
 
-	var result mcp.InitializeResult
-	if err := c.sendRequest(ctx, "initialize", params, &result); err != nil {
-		return fmt.Errorf("initialize failed: %w", err)
-	}
-
-	// Store server info
-	c.serverInfo = result.ServerInfo
+	c.serverInfo = result.Meta.ServerInfo
 
 	return nil
 }
@@ -447,7 +514,7 @@ func (c *httpClient) sendRequest(ctx context.Context, method string, params inte
 		JSONRPC: "2.0",
 		ID:      id,
 		Method:  method,
-		Params:  params,
+		Params:  withModernMeta(params),
 	}
 
 	reqData, err := json.Marshal(req)
@@ -461,6 +528,11 @@ func (c *httpClient) sendRequest(ctx context.Context, method string, params inte
 	}
 
 	httpReq.Header.Set("Content-Type", "application/json")
+	httpReq.Header.Set("MCP-Protocol-Version", mcp.ModernProtocolVersion)
+	httpReq.Header.Set("Mcp-Method", method)
+	if methodsRequiringMcpName[method] {
+		httpReq.Header.Set("Mcp-Name", encodeHeaderValue(nameOrURIFor(params)))
+	}
 	if c.token != "" {
 		httpReq.Header.Set("Authorization", "Bearer "+c.token)
 	}
