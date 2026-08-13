@@ -112,11 +112,12 @@ func durationMs(d time.Duration) *int64 {
 
 // Tracer writes structured trace entries to a JSONL file.
 type Tracer struct {
-	mu       sync.Mutex
-	file     *os.File
-	encoder  *json.Encoder
-	enabled  bool
-	filePath string
+	mu           sync.Mutex
+	file         *os.File
+	encoder      *json.Encoder
+	enabled      bool
+	filePath     string
+	metadataOnly bool
 }
 
 var (
@@ -126,8 +127,10 @@ var (
 
 // Initialize performs one-time initialization of the global tracer.
 // If filePath is empty, tracing remains disabled. Errors are non-fatal
-// and do not prevent server startup.
-func Initialize(filePath string) error {
+// and do not prevent server startup. When metadataOnly is true, trace
+// entries omit their Parameters and Result fields entirely, so only
+// call metadata (session, token, name, duration, error) is written.
+func Initialize(filePath string, metadataOnly bool) error {
 	var initErr error
 
 	once.Do(func() {
@@ -145,10 +148,11 @@ func Initialize(filePath string) error {
 		enc.SetEscapeHTML(false)
 
 		instance = &Tracer{
-			file:     f,
-			encoder:  enc,
-			enabled:  true,
-			filePath: filePath,
+			file:         f,
+			encoder:      enc,
+			enabled:      true,
+			filePath:     filePath,
+			metadataOnly: metadataOnly,
 		}
 	})
 
@@ -184,7 +188,9 @@ func GetFilePath() string {
 }
 
 // Log writes a single trace entry to the JSONL file. It auto-sets
-// Timestamp to the current time if the field is zero.
+// Timestamp to the current time if the field is zero. When the tracer
+// is configured for metadata-only mode, Parameters and Result are
+// dropped before the entry is written, regardless of entry type.
 func Log(entry TraceEntry) {
 	if !IsEnabled() {
 		return
@@ -192,6 +198,11 @@ func Log(entry TraceEntry) {
 
 	if entry.Timestamp.IsZero() {
 		entry.Timestamp = time.Now().UTC()
+	}
+
+	if instance.metadataOnly {
+		entry.Parameters = nil
+		entry.Result = nil
 	}
 
 	instance.mu.Lock()

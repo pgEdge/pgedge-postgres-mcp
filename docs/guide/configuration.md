@@ -267,6 +267,7 @@ for details.
 | Configuration File Option | CLI Flag | Environment Variable | Description |
 |--------------------------|----------|---------------------|-------------|
 | `trace_file` | `-trace-file` | `PGEDGE_TRACE_FILE` | Path to JSONL trace file for debugging (disabled by default) |
+| `trace_metadata_only` | `-trace-metadata-only` | `PGEDGE_TRACE_METADATA_ONLY` | Omit call parameters and results from trace entries, keeping only metadata (default: false) |
 | `secret_file` | N/A | `PGEDGE_SECRET_FILE` | Path to encryption secret file (auto-generated if not present) |
 | `custom_definitions_path` | N/A | `PGEDGE_CUSTOM_DEFINITIONS_PATH` | Path to custom prompts and resources definition file |
 | `data_dir` | N/A | `PGEDGE_DATA_DIR` | Data directory for conversation history (default: `{binary_dir}/data`) |
@@ -330,6 +331,9 @@ options:
 - `-debug` - Enable debug logging (logs HTTP requests and responses)
 - `-trace-file` - Path to JSONL trace file for debugging MCP
   interactions (disabled by default)
+- `-trace-metadata-only` - Omit call parameters and results from
+  trace entries, keeping only metadata such as session, token,
+  name, duration, and error (disabled by default)
 
 **HTTP/HTTPS Options:**
 

@@ -200,6 +200,9 @@ preferences:
 
 - **`PGEDGE_TRACE_FILE`**: Path to JSONL trace file for debugging
   MCP interactions (disabled by default)
+- **`PGEDGE_TRACE_METADATA_ONLY`**: Omit call parameters and
+  results from trace entries, keeping only metadata such as
+  session, token, name, duration, and error (default: false)
 - **`PGEDGE_SECRET_FILE`**: Path to encryption secret file
 - **`PGEDGE_CUSTOM_DEFINITIONS_PATH`**: Path to custom prompts and
   resources definition file

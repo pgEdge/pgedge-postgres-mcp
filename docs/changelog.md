@@ -11,6 +11,16 @@ and this project adheres to
 
 ### Added
 
+- Tracing gains a metadata-only mode for operators who want per-token
+  attribution without a second copy of customer data. Set
+  `trace_metadata_only` in the configuration file, pass
+  `-trace-metadata-only`, or set `PGEDGE_TRACE_METADATA_ONLY`, and
+  trace entries drop their `parameters` and `result` fields entirely,
+  keeping only session, token hash, tool/resource/prompt name,
+  duration, and success/failure. This has no effect unless `trace_file`
+  (or `-trace-file`) is also set, and defaults to off so existing
+  full-detail tracing is unchanged. (#262)
+
 - Google Gemini now works as an embedding provider, alongside Voyage AI,
   OpenAI, and Ollama. Set `embedding.provider` to `gemini` and supply a
   key through `gemini_api_key_file`, `gemini_api_key`, or the

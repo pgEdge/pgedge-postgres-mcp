@@ -55,7 +55,7 @@ func parseJSONLFile(t *testing.T, path string) []map[string]interface{} {
 func TestInitializeEmpty(t *testing.T) {
 	ResetForTesting()
 
-	Initialize("")
+	Initialize("", false)
 
 	if IsEnabled() {
 		t.Error("expected tracing to be disabled after Initialize(\"\")")
@@ -66,7 +66,7 @@ func TestInitializeValid(t *testing.T) {
 	ResetForTesting()
 
 	tracePath := filepath.Join(t.TempDir(), "trace.jsonl")
-	Initialize(tracePath)
+	Initialize(tracePath, false)
 	defer Close()
 
 	if !IsEnabled() {
@@ -107,7 +107,7 @@ func TestLogToolCall(t *testing.T) {
 	ResetForTesting()
 
 	tracePath := filepath.Join(t.TempDir(), "trace.jsonl")
-	Initialize(tracePath)
+	Initialize(tracePath, false)
 
 	params := map[string]interface{}{
 		"query": "SELECT 1",
@@ -146,7 +146,7 @@ func TestLogToolResult(t *testing.T) {
 		ResetForTesting()
 
 		tracePath := filepath.Join(t.TempDir(), "trace.jsonl")
-		Initialize(tracePath)
+		Initialize(tracePath, false)
 
 		LogToolResult("sess-1", "tok", "req1", "query_database", "some result", nil, 250*time.Millisecond)
 
@@ -182,7 +182,7 @@ func TestLogToolResult(t *testing.T) {
 		ResetForTesting()
 
 		tracePath := filepath.Join(t.TempDir(), "trace.jsonl")
-		Initialize(tracePath)
+		Initialize(tracePath, false)
 
 		testErr := fmt.Errorf("connection refused")
 		LogToolResult("sess-2", "tok", "req2", "query_database", "", testErr, 100*time.Millisecond)
@@ -213,7 +213,7 @@ func TestLogResourceReadResult(t *testing.T) {
 	ResetForTesting()
 
 	tracePath := filepath.Join(t.TempDir(), "trace.jsonl")
-	Initialize(tracePath)
+	Initialize(tracePath, false)
 
 	LogResourceRead("sess-r", "tok", "req1", "resource://pg/tables")
 	LogResourceResult("sess-r", "tok", "req1", "resource://pg/tables", nil, nil, 30*time.Millisecond)
@@ -237,7 +237,7 @@ func TestLogPromptCallResult(t *testing.T) {
 	ResetForTesting()
 
 	tracePath := filepath.Join(t.TempDir(), "trace.jsonl")
-	Initialize(tracePath)
+	Initialize(tracePath, false)
 
 	LogPromptCall("sess-p", "tok", "req1", "explain_query", map[string]string{"sql": "SELECT 1"})
 	LogPromptResult("sess-p", "tok", "req1", "explain_query", nil, nil, 60*time.Millisecond)
@@ -261,7 +261,7 @@ func TestLogDatabaseSwitch(t *testing.T) {
 	ResetForTesting()
 
 	tracePath := filepath.Join(t.TempDir(), "trace.jsonl")
-	Initialize(tracePath)
+	Initialize(tracePath, false)
 
 	metadata := map[string]interface{}{
 		"previous": "db1",
@@ -292,7 +292,7 @@ func TestLogConfigReload(t *testing.T) {
 	ResetForTesting()
 
 	tracePath := filepath.Join(t.TempDir(), "trace.jsonl")
-	Initialize(tracePath)
+	Initialize(tracePath, false)
 
 	metadata := map[string]interface{}{
 		"source": "file_watcher",
@@ -320,7 +320,7 @@ func TestLogHTTPRequestResponse(t *testing.T) {
 	ResetForTesting()
 
 	tracePath := filepath.Join(t.TempDir(), "trace.jsonl")
-	Initialize(tracePath)
+	Initialize(tracePath, false)
 
 	LogHTTPRequest("sess-http", "tok", "req1", "POST", "/api/v1/query", nil)
 	LogHTTPResponse("sess-http", "tok", "req1", "POST", "/api/v1/query", 200, nil, 45*time.Millisecond)
@@ -383,7 +383,7 @@ func TestLogSessionStartEnd(t *testing.T) {
 	ResetForTesting()
 
 	tracePath := filepath.Join(t.TempDir(), "trace.jsonl")
-	Initialize(tracePath)
+	Initialize(tracePath, false)
 
 	startMeta := map[string]interface{}{
 		"transport": "stdio",
@@ -422,7 +422,7 @@ func TestLogError(t *testing.T) {
 	ResetForTesting()
 
 	tracePath := filepath.Join(t.TempDir(), "trace.jsonl")
-	Initialize(tracePath)
+	Initialize(tracePath, false)
 
 	LogError("sess-err", "tok", "req1", "database_query", fmt.Errorf("relation \"foo\" does not exist"))
 
@@ -453,7 +453,7 @@ func TestLogUserPromptAndLLMResponse(t *testing.T) {
 	ResetForTesting()
 
 	tracePath := filepath.Join(t.TempDir(), "trace.jsonl")
-	Initialize(tracePath)
+	Initialize(tracePath, false)
 
 	LogUserPrompt("sess-llm", "tok", "req1", "What tables exist in the database?")
 	LogLLMResponse("sess-llm", "tok", "req1", "The database contains the following tables...", 1500*time.Millisecond)
@@ -517,7 +517,7 @@ func TestDurationSerialization(t *testing.T) {
 	ResetForTesting()
 
 	tracePath := filepath.Join(t.TempDir(), "trace.jsonl")
-	Initialize(tracePath)
+	Initialize(tracePath, false)
 
 	// 1.5 seconds should serialize as duration_ms=1500 (integer).
 	LogToolResult("sess-dur", "tok", "req1", "slow_tool", "done", nil, 1500*time.Millisecond)
@@ -548,7 +548,7 @@ func TestZeroDurationNotOmitted(t *testing.T) {
 	ResetForTesting()
 
 	tracePath := filepath.Join(t.TempDir(), "trace.jsonl")
-	Initialize(tracePath)
+	Initialize(tracePath, false)
 
 	// A zero-duration result must still include duration_ms: 0
 	// so that "not measured" (nil, omitted) and "instant" (0) are
@@ -581,7 +581,7 @@ func TestHTMLEscapingDisabled(t *testing.T) {
 	ResetForTesting()
 
 	tracePath := filepath.Join(t.TempDir(), "trace.jsonl")
-	Initialize(tracePath)
+	Initialize(tracePath, false)
 
 	params := map[string]interface{}{
 		"input": "<script>alert(1)</script>",
@@ -612,7 +612,7 @@ func TestFilePermissions(t *testing.T) {
 	ResetForTesting()
 
 	tracePath := filepath.Join(t.TempDir(), "trace.jsonl")
-	Initialize(tracePath)
+	Initialize(tracePath, false)
 	defer Close()
 
 	info, err := os.Stat(tracePath)
@@ -630,7 +630,7 @@ func TestConcurrentWrites(t *testing.T) {
 	ResetForTesting()
 
 	tracePath := filepath.Join(t.TempDir(), "trace.jsonl")
-	Initialize(tracePath)
+	Initialize(tracePath, false)
 
 	const goroutineCount = 100
 	var wg sync.WaitGroup
@@ -668,7 +668,7 @@ func TestResetForTesting(t *testing.T) {
 
 	// Initialize and verify enabled.
 	tracePath1 := filepath.Join(t.TempDir(), "trace1.jsonl")
-	Initialize(tracePath1)
+	Initialize(tracePath1, false)
 
 	if !IsEnabled() {
 		t.Error("expected tracing to be enabled after Initialize")
@@ -685,7 +685,7 @@ func TestResetForTesting(t *testing.T) {
 
 	// Initialize again with a new path and verify enabled.
 	tracePath2 := filepath.Join(t.TempDir(), "trace2.jsonl")
-	Initialize(tracePath2)
+	Initialize(tracePath2, false)
 	defer Close()
 
 	if !IsEnabled() {
@@ -833,7 +833,7 @@ func TestSanitizationInLogToolCall(t *testing.T) {
 	ResetForTesting()
 
 	tracePath := filepath.Join(t.TempDir(), "trace.jsonl")
-	Initialize(tracePath)
+	Initialize(tracePath, false)
 	defer Close()
 
 	LogToolCall("sess1", "hash1", "req1", "authenticate_user", map[string]interface{}{
@@ -857,5 +857,77 @@ func TestSanitizationInLogToolCall(t *testing.T) {
 	}
 	if params["username"] != "admin" {
 		t.Errorf("expected username to be preserved in trace, got %v", params["username"])
+	}
+}
+
+func TestMetadataOnlyOmitsParametersAndResult(t *testing.T) {
+	ResetForTesting()
+
+	tracePath := filepath.Join(t.TempDir(), "trace.jsonl")
+	Initialize(tracePath, true)
+	defer Close()
+
+	LogToolCall("sess-meta", "tok-hash", "req-meta", "query_database", map[string]interface{}{
+		"query": "SELECT * FROM customers",
+	})
+	LogToolResult("sess-meta", "tok-hash", "req-meta", "query_database", []map[string]interface{}{
+		{"id": 1, "name": "Jane Doe"},
+	}, nil, 42*time.Millisecond)
+	LogResourceResult("sess-meta", "tok-hash", "req-meta", "resource://pg/tables", "sensitive rows", nil, 10*time.Millisecond)
+	LogPromptResult("sess-meta", "tok-hash", "req-meta", "explain_query", "sensitive explanation", nil, 5*time.Millisecond)
+
+	Close()
+
+	entries := parseJSONLFile(t, tracePath)
+	if len(entries) != 4 {
+		t.Fatalf("expected 4 entries, got %d", len(entries))
+	}
+
+	for _, entry := range entries {
+		if _, ok := entry["parameters"]; ok {
+			t.Errorf("entry %v: expected no \"parameters\" field in metadata-only mode", entry["type"])
+		}
+		if _, ok := entry["result"]; ok {
+			t.Errorf("entry %v: expected no \"result\" field in metadata-only mode", entry["type"])
+		}
+	}
+
+	toolCall := entries[0]
+	if toolCall["type"] != "tool_call" {
+		t.Errorf("type = %v, want \"tool_call\"", toolCall["type"])
+	}
+	if toolCall["name"] != "query_database" {
+		t.Errorf("name = %v, want \"query_database\"", toolCall["name"])
+	}
+	if toolCall["session_id"] != "sess-meta" {
+		t.Errorf("session_id = %v, want \"sess-meta\"", toolCall["session_id"])
+	}
+
+	toolResult := entries[1]
+	durationMs, ok := toolResult["duration_ms"].(float64)
+	if !ok || int(durationMs) != 42 {
+		t.Errorf("duration_ms = %v, want 42", toolResult["duration_ms"])
+	}
+}
+
+func TestMetadataOnlyFalsePreservesParametersAndResult(t *testing.T) {
+	ResetForTesting()
+
+	tracePath := filepath.Join(t.TempDir(), "trace.jsonl")
+	Initialize(tracePath, false)
+	defer Close()
+
+	LogToolCall("sess-full", "tok-hash", "req-full", "query_database", map[string]interface{}{
+		"query": "SELECT 1",
+	})
+
+	Close()
+
+	entries := parseJSONLFile(t, tracePath)
+	if len(entries) != 1 {
+		t.Fatalf("expected 1 entry, got %d", len(entries))
+	}
+	if _, ok := entries[0]["parameters"]; !ok {
+		t.Error("expected \"parameters\" field to be present when metadata-only is disabled")
 	}
 }
