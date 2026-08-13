@@ -11,6 +11,7 @@
 package tools
 
 import (
+	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -364,6 +365,72 @@ func TestStripTrailingSemicolons(t *testing.T) {
 			result := stripTrailingSemicolons(tt.input)
 			if result != tt.expected {
 				t.Errorf("got %q, want %q", result, tt.expected)
+			}
+		})
+	}
+}
+
+// TestQueryHasClause verifies that LIMIT/OFFSET detection only fires on a
+// real clause, not on the word "limit"/"offset" appearing in a string
+// literal, a quoted identifier, or a comment. See GitHub issue #260, where a
+// query mentioning "credit limit" was wrongly treated as already capped and
+// returned every row instead of the requested number.
+func TestQueryHasClause(t *testing.T) {
+	tests := []struct {
+		name           string
+		query          string
+		pattern        *regexp.Regexp
+		expectDetected bool
+	}{
+		{
+			name:           "real LIMIT clause",
+			query:          "SELECT * FROM t LIMIT 10",
+			pattern:        limitKeywordPattern,
+			expectDetected: true,
+		},
+		{
+			name:           "real OFFSET clause",
+			query:          "SELECT * FROM t OFFSET 10",
+			pattern:        offsetKeywordPattern,
+			expectDetected: true,
+		},
+		{
+			name:           "word in string literal is not a clause",
+			query:          "SELECT * FROM t WHERE note = 'credit limit exceeded'",
+			pattern:        limitKeywordPattern,
+			expectDetected: false,
+		},
+		{
+			name:           "word in quoted identifier is not a clause",
+			query:          `SELECT "credit limit" FROM t`,
+			pattern:        limitKeywordPattern,
+			expectDetected: false,
+		},
+		{
+			name:           "word in a comment is not a clause",
+			query:          "SELECT * FROM t -- check the credit limit\n",
+			pattern:        limitKeywordPattern,
+			expectDetected: false,
+		},
+		{
+			name:           "column named credit_limit is not a clause",
+			query:          "SELECT credit_limit FROM t",
+			pattern:        limitKeywordPattern,
+			expectDetected: false,
+		},
+		{
+			name:           "word in string literal is not an offset clause",
+			query:          "SELECT * FROM t WHERE note = 'apply the offset'",
+			pattern:        offsetKeywordPattern,
+			expectDetected: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := queryHasClause(tt.pattern, tt.query)
+			if got != tt.expectDetected {
+				t.Errorf("queryHasClause(%q) = %v, want %v", tt.query, got, tt.expectDetected)
 			}
 		})
 	}

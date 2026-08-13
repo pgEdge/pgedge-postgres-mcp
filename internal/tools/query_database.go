@@ -13,6 +13,7 @@ package tools
 import (
 	"context"
 	"fmt"
+	"regexp"
 	"strings"
 	"unicode"
 
@@ -21,6 +22,7 @@ import (
 	"pgedge-postgres-mcp/internal/database"
 	"pgedge-postgres-mcp/internal/logging"
 	"pgedge-postgres-mcp/internal/mcp"
+	"pgedge-postgres-mcp/internal/sqltext"
 )
 
 // stripTrailingSemicolons removes trailing semicolons and whitespace from
@@ -29,6 +31,23 @@ func stripTrailingSemicolons(query string) string {
 	return strings.TrimRightFunc(query, func(r rune) bool {
 		return r == ';' || unicode.IsSpace(r)
 	})
+}
+
+// limitKeywordPattern and offsetKeywordPattern match a LIMIT/OFFSET clause
+// keyword as a whole word, so that "credit_limit" or a similarly-named
+// column doesn't count as a clause.
+var limitKeywordPattern = regexp.MustCompile(`(?i)\bLIMIT\b`)
+var offsetKeywordPattern = regexp.MustCompile(`(?i)\bOFFSET\b`)
+
+// queryHasClause reports whether a SQL statement already contains a
+// top-level LIMIT or OFFSET clause. It checks the statement's residue, with
+// comments removed and string literals, dollar-quoted blocks and quoted
+// identifiers replaced by placeholders, so a caller can't defeat the safety
+// cap by mentioning "limit" or "offset" in a string literal, a quoted
+// column alias, or a comment (issue #260).
+func queryHasClause(pattern *regexp.Regexp, sqlQuery string) bool {
+	residue, _ := sqltext.Strip(sqlQuery)
+	return pattern.MatchString(residue)
 }
 
 // QueryDatabaseTool creates the query_database tool
@@ -234,10 +253,13 @@ To avoid rate limits (30,000 input tokens/minute):
 				return mcp.NewToolError("Query is empty")
 			}
 
-			// Track if query already had LIMIT/OFFSET clauses
+			// Track if query already had LIMIT/OFFSET clauses. Checked
+			// against the statement's residue rather than raw text, so a
+			// literal or identifier that merely mentions "limit"/"offset"
+			// doesn't defeat the safety cap (issue #260).
 			upperQuery := strings.ToUpper(strings.TrimSpace(sqlQuery))
-			hasExistingLimit := strings.Contains(upperQuery, "LIMIT")
-			hasExistingOffset := strings.Contains(upperQuery, "OFFSET")
+			hasExistingLimit := queryHasClause(limitKeywordPattern, sqlQuery)
+			hasExistingOffset := queryHasClause(offsetKeywordPattern, sqlQuery)
 
 			// Check if this is a SELECT query - only SELECT queries support LIMIT/OFFSET
 			// DDL (CREATE, ALTER, DROP) and DML (INSERT, UPDATE, DELETE) don't support LIMIT

@@ -123,6 +123,18 @@ and this project adheres to
   `text-embedding-3-small`, matching the built-in fallbacks Voyage,
   Gemini, and Ollama already had.
 
+- `query_database` now caps result sets correctly even when a query's
+  text merely mentions "limit" or "offset" without using them as a SQL
+  clause. It previously decided a query already capped its own results
+  by searching the raw statement text for those words, so a query
+  filtering on a phrase like "credit limit" was wrongly treated as
+  already limited and returned every matching row instead of the
+  requested number. Detection now runs against the statement with
+  comments and string, identifier and dollar-quoted literals removed,
+  and matches the keywords as whole words, so mentions inside data,
+  quoted identifiers or comments no longer suppress the safety cap.
+  (#260)
+
 - The CLI client no longer falls back to a model that cannot hold a
   conversation. When a saved model preference named something the provider
   no longer serves, and the provider's default was absent too, the client
