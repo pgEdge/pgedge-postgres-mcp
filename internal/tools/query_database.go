@@ -34,10 +34,13 @@ func stripTrailingSemicolons(query string) string {
 }
 
 // limitKeywordPattern and offsetKeywordPattern match a LIMIT/OFFSET clause
-// keyword as a whole word, so that "credit_limit" or a similarly-named
-// column doesn't count as a clause.
-var limitKeywordPattern = regexp.MustCompile(`(?i)\bLIMIT\b`)
-var offsetKeywordPattern = regexp.MustCompile(`(?i)\bOFFSET\b`)
+// keyword bounded by characters that can't appear in a PostgreSQL unquoted
+// identifier, so that "credit_limit" or "foo$limit" (the dollar sign is a
+// legal identifier character after the first position) doesn't count as a
+// clause. Go's regexp package has no lookaround, so the boundary characters
+// are captured alongside the keyword and excluded via the submatch index.
+var limitKeywordPattern = regexp.MustCompile(`(?i)(?:^|[^A-Z0-9_$])(LIMIT)(?:[^A-Z0-9_$]|$)`)
+var offsetKeywordPattern = regexp.MustCompile(`(?i)(?:^|[^A-Z0-9_$])(OFFSET)(?:[^A-Z0-9_$]|$)`)
 
 // queryHasClause reports whether a SQL statement already contains a
 // top-level LIMIT or OFFSET clause. It checks the statement's residue, with
@@ -52,8 +55,10 @@ var offsetKeywordPattern = regexp.MustCompile(`(?i)\bOFFSET\b`)
 // for a clause on the outer statement.
 func queryHasClause(pattern *regexp.Regexp, sqlQuery string) bool {
 	residue, _ := sqltext.Strip(sqlQuery)
-	for _, loc := range pattern.FindAllStringIndex(residue, -1) {
-		if parenDepthAt(residue, loc[0]) == 0 {
+	for _, loc := range pattern.FindAllStringSubmatchIndex(residue, -1) {
+		// loc[2] and loc[3] bound the captured keyword itself, excluding
+		// the boundary characters matched alongside it.
+		if parenDepthAt(residue, loc[2]) == 0 {
 			return true
 		}
 	}

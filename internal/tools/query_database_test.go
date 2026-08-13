@@ -370,87 +370,100 @@ func TestStripTrailingSemicolons(t *testing.T) {
 	}
 }
 
-// TestQueryHasClause verifies that LIMIT/OFFSET detection only fires on a
-// real clause, not on the word "limit"/"offset" appearing in a string
-// literal, a quoted identifier, or a comment. See GitHub issue #260, where a
-// query mentioning "credit limit" was wrongly treated as already capped and
+// queryHasClauseTests backs TestQueryHasClause. It verifies that LIMIT/OFFSET
+// detection only fires on a real clause, not on the word "limit"/"offset"
+// appearing in a string literal, a quoted identifier, a comment, or an
+// identifier that merely contains it. See GitHub issue #260, where a query
+// mentioning "credit limit" was wrongly treated as already capped and
 // returned every row instead of the requested number.
-func TestQueryHasClause(t *testing.T) {
-	tests := []struct {
-		name           string
-		query          string
-		pattern        *regexp.Regexp
-		expectDetected bool
-	}{
-		{
-			name:           "real LIMIT clause",
-			query:          "SELECT * FROM t LIMIT 10",
-			pattern:        limitKeywordPattern,
-			expectDetected: true,
-		},
-		{
-			name:           "real OFFSET clause",
-			query:          "SELECT * FROM t OFFSET 10",
-			pattern:        offsetKeywordPattern,
-			expectDetected: true,
-		},
-		{
-			name:           "word in string literal is not a clause",
-			query:          "SELECT * FROM t WHERE note = 'credit limit exceeded'",
-			pattern:        limitKeywordPattern,
-			expectDetected: false,
-		},
-		{
-			name:           "word in quoted identifier is not a clause",
-			query:          `SELECT "credit limit" FROM t`,
-			pattern:        limitKeywordPattern,
-			expectDetected: false,
-		},
-		{
-			name:           "word in a comment is not a clause",
-			query:          "SELECT * FROM t -- check the credit limit\n",
-			pattern:        limitKeywordPattern,
-			expectDetected: false,
-		},
-		{
-			name:           "column named credit_limit is not a clause",
-			query:          "SELECT credit_limit FROM t",
-			pattern:        limitKeywordPattern,
-			expectDetected: false,
-		},
-		{
-			name:           "word in string literal is not an offset clause",
-			query:          "SELECT * FROM t WHERE note = 'apply the offset'",
-			pattern:        offsetKeywordPattern,
-			expectDetected: false,
-		},
-		{
-			name:           "LIMIT inside a subquery is not an outer clause",
-			query:          "SELECT * FROM parent WHERE id IN (SELECT parent_id FROM child LIMIT 1)",
-			pattern:        limitKeywordPattern,
-			expectDetected: false,
-		},
-		{
-			name:           "OFFSET inside a subquery is not an outer clause",
-			query:          "SELECT * FROM parent WHERE id IN (SELECT parent_id FROM child OFFSET 1)",
-			pattern:        offsetKeywordPattern,
-			expectDetected: false,
-		},
-		{
-			name:           "LIMIT inside a CTE is not an outer clause",
-			query:          "WITH recent AS (SELECT * FROM t LIMIT 5) SELECT * FROM recent",
-			pattern:        limitKeywordPattern,
-			expectDetected: false,
-		},
-		{
-			name:           "real LIMIT clause after a subquery with its own LIMIT",
-			query:          "SELECT * FROM (SELECT * FROM t LIMIT 5) sub LIMIT 10",
-			pattern:        limitKeywordPattern,
-			expectDetected: true,
-		},
-	}
+var queryHasClauseTests = []struct {
+	name           string
+	query          string
+	pattern        *regexp.Regexp
+	expectDetected bool
+}{
+	{
+		name:           "real LIMIT clause",
+		query:          "SELECT * FROM t LIMIT 10",
+		pattern:        limitKeywordPattern,
+		expectDetected: true,
+	},
+	{
+		name:           "real OFFSET clause",
+		query:          "SELECT * FROM t OFFSET 10",
+		pattern:        offsetKeywordPattern,
+		expectDetected: true,
+	},
+	{
+		name:           "word in string literal is not a clause",
+		query:          "SELECT * FROM t WHERE note = 'credit limit exceeded'",
+		pattern:        limitKeywordPattern,
+		expectDetected: false,
+	},
+	{
+		name:           "word in quoted identifier is not a clause",
+		query:          `SELECT "credit limit" FROM t`,
+		pattern:        limitKeywordPattern,
+		expectDetected: false,
+	},
+	{
+		name:           "word in a comment is not a clause",
+		query:          "SELECT * FROM t -- check the credit limit\n",
+		pattern:        limitKeywordPattern,
+		expectDetected: false,
+	},
+	{
+		name:           "column named credit_limit is not a clause",
+		query:          "SELECT credit_limit FROM t",
+		pattern:        limitKeywordPattern,
+		expectDetected: false,
+	},
+	{
+		name:           "word in string literal is not an offset clause",
+		query:          "SELECT * FROM t WHERE note = 'apply the offset'",
+		pattern:        offsetKeywordPattern,
+		expectDetected: false,
+	},
+	{
+		name:           "LIMIT inside a subquery is not an outer clause",
+		query:          "SELECT * FROM parent WHERE id IN (SELECT parent_id FROM child LIMIT 1)",
+		pattern:        limitKeywordPattern,
+		expectDetected: false,
+	},
+	{
+		name:           "OFFSET inside a subquery is not an outer clause",
+		query:          "SELECT * FROM parent WHERE id IN (SELECT parent_id FROM child OFFSET 1)",
+		pattern:        offsetKeywordPattern,
+		expectDetected: false,
+	},
+	{
+		name:           "LIMIT inside a CTE is not an outer clause",
+		query:          "WITH recent AS (SELECT * FROM t LIMIT 5) SELECT * FROM recent",
+		pattern:        limitKeywordPattern,
+		expectDetected: false,
+	},
+	{
+		name:           "real LIMIT clause after a subquery with its own LIMIT",
+		query:          "SELECT * FROM (SELECT * FROM t LIMIT 5) sub LIMIT 10",
+		pattern:        limitKeywordPattern,
+		expectDetected: true,
+	},
+	{
+		name:           "dollar-sign identifier ending in limit is not a clause",
+		query:          "SELECT foo$limit FROM t",
+		pattern:        limitKeywordPattern,
+		expectDetected: false,
+	},
+	{
+		name:           "dollar-sign identifier ending in offset is not a clause",
+		query:          "SELECT foo$offset FROM t",
+		pattern:        offsetKeywordPattern,
+		expectDetected: false,
+	},
+}
 
-	for _, tt := range tests {
+func TestQueryHasClause(t *testing.T) {
+	for _, tt := range queryHasClauseTests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := queryHasClause(tt.pattern, tt.query)
 			if got != tt.expectDetected {
