@@ -519,6 +519,14 @@ and this project adheres to
   checks the value is at least as long as the two delimiters combined
   before matching against them.
 
+- The Docker entrypoint's multi-database deployment mode wrote its
+  generated `postgres-mcp.yaml`, plain-text database passwords included,
+  with the process's default umask, leaving it group- and
+  world-readable. The single-database mode, which passes the password as
+  a command-line argument, was unaffected. `init-server.sh` now creates
+  the file with mode `600` before writing to it, so the password is
+  never briefly readable beyond the owning user. (#261)
+
 ### Fixed
 
 - `resources/read` on an unknown URI now returns a real JSON-RPC error
