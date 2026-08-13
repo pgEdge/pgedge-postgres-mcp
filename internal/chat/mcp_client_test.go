@@ -363,65 +363,7 @@ func TestStdioClient_Initialize(t *testing.T) {
 
 	fakeServerErr := make(chan error, 1)
 	go func() {
-		reqScanner := bufio.NewScanner(clientToServerR)
-		reqScanner.Buffer(make([]byte, 0, 64*1024), 1024*1024)
-		if !reqScanner.Scan() {
-			fakeServerErr <- fmt.Errorf("no request received: %v", reqScanner.Err())
-			return
-		}
-
-		var req mcp.JSONRPCRequest
-		if err := json.Unmarshal(reqScanner.Bytes(), &req); err != nil {
-			fakeServerErr <- err
-			return
-		}
-		if req.Method != "server/discover" {
-			fakeServerErr <- fmt.Errorf("expected method 'server/discover', got %q", req.Method)
-			return
-		}
-
-		paramsMap, ok := req.Params.(map[string]interface{})
-		if !ok {
-			fakeServerErr <- fmt.Errorf("expected params to be a map, got %T", req.Params)
-			return
-		}
-		meta, ok := paramsMap["_meta"].(map[string]interface{})
-		if !ok {
-			fakeServerErr <- fmt.Errorf("expected _meta in params, got %v", paramsMap)
-			return
-		}
-		if meta["io.modelcontextprotocol/protocolVersion"] != mcp.ModernProtocolVersion {
-			fakeServerErr <- fmt.Errorf("unexpected protocolVersion: %v",
-				meta["io.modelcontextprotocol/protocolVersion"])
-			return
-		}
-		if _, ok := meta["io.modelcontextprotocol/clientCapabilities"]; !ok {
-			fakeServerErr <- fmt.Errorf("expected clientCapabilities in _meta, got %v", meta)
-			return
-		}
-
-		resp := map[string]interface{}{
-			"jsonrpc": "2.0",
-			"id":      req.ID,
-			"result": map[string]interface{}{
-				"_meta": map[string]interface{}{
-					"io.modelcontextprotocol/serverInfo": map[string]interface{}{
-						"name":    "test-server",
-						"version": "1.0.0",
-					},
-				},
-			},
-		}
-		respData, err := json.Marshal(resp)
-		if err != nil {
-			fakeServerErr <- err
-			return
-		}
-		if _, err := serverToClientW.Write(append(respData, '\n')); err != nil {
-			fakeServerErr <- err
-			return
-		}
-		fakeServerErr <- nil
+		fakeServerErr <- serveFakeStdioDiscover(clientToServerR, serverToClientW)
 	}()
 
 	ctx := context.Background()
@@ -437,4 +379,61 @@ func TestStdioClient_Initialize(t *testing.T) {
 	if name != "test-server" || version != "1.0.0" {
 		t.Errorf("Expected server info 'test-server'/'1.0.0', got '%s'/'%s'", name, version)
 	}
+}
+
+// serveFakeStdioDiscover reads one server/discover request from r, verifies
+// it carries the modern _meta envelope, and writes a matching DiscoverResult
+// response to w. Extracted from TestStdioClient_Initialize so that test's
+// setup stays a single, simple goroutine launch.
+func serveFakeStdioDiscover(r io.Reader, w io.Writer) error {
+	reqScanner := bufio.NewScanner(r)
+	reqScanner.Buffer(make([]byte, 0, 64*1024), 1024*1024)
+	if !reqScanner.Scan() {
+		return fmt.Errorf("no request received: %v", reqScanner.Err())
+	}
+
+	var req mcp.JSONRPCRequest
+	if err := json.Unmarshal(reqScanner.Bytes(), &req); err != nil {
+		return err
+	}
+	if req.Method != "server/discover" {
+		return fmt.Errorf("expected method 'server/discover', got %q", req.Method)
+	}
+
+	paramsMap, ok := req.Params.(map[string]interface{})
+	if !ok {
+		return fmt.Errorf("expected params to be a map, got %T", req.Params)
+	}
+	meta, ok := paramsMap["_meta"].(map[string]interface{})
+	if !ok {
+		return fmt.Errorf("expected _meta in params, got %v", paramsMap)
+	}
+	if meta["io.modelcontextprotocol/protocolVersion"] != mcp.ModernProtocolVersion {
+		return fmt.Errorf("unexpected protocolVersion: %v",
+			meta["io.modelcontextprotocol/protocolVersion"])
+	}
+	if _, ok := meta["io.modelcontextprotocol/clientCapabilities"]; !ok {
+		return fmt.Errorf("expected clientCapabilities in _meta, got %v", meta)
+	}
+
+	resp := map[string]interface{}{
+		"jsonrpc": "2.0",
+		"id":      req.ID,
+		"result": map[string]interface{}{
+			"_meta": map[string]interface{}{
+				"io.modelcontextprotocol/serverInfo": map[string]interface{}{
+					"name":    "test-server",
+					"version": "1.0.0",
+				},
+			},
+		},
+	}
+	respData, err := json.Marshal(resp)
+	if err != nil {
+		return err
+	}
+	if _, err := w.Write(append(respData, '\n')); err != nil {
+		return err
+	}
+	return nil
 }

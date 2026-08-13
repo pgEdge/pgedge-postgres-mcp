@@ -39,6 +39,13 @@ func TestClientModernProtocol(t *testing.T) {
 	client := chat.NewHTTPClient(server.baseURL+"/mcp/v1", "")
 	ctx := context.Background()
 
+	checkModernInitialize(t, ctx, client)
+	checkModernListTools(t, ctx, client)
+	checkModernReadResource(t, ctx, client)
+	checkModernGetPrompt(t, ctx, client)
+}
+
+func checkModernInitialize(t *testing.T, ctx context.Context, client chat.MCPClient) {
 	if err := client.Initialize(ctx); err != nil {
 		t.Fatalf("Initialize failed: %v", err)
 	}
@@ -47,7 +54,9 @@ func TestClientModernProtocol(t *testing.T) {
 	if name == "" || version == "" {
 		t.Errorf("GetServerInfo() = (%q, %q), want non-empty name and version", name, version)
 	}
+}
 
+func checkModernListTools(t *testing.T, ctx context.Context, client chat.MCPClient) {
 	tools, err := client.ListTools(ctx)
 	if err != nil {
 		t.Fatalf("ListTools failed: %v", err)
@@ -55,35 +64,44 @@ func TestClientModernProtocol(t *testing.T) {
 	if len(tools) == 0 {
 		t.Error("expected at least one tool")
 	}
+}
 
+// checkModernReadResource exercises the Mcp-Name header path for
+// resources/read against the real server -- no existing mock-based test
+// does this.
+func checkModernReadResource(t *testing.T, ctx context.Context, client chat.MCPClient) {
 	resources, err := client.ListResources(ctx)
 	if err != nil {
 		t.Fatalf("ListResources failed: %v", err)
 	}
-	if len(resources) > 0 {
-		// Exercises the Mcp-Name header path for resources/read against
-		// the real server -- no existing test does this.
-		if _, err := client.ReadResource(ctx, resources[0].URI); err != nil {
-			t.Errorf("ReadResource(%q) failed: %v", resources[0].URI, err)
-		}
+	if len(resources) == 0 {
+		return
 	}
+	if _, err := client.ReadResource(ctx, resources[0].URI); err != nil {
+		t.Errorf("ReadResource(%q) failed: %v", resources[0].URI, err)
+	}
+}
 
+// checkModernGetPrompt exercises the Mcp-Name header path for prompts/get.
+// Real prompts may require arguments this test doesn't supply, so it only
+// fails on a header/protocol-mismatch error -- any other error (e.g. a
+// missing required argument) is not this test's concern.
+func checkModernGetPrompt(t *testing.T, ctx context.Context, client chat.MCPClient) {
 	prompts, err := client.ListPrompts(ctx)
 	if err != nil {
 		t.Fatalf("ListPrompts failed: %v", err)
 	}
-	if len(prompts) > 0 {
-		// GetPrompt exercises the Mcp-Name header path for prompts/get.
-		// Real prompts may require arguments this test doesn't supply,
-		// so only fail on a header/protocol-mismatch error -- any other
-		// error (e.g. a missing required argument) is not this test's
-		// concern.
-		if _, err := client.GetPrompt(ctx, prompts[0].Name, map[string]string{}); err != nil {
-			msg := err.Error()
-			if strings.Contains(msg, "RPC error -32020") || strings.Contains(msg, "HeaderMismatch") ||
-				strings.Contains(msg, "RPC error -32022") || strings.Contains(msg, "UnsupportedProtocolVersion") {
-				t.Errorf("GetPrompt(%q) failed with a header/protocol-mismatch error: %v", prompts[0].Name, err)
-			}
-		}
+	if len(prompts) == 0 {
+		return
+	}
+
+	_, err = client.GetPrompt(ctx, prompts[0].Name, map[string]string{})
+	if err == nil {
+		return
+	}
+	msg := err.Error()
+	if strings.Contains(msg, "RPC error -32020") || strings.Contains(msg, "HeaderMismatch") ||
+		strings.Contains(msg, "RPC error -32022") || strings.Contains(msg, "UnsupportedProtocolVersion") {
+		t.Errorf("GetPrompt(%q) failed with a header/protocol-mismatch error: %v", prompts[0].Name, err)
 	}
 }
