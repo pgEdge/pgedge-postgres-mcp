@@ -295,25 +295,36 @@ func TestEncodeHeaderValue(t *testing.T) {
 		})
 	}
 
-	t.Run("non-ASCII value is base64-wrapped and round-trips", func(t *testing.T) {
-		const original = "tést_tool"
-		encoded := encodeHeaderValue(original)
+	escapedCases := []struct {
+		name     string
+		original string
+	}{
+		{"non-ASCII value is base64-wrapped and round-trips", "tést_tool"},
+		{"leading whitespace is base64-wrapped and round-trips", " leading_space"},
+		{"trailing whitespace is base64-wrapped and round-trips", "trailing_space "},
+		{"value already shaped like the base64 sentinel is re-wrapped and round-trips", "=?base64?aGk=?="},
+	}
 
-		const prefix, suffix = "=?base64?", "?="
-		if len(encoded) < len(prefix)+len(suffix) ||
-			encoded[:len(prefix)] != prefix || encoded[len(encoded)-len(suffix):] != suffix {
-			t.Fatalf("expected sentinel-wrapped value, got %q", encoded)
-		}
+	for _, tc := range escapedCases {
+		t.Run(tc.name, func(t *testing.T) {
+			encoded := encodeHeaderValue(tc.original)
 
-		b64 := encoded[len(prefix) : len(encoded)-len(suffix)]
-		decoded, err := base64.StdEncoding.DecodeString(b64)
-		if err != nil {
-			t.Fatalf("base64 decode failed: %v", err)
-		}
-		if string(decoded) != original {
-			t.Errorf("round-trip mismatch: got %q, want %q", string(decoded), original)
-		}
-	})
+			const prefix, suffix = "=?base64?", "?="
+			if len(encoded) < len(prefix)+len(suffix) ||
+				encoded[:len(prefix)] != prefix || encoded[len(encoded)-len(suffix):] != suffix {
+				t.Fatalf("expected sentinel-wrapped value, got %q", encoded)
+			}
+
+			b64 := encoded[len(prefix) : len(encoded)-len(suffix)]
+			decoded, err := base64.StdEncoding.DecodeString(b64)
+			if err != nil {
+				t.Fatalf("base64 decode failed: %v", err)
+			}
+			if string(decoded) != tc.original {
+				t.Errorf("round-trip mismatch: got %q, want %q", string(decoded), tc.original)
+			}
+		})
+	}
 }
 
 func TestNameOrURIFor(t *testing.T) {

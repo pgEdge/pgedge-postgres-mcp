@@ -11,7 +11,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, waitFor } from '@testing-library/react';
 import { AuthProvider, useAuth } from '../AuthContext';
-import { mockInitialize, mockListTools, mockUserInfo, mockAuthenticateSuccess, mockAuthenticateFailure } from '../../test-utils/mcp-mocks';
+import { mockDiscover, mockListTools, mockUserInfo, mockAuthenticateSuccess, mockAuthenticateFailure } from '../../test-utils/mcp-mocks';
 
 describe('AuthContext', () => {
   beforeEach(() => {
@@ -44,7 +44,7 @@ describe('AuthContext', () => {
 
     // Mock the sequence of calls that checkAuth makes:
     // 1. initialize
-    global.fetch.mockResolvedValueOnce(mockInitialize(1));
+    global.fetch.mockResolvedValueOnce(mockDiscover(1));
     // 2. listTools
     global.fetch.mockResolvedValueOnce(mockListTools(2));
     // 3. /api/user/info
@@ -114,7 +114,7 @@ describe('AuthContext', () => {
     localStorage.setItem('mcp-session-token', 'test-token');
 
     // Mock the sequence of calls that checkAuth makes:
-    global.fetch.mockResolvedValueOnce(mockInitialize(1));
+    global.fetch.mockResolvedValueOnce(mockDiscover(1));
     global.fetch.mockResolvedValueOnce(mockListTools(2));
     global.fetch.mockResolvedValueOnce(mockUserInfo('testuser'));
 

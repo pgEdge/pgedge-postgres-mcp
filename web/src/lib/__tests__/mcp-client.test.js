@@ -113,4 +113,22 @@ describe('MCPClient modern protocol', () => {
         );
         expect(decoded).toBe('tést_tool');
     });
+
+    it.each([
+        ['leading whitespace', ' leading_space'],
+        ['trailing whitespace', 'trailing_space '],
+        ['a value already shaped like the base64 sentinel', '=?base64?aGk=?=']
+    ])('base64-wraps a name with %s and round-trips', async (_desc, original) => {
+        const client = new MCPClient('/mcp/v1');
+        await client.callTool(original, {});
+
+        const header = calls[0].options.headers['Mcp-Name'];
+        expect(header).toMatch(/^=\?base64\?.+\?=$/);
+
+        const encoded = header.slice('=?base64?'.length, -'?='.length);
+        const decoded = new TextDecoder().decode(
+            Uint8Array.from(atob(encoded), (c) => c.charCodeAt(0))
+        );
+        expect(decoded).toBe(original);
+    });
 });

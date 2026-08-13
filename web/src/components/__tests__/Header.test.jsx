@@ -13,7 +13,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import Header from '../Header';
 import { AuthProvider } from '../../contexts/AuthContext';
-import { mockInitialize, mockListTools, mockUserInfo } from '../../test-utils/mcp-mocks';
+import { mockDiscover, mockListTools, mockUserInfo } from '../../test-utils/mcp-mocks';
 
 // Mock the logo imports
 vi.mock('../../assets/images/logo-light.png', () => ({
@@ -42,7 +42,7 @@ describe('Header Component', () => {
         localStorage.setItem('mcp-session-token', 'test-token');
 
         // Mock the sequence of calls that checkAuth makes:
-        global.fetch.mockResolvedValueOnce(mockInitialize(1));
+        global.fetch.mockResolvedValueOnce(mockDiscover(1));
         global.fetch.mockResolvedValueOnce(mockListTools(2));
         global.fetch.mockResolvedValueOnce(mockUserInfo(user.username));
 
@@ -71,7 +71,7 @@ describe('Header Component', () => {
         });
 
         // Re-render with dark mode (token still in localStorage, need to mock auth check again)
-        global.fetch.mockResolvedValueOnce(mockInitialize(3));
+        global.fetch.mockResolvedValueOnce(mockDiscover(3));
         global.fetch.mockResolvedValueOnce(mockListTools(4));
         global.fetch.mockResolvedValueOnce(mockUserInfo('testuser'));
 
@@ -111,7 +111,7 @@ describe('Header Component', () => {
         });
 
         // Re-render with dark mode (token still in localStorage, need to mock auth check again)
-        global.fetch.mockResolvedValueOnce(mockInitialize(3));
+        global.fetch.mockResolvedValueOnce(mockDiscover(3));
         global.fetch.mockResolvedValueOnce(mockListTools(4));
         global.fetch.mockResolvedValueOnce(mockUserInfo('testuser'));
 

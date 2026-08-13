@@ -10,8 +10,7 @@
 
 // Web client version, injected from web/package.json by the define in
 // vite.config.js and vitest.config.js. It is deliberately not a literal
-// here: this constant is shown in the help panel and sent as
-// clientInfo.version in the MCP initialize handshake, and as a literal it
+// here: this constant is shown in the help panel, and as a literal it
 // sat at 1.0.0-alpha5 through five subsequent releases because nothing
 // tied it to anything that a release already had to touch.
 export const CLIENT_VERSION = __APP_VERSION__;
@@ -48,12 +47,35 @@ function nameOrURI(params) {
     return params.name || params.uri || '';
 }
 
+// needsEscaping mirrors needsEscaping in internal/chat/mcp_client.go: it
+// reports whether value cannot round-trip safely as a raw HTTP header
+// value and must be base64-wrapped instead: any non-printable-ASCII
+// character, leading/trailing whitespace (stripped by HTTP header
+// parsing on both ends), or a value that already looks like the base64
+// sentinel (which decodeHeaderValue in internal/mcp/modern.go would
+// otherwise wrongly unwrap).
+function needsEscaping(value) {
+    if (!/^[\x20-\x7E]*$/.test(value)) {
+        return true;
+    }
+    if (value !== value.trim()) {
+        return true;
+    }
+    const prefix = '=?base64?';
+    const suffix = '?=';
+    if (value.length >= prefix.length + suffix.length &&
+        value.startsWith(prefix) && value.endsWith(suffix)) {
+        return true;
+    }
+    return false;
+}
+
 // encodeMcpNameHeader mirrors decodeHeaderValue in internal/mcp/modern.go:
 // a value that round-trips safely as a raw HTTP header value is sent
-// as-is; anything else (non-ASCII characters, control characters) is
-// base64-encoded and wrapped in the spec's sentinel.
+// as-is; anything else is base64-encoded and wrapped in the spec's
+// sentinel.
 function encodeMcpNameHeader(value) {
-    if (/^[\x20-\x7E]*$/.test(value)) {
+    if (!needsEscaping(value)) {
         return value;
     }
     const bytes = new TextEncoder().encode(value);
@@ -98,6 +120,7 @@ export class MCPClient {
 
         const headers = {
             'Content-Type': 'application/json',
+            'Accept': 'application/json, text/event-stream',
             'MCP-Protocol-Version': MODERN_PROTOCOL_VERSION,
             'Mcp-Method': method
         };

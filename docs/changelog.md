@@ -73,6 +73,13 @@ and this project adheres to
   always been supported; showing only `sslmode` left client certificate
   authentication undiscoverable for anyone working from the examples.
 
+- The web client and the CLI's HTTP and stdio clients now speak the MCP
+  2026-07-28 protocol exclusively, replacing the legacy `initialize`
+  handshake with the stateless `server/discover` call and the
+  per-request `_meta` envelope on every subsequent request. There is no
+  legacy fallback, so a CLI or web client from this release requires a
+  server from this release or later.
+
 ### Changed
 
 - Dependencies across every ecosystem this project uses are now on their

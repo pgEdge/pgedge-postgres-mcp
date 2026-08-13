@@ -21,6 +21,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"strings"
 	"sync"
 
 	"pgedge-postgres-mcp/internal/mcp"
@@ -130,16 +131,35 @@ func nameOrURIFor(params interface{}) string {
 
 // encodeHeaderValue is the encode-side mirror of decodeHeaderValue in
 // internal/mcp/modern.go: a value that round-trips safely as a raw
-// HTTP header value is returned as-is; anything else (non-ASCII or
-// control characters) is base64-encoded and wrapped in the spec's
-// "=?base64?<encoded>?=" sentinel.
+// HTTP header value is returned as-is; anything else is base64-encoded
+// and wrapped in the spec's "=?base64?<encoded>?=" sentinel.
 func encodeHeaderValue(v string) string {
-	for i := 0; i < len(v); i++ {
-		if v[i] < 0x20 || v[i] > 0x7E {
-			return "=?base64?" + base64.StdEncoding.EncodeToString([]byte(v)) + "?="
-		}
+	if needsEscaping(v) {
+		return "=?base64?" + base64.StdEncoding.EncodeToString([]byte(v)) + "?="
 	}
 	return v
+}
+
+// needsEscaping reports whether v cannot round-trip safely as a raw HTTP
+// header value and must be base64-wrapped instead: any non-printable-ASCII
+// byte, leading/trailing whitespace (stripped by HTTP header parsing on
+// both ends), or a value that already looks like the base64 sentinel
+// (which decodeHeaderValue in internal/mcp/modern.go would otherwise
+// wrongly unwrap).
+func needsEscaping(v string) bool {
+	for i := 0; i < len(v); i++ {
+		if v[i] < 0x20 || v[i] > 0x7E {
+			return true
+		}
+	}
+	if strings.TrimSpace(v) != v {
+		return true
+	}
+	const prefix, suffix = "=?base64?", "?="
+	if len(v) >= len(prefix)+len(suffix) && strings.HasPrefix(v, prefix) && strings.HasSuffix(v, suffix) {
+		return true
+	}
+	return false
 }
 
 // stdioClient implements MCPClient for stdio communication
@@ -502,6 +522,7 @@ func (c *httpClient) sendRequest(ctx context.Context, method string, params inte
 	}
 
 	httpReq.Header.Set("Content-Type", "application/json")
+	httpReq.Header.Set("Accept", "application/json, text/event-stream")
 	httpReq.Header.Set("MCP-Protocol-Version", mcp.ModernProtocolVersion)
 	httpReq.Header.Set("Mcp-Method", method)
 	if methodsRequiringMcpName[method] {
