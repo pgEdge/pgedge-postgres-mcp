@@ -46,11 +46,13 @@ func TestHTTPClient_Initialize(t *testing.T) {
 
 		paramsMap, ok := req.Params.(map[string]interface{})
 		if !ok {
-			t.Fatalf("Expected params to be a map, got %T", req.Params)
+			t.Errorf("Expected params to be a map, got %T", req.Params)
+			return
 		}
 		meta, ok := paramsMap["_meta"].(map[string]interface{})
 		if !ok {
-			t.Fatalf("Expected _meta in params, got %v", paramsMap)
+			t.Errorf("Expected _meta in params, got %v", paramsMap)
+			return
 		}
 		if meta["io.modelcontextprotocol/protocolVersion"] != mcp.ModernProtocolVersion {
 			t.Errorf("Expected protocolVersion '%s' in _meta, got %v",

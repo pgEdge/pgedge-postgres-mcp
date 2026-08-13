@@ -43,7 +43,7 @@ describe('AuthContext', () => {
     localStorage.setItem('mcp-session-token', 'test-token');
 
     // Mock the sequence of calls that checkAuth makes:
-    // 1. initialize
+    // 1. server/discover
     global.fetch.mockResolvedValueOnce(mockDiscover(1));
     // 2. listTools
     global.fetch.mockResolvedValueOnce(mockListTools(2));
