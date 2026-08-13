@@ -63,19 +63,21 @@ export function createHTTPError(status, text) {
 }
 
 /**
- * Create a mock for initialize method
+ * Create a mock for the server/discover method (the modern,
+ * 2026-07-28 replacement for the legacy initialize handshake)
  * @param {number} id - Request ID
  * @returns {object} - Mock fetch response
  */
 export function mockInitialize(id = 1) {
     return createMCPResponse(id, {
-        protocolVersion: '2024-11-05',
+        _meta: {
+            'io.modelcontextprotocol/serverInfo': {
+                name: 'pgedge-postgres-mcp',
+                version: '1.0.0-alpha2'
+            }
+        },
         capabilities: {
             tools: {}
-        },
-        serverInfo: {
-            name: 'pgedge-postgres-mcp',
-            version: '1.0.0-alpha2'
         }
     });
 }
