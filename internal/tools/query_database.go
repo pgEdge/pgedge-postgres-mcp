@@ -45,9 +45,36 @@ var offsetKeywordPattern = regexp.MustCompile(`(?i)\bOFFSET\b`)
 // identifiers replaced by placeholders, so a caller can't defeat the safety
 // cap by mentioning "limit" or "offset" in a string literal, a quoted
 // column alias, or a comment (issue #260).
+//
+// A match only counts at parenthesis depth zero, so a LIMIT/OFFSET that
+// belongs to a subquery or CTE, such as
+// "SELECT * FROM t WHERE id IN (SELECT id FROM u LIMIT 1)", isn't mistaken
+// for a clause on the outer statement.
 func queryHasClause(pattern *regexp.Regexp, sqlQuery string) bool {
 	residue, _ := sqltext.Strip(sqlQuery)
-	return pattern.MatchString(residue)
+	for _, loc := range pattern.FindAllStringIndex(residue, -1) {
+		if parenDepthAt(residue, loc[0]) == 0 {
+			return true
+		}
+	}
+	return false
+}
+
+// parenDepthAt returns the parenthesis nesting depth at byte offset pos in
+// s, counting unmatched '(' seen before it.
+func parenDepthAt(s string, pos int) int {
+	depth := 0
+	for i := 0; i < pos; i++ {
+		switch s[i] {
+		case '(':
+			depth++
+		case ')':
+			if depth > 0 {
+				depth--
+			}
+		}
+	}
+	return depth
 }
 
 // QueryDatabaseTool creates the query_database tool

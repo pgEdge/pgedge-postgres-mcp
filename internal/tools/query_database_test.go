@@ -424,6 +424,30 @@ func TestQueryHasClause(t *testing.T) {
 			pattern:        offsetKeywordPattern,
 			expectDetected: false,
 		},
+		{
+			name:           "LIMIT inside a subquery is not an outer clause",
+			query:          "SELECT * FROM parent WHERE id IN (SELECT parent_id FROM child LIMIT 1)",
+			pattern:        limitKeywordPattern,
+			expectDetected: false,
+		},
+		{
+			name:           "OFFSET inside a subquery is not an outer clause",
+			query:          "SELECT * FROM parent WHERE id IN (SELECT parent_id FROM child OFFSET 1)",
+			pattern:        offsetKeywordPattern,
+			expectDetected: false,
+		},
+		{
+			name:           "LIMIT inside a CTE is not an outer clause",
+			query:          "WITH recent AS (SELECT * FROM t LIMIT 5) SELECT * FROM recent",
+			pattern:        limitKeywordPattern,
+			expectDetected: false,
+		},
+		{
+			name:           "real LIMIT clause after a subquery with its own LIMIT",
+			query:          "SELECT * FROM (SELECT * FROM t LIMIT 5) sub LIMIT 10",
+			pattern:        limitKeywordPattern,
+			expectDetected: true,
+		},
 	}
 
 	for _, tt := range tests {
