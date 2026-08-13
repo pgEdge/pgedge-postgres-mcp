@@ -860,6 +860,20 @@ func TestSanitizationInLogToolCall(t *testing.T) {
 	}
 }
 
+// assertNoParametersOrResult fails the test if any entry carries a
+// "parameters" or "result" field, as metadata-only mode requires.
+func assertNoParametersOrResult(t *testing.T, entries []map[string]interface{}) {
+	t.Helper()
+	for _, entry := range entries {
+		if _, ok := entry["parameters"]; ok {
+			t.Errorf("entry %v: expected no \"parameters\" field in metadata-only mode", entry["type"])
+		}
+		if _, ok := entry["result"]; ok {
+			t.Errorf("entry %v: expected no \"result\" field in metadata-only mode", entry["type"])
+		}
+	}
+}
+
 func TestMetadataOnlyOmitsParametersAndResult(t *testing.T) {
 	ResetForTesting()
 
@@ -883,14 +897,7 @@ func TestMetadataOnlyOmitsParametersAndResult(t *testing.T) {
 		t.Fatalf("expected 4 entries, got %d", len(entries))
 	}
 
-	for _, entry := range entries {
-		if _, ok := entry["parameters"]; ok {
-			t.Errorf("entry %v: expected no \"parameters\" field in metadata-only mode", entry["type"])
-		}
-		if _, ok := entry["result"]; ok {
-			t.Errorf("entry %v: expected no \"result\" field in metadata-only mode", entry["type"])
-		}
-	}
+	assertNoParametersOrResult(t, entries)
 
 	toolCall := entries[0]
 	if toolCall["type"] != "tool_call" {
