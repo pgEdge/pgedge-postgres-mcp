@@ -131,6 +131,16 @@ and this project adheres to
   looks conversational. A model named on the command line, or held as a
   saved preference the provider still serves, is used as before. (#255)
 
+- `select_database_connection` now connects to the target database as
+  part of the switch, instead of only updating which database is
+  current and leaving the connection for whatever tool call happened to
+  use it next. Previously, `list_database_connections` kept reporting a
+  freshly switched-to database as `unavailable` until an unrelated query
+  connected it, contradicting the success response from the switch
+  itself; a switch to an unreachable database also reported success and
+  only surfaced the failure on first use. Switching now fails immediately
+  with the connection error if the database cannot be reached. (#256)
+
 - A configuration file that sets an LLM or embedding option without also
   naming the provider, or enabling the section, is no longer discarded.
   The merge tested only those two fields, so a file that configured just a

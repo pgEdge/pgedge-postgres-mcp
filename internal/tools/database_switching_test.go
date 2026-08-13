@@ -13,12 +13,69 @@ package tools
 import (
 	"context"
 	"encoding/json"
+	"net/url"
+	"os"
+	"strconv"
 	"strings"
 	"testing"
 
 	"pgedge-postgres-mcp/internal/config"
 	"pgedge-postgres-mcp/internal/database"
 )
+
+// testDBConfig parses TEST_PGEDGE_POSTGRES_CONNECTION_STRING into a
+// NamedDatabaseConfig for tests that need a genuinely reachable database,
+// skipping the test if the env var isn't set. Mirrors the helper of the
+// same name in internal/database/client_manager_test.go.
+func testDBConfig(t *testing.T) *config.NamedDatabaseConfig {
+	t.Helper()
+	connStr := os.Getenv("TEST_PGEDGE_POSTGRES_CONNECTION_STRING")
+	if connStr == "" {
+		t.Skip("TEST_PGEDGE_POSTGRES_CONNECTION_STRING not set, skipping live database test")
+	}
+
+	u, err := url.Parse(connStr)
+	if err != nil {
+		t.Fatalf("Failed to parse TEST_PGEDGE_POSTGRES_CONNECTION_STRING: %v", err)
+	}
+
+	host := u.Hostname()
+	if host == "" {
+		host = "localhost"
+	}
+	port := 5432
+	if u.Port() != "" {
+		p, err := strconv.Atoi(u.Port())
+		if err != nil {
+			t.Fatalf("invalid port %q in TEST_PGEDGE_POSTGRES_CONNECTION_STRING: %v", u.Port(), err)
+		}
+		port = p
+	}
+	dbName := "postgres"
+	if len(u.Path) > 1 {
+		dbName = u.Path[1:]
+	}
+	user := ""
+	password := ""
+	if u.User != nil {
+		user = u.User.Username()
+		password, _ = u.User.Password()
+	}
+	sslMode := u.Query().Get("sslmode")
+
+	trueVal := true
+	return &config.NamedDatabaseConfig{
+		Name:              "testdb",
+		Host:              host,
+		Port:              port,
+		Database:          dbName,
+		User:              user,
+		Password:          password,
+		SSLMode:           sslMode,
+		AllowWrites:       true,
+		AllowLLMSwitching: &trueVal,
+	}
+}
 
 // Helper to create a test config with databases
 func createTestDatabaseConfigs() []config.NamedDatabaseConfig {
@@ -196,9 +253,18 @@ func TestListDatabaseConnectionsTool_EmptyConfig(t *testing.T) {
 	}
 }
 
-// TestSelectDatabaseConnectionTool_Success tests successful database switching
+// TestSelectDatabaseConnectionTool_Success tests successful database
+// switching against a live database, verifying both the response fields
+// and that the connection is actually established: after a successful
+// switch, list_database_connections must report the database as
+// "connected" without any other tool having run first. Regression test
+// for issue #256, where the switch only updated the current-database
+// pointer and left the target "unavailable" until an unrelated query
+// happened to connect it.
 func TestSelectDatabaseConnectionTool_Success(t *testing.T) {
-	databases := createTestDatabaseConfigs()
+	dbConfig := testDBConfig(t)
+
+	databases := []config.NamedDatabaseConfig{*dbConfig}
 	cfg := &config.Config{Databases: databases}
 	clientManager := database.NewClientManager(databases)
 	defer clientManager.CloseAll()
@@ -212,7 +278,7 @@ func TestSelectDatabaseConnectionTool_Success(t *testing.T) {
 
 	args := map[string]interface{}{
 		"__context": context.Background(),
-		"name":      "db2",
+		"name":      dbConfig.Name,
 	}
 	response, err := tool.Handler(args)
 	if err != nil {
@@ -238,17 +304,68 @@ func TestSelectDatabaseConnectionTool_Success(t *testing.T) {
 	if !result.Success {
 		t.Error("Expected success=true")
 	}
-	if result.Current != "db2" {
-		t.Errorf("Expected current='db2', got %q", result.Current)
+	if result.Current != dbConfig.Name {
+		t.Errorf("Expected current=%q, got %q", dbConfig.Name, result.Current)
 	}
-	if result.Database != "testdb2" {
-		t.Errorf("Expected database='testdb2', got %q", result.Database)
+	if result.Database != dbConfig.Database {
+		t.Errorf("Expected database=%q, got %q", dbConfig.Database, result.Database)
 	}
-	if result.Host != "remotehost" {
-		t.Errorf("Expected host='remotehost', got %q", result.Host)
+	if result.Host != dbConfig.Host {
+		t.Errorf("Expected host=%q, got %q", dbConfig.Host, result.Host)
 	}
 	if result.AllowWrites != true {
 		t.Error("Expected allow_writes=true")
+	}
+
+	if !clientManager.IsConnected("default", dbConfig.Name) {
+		t.Error("Expected the switched-to database to be connected immediately after a successful switch")
+	}
+
+	listTool := ListDatabaseConnectionsTool(clientManager, nil, cfg)
+	listResponse, err := listTool.Handler(map[string]interface{}{"__context": context.Background()})
+	if err != nil {
+		t.Fatalf("list_database_connections returned error: %v", err)
+	}
+	var listResult struct {
+		Databases []struct {
+			Name   string `json:"name"`
+			Status string `json:"status"`
+		} `json:"databases"`
+	}
+	if err := json.Unmarshal([]byte(listResponse.Content[0].Text), &listResult); err != nil {
+		t.Fatalf("Failed to parse list response: %v", err)
+	}
+	if len(listResult.Databases) != 1 || listResult.Databases[0].Status != "connected" {
+		t.Errorf("Expected %q to show status 'connected' after switching, got %+v", dbConfig.Name, listResult.Databases)
+	}
+}
+
+// TestSelectDatabaseConnectionTool_ConnectFailure tests that switching to a
+// configured but unreachable database surfaces a connection error
+// immediately, rather than reporting success and leaving the failure for
+// whatever tool call happens to use the connection next.
+func TestSelectDatabaseConnectionTool_ConnectFailure(t *testing.T) {
+	databases := createTestDatabaseConfigs()
+	cfg := &config.Config{Databases: databases}
+	clientManager := database.NewClientManager(databases)
+	defer clientManager.CloseAll()
+
+	tool := SelectDatabaseConnectionTool(clientManager, nil, cfg)
+
+	args := map[string]interface{}{
+		"__context": context.Background(),
+		"name":      "db2",
+	}
+	response, err := tool.Handler(args)
+	if err != nil {
+		t.Fatalf("Handler returned error: %v", err)
+	}
+
+	if !response.IsError {
+		t.Fatal("Expected error response for a switch to an unreachable database")
+	}
+	if !strings.Contains(response.Content[0].Text, "failed to connect") {
+		t.Errorf("Expected a connect-failure message, got: %s", response.Content[0].Text)
 	}
 }
 
@@ -724,17 +841,22 @@ func TestPopulateHostFields(t *testing.T) {
 	})
 }
 
-// TestSelectDatabaseConnectionTool_MultiHost tests multi-host fields in select response
+// TestSelectDatabaseConnectionTool_MultiHost tests multi-host fields in the
+// select response, against a live database so the eager connect performed
+// by select_database_connection succeeds.
 func TestSelectDatabaseConnectionTool_MultiHost(t *testing.T) {
+	dbConfig := testDBConfig(t)
 	trueVal := true
 	databases := []config.NamedDatabaseConfig{
 		{
 			Name:     "cluster",
-			Database: "mydb",
-			User:     "user1",
+			Database: dbConfig.Database,
+			User:     dbConfig.User,
+			Password: dbConfig.Password,
+			SSLMode:  dbConfig.SSLMode,
 			Hosts: []config.HostEntry{
-				{Host: "primary.example.com", Port: 5432},
-				{Host: "replica.example.com", Port: 5433},
+				{Host: dbConfig.Host, Port: dbConfig.Port},
+				{Host: dbConfig.Host, Port: dbConfig.Port},
 			},
 			TargetSessionAttrs: "read-write",
 			AllowLLMSwitching:  &trueVal,
@@ -763,8 +885,8 @@ func TestSelectDatabaseConnectionTool_MultiHost(t *testing.T) {
 		t.Fatalf("failed to parse response: %v", jsonErr)
 	}
 
-	if result["host"] != "primary.example.com" {
-		t.Errorf("expected host primary.example.com, got %v", result["host"])
+	if result["host"] != dbConfig.Host {
+		t.Errorf("expected host %v, got %v", dbConfig.Host, result["host"])
 	}
 	hosts, ok := result["hosts"]
 	if !ok {
