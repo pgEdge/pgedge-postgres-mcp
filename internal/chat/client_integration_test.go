@@ -46,15 +46,16 @@ func mockMCPServer(t *testing.T) *httptest.Server {
 		w.Header().Set("Content-Type", "application/json")
 
 		switch method {
-		case "initialize":
+		case "server/discover":
 			resp := map[string]interface{}{
 				"jsonrpc": "2.0",
 				"id":      req["id"],
 				"result": map[string]interface{}{
-					"protocolVersion": "1.0.0",
-					"serverInfo": map[string]interface{}{
-						"name":    "test-server",
-						"version": "1.0.0",
+					"_meta": map[string]interface{}{
+						"io.modelcontextprotocol/serverInfo": map[string]interface{}{
+							"name":    "test-server",
+							"version": "1.0.0",
+						},
 					},
 				},
 			}
@@ -943,15 +944,16 @@ func TestClient_ProcessQuery_ToolListRefreshAfterManageConnections(t *testing.T)
 		w.Header().Set("Content-Type", "application/json")
 
 		switch method {
-		case "initialize":
+		case "server/discover":
 			resp := map[string]interface{}{
 				"jsonrpc": "2.0",
 				"id":      req["id"],
 				"result": map[string]interface{}{
-					"protocolVersion": "1.0.0",
-					"serverInfo": map[string]interface{}{
-						"name":    "test-server",
-						"version": "1.0.0",
+					"_meta": map[string]interface{}{
+						"io.modelcontextprotocol/serverInfo": map[string]interface{}{
+							"name":    "test-server",
+							"version": "1.0.0",
+						},
 					},
 				},
 			}
