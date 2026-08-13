@@ -72,13 +72,28 @@ func TestNewEmbedClient(t *testing.T) {
 			wantModel: "voyage-3-lite",
 		},
 		{
-			name: "openai leaves the model to the library",
+			name: "openai defaults the model",
 			cfg: embedClientConfig{
 				Provider:     "openai",
-				Model:        "text-embedding-3-small",
 				OpenAIAPIKey: "test-openai-key",
 			},
 			wantModel: "text-embedding-3-small",
+		},
+		{
+			name: "openai honours an explicit model",
+			cfg: embedClientConfig{
+				Provider:     "openai",
+				Model:        "text-embedding-3-large",
+				OpenAIAPIKey: "test-openai-key",
+			},
+			wantModel: "text-embedding-3-large",
+		},
+		{
+			name: "openai without an api key fails",
+			cfg: embedClientConfig{
+				Provider: "openai",
+			},
+			wantErr: "missing OpenAI API key for embedding provider 'openai'",
 		},
 		{
 			name: "ollama defaults the model",

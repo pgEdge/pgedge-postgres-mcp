@@ -118,6 +118,11 @@ and this project adheres to
 
 ### Fixed
 
+- The OpenAI embedding provider no longer fails with "model parameter is
+  required" when `embedding.model` is left unset. It now defaults to
+  `text-embedding-3-small`, matching the built-in fallbacks Voyage,
+  Gemini, and Ollama already had.
+
 - The CLI client no longer falls back to a model that cannot hold a
   conversation. When a saved model preference named something the provider
   no longer serves, and the provider's default was absent too, the client
