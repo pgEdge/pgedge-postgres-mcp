@@ -84,8 +84,20 @@ generate_multi_db_config() {
 
     # Create the file with restrictive permissions before writing to it, so
     # the plaintext database password it will contain is never briefly
-    # world/group-readable under the process umask.
+    # world/group-readable under the process umask. A bare `chmod 600`
+    # after creation still leaves a window where the file exists at the
+    # ambient umask's mode until the chmod runs; forcing the umask for
+    # the creation itself means the file is born at 600, closing that
+    # window entirely. The umask is restored immediately after so it
+    # doesn't affect any other file this script creates. The chmod is
+    # kept too: it's what fixes a pre-existing, more permissive file left
+    # over from an older version of this script on a persistent volume,
+    # since umask only governs newly created files.
+    local old_umask
+    old_umask=$(umask)
+    umask 077
     : > "$config_file"
+    umask "$old_umask"
     chmod 600 "$config_file"
 
     cat > "$config_file" << YAML_HEADER
