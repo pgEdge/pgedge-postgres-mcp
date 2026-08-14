@@ -370,6 +370,10 @@ func TestHTTPModeIntegration(t *testing.T) {
 	t.Run("GETRequestRejected", func(t *testing.T) {
 		testHTTPGETRejected(t, server)
 	})
+
+	t.Run("UserInfoNoAuth", func(t *testing.T) {
+		testHTTPUserInfoNoAuth(t, server)
+	})
 }
 
 // TestHTTPSModeIntegration tests the HTTPS transport mode with TLS
@@ -643,6 +647,49 @@ func testHTTPGETRejected(t *testing.T, server *HTTPMCPServer) {
 	}
 
 	t.Log("HTTP GET rejection test passed")
+}
+
+// testHTTPUserInfoNoAuth verifies that /api/user/info with a bearer token
+// does not panic when the server runs with HTTP auth disabled (-no-auth),
+// where userStore is nil. See issue #269.
+func testHTTPUserInfoNoAuth(t *testing.T, server *HTTPMCPServer) {
+	client := server.getHTTPClient()
+
+	req, err := http.NewRequest(http.MethodGet, server.baseURL+"/api/user/info", nil)
+	if err != nil {
+		t.Fatalf("Failed to create request: %v", err)
+	}
+	req.Header.Set("Authorization", "Bearer anything")
+
+	resp, err := client.Do(req)
+	if err != nil {
+		t.Fatalf("Request failed: %v", err)
+	}
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			t.Logf("Warning: failed to close response body: %v", err)
+		}
+	}()
+
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("Expected status 200, got %d", resp.StatusCode)
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("Failed to read response body: %v", err)
+	}
+
+	var result map[string]any
+	if err := json.Unmarshal(body, &result); err != nil {
+		t.Fatalf("Failed to parse response body: %v\nBody: %s", err, body)
+	}
+
+	if authenticated, ok := result["authenticated"].(bool); !ok || authenticated {
+		t.Errorf("Expected authenticated=false, got: %v", result)
+	}
+
+	t.Log("User info no-auth test passed")
 }
 
 func testHTTPSTLSConnection(t *testing.T, server *HTTPMCPServer) {

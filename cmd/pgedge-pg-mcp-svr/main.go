@@ -918,6 +918,13 @@ func main() {
 				}
 
 				// Validate session token and get username
+				if userStore == nil {
+					//nolint:errcheck // Encoding a simple map should never fail
+					json.NewEncoder(w).Encode(map[string]any{
+						"authenticated": false,
+					})
+					return
+				}
 				username, err := userStore.ValidateSessionToken(token)
 				if err != nil {
 					//nolint:errcheck // Encoding a simple map should never fail
