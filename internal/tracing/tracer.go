@@ -211,10 +211,20 @@ func SetMetadataOnly(metadataOnly bool) {
 
 // Log writes a single trace entry to the JSONL file. It auto-sets
 // Timestamp to the current time if the field is zero. When the tracer
-// is configured for metadata-only mode, Parameters and Result are
-// dropped before the entry is written, regardless of entry type, and
-// any Error text is replaced with a generic placeholder so failure is
-// still visible without leaking error-message detail.
+// is configured for metadata-only mode, Parameters, Result, and
+// Metadata are all dropped before the entry is written, regardless of
+// entry type, and any Error text is replaced with a generic
+// placeholder so failure is still visible without leaking
+// error-message detail.
+//
+// Metadata is cleared rather than allow-listed: it's a caller-supplied
+// map (LogDatabaseSwitch, LogSessionStart/End, LogConfigReload, and
+// any future Log* helper all accept one), so it's exactly as capable
+// of carrying real data as Parameters or Result, and an allowlist
+// would only protect the keys known about today. A denylist by field
+// name is what let issue #262 happen in the first place
+// (sanitizeParams/sanitizeResult); blanket omission is what makes this
+// mode's guarantee hold for entry shapes that don't exist yet.
 func Log(entry TraceEntry) {
 	if !IsEnabled() {
 		return
@@ -232,6 +242,7 @@ func Log(entry TraceEntry) {
 	if instance.metadataOnly {
 		entry.Parameters = nil
 		entry.Result = nil
+		entry.Metadata = nil
 		if entry.Error != "" {
 			entry.Error = metadataOnlyErrorPlaceholder
 		}

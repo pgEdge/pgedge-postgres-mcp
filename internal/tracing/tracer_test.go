@@ -861,7 +861,11 @@ func TestSanitizationInLogToolCall(t *testing.T) {
 }
 
 // assertNoParametersOrResult fails the test if any entry carries a
-// "parameters" or "result" field, as metadata-only mode requires.
+// "parameters", "result", or "metadata" field, as metadata-only mode
+// requires. Metadata is included alongside Parameters/Result because
+// it's just as caller-controlled as they are (LogDatabaseSwitch,
+// LogSessionStart/End, and LogConfigReload all accept an arbitrary
+// map), so it needs the same blanket omission to keep the guarantee.
 func assertNoParametersOrResult(t *testing.T, entries []map[string]interface{}) {
 	t.Helper()
 	for _, entry := range entries {
@@ -870,6 +874,9 @@ func assertNoParametersOrResult(t *testing.T, entries []map[string]interface{}) 
 		}
 		if _, ok := entry["result"]; ok {
 			t.Errorf("entry %v: expected no \"result\" field in metadata-only mode", entry["type"])
+		}
+		if _, ok := entry["metadata"]; ok {
+			t.Errorf("entry %v: expected no \"metadata\" field in metadata-only mode", entry["type"])
 		}
 	}
 }
@@ -889,12 +896,18 @@ func TestMetadataOnlyOmitsParametersAndResult(t *testing.T) {
 	}, nil, 42*time.Millisecond)
 	LogResourceResult("sess-meta", "tok-hash", "req-meta", "resource://pg/tables", "sensitive rows", nil, 10*time.Millisecond)
 	LogPromptResult("sess-meta", "tok-hash", "req-meta", "explain_query", "sensitive explanation", nil, 5*time.Millisecond)
+	LogDatabaseSwitch("sess-meta", "tok-hash", "req-meta", "customers_db", map[string]interface{}{
+		"previous_query": "SELECT * FROM customers WHERE ssn = '123-45-6789'",
+	})
+	LogConfigReload("sess-meta", map[string]interface{}{
+		"leaked": "this metadata map is caller-supplied, just like Parameters and Result",
+	})
 
 	Close()
 
 	entries := parseJSONLFile(t, tracePath)
-	if len(entries) != 4 {
-		t.Fatalf("expected 4 entries, got %d", len(entries))
+	if len(entries) != 6 {
+		t.Fatalf("expected 6 entries, got %d", len(entries))
 	}
 
 	assertNoParametersOrResult(t, entries)
