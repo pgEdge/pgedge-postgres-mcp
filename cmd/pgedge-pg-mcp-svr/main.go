@@ -459,9 +459,9 @@ func main() {
 
 	// Initialize tracing if configured
 	if cfg.TraceFile != "" {
-		if err := tracing.Initialize(cfg.TraceFile, cfg.TraceMetadataOnly); err != nil {
+		if err := tracing.Initialize(cfg.TraceFile, cfg.IsTraceMetadataOnly()); err != nil {
 			fmt.Fprintf(os.Stderr, "WARNING: Failed to initialize tracing: %v\n", err)
-		} else if cfg.TraceMetadataOnly {
+		} else if cfg.IsTraceMetadataOnly() {
 			fmt.Fprintf(os.Stderr, "Tracing: ENABLED (%s, metadata-only)\n", cfg.TraceFile)
 		} else {
 			fmt.Fprintf(os.Stderr, "Tracing: ENABLED (%s)\n", cfg.TraceFile)
@@ -1115,6 +1115,18 @@ func main() {
 		// Register callback to update client manager when databases change
 		reloadableCfg.OnReload(func(newCfg *config.Config) {
 			clientManager.UpdateDatabaseConfigs(newCfg.Databases)
+		})
+
+		// trace_metadata_only can change on a running server: unlike
+		// trace_file itself (opening/closing the trace file is a
+		// startup-only decision behind tracing.Initialize's sync.Once),
+		// it's just a flag Log() consults on every call, so there's no
+		// reason an operator should need a restart just to turn
+		// redaction on or off.
+		reloadableCfg.OnReload(func(newCfg *config.Config) {
+			if tracing.IsEnabled() {
+				tracing.SetMetadataOnly(newCfg.IsTraceMetadataOnly())
+			}
 		})
 
 		// Start SIGHUP listener

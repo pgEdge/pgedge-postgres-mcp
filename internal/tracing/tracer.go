@@ -193,6 +193,22 @@ func GetFilePath() string {
 // messages that quote the offending row).
 const metadataOnlyErrorPlaceholder = "error (detail omitted in metadata-only trace mode)"
 
+// SetMetadataOnly updates whether the tracer redacts Parameters/Result
+// from entries logged from this point on. Unlike Initialize, which is
+// one-time (opening the trace file is a startup-only decision), this
+// may be called any number of times, so that a configuration reload
+// can turn metadata-only mode on or off for an already-running server
+// without needing to restart it just to change that one setting. A
+// no-op if tracing was never initialized.
+func SetMetadataOnly(metadataOnly bool) {
+	if instance == nil {
+		return
+	}
+	instance.mu.Lock()
+	defer instance.mu.Unlock()
+	instance.metadataOnly = metadataOnly
+}
+
 // Log writes a single trace entry to the JSONL file. It auto-sets
 // Timestamp to the current time if the field is zero. When the tracer
 // is configured for metadata-only mode, Parameters and Result are
@@ -208,6 +224,11 @@ func Log(entry TraceEntry) {
 		entry.Timestamp = time.Now().UTC()
 	}
 
+	instance.mu.Lock()
+	defer instance.mu.Unlock()
+
+	// metadataOnly is read under the same lock that SetMetadataOnly
+	// writes it under, so a concurrent reload can't race this check.
 	if instance.metadataOnly {
 		entry.Parameters = nil
 		entry.Result = nil
@@ -215,9 +236,6 @@ func Log(entry TraceEntry) {
 			entry.Error = metadataOnlyErrorPlaceholder
 		}
 	}
-
-	instance.mu.Lock()
-	defer instance.mu.Unlock()
 
 	// Errors during trace writing are intentionally silenced to avoid
 	// disrupting normal server operation.

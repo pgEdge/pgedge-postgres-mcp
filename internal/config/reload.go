@@ -111,6 +111,16 @@ func (rc *ReloadableConfig) logRestartRequiredSettings(newConfig *Config) {
 		fmt.Fprintf(os.Stderr, "  WARNING: http.tls.key_file changed - requires restart\n")
 	}
 
+	// Enabling, disabling, or repointing the trace file requires a
+	// restart: tracing.Initialize opens the file once behind a
+	// sync.Once, so a reload can't open a new file or close an
+	// existing one. trace_metadata_only is exempt from this warning;
+	// unlike trace_file, it's wired to take effect on reload without
+	// a restart.
+	if old.TraceFile != newConfig.TraceFile {
+		fmt.Fprintf(os.Stderr, "  WARNING: trace_file changed - requires restart\n")
+	}
+
 	// LLM/embedding provider changes are logged (may work but connections need reset)
 	if old.LLM.Provider != newConfig.LLM.Provider {
 		fmt.Fprintf(os.Stderr, "  NOTE: llm.provider changed to %s\n", newConfig.LLM.Provider)

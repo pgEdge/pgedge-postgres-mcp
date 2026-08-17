@@ -56,8 +56,19 @@ type Config struct {
 	TraceFile string `yaml:"trace_file"`
 
 	// Trace metadata only (omit parameters/results from trace entries,
-	// keeping only session, token, name, duration, and error/success)
-	TraceMetadataOnly bool `yaml:"trace_metadata_only"`
+	// keeping only session, token, name, duration, and error/success).
+	// A pointer, like the Builtins.Tools.* fields below, so mergeConfig
+	// can tell "the file didn't mention this" (nil) apart from "the file
+	// explicitly set it to false" (non-nil pointing to false); a plain
+	// bool can't make that distinction, since both cases parse to the
+	// zero value.
+	TraceMetadataOnly *bool `yaml:"trace_metadata_only"`
+}
+
+// IsTraceMetadataOnly reports whether metadata-only tracing is enabled,
+// defaulting to false (full detail) when unset.
+func (c *Config) IsTraceMetadataOnly() bool {
+	return c.TraceMetadataOnly != nil && *c.TraceMetadataOnly
 }
 
 // BuiltinsConfig holds configuration for enabling/disabling built-in tools, resources, and prompts
@@ -995,8 +1006,8 @@ func mergeConfig(dest, src *Config) {
 		dest.TraceFile = src.TraceFile
 	}
 
-	// Trace metadata only
-	if src.TraceMetadataOnly {
+	// Trace metadata only (pointer preserves an explicit false)
+	if src.TraceMetadataOnly != nil {
 		dest.TraceMetadataOnly = src.TraceMetadataOnly
 	}
 
@@ -1376,7 +1387,7 @@ func applyEnvironmentVariables(cfg *Config) {
 	setStringFromEnv(&cfg.TraceFile, "PGEDGE_TRACE_FILE")
 
 	// Trace metadata only
-	setBoolFromEnv(&cfg.TraceMetadataOnly, "PGEDGE_TRACE_METADATA_ONLY")
+	setBoolPtrFromEnv(&cfg.TraceMetadataOnly, "PGEDGE_TRACE_METADATA_ONLY")
 
 	// Built-in tools, resources, and prompts.
 	// Useful for containerized deployments where editing the config file is awkward.
@@ -1501,7 +1512,7 @@ func applyCLIFlags(cfg *Config, flags CLIFlags) error {
 
 	// Trace metadata only
 	if flags.TraceMetadataOnlySet {
-		cfg.TraceMetadataOnly = flags.TraceMetadataOnly
+		cfg.TraceMetadataOnly = &flags.TraceMetadataOnly
 	}
 
 	return nil

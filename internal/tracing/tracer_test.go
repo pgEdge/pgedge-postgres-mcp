@@ -967,3 +967,61 @@ func TestMetadataOnlyFalsePreservesParametersAndResult(t *testing.T) {
 		t.Error("expected \"parameters\" field to be present when metadata-only is disabled")
 	}
 }
+
+// TestSetMetadataOnlyTakesEffectWithoutRestart is the regression test
+// for the scenario a config reload is supposed to support: an operator
+// turns metadata-only mode on (or off) on an already-running server,
+// without restarting it. Before SetMetadataOnly existed, the tracer's
+// metadataOnly flag was set once in Initialize and never touched
+// again, so an entry logged after a config reload that flipped
+// trace_metadata_only would silently keep using the tracer's original
+// setting -- the reload would report success while quietly leaving the
+// old behavior in place.
+func TestSetMetadataOnlyTakesEffectWithoutRestart(t *testing.T) {
+	ResetForTesting()
+
+	tracePath := filepath.Join(t.TempDir(), "trace.jsonl")
+	Initialize(tracePath, false)
+	defer Close()
+
+	LogToolCall("sess-a", "tok", "req1", "query_database", map[string]interface{}{
+		"query": "SELECT 1",
+	})
+
+	SetMetadataOnly(true)
+
+	LogToolCall("sess-b", "tok", "req2", "query_database", map[string]interface{}{
+		"query": "SELECT 2",
+	})
+
+	SetMetadataOnly(false)
+
+	LogToolCall("sess-c", "tok", "req3", "query_database", map[string]interface{}{
+		"query": "SELECT 3",
+	})
+
+	Close()
+
+	entries := parseJSONLFile(t, tracePath)
+	if len(entries) != 3 {
+		t.Fatalf("expected 3 entries, got %d", len(entries))
+	}
+	if _, ok := entries[0]["parameters"]; !ok {
+		t.Error("entry logged before SetMetadataOnly(true): expected parameters to be present")
+	}
+	if _, ok := entries[1]["parameters"]; ok {
+		t.Error("entry logged after SetMetadataOnly(true): expected parameters to be omitted")
+	}
+	if _, ok := entries[2]["parameters"]; !ok {
+		t.Error("entry logged after SetMetadataOnly(false): expected parameters to be present again")
+	}
+}
+
+// TestSetMetadataOnlyNoopWhenTracingNotInitialized confirms
+// SetMetadataOnly doesn't panic when called before (or without) tracing
+// having been initialized, matching the other tracing functions' pattern
+// of tolerating a nil instance.
+func TestSetMetadataOnlyNoopWhenTracingNotInitialized(t *testing.T) {
+	ResetForTesting()
+	SetMetadataOnly(true)
+}

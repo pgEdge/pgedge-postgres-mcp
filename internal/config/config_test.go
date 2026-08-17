@@ -2341,3 +2341,42 @@ knowledgebase:
 		t.Errorf("Knowledgebase.EmbeddingGeminiBaseURL = %q, want %q", cfg.Knowledgebase.EmbeddingGeminiBaseURL, "https://kb-gemini.example.com")
 	}
 }
+
+// TestMergeTraceMetadataOnlyPreservesExplicitFalse guards against a
+// regression to a plain bool for TraceMetadataOnly, which cannot tell
+// "the file didn't mention this" apart from "the file explicitly set it
+// to false" (both parse to the zero value): a truthy-only merge would
+// silently ignore a file's explicit false and leave dest's prior true in
+// place. Using a pointer, like the Builtins.Tools.* fields, must let an
+// explicit false in src override a true already in dest.
+func TestMergeTraceMetadataOnlyPreservesExplicitFalse(t *testing.T) {
+	trueVal := true
+	falseVal := false
+
+	dest := defaultConfig()
+	dest.TraceMetadataOnly = &trueVal
+
+	src := &Config{TraceMetadataOnly: &falseVal}
+	mergeConfig(dest, src)
+
+	if dest.IsTraceMetadataOnly() {
+		t.Error("expected src's explicit false to override dest's true, but dest is still true")
+	}
+}
+
+// TestMergeTraceMetadataOnlyNilLeavesDestUnchanged confirms the other
+// half of the same contract: when src doesn't mention the field at all
+// (nil), the merge must not clobber whatever dest already had.
+func TestMergeTraceMetadataOnlyNilLeavesDestUnchanged(t *testing.T) {
+	trueVal := true
+
+	dest := defaultConfig()
+	dest.TraceMetadataOnly = &trueVal
+
+	src := &Config{}
+	mergeConfig(dest, src)
+
+	if !dest.IsTraceMetadataOnly() {
+		t.Error("expected dest's true to survive a merge where src leaves the field nil")
+	}
+}
