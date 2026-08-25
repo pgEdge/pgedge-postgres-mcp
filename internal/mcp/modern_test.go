@@ -12,8 +12,47 @@ package mcp
 
 import (
 	"encoding/base64"
+	"net/http"
 	"testing"
 )
+
+// TestIsModernHTTP_LegacyProtocolVersionHeaderIsNotModern is the
+// regression test for issue #277: a legacy Streamable HTTP client of
+// revision 2025-06-18 or later sends the MCP-Protocol-Version header on
+// every request, with a legacy dated value, and must not be misclassified
+// as a modern (2026-07-28) request on that basis alone.
+func TestIsModernHTTP_LegacyProtocolVersionHeaderIsNotModern(t *testing.T) {
+	for _, v := range supportedProtocolVersions {
+		r, _ := http.NewRequest(http.MethodPost, "/mcp/v1", nil)
+		r.Header.Set("MCP-Protocol-Version", v)
+
+		meta, isModern := isModernHTTP(r, nil)
+		if isModern {
+			t.Errorf("isModernHTTP with legacy header value %q = modern, want legacy", v)
+		}
+		if meta != nil {
+			t.Errorf("isModernHTTP with legacy header value %q returned non-nil meta %+v", v, meta)
+		}
+	}
+}
+
+// TestIsModernHTTP_ModernProtocolVersionHeaderIsModern covers the
+// counterpart: a header value that isn't one of this server's supported
+// legacy revisions -- including its own modern revision, and an
+// unrecognised future one -- is still treated as modern, so an
+// unsupported modern request fails downstream as
+// UnsupportedProtocolVersionError rather than as a malformed legacy one.
+func TestIsModernHTTP_ModernProtocolVersionHeaderIsModern(t *testing.T) {
+	for _, v := range []string{ModernProtocolVersion, "2099-01-01"} {
+		r, _ := http.NewRequest(http.MethodPost, "/mcp/v1", nil)
+		r.Header.Set("MCP-Protocol-Version", v)
+
+		_, isModern := isModernHTTP(r, nil)
+		if !isModern {
+			t.Errorf("isModernHTTP with header value %q = legacy, want modern", v)
+		}
+	}
+}
 
 // TestDecodeHeaderValue_PlainASCIIPassesThrough covers a header value
 // with no Base64 sentinel wrapping: it must be returned unchanged.

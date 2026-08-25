@@ -268,6 +268,21 @@ func TestNegotiateProtocolVersion(t *testing.T) {
 			requested: "2020-01-01",
 			want:      supportedProtocolVersions[0],
 		},
+		{
+			name:      "2025-03-26 negotiates exactly (issue #277)",
+			requested: "2025-03-26",
+			want:      "2025-03-26",
+		},
+		{
+			name:      "2025-06-18 negotiates exactly (issue #277)",
+			requested: "2025-06-18",
+			want:      "2025-06-18",
+		},
+		{
+			name:      "a revision between two supported ones falls back to the older",
+			requested: "2025-05-01",
+			want:      "2025-03-26",
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

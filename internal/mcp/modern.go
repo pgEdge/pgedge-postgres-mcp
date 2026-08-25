@@ -71,19 +71,30 @@ func isModernRequest(params interface{}) (*RequestMeta, bool) {
 // modern, even when the body's _meta does not (because it is missing
 // entirely, or because its protocolVersion key is missing or
 // misspelled -- these long, easily-mistyped reserved keys make that a
-// real failure mode, not just a hypothetical one). No pre-2025-06-18
-// client -- including this server's own legacy revision, 2024-11-05 --
-// ever sends this header at all, so its mere presence, regardless of
-// value, is already a reliable modern signal on its own; the exact
-// version match is left to validateModernHeaders. Returns a nil meta
-// when the header is the only modern signal, which validateModernHeaders
-// and validateModernRequestHTTP both treat as "no usable body _meta",
-// not as "no _meta was expected."
+// real failure mode, not just a hypothetical one).
+//
+// A legacy Streamable HTTP client of revision 2025-06-18 or later is
+// required by that revision's own spec to send this same header, with a
+// legacy dated value (e.g. "2025-06-18"), on every request after its
+// initialize handshake -- so header presence alone stopped being a
+// reliable modern signal once this server started supporting those
+// revisions (issue #277). A header carrying one of this server's
+// supported legacy revisions is therefore left as legacy; any other
+// value, including the modern revision itself, is treated as modern,
+// which lets a request for a modern revision this server does not (yet)
+// implement still be recognised as modern and fail with
+// UnsupportedProtocolVersionError rather than as a malformed legacy one.
+//
+// The exact version match for a request that is modern either way is
+// left to validateModernHeaders. Returns a nil meta when the header is
+// the only modern signal, which validateModernHeaders and
+// validateModernRequestHTTP both treat as "no usable body _meta", not as
+// "no _meta was expected."
 func isModernHTTP(r *http.Request, params interface{}) (*RequestMeta, bool) {
 	if meta, isModern := isModernRequest(params); isModern {
 		return meta, true
 	}
-	if r.Header.Get("MCP-Protocol-Version") != "" {
+	if header := r.Header.Get("MCP-Protocol-Version"); header != "" && !isSupportedLegacyProtocolVersion(header) {
 		return nil, true
 	}
 	return nil, false

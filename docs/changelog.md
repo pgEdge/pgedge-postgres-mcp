@@ -38,6 +38,13 @@ and this project adheres to
   variant; PostgreSQL rejected the two conflicting clauses outright
   either way.
 
+- The server now negotiates the legacy MCP handshake up to revision
+  `2025-11-25`, instead of always answering `2024-11-05` regardless of
+  what a client requests. This includes revision `2025-03-26`, which
+  introduced the Streamable HTTP transport: strict clients with no
+  fallback (e.g. OpenAI Codex) previously refused to connect because
+  the reported revision predated that transport outright.
+
 ## [1.1.0] - 2026-08-17
 
 ### Added

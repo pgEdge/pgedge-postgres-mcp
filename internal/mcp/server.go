@@ -23,7 +23,7 @@ import (
 )
 
 const (
-	ProtocolVersion = "2024-11-05"
+	ProtocolVersion = "2025-11-25"
 	ServerName      = "pgedge-postgres-mcp"
 	ServerVersion   = "1.1.0-beta1"
 
@@ -49,6 +49,23 @@ const (
 // rather than another entry here.
 var supportedProtocolVersions = []string{
 	"2024-11-05",
+	"2025-03-26",
+	"2025-06-18",
+	"2025-11-25",
+}
+
+// isSupportedLegacyProtocolVersion reports whether v is one of the
+// handshake-era revisions above. Used to tell a legacy Streamable HTTP
+// client's MCP-Protocol-Version header (mandatory from 2025-06-18 onward)
+// apart from the modern (2026-07-28) era's identically-named header, which
+// otherwise look the same on the wire (issue #277).
+func isSupportedLegacyProtocolVersion(v string) bool {
+	for _, supported := range supportedProtocolVersions {
+		if v == supported {
+			return true
+		}
+	}
+	return false
 }
 
 // NegotiateProtocolVersion returns the protocol revision this server will

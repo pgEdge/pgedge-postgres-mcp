@@ -331,12 +331,14 @@ func (s *Server) handleHTTPRequest(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// A request carrying io.modelcontextprotocol/protocolVersion in its
-	// _meta -- or, on this transport, just an MCP-Protocol-Version
-	// header, which no pre-2025-06-18 client ever sends -- is modern
-	// (2026-07-28, stateless per-request negotiation); a request with
-	// neither, including every initialize handshake, is legacy and
-	// reaches handleRequestHTTP exactly as before this server added
-	// modern support. See isModernHTTP in modern.go.
+	// _meta -- or, on this transport, an MCP-Protocol-Version header
+	// whose value isn't one of this server's supported legacy revisions
+	// -- is modern (2026-07-28, stateless per-request negotiation); a
+	// request with neither, including every initialize handshake and
+	// every legacy Streamable HTTP request carrying its own negotiated
+	// legacy version in that same header, is legacy and reaches
+	// handleRequestHTTP exactly as before this server added modern
+	// support. See isModernHTTP in modern.go.
 	//
 	// preflightRejected distinguishes a rejection at this stage (header
 	// mismatch, missing required _meta field, unsupported version) from
