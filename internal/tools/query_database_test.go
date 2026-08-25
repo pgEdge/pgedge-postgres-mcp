@@ -11,6 +11,7 @@
 package tools
 
 import (
+	"math"
 	"regexp"
 	"strings"
 	"testing"
@@ -488,6 +489,11 @@ func TestResolveRowLimit(t *testing.T) {
 		{"negative falls back to default, not unbounded", map[string]any{"limit": float64(-5)}, defaultRowLimit},
 		{"above maximum falls back to default", map[string]any{"limit": float64(30000)}, defaultRowLimit},
 		{"non-numeric type falls back to default", map[string]any{"limit": "100"}, defaultRowLimit},
+		{"fractional value falls back to default", map[string]any{"limit": 1000.9}, defaultRowLimit},
+		{"small fractional value falls back to default", map[string]any{"limit": 1.5}, defaultRowLimit},
+		{"NaN falls back to default", map[string]any{"limit": math.NaN()}, defaultRowLimit},
+		{"positive infinity falls back to default", map[string]any{"limit": math.Inf(1)}, defaultRowLimit},
+		{"negative infinity falls back to default", map[string]any{"limit": math.Inf(-1)}, defaultRowLimit},
 	}
 
 	for _, tt := range tests {

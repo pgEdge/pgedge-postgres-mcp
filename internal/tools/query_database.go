@@ -13,6 +13,7 @@ package tools
 import (
 	"context"
 	"fmt"
+	"math"
 	"regexp"
 	"strings"
 	"unicode"
@@ -57,6 +58,12 @@ func resolveRowLimit(args map[string]any) int {
 	var limit int
 	switch v := limitVal.(type) {
 	case float64:
+		// The schema declares "limit" as an integer; a fractional,
+		// infinite, or NaN value violates that contract outright rather
+		// than rounding to something that happens to look in-bounds.
+		if v != math.Trunc(v) || math.IsInf(v, 0) {
+			return defaultRowLimit
+		}
 		limit = int(v)
 	case int:
 		limit = v
