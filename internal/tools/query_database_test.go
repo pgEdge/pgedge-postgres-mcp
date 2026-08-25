@@ -473,6 +473,32 @@ func TestQueryHasClause(t *testing.T) {
 	}
 }
 
+func TestResolveRowLimit(t *testing.T) {
+	tests := []struct {
+		name string
+		args map[string]any
+		want int
+	}{
+		{"missing falls back to default", map[string]any{}, defaultRowLimit},
+		{"typical float64 from JSON", map[string]any{"limit": float64(50)}, 50},
+		{"typical int", map[string]any{"limit": 250}, 250},
+		{"minimum boundary", map[string]any{"limit": float64(1)}, 1},
+		{"maximum boundary", map[string]any{"limit": float64(1000)}, 1000},
+		{"zero falls back to default, not unbounded", map[string]any{"limit": float64(0)}, defaultRowLimit},
+		{"negative falls back to default, not unbounded", map[string]any{"limit": float64(-5)}, defaultRowLimit},
+		{"above maximum falls back to default", map[string]any{"limit": float64(30000)}, defaultRowLimit},
+		{"non-numeric type falls back to default", map[string]any{"limit": "100"}, defaultRowLimit},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := resolveRowLimit(tt.args); got != tt.want {
+				t.Errorf("resolveRowLimit(%v) = %d, want %d", tt.args, got, tt.want)
+			}
+		})
+	}
+}
+
 func TestFormatResultsAsTSV(t *testing.T) {
 	tests := []struct {
 		name        string

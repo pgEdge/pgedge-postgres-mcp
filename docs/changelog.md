@@ -16,6 +16,12 @@ and this project adheres to
   since the actual filename depends on the embedding provider and
   model.
 
+- Closed the two ways `query_database`'s row limit could be defeated: a
+  `limit` argument outside its advertised 1-1000 bounds (including zero
+  or negative) now falls back to the default of 100 instead of removing
+  the cap, and a query that already carries its own inline `LIMIT`
+  clause is now wrapped so it cannot return more than 1000 rows either.
+
 ## [1.1.0] - 2026-08-17
 
 ### Added

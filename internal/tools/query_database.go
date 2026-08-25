@@ -33,6 +33,43 @@ func stripTrailingSemicolons(query string) string {
 	})
 }
 
+// defaultRowLimit, minRowLimit and maxRowLimit mirror the bounds the
+// query_database tool's "limit" argument advertises in its schema. The
+// schema is a client-side hint only; these constants are what the server
+// actually enforces.
+const (
+	defaultRowLimit = 100
+	minRowLimit     = 1
+	maxRowLimit     = 1000
+)
+
+// resolveRowLimit extracts the caller-supplied "limit" argument and clamps
+// it to the tool's advertised bounds. A missing, non-numeric, or
+// out-of-range value (including zero or negative, which previously
+// disabled the safety cap entirely rather than falling back to it - issue
+// #273) falls back to defaultRowLimit instead of removing the cap.
+func resolveRowLimit(args map[string]any) int {
+	limitVal, ok := args["limit"]
+	if !ok {
+		return defaultRowLimit
+	}
+
+	var limit int
+	switch v := limitVal.(type) {
+	case float64:
+		limit = int(v)
+	case int:
+		limit = v
+	default:
+		return defaultRowLimit
+	}
+
+	if limit < minRowLimit || limit > maxRowLimit {
+		return defaultRowLimit
+	}
+	return limit
+}
+
 // limitKeywordPattern and offsetKeywordPattern match a LIMIT/OFFSET clause
 // keyword bounded by characters that can't appear in a PostgreSQL unquoted
 // identifier, so that "credit_limit" or "foo$limit" (the dollar sign is a
@@ -256,16 +293,10 @@ To avoid rate limits (30,000 input tokens/minute):
 				}
 			}
 
-			// Determine the limit to use
-			limit := 100 // default
-			if limitVal, ok := args["limit"]; ok {
-				switch v := limitVal.(type) {
-				case float64:
-					limit = int(v)
-				case int:
-					limit = v
-				}
-			}
+			// Determine the limit to use, clamped to the schema's advertised
+			// bounds so an out-of-range value falls back to the default
+			// rather than disabling the cap (issue #273).
+			limit := resolveRowLimit(args)
 
 			// Determine the offset to use
 			offset := 0 // default
@@ -324,6 +355,21 @@ To avoid rate limits (30,000 input tokens/minute):
 			// limit+1 appended below, so it is keyed on the classification
 			// rather than on what the server turned out to return.
 			truncationDetectable := isSelectQuery
+
+			// An inline LIMIT the caller wrote themselves is honoured
+			// verbatim and was previously the one path with no enforced
+			// ceiling at all (issue #273): a query ending "LIMIT 30000"
+			// bypasses the "limit" argument entirely. Wrap the whole
+			// statement so the cap holds regardless of where the LIMIT
+			// clause came from; the inner LIMIT still narrows the result as
+			// written, it just can no longer widen it past maxRowLimit.
+			rowCapApplied := false
+			effectiveLimit := limit
+			if isSelectQuery && hasExistingLimit {
+				sqlQuery = fmt.Sprintf("SELECT * FROM (%s) AS pgedge_mcp_row_cap LIMIT %d", sqlQuery, maxRowLimit+1)
+				rowCapApplied = true
+				effectiveLimit = maxRowLimit
+			}
 
 			// Only inject LIMIT/OFFSET for SELECT queries that don't already have them
 			// Fetch limit+1 to detect if more rows exist
@@ -457,11 +503,12 @@ To avoid rate limits (30,000 input tokens/minute):
 				rowsAffected = tag.RowsAffected()
 			}
 
-			// Check if results were truncated (we fetched limit+1 to detect this)
+			// Check if results were truncated (we fetched limit+1, or the
+			// hard row-cap ceiling+1, to detect this)
 			wasTruncated := false
-			if truncationDetectable && !hasExistingLimit && limit > 0 && len(results) > limit {
+			if truncationDetectable && (rowCapApplied || !hasExistingLimit) && len(results) > effectiveLimit {
 				wasTruncated = true
-				results = results[:limit] // Truncate to requested limit
+				results = results[:effectiveLimit] // Truncate to requested/effective limit
 			}
 
 			// Format results as TSV (tab-separated values) for row-returning queries
@@ -500,13 +547,13 @@ To avoid rate limits (30,000 input tokens/minute):
 					endRow := offset + len(results)
 					if wasTruncated {
 						fmt.Fprintf(&sb, "Results (rows %d-%d, more available - use offset=%d for next page):\n%s",
-							startRow, endRow, offset+limit, resultsTSV)
+							startRow, endRow, offset+effectiveLimit, resultsTSV)
 					} else {
 						fmt.Fprintf(&sb, "Results (rows %d-%d):\n%s", startRow, endRow, resultsTSV)
 					}
 				} else if wasTruncated {
 					fmt.Fprintf(&sb, "Results (%d rows shown, more available - use offset=%d for next page or count_rows for total):\n%s",
-						len(results), limit, resultsTSV)
+						len(results), effectiveLimit, resultsTSV)
 				} else {
 					fmt.Fprintf(&sb, "Results (%d rows):\n%s", len(results), resultsTSV)
 				}
