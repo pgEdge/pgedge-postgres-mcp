@@ -61,7 +61,12 @@ func resolveRowLimit(args map[string]any) int {
 		// The schema declares "limit" as an integer; a fractional,
 		// infinite, or NaN value violates that contract outright rather
 		// than rounding to something that happens to look in-bounds.
-		if v != math.Trunc(v) || math.IsInf(v, 0) {
+		// The range check runs before int(v): a magnitude beyond what
+		// int can represent (e.g. math.MaxFloat64) makes that conversion
+		// implementation-dependent per the Go spec, so it must be
+		// rejected on the float64 value itself, not after converting.
+		if v != math.Trunc(v) || math.IsInf(v, 0) ||
+			v < float64(minRowLimit) || v > float64(maxRowLimit) {
 			return defaultRowLimit
 		}
 		limit = int(v)

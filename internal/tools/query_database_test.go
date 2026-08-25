@@ -494,6 +494,8 @@ func TestResolveRowLimit(t *testing.T) {
 		{"NaN falls back to default", map[string]any{"limit": math.NaN()}, defaultRowLimit},
 		{"positive infinity falls back to default", map[string]any{"limit": math.Inf(1)}, defaultRowLimit},
 		{"negative infinity falls back to default", map[string]any{"limit": math.Inf(-1)}, defaultRowLimit},
+		{"max float64 falls back to default rather than overflowing int", map[string]any{"limit": math.MaxFloat64}, defaultRowLimit},
+		{"negative max float64 falls back to default rather than overflowing int", map[string]any{"limit": -math.MaxFloat64}, defaultRowLimit},
 	}
 
 	for _, tt := range tests {
