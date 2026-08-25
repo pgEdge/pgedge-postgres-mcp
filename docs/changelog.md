@@ -9,6 +9,13 @@ and this project adheres to
 
 ## [Unreleased]
 
+### Fixed
+
+- Disabled the knowledgebase by default in the packaged
+  `postgres-mcp.yaml`; the shipped `database_path` never existed,
+  since the actual filename depends on the embedding provider and
+  model.
+
 ## [1.1.0] - 2026-08-17
 
 ### Added

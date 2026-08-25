@@ -121,8 +121,10 @@ llm:
 # Knowledgebase database (for similarity_search tool)
 # Requires pgedge-ai-kb package
 knowledgebase:
-  enabled: true
-  database_path: /usr/share/pgedge/pgedge-ai-kb/kb.db
+  enabled: false
+  # Uncomment and set the path after installing your preferred KB package.
+  # The filename is provider- and model-specific, e.g.:
+  # database_path: /usr/share/pgedge/pgedge-ai-kb/kb-<provider>-<model>.db
   #embedding_provider: "voyage"  # Options: "voyage", "openai", "gemini", "ollama"
   #embedding_model: "voyage-3"
 
