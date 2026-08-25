@@ -241,11 +241,43 @@ func TestQueryTypeDetection(t *testing.T) {
 			hasReturning: true,
 			expectsRows:  true,
 		},
+
+		// Leading noise that must not defeat classification (issue #275)
+		{
+			name:          "leading line comment before SELECT",
+			query:         "-- probe\nSELECT g FROM generate_series(1,300) g",
+			isSelectQuery: true,
+			expectsRows:   true,
+		},
+		{
+			name:          "leading block comment before SELECT",
+			query:         "/* probe */ SELECT * FROM users",
+			isSelectQuery: true,
+			expectsRows:   true,
+		},
+		{
+			name:          "parenthesised SELECT",
+			query:         "(SELECT * FROM users)",
+			isSelectQuery: true,
+			expectsRows:   true,
+		},
+		{
+			name:          "doubly parenthesised SELECT",
+			query:         "((SELECT * FROM users))",
+			isSelectQuery: true,
+			expectsRows:   true,
+		},
+		{
+			name:        "leading comment before CREATE",
+			query:       "-- probe\nCREATE TABLE test (id int)",
+			isDDLQuery:  true,
+			expectsRows: false,
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			upperQuery := strings.ToUpper(strings.TrimSpace(tt.query))
+			upperQuery := normalizeForClassification(tt.query)
 
 			// Test SELECT detection
 			isSelectQuery := strings.HasPrefix(upperQuery, "SELECT") ||
@@ -461,6 +493,30 @@ var queryHasClauseTests = []struct {
 		pattern:        offsetKeywordPattern,
 		expectDetected: false,
 	},
+}
+
+func TestStripLeadingParens(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		want  string
+	}{
+		{"no parens", "SELECT 1", "SELECT 1"},
+		{"single wrap", "(SELECT 1)", "SELECT 1"},
+		{"double wrap", "((SELECT 1))", "SELECT 1"},
+		{"wrap with surrounding whitespace", "( SELECT 1 )", "SELECT 1"},
+		{"unbalanced left as-is", "(SELECT 1", "(SELECT 1"},
+		{"empty parens left as-is", "()", "()"},
+		{"union of two parenthesised selects keeps first clause only", "(SELECT 1) UNION (SELECT 2)", "SELECT 1"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := stripLeadingParens(tt.input); got != tt.want {
+				t.Errorf("stripLeadingParens(%q) = %q, want %q", tt.input, got, tt.want)
+			}
+		})
+	}
 }
 
 func TestQueryHasClause(t *testing.T) {

@@ -91,6 +91,51 @@ func resolveRowLimit(args map[string]any) int {
 var limitKeywordPattern = regexp.MustCompile(`(?i)(?:^|[^A-Z0-9_$])(LIMIT)(?:[^A-Z0-9_$]|$)`)
 var offsetKeywordPattern = regexp.MustCompile(`(?i)(?:^|[^A-Z0-9_$])(OFFSET)(?:[^A-Z0-9_$]|$)`)
 
+// stripLeadingParens peels away wrapping parentheses so a statement written
+// as "(SELECT ...)" is still recognised as a SELECT by the keyword-prefix
+// checks below (issue #275). It only ever narrows what's inspected for
+// classification purposes; the query actually executed is untouched.
+func stripLeadingParens(s string) string {
+	for strings.HasPrefix(s, "(") {
+		depth := 0
+		closeAt := -1
+		for i := 0; i < len(s); i++ {
+			switch s[i] {
+			case '(':
+				depth++
+			case ')':
+				depth--
+				if depth == 0 {
+					closeAt = i
+				}
+			}
+			if closeAt >= 0 {
+				break
+			}
+		}
+		if closeAt < 0 {
+			break // unbalanced; leave as-is for the prefix check to reject
+		}
+		inner := strings.TrimSpace(s[1:closeAt])
+		if inner == "" {
+			break
+		}
+		s = inner
+	}
+	return s
+}
+
+// normalizeForClassification produces the text used to decide a
+// statement's type (SELECT/DDL/DML/RETURNING): comments and literals
+// stripped via sqltext.Strip, any wrapping parentheses peeled off, upper-
+// cased. Without this a leading comment or a parenthesised SELECT falls
+// through every HasPrefix check below, which meant no LIMIT was appended
+// and no truncation marker was ever emitted for it (issue #275).
+func normalizeForClassification(sqlQuery string) string {
+	residue, _ := sqltext.Strip(sqlQuery)
+	return strings.ToUpper(stripLeadingParens(strings.TrimSpace(residue)))
+}
+
 // queryHasClause reports whether a SQL statement already contains a
 // top-level LIMIT or OFFSET clause. It checks the statement's residue, with
 // comments removed and string literals, dollar-quoted blocks and quoted
@@ -332,9 +377,10 @@ To avoid rate limits (30,000 input tokens/minute):
 			// against the statement's residue rather than raw text, so a
 			// literal or identifier that merely mentions "limit"/"offset"
 			// doesn't defeat the safety cap (issue #260).
-			upperQuery := strings.ToUpper(strings.TrimSpace(sqlQuery))
 			hasExistingLimit := queryHasClause(limitKeywordPattern, sqlQuery)
 			hasExistingOffset := queryHasClause(offsetKeywordPattern, sqlQuery)
+
+			upperQuery := normalizeForClassification(sqlQuery)
 
 			// Check if this is a SELECT query - only SELECT queries support LIMIT/OFFSET
 			// DDL (CREATE, ALTER, DROP) and DML (INSERT, UPDATE, DELETE) don't support LIMIT

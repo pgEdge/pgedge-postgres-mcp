@@ -22,6 +22,12 @@ and this project adheres to
   the cap, and a query that already carries its own inline `LIMIT`
   clause is now wrapped so it cannot return more than 1000 rows either.
 
+- `query_database` now classifies a statement as a SELECT (and applies
+  the row cap and truncation marker) even when it starts with a
+  comment or is wrapped in parentheses; previously either fell
+  through every check, so no `LIMIT` was appended and the result set
+  came back uncapped and unmarked.
+
 ## [1.1.0] - 2026-08-17
 
 ### Added
