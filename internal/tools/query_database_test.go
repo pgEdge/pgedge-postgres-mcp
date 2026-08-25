@@ -493,6 +493,36 @@ var queryHasClauseTests = []struct {
 		pattern:        offsetKeywordPattern,
 		expectDetected: false,
 	},
+	{
+		name:           "whole-statement-wrapped LIMIT is a top-level clause",
+		query:          "(SELECT * FROM t LIMIT 5)",
+		pattern:        limitKeywordPattern,
+		expectDetected: true,
+	},
+	{
+		name:           "doubly whole-statement-wrapped LIMIT is a top-level clause",
+		query:          "((SELECT * FROM t LIMIT 5))",
+		pattern:        limitKeywordPattern,
+		expectDetected: true,
+	},
+	{
+		name:           "whole-statement-wrapped OFFSET is a top-level clause",
+		query:          "(SELECT * FROM t OFFSET 5)",
+		pattern:        offsetKeywordPattern,
+		expectDetected: true,
+	},
+	{
+		name:           "LIMIT inside only the first branch of a UNION is not a top-level clause",
+		query:          "(SELECT * FROM t LIMIT 5) UNION (SELECT * FROM u)",
+		pattern:        limitKeywordPattern,
+		expectDetected: false,
+	},
+	{
+		name:           "trailing LIMIT after a parenthesised UNION is still a top-level clause",
+		query:          "(SELECT * FROM t) UNION (SELECT * FROM u) LIMIT 50",
+		pattern:        limitKeywordPattern,
+		expectDetected: true,
+	},
 }
 
 func TestStripLeadingParens(t *testing.T) {
