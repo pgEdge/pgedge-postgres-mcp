@@ -34,8 +34,9 @@ and this project adheres to
 
 - `query_database` no longer appends a `LIMIT` to a statement that
   already limits its rows with the SQL-standard
-  `FETCH FIRST/NEXT ... ROWS ONLY` clause; PostgreSQL rejected the
-  two conflicting clauses outright.
+  `FETCH FIRST/NEXT ... ROWS ONLY` clause, or its `... ROWS WITH TIES`
+  variant; PostgreSQL rejected the two conflicting clauses outright
+  either way.
 
 ## [1.1.0] - 2026-08-17
 

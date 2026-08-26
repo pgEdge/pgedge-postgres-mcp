@@ -559,6 +559,36 @@ var queryHasClauseTests = []struct {
 		pattern:        fetchFirstPattern,
 		expectDetected: false,
 	},
+	{
+		name:           "FETCH FIRST n ROWS WITH TIES is a limit clause",
+		query:          "SELECT * FROM t ORDER BY val FETCH FIRST 3 ROWS WITH TIES",
+		pattern:        fetchFirstPattern,
+		expectDetected: true,
+	},
+	{
+		name:           "FETCH NEXT n ROWS WITH TIES is a limit clause",
+		query:          "SELECT * FROM t ORDER BY val OFFSET 1 FETCH NEXT 3 ROWS WITH TIES",
+		pattern:        fetchFirstPattern,
+		expectDetected: true,
+	},
+	{
+		name:           "FETCH FIRST ... WITH TIES with extra whitespace is still a limit clause",
+		query:          "SELECT * FROM t ORDER BY val FETCH FIRST 3 ROWS  WITH   TIES",
+		pattern:        fetchFirstPattern,
+		expectDetected: true,
+	},
+	{
+		name:           "FETCH FIRST ... ROWS WITHOUT TIES does not falsely match WITH TIES",
+		query:          "SELECT * FROM t ORDER BY val FETCH FIRST 3 ROWS WITHOUT TIES",
+		pattern:        fetchFirstPattern,
+		expectDetected: false,
+	},
+	{
+		name:           "FETCH FIRST ... WITH TIES inside a subquery is not an outer clause",
+		query:          "SELECT * FROM parent WHERE id IN (SELECT id FROM child ORDER BY val FETCH FIRST 1 ROWS WITH TIES)",
+		pattern:        fetchFirstPattern,
+		expectDetected: false,
+	},
 }
 
 func TestStripLeadingParens(t *testing.T) {

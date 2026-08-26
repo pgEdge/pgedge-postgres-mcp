@@ -92,15 +92,25 @@ var limitKeywordPattern = regexp.MustCompile(`(?i)(?:^|[^A-Z0-9_$])(LIMIT)(?:[^A
 var offsetKeywordPattern = regexp.MustCompile(`(?i)(?:^|[^A-Z0-9_$])(OFFSET)(?:[^A-Z0-9_$]|$)`)
 
 // fetchFirstPattern matches the SQL-standard row-limiting clause
-// "FETCH { FIRST | NEXT } [ count ] { ROW | ROWS } ONLY", which contains no
-// occurrence of the word "LIMIT" at all. Appending our own LIMIT on top of
-// one gives PostgreSQL two row-limiting clauses on the same statement, which
-// it rejects outright (issue #276), so this needs its own detection rather
-// than falling out of limitKeywordPattern. Only the "FETCH" keyword itself
-// is captured, matching the convention the other patterns use for the
-// parenthesis-depth check in queryHasClause; [^;]*? keeps the match from
-// running past the end of the statement it belongs to.
-var fetchFirstPattern = regexp.MustCompile(`(?is)(?:^|[^A-Z0-9_$])(FETCH)\s+(?:FIRST|NEXT)\b[^;]*?\b(?:ROW|ROWS)\s+ONLY\b`)
+// "FETCH { FIRST | NEXT } [ count ] { ROW | ROWS } { ONLY | WITH TIES }",
+// which contains no occurrence of the word "LIMIT" at all. Appending our
+// own LIMIT on top of one gives PostgreSQL two row-limiting clauses on
+// the same statement, which it rejects outright (issue #276), so this
+// needs its own detection rather than falling out of limitKeywordPattern.
+// Only the "FETCH" keyword itself is captured, matching the convention
+// the other patterns use for the parenthesis-depth check in
+// queryHasClause; [^;]*? keeps the match from running past the end of
+// the statement it belongs to.
+//
+// WITH TIES is a distinct, real terminator from ONLY -- PostgreSQL
+// accepts "FETCH FIRST n ROWS WITH TIES" to include rows tied with the
+// last one on the ORDER BY key, and rejects a LIMIT appended after it
+// exactly the same way it rejects one after ROWS ONLY, so both need to
+// count as an existing limit (issue #276 follow-up). PostgreSQL has no
+// PERCENT variant of this clause at all -- unlike WITH TIES, that's not
+// a gap to close, since Postgres's own parser already rejects it before
+// this tool's LIMIT injection ever becomes relevant.
+var fetchFirstPattern = regexp.MustCompile(`(?is)(?:^|[^A-Z0-9_$])(FETCH)\s+(?:FIRST|NEXT)\b[^;]*?\b(?:ROW|ROWS)\s+(?:ONLY|WITH\s+TIES)\b`)
 
 // stripLeadingParens peels away wrapping parentheses so a statement written
 // as "(SELECT ...)" is still recognised as a SELECT by the keyword-prefix
