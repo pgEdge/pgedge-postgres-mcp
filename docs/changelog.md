@@ -9,6 +9,20 @@ and this project adheres to
 
 ## [Unreleased]
 
+### Fixed
+
+- The release workflow now names its archives after the tag that
+  triggered it. GoReleaser was left to work the version out for itself,
+  which it does by asking git which tags point at the commit and taking
+  the first, so promoting a release candidate to general availability,
+  which puts a second tag on the candidate's own commit, produced a
+  1.1.0 release whose server and CLI archives were named
+  `1.1.0-rc1`. The binaries inside always reported the right version,
+  since that comes from a constant in the source rather than from the
+  tag, and the RPM and Debian packages were unaffected. The 1.1.0
+  archives have been renamed in place, so only somebody who downloaded
+  them in the first hours after release saw the wrong names.
+
 ## [1.1.0] - 2026-09-03
 
 ### Security

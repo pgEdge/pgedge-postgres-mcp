@@ -247,6 +247,12 @@ jobs:
                   args: release --clean --config .goreleaser-amd64.yaml ${{ github.event_name == 'workflow_dispatch' && github.ref_type != 'tag' && '--snapshot' || '' }}
               env:
                   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+                  # Name the archives after the tag that triggered this run. Left
+                  # unset, GoReleaser asks git which tags point at HEAD and takes
+                  # the first, which is the release candidate whenever a GA tag has
+                  # been added to the commit its own candidate was cut from. Empty
+                  # on a non-tag run, which GoReleaser ignores.
+                  GORELEASER_CURRENT_TAG: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
 
             - name: Upload amd64 artifacts
               uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
@@ -303,6 +309,12 @@ jobs:
                   args: release --clean --config .goreleaser-arm64.yaml ${{ github.event_name == 'workflow_dispatch' && github.ref_type != 'tag' && '--snapshot' || '' }}
               env:
                   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+                  # Name the archives after the tag that triggered this run. Left
+                  # unset, GoReleaser asks git which tags point at HEAD and takes
+                  # the first, which is the release candidate whenever a GA tag has
+                  # been added to the commit its own candidate was cut from. Empty
+                  # on a non-tag run, which GoReleaser ignores.
+                  GORELEASER_CURRENT_TAG: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
 
             - name: Upload arm64 artifacts
               uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
