@@ -70,7 +70,12 @@ func (s *Server) buildHandler(config *HTTPConfig) (http.Handler, error) {
 	// Wrap with auth middleware if enabled
 	var handler http.Handler = mux
 	if config.AuthEnabled {
-		handler = auth.AuthMiddleware(config.TokenStore, config.UserStore, true)(handler)
+		v := &auth.Validator{
+			Tokens:  config.TokenStore,
+			Users:   config.UserStore,
+			Methods: auth.Methods{APITokens: true, PasswordLogin: true, OAuth: false},
+		}
+		handler = auth.AuthMiddleware(v, true)(handler)
 	}
 
 	// Validate the Origin header ahead of authentication, so a request
