@@ -95,6 +95,16 @@ func checkAuthorizeParams(p AuthorizeParams) *Error {
 	return nil
 }
 
+// authenticateForm authenticates the username and password posted in r's
+// form body against ip, for use by both the login form (this file) and
+// the device verification form (device.go), so the two handlers do not
+// each duplicate the call to Authenticator.Authenticate.
+func (s *Server) authenticateForm(r *http.Request, ip string) (subject string, err error) {
+	username := r.PostFormValue("username")
+	password := r.PostFormValue("password")
+	return s.opts.Authenticator.Authenticate(r.Context(), username, password, ip)
+}
+
 // clientDisplayName returns the name shown to the resource owner on the
 // login page for client, falling back to its ID when it registered
 // without a display name.
@@ -169,9 +179,7 @@ func (s *Server) handleAuthorize(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	username := r.PostFormValue("username")
-	password := r.PostFormValue("password")
-	subject, err := s.opts.Authenticator.Authenticate(r.Context(), username, password, ip)
+	subject, err := s.authenticateForm(r, ip)
 	if err != nil {
 		if errors.Is(err, ErrRateLimited) {
 			s.logf("oauth authorize: client=%q ip=%s error=rate_limited", p.ClientID, ip)

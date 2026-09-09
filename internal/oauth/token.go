@@ -11,7 +11,7 @@
 // Package oauth implements a minimal OAuth 2.0 authorisation server: this
 // file implements the /oauth/token endpoint, covering the authorisation
 // code and refresh token grants (RFC 6749 sections 4.1.3 and 6). The
-// device grant is added in a later task.
+// device grant itself (RFC 8628 section 3.4) is implemented in device.go.
 package oauth
 
 import (
@@ -48,10 +48,15 @@ const genericRefreshInvalidGrant = "refresh token is invalid, expired, or does n
 // count against the per-IP rate limiter. Only invalid_grant and
 // invalid_client outcomes of the authorization_code and refresh_token
 // grants are recorded: unsupported_grant_type and invalid_request never
-// are, and neither is any outcome of the device grant, since a
+// are. For the device grant, only invalid_grant (an unknown device code
+// or one presented by the wrong client) is recorded; authorization_pending,
+// slow_down, expired_token and access_denied never are, since a
 // legitimate device client is expected to poll every few seconds and
-// receive authorization_pending or slow_down without being penalised.
+// must not be penalised for doing so.
 func tokenGrantShouldRecord(grantType, errCode string) bool {
+	if grantType == DeviceGrantType {
+		return errCode == "invalid_grant"
+	}
 	if grantType != "authorization_code" && grantType != "refresh_token" {
 		return false
 	}
@@ -60,7 +65,7 @@ func tokenGrantShouldRecord(grantType, errCode string) bool {
 
 // handleToken implements the token endpoint. It accepts only POST
 // requests with a form-encoded body, dispatching on grant_type to the
-// authorisation code, refresh token or (in a later task) device grants.
+// authorisation code, refresh token or device grants.
 func (s *Server) handleToken(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-store")
 
@@ -90,8 +95,7 @@ func (s *Server) handleToken(w http.ResponseWriter, r *http.Request) {
 	case "refresh_token":
 		e = s.handleRefreshTokenGrant(w, r)
 	case DeviceGrantType:
-		// Implemented in a later task.
-		e = newError("unsupported_grant_type", "device grant not yet supported", http.StatusBadRequest)
+		e = s.handleDeviceCodeGrant(w, r)
 	default:
 		e = newError("unsupported_grant_type", "unsupported grant_type", http.StatusBadRequest)
 	}

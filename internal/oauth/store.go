@@ -294,10 +294,55 @@ func (s *Store) DeleteDevice(hash string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
+	s.deleteDeviceLocked(hash)
+}
+
+// deleteDeviceLocked implements DeleteDevice; callers must hold s.mu.
+func (s *Store) deleteDeviceLocked(hash string) {
 	if d, ok := s.devices[hash]; ok {
 		delete(s.userCodes, d.UserCode)
 	}
 	delete(s.devices, hash)
+}
+
+// TouchDevicePoll records a poll of the device code stored under hash at
+// now, reporting whether the caller must back off. The read of
+// LastPolled, the tooSoon comparison against Interval and the write of
+// the new LastPolled all happen under one lock, so two concurrent polls
+// can never both observe the same stale LastPolled and both proceed: at
+// most one of them can see tooSoon == false for a given now. ok is false
+// if hash names no device code, in which case d is nil and tooSoon is
+// meaningless.
+func (s *Store) TouchDevicePoll(hash string, now time.Time) (d *DeviceCode, tooSoon bool, ok bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	dev, found := s.devices[hash]
+	if !found {
+		return nil, false, false
+	}
+	tooSoon = now.Sub(dev.LastPolled) < dev.Interval
+	dev.LastPolled = now
+	return cloneDeviceCode(dev), tooSoon, true
+}
+
+// TakeDeviceIfApproved removes and returns the device code stored under
+// hash if, and only if, it is currently approved and not denied. The
+// check and the removal happen under one lock, so of two concurrent
+// callers presenting the same approved device code, at most one can ever
+// receive ok == true, making token issuance from the device grant single
+// use.
+func (s *Store) TakeDeviceIfApproved(hash string) (d *DeviceCode, ok bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	dev, found := s.devices[hash]
+	if !found || !dev.Approved || dev.Denied {
+		return nil, false
+	}
+	cp := cloneDeviceCode(dev)
+	s.deleteDeviceLocked(hash)
+	return cp, true
 }
 
 // PutToken adds an access or refresh token, provided the collection has
