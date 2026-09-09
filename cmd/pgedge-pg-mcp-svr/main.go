@@ -854,9 +854,18 @@ func main() {
 		// resolver dependency exists. It is only built when OAuth is
 		// actually switched on in configuration.
 		if cfg.HTTP.Auth.OAuthActive() {
-			extraRedirects := make([]string, 0, len(cfg.HTTP.AllowedOrigins))
-			for _, o := range cfg.HTTP.AllowedOrigins {
-				extraRedirects = append(extraRedirects, strings.TrimRight(o, "/")+"/oauth/callback")
+			// The bundled web client is served from the issuer itself as
+			// well as from any configured origin, so its callback is
+			// accepted alongside theirs.
+			extraRedirects := make([]string, 0, len(cfg.HTTP.AllowedOrigins)+1)
+			seenRedirect := map[string]bool{}
+			for _, o := range append([]string{cfg.HTTP.Auth.OAuth.Issuer}, cfg.HTTP.AllowedOrigins...) {
+				cb := strings.TrimRight(o, "/") + "/oauth/callback"
+				if seenRedirect[cb] {
+					continue
+				}
+				seenRedirect[cb] = true
+				extraRedirects = append(extraRedirects, cb)
 			}
 			var oauthErr error
 			oauthServer, oauthErr = oauth.New(oauth.Options{
@@ -937,6 +946,26 @@ func main() {
 			mux.HandleFunc("/api/user/info", func(w http.ResponseWriter, r *http.Request) {
 				w.Header().Set("Content-Type", "application/json")
 
+				// The endpoint is public, so that the web client can
+				// ask whether it is signed in, but it does validate a
+				// token when one is presented: throttle it per IP like
+				// every other credential check, or it becomes a free
+				// oracle for guessing tokens.
+				ip := ""
+				if rateLimiter != nil {
+					ip = clientIPResolver.Resolve(r)
+					if !rateLimiter.IsAllowed(ip) {
+						w.Header().Set("Retry-After", "60")
+						w.WriteHeader(http.StatusTooManyRequests)
+						//nolint:errcheck // Encoding a simple map should never fail
+						json.NewEncoder(w).Encode(map[string]any{
+							"authenticated": false,
+							"error":         "too many requests",
+						})
+						return
+					}
+				}
+
 				token, ok := auth.ParseBearer(r.Header.Get("Authorization"))
 				if !ok {
 					//nolint:errcheck // Encoding a simple map should never fail
@@ -948,6 +977,9 @@ func main() {
 
 				id, err := validator.Validate(token)
 				if err != nil {
+					if rateLimiter != nil {
+						rateLimiter.RecordFailedAttempt(ip)
+					}
 					//nolint:errcheck // Encoding a simple map should never fail
 					json.NewEncoder(w).Encode(map[string]any{
 						"authenticated": false,

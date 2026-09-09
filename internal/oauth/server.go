@@ -85,7 +85,7 @@ func New(opts Options) (*Server, error) {
 
 	s := &Server{
 		opts:  opts,
-		store: NewStore(DefaultLimits),
+		store: NewStore(DefaultLimits, opts.Config.RefreshTokenLifetime),
 		csrf:  signer,
 		page:  page,
 	}

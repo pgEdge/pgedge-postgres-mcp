@@ -68,13 +68,9 @@ func tokenGrantShouldRecord(grantType, errCode string) bool {
 // authorisation code, refresh token or device grants.
 func (s *Server) handleToken(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-store")
+	w.Header().Set("Pragma", "no-cache")
 
 	ip := s.clientIP(r)
-	if s.opts.RateLimiter != nil && !s.opts.RateLimiter.IsAllowed(ip) {
-		w.Header().Set("Retry-After", "60")
-		writeJSONError(w, newError("access_denied", "too many requests", http.StatusTooManyRequests))
-		return
-	}
 
 	if r.Method != http.MethodPost {
 		writeJSONError(w, newError("invalid_request", "method not allowed", http.StatusMethodNotAllowed))
@@ -88,6 +84,25 @@ func (s *Server) handleToken(w http.ResponseWriter, r *http.Request) {
 	}
 
 	grantType := r.PostFormValue("grant_type")
+
+	// The limiter is shared with every other endpoint, and a device
+	// client is expected to poll every few seconds throughout the
+	// grant. Since polling never records a failure of its own, it must
+	// not be blocked by unrelated failures from the same address
+	// either; the grant's own abuse is bounded by the per-code interval
+	// enforced in TouchDevicePoll.
+	if grantType != DeviceGrantType && s.opts.RateLimiter != nil && !s.opts.RateLimiter.IsAllowed(ip) {
+		w.Header().Set("Retry-After", "60")
+		writeJSONError(w, newError("access_denied", "too many requests", http.StatusTooManyRequests))
+		return
+	}
+
+	// Any grant reaching this point names a client that is still in
+	// use, so keep its registration alive.
+	if clientID := r.PostFormValue("client_id"); clientID != "" {
+		s.store.TouchClient(clientID, s.now())
+	}
+
 	var e *Error
 	switch grantType {
 	case "authorization_code":
@@ -150,7 +165,9 @@ func (s *Server) handleAuthorizationCodeGrant(w http.ResponseWriter, r *http.Req
 		return newError("invalid_grant", genericAuthCodeInvalidGrant, http.StatusBadRequest)
 	}
 
-	tr, refreshHash, err := s.issueTokensWithHash(clientID, authCode.Subject, authCode.Scope)
+	// A code grant starts a new token family, which every rotation of
+	// the resulting refresh token then carries forward.
+	tr, refreshHash, err := s.issueTokensWithHash(clientID, authCode.Subject, authCode.Scope, "")
 	if err != nil {
 		return newError("server_error", "failed to issue tokens", http.StatusServiceUnavailable)
 	}
@@ -177,9 +194,20 @@ func (s *Server) handleRefreshTokenGrant(w http.ResponseWriter, r *http.Request)
 		return newError("invalid_request", "refresh_token and client_id are required", http.StatusBadRequest)
 	}
 
-	t, ok := s.store.TakeToken(hashToken(refreshToken))
+	refreshHash := hashToken(refreshToken)
+	t, ok := s.store.TakeToken(refreshHash)
 	if !ok {
-		s.logf("oauth token: client=%q error=unknown_refresh_token", clientID)
+		// A refresh token that is not on file may simply be unknown, or
+		// it may be one this server rotated away: presenting a rotated
+		// token means either the client or an attacker holds a copy of
+		// it, and there is no way to tell which, so the whole family
+		// descended from the original authorisation is revoked.
+		if family, rotated := s.store.RotatedRefreshFamily(refreshHash); rotated {
+			s.store.DeleteFamily(family)
+			s.logf("oauth token: WARNING client=%q family=%q error=replayed_refresh_token, revoking the token family", clientID, family)
+		} else {
+			s.logf("oauth token: client=%q error=unknown_refresh_token", clientID)
+		}
 		return newError("invalid_grant", genericRefreshInvalidGrant, http.StatusBadRequest)
 	}
 	if !t.IsRefresh || !t.ExpiresAt.After(s.now()) || t.ClientID != clientID {
@@ -191,10 +219,14 @@ func (s *Server) handleRefreshTokenGrant(w http.ResponseWriter, r *http.Request)
 		return newError("invalid_grant", genericRefreshInvalidGrant, http.StatusBadRequest)
 	}
 
-	tr, err := s.issueTokens(clientID, t.Subject, t.Scope)
+	tr, err := s.issueTokens(clientID, t.Subject, t.Scope, t.Family)
 	if err != nil {
 		return newError("server_error", "failed to issue tokens", http.StatusServiceUnavailable)
 	}
+
+	// Remember the token just rotated away, so that a later replay of
+	// it is recognised rather than merely rejected as unknown.
+	s.store.MarkRefreshRotated(refreshHash, t.Family, s.now().Add(s.opts.Config.RefreshTokenLifetime))
 
 	s.logf("oauth token: client=%q subject=%q grant=refresh_token success", clientID, t.Subject)
 	writeJSON(w, http.StatusOK, tr)
@@ -204,16 +236,16 @@ func (s *Server) handleRefreshTokenGrant(w http.ResponseWriter, r *http.Request)
 // issueTokens issues a fresh access/refresh token pair for clientID and
 // subject with the given scope, storing both in the token store. It is
 // used by the authorisation code and refresh token grants, and by the
-// device grant.
-func (s *Server) issueTokens(clientID, subject, scope string) (tokenResponse, error) {
-	tr, _, err := s.issueTokensWithHash(clientID, subject, scope)
+// device grant. An empty family starts a new one.
+func (s *Server) issueTokens(clientID, subject, scope, family string) (tokenResponse, error) {
+	tr, _, err := s.issueTokensWithHash(clientID, subject, scope, family)
 	return tr, err
 }
 
 // issueTokensWithHash is issueTokens, additionally returning the hash of
 // the refresh token it stored, so the authorisation code grant can record
 // it against the redeemed code for later replay detection.
-func (s *Server) issueTokensWithHash(clientID, subject, scope string) (tokenResponse, string, error) {
+func (s *Server) issueTokensWithHash(clientID, subject, scope, family string) (tokenResponse, string, error) {
 	accessToken, err := randomToken(32)
 	if err != nil {
 		return tokenResponse{}, "", err
@@ -221,6 +253,11 @@ func (s *Server) issueTokensWithHash(clientID, subject, scope string) (tokenResp
 	refreshToken, err := randomToken(32)
 	if err != nil {
 		return tokenResponse{}, "", err
+	}
+	if family == "" {
+		if family, err = randomToken(16); err != nil {
+			return tokenResponse{}, "", err
+		}
 	}
 
 	accessHash := hashToken(accessToken)
@@ -235,6 +272,7 @@ func (s *Server) issueTokensWithHash(clientID, subject, scope string) (tokenResp
 		ExpiresAt: now.Add(s.opts.Config.RefreshTokenLifetime),
 		IsRefresh: true,
 		Issued:    []string{accessHash},
+		Family:    family,
 	}
 	if err := s.store.PutToken(refresh); err != nil {
 		return tokenResponse{}, "", err
@@ -247,6 +285,7 @@ func (s *Server) issueTokensWithHash(clientID, subject, scope string) (tokenResp
 		Scope:       scope,
 		ExpiresAt:   now.Add(s.opts.Config.AccessTokenLifetime),
 		RefreshHash: refreshHash,
+		Family:      family,
 	}
 	if err := s.store.PutToken(access); err != nil {
 		s.store.DeleteToken(refreshHash)

@@ -1656,7 +1656,30 @@ func TestOAuthEndToEndThroughHTTPServer(t *testing.T) {
 		t.Fatalf("MCP call with access token: status = %d", code)
 	}
 
-	// 5. Revoking the refresh token invalidates the access token too.
+	// 5. The refresh token exchanges for a fresh pair, and the new
+	// access token works too.
+	refreshed, err := http.PostForm(ts.URL+oauth.TokenPath, url.Values{
+		"grant_type":    {"refresh_token"},
+		"refresh_token": {tr.RefreshToken},
+		"client_id":     {reg.ClientID},
+	})
+	if err != nil {
+		t.Fatalf("refresh: %v", err)
+	}
+	if refreshed.StatusCode != http.StatusOK {
+		t.Fatalf("refresh: status = %d", refreshed.StatusCode)
+	}
+	if err := json.NewDecoder(refreshed.Body).Decode(&tr); err != nil {
+		t.Fatalf("decode refresh response: %v", err)
+	}
+	if tr.AccessToken == "" || tr.RefreshToken == "" {
+		t.Fatal("refresh returned an incomplete token pair")
+	}
+	if code := doMCPCall(); code != http.StatusOK {
+		t.Fatalf("MCP call with refreshed access token: status = %d", code)
+	}
+
+	// 6. Revoking the refresh token invalidates the access token too.
 	if _, err := http.PostForm(ts.URL+oauth.RevokePath, url.Values{"token": {tr.RefreshToken}}); err != nil {
 		t.Fatalf("revoke: %v", err)
 	}

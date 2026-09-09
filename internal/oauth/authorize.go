@@ -137,11 +137,17 @@ func (s *Server) handleAuthorize(w http.ResponseWriter, r *http.Request) {
 
 	client, cerr := s.validateAuthorize(p)
 	if cerr != nil {
+		// The client or the redirect URI cannot be trusted, so there is
+		// nowhere safe to send the browser and no point collecting
+		// credentials: render the error on its own, with no form.
 		s.logf("oauth authorize: client=%q ip=%s error=%s", p.ClientID, ip, cerr.Code)
-		_ = s.page.Render(w, cerr.Status, LoginPageData{Error: cerr.Description, OAuth: p, Page: "login"})
+		_ = s.page.Render(w, cerr.Status, LoginPageData{Error: cerr.Description, Page: "error"})
 		return
 	}
 	display := clientDisplayName(client)
+
+	// The client is known and in use, so keep its registration alive.
+	s.store.TouchClient(client.ID, s.now())
 
 	if perr := checkAuthorizeParams(p); perr != nil {
 		s.logf("oauth authorize: client=%q ip=%s error=%s", p.ClientID, ip, perr.Code)

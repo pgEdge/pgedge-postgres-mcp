@@ -50,10 +50,31 @@ type UserStore struct {
 	watcher *FileWatcher     // File watcher for auto-reloading
 }
 
+// BcryptCost is the cost factor used for every password hash this
+// package generates. It is exported so that callers needing a
+// comparison of the same duration, such as the dummy comparison the
+// OAuth authenticator runs for an unknown user, can match it.
+const BcryptCost = 12
+
+// CanVerifyPassword reports whether AuthenticateUser would reach the
+// bcrypt comparison for username, which it does only for a user that
+// exists and is enabled. A caller that has just been told the
+// credentials were wrong can use it to tell an actual password
+// mismatch, which cost a bcrypt comparison, from an unknown or disabled
+// user, which cost nothing and would otherwise answer measurably
+// faster.
+func (s *UserStore) CanVerifyPassword(username string) bool {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	user, exists := s.Users[username]
+	return exists && user.Enabled
+}
+
 // HashPassword creates a bcrypt hash of the password
 // Uses bcrypt cost of 12 for strong security
 func HashPassword(password string) (string, error) {
-	hash, err := bcrypt.GenerateFromPassword([]byte(password), 12)
+	hash, err := bcrypt.GenerateFromPassword([]byte(password), BcryptCost)
 	if err != nil {
 		return "", fmt.Errorf("failed to hash password: %w", err)
 	}

@@ -71,9 +71,9 @@ input[type="text"], input[type="password"] {
     font-size: 16px;
 }
 input[type="text"]:focus, input[type="password"]:focus {
-    outline: none;
     border-color: {{.Branding.PrimaryColour}};
-    box-shadow: 0 0 0 3px {{.Branding.PrimaryColour}}33;
+    outline: 2px solid {{.Branding.PrimaryColour}};
+    outline-offset: 2px;
 }
 button {
     width: 100%;
@@ -87,6 +87,22 @@ button {
     cursor: pointer;
 }
 button:hover { background: {{.Branding.SecondaryColour}}; }
+button.secondary {
+    background: #ffffff;
+    color: #374151;
+    border: 1px solid #d1d5db;
+    margin-top: 10px;
+}
+button.secondary:hover { background: #F1F5F9; }
+.consent {
+    background: #F1F5F9;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    padding: 12px 14px;
+    margin-bottom: 20px;
+    color: #374151;
+    font-size: 14px;
+}
 .footer {
     text-align: center;
     margin-top: 24px;
@@ -104,11 +120,18 @@ button:hover { background: {{.Branding.SecondaryColour}}; }
 <div class="card">
 <div class="logo"><img src="{{.Branding.LogoURL}}" alt="{{.Branding.Title}}"></div>
 {{if eq .Page "done"}}
-<p class="done">You're signed in. You can close this window and return to your application.</p>
+<p class="done">{{if .Message}}{{.Message}}{{else}}You're signed in. You can close this window and return to your application.{{end}}</p>
+{{else if eq .Page "error"}}
+<h1>{{.Branding.Title}}</h1>
+<div class="error">{{.Error}}</div>
 {{else}}
 <h1>{{.Branding.Title}}</h1>
 {{if .Branding.Subtitle}}<p class="subtitle">{{.Branding.Subtitle}}</p>{{end}}
+{{if .IsDeviceFlow}}
+{{if .Client}}<p class="consent">{{.Client}} is asking to sign in with scope {{if .Scope}}{{.Scope}}{{else}}mcp{{end}}.</p>{{end}}
+{{else}}
 {{if .Client}}<p class="subtitle">{{.Client}} would like to sign in.</p>{{end}}
+{{end}}
 {{if .Branding.MessageParagraphs}}
 <div class="notice">
 {{range .Branding.MessageParagraphs}}<p>{{.}}</p>
@@ -139,7 +162,12 @@ button:hover { background: {{.Branding.SecondaryColour}}; }
 <label for="password">Password</label>
 <input type="password" id="password" name="password" autocomplete="current-password" required>
 </div>
+{{if .IsDeviceFlow}}
+<button type="submit" name="action" value="approve">Approve</button>
+<button type="submit" class="secondary" name="action" value="deny">Deny</button>
+{{else}}
 <button type="submit">Sign in</button>
+{{end}}
 </form>
 {{end}}
 {{if .Branding.Footer}}<p class="footer">{{.Branding.Footer}}</p>{{end}}

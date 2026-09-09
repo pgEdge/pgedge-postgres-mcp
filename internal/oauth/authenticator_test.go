@@ -47,6 +47,38 @@ func TestUserStoreAuthenticatorBadPassword(t *testing.T) {
 	}
 }
 
+// TestUserStoreAuthenticatorEqualisesUnknownUser covers the timing
+// enumeration finding: an unknown or disabled username must still take
+// a bcrypt comparison, so its response time does not distinguish it
+// from a known one. There is no timing assertion here (that would be
+// flaky); the test pins the behaviour that both paths fail the same
+// way and that the dummy comparison is reachable.
+func TestUserStoreAuthenticatorEqualisesUnknownUser(t *testing.T) {
+	store := newUserStore(t)
+	a := &UserStoreAuthenticator{Users: store}
+
+	if _, err := a.Authenticate(context.Background(), "nobody", "whatever", ""); !errors.Is(err, ErrInvalidCredentials) {
+		t.Fatalf("unknown user: %v", err)
+	}
+	if _, err := a.Authenticate(context.Background(), "alice", "wrong", ""); !errors.Is(err, ErrInvalidCredentials) {
+		t.Fatalf("known user, bad password: %v", err)
+	}
+
+	if err := store.DisableUser("alice"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := a.Authenticate(context.Background(), "alice", "correct horse", ""); !errors.Is(err, ErrInvalidCredentials) {
+		t.Fatalf("disabled user: %v", err)
+	}
+
+	if store.CanVerifyPassword("nobody") {
+		t.Error("CanVerifyPassword should be false for an unknown user")
+	}
+	if store.CanVerifyPassword("alice") {
+		t.Error("CanVerifyPassword should be false for a disabled user")
+	}
+}
+
 func TestUserStoreAuthenticatorRateLimited(t *testing.T) {
 	rl := auth.NewRateLimiter(15, 2)
 	defer rl.Stop()

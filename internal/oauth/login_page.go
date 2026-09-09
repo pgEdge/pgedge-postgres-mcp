@@ -60,10 +60,12 @@ type LoginPageData struct {
 	Error        string
 	CSRFToken    string
 	Client       string
+	Scope        string // requested scope, named on the device consent page
 	OAuth        AuthorizeParams
 	UserCode     string
 	IsDeviceFlow bool
-	Page         string // "login", "device", "done"
+	Message      string // replaces the default wording on the done page
+	Page         string // "login", "device", "done", "error"
 }
 
 // loginPage renders the branded OAuth login page and serves its logo.
@@ -93,16 +95,26 @@ func newLoginPage(cfg config.LoginPageConfig) (*loginPage, error) {
 			return nil, fmt.Errorf("parsing default login template: %w", err)
 		}
 	}
+	// Every page is rendered through the "page" definition, so a
+	// template that does not define it can never render anything:
+	// refuse it at startup rather than at the first sign-in attempt.
+	if tmpl.Lookup("page") == nil {
+		return nil, fmt.Errorf("login template %q does not define a %q template", cfg.TemplateFile, "page")
+	}
 
 	logo := defaultLogo
 	logoType := "image/png"
 	if cfg.LogoFile != "" {
+		contentType, err := logoContentType(cfg.LogoFile)
+		if err != nil {
+			return nil, err
+		}
 		data, err := os.ReadFile(cfg.LogoFile)
 		if err != nil {
 			return nil, fmt.Errorf("reading login logo file %q: %w", cfg.LogoFile, err)
 		}
 		logo = data
-		logoType = detectContentType(cfg.LogoFile, data)
+		logoType = contentType
 	}
 
 	return &loginPage{
@@ -121,23 +133,28 @@ func newLoginPage(cfg config.LoginPageConfig) (*loginPage, error) {
 	}, nil
 }
 
-// detectContentType returns the MIME type for a logo file, based on its
-// extension where recognised, falling back to content sniffing.
-func detectContentType(path string, data []byte) string {
-	switch strings.ToLower(filepath.Ext(path)) {
-	case ".png":
-		return "image/png"
-	case ".svg":
-		return "image/svg+xml"
-	case ".jpg", ".jpeg":
-		return "image/jpeg"
-	case ".gif":
-		return "image/gif"
-	case ".webp":
-		return "image/webp"
-	default:
-		return http.DetectContentType(data)
+// logoContentTypes maps the accepted logo file extensions to the MIME
+// type each is served as. SVG is deliberately absent: it is an active
+// content type, and the logo is served from the same origin as the
+// login page, so a hostile or careless SVG would run script there.
+var logoContentTypes = map[string]string{
+	".png":  "image/png",
+	".jpg":  "image/jpeg",
+	".jpeg": "image/jpeg",
+	".gif":  "image/gif",
+	".webp": "image/webp",
+}
+
+// logoContentType returns the MIME type a logo file is served as,
+// rejecting any extension not in logoContentTypes rather than sniffing
+// the content, so that the type served is always one the browser will
+// treat as a passive image.
+func logoContentType(path string) (string, error) {
+	ct, ok := logoContentTypes[strings.ToLower(filepath.Ext(path))]
+	if !ok {
+		return "", fmt.Errorf("login logo file %q: must be a PNG, JPEG, GIF or WebP image", path)
 	}
+	return ct, nil
 }
 
 // Render executes the login page template into a buffer and, only once
@@ -148,6 +165,9 @@ func (p *loginPage) Render(w http.ResponseWriter, status int, data LoginPageData
 	data.Branding = p.branding
 	var buf bytes.Buffer
 	if err := p.tmpl.ExecuteTemplate(&buf, "page", data); err != nil {
+		// Nothing has been written yet, so the caller still gets a
+		// coherent response rather than an empty 200.
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return fmt.Errorf("rendering login page: %w", err)
 	}
 
@@ -155,7 +175,12 @@ func (p *loginPage) Render(w http.ResponseWriter, status int, data LoginPageData
 	h.Set("Content-Type", "text/html; charset=utf-8")
 	h.Set("Cache-Control", "no-store")
 	h.Set("X-Frame-Options", "DENY")
-	h.Set("Content-Security-Policy", "default-src 'none'; img-src 'self'; style-src 'unsafe-inline'; form-action 'self'")
+	h.Set("X-Content-Type-Options", "nosniff")
+	h.Set("Referrer-Policy", "no-referrer")
+	// form-action is deliberately absent: Chromium applies it to the
+	// whole redirect chain that follows the form submission, which
+	// would block the redirect back to the client's own callback.
+	h.Set("Content-Security-Policy", "default-src 'none'; img-src 'self'; style-src 'unsafe-inline'; base-uri 'none'; frame-ancestors 'none'")
 	w.WriteHeader(status)
 	_, err := w.Write(buf.Bytes())
 	return err
@@ -167,6 +192,8 @@ func (p *loginPage) ServeLogo(w http.ResponseWriter, _ *http.Request) {
 	h := w.Header()
 	h.Set("Content-Type", p.logoType)
 	h.Set("Cache-Control", "public, max-age=86400")
+	h.Set("X-Content-Type-Options", "nosniff")
+	h.Set("Content-Security-Policy", "default-src 'none'; sandbox")
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write(p.logo)
 }

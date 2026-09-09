@@ -180,6 +180,27 @@ func (s *Server) handleDevice(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// pendingDeviceConsent resolves the client name and scope to name on
+// the consent page for userCode, so that the resource owner is told
+// which client is asking, and for what, before typing anything (RFC
+// 8628 section 5.4). Both are empty when the code names no device that
+// is still awaiting an answer, in which case the page simply asks for
+// the code as before.
+func (s *Server) pendingDeviceConsent(userCode string) (client, scope string) {
+	if userCode == "" {
+		return "", ""
+	}
+	d, ok := s.store.GetDeviceByUserCode(userCode)
+	if !ok || d.Approved || d.Denied || !d.ExpiresAt.After(s.now()) {
+		return "", ""
+	}
+	c, ok := s.store.GetClient(d.ClientID)
+	if !ok {
+		return d.ClientID, d.Scope
+	}
+	return clientDisplayName(c), d.Scope
+}
+
 // handleDeviceVerify implements the user-facing verification page (RFC
 // 8628 section 3.3): GET renders the form pre-filled with the user_code
 // from the query string, and POST verifies the resource owner's
@@ -205,10 +226,13 @@ func (s *Server) handleDeviceVerify(w http.ResponseWriter, r *http.Request) {
 
 	if r.Method == http.MethodGet {
 		userCode := normaliseUserCode(r.URL.Query().Get("user_code"))
+		client, scope := s.pendingDeviceConsent(userCode)
 		s.logf("oauth device verify: ip=%s rendering form", ip)
 		_ = s.page.Render(w, http.StatusOK, LoginPageData{
 			CSRFToken:    s.csrf.Issue(s.now()),
 			UserCode:     userCode,
+			Client:       client,
+			Scope:        scope,
 			IsDeviceFlow: true,
 			Page:         "device",
 		})
@@ -223,6 +247,8 @@ func (s *Server) handleDeviceVerify(w http.ResponseWriter, r *http.Request) {
 
 	userCode := normaliseUserCode(r.PostFormValue("user_code"))
 
+	client, scope := s.pendingDeviceConsent(userCode)
+
 	// reRender re-displays the verification form with an error, issuing
 	// a fresh CSRF token so the resource owner can retry without a
 	// stale-token failure on the next attempt.
@@ -231,6 +257,8 @@ func (s *Server) handleDeviceVerify(w http.ResponseWriter, r *http.Request) {
 			Error:        message,
 			CSRFToken:    s.csrf.Issue(s.now()),
 			UserCode:     userCode,
+			Client:       client,
+			Scope:        scope,
 			IsDeviceFlow: true,
 			Page:         "device",
 		})
@@ -248,6 +276,27 @@ func (s *Server) handleDeviceVerify(w http.ResponseWriter, r *http.Request) {
 	// pending code from any other kind of miss.
 	invalidCode := func(d *DeviceCode, ok bool) bool {
 		return !ok || !d.ExpiresAt.After(s.now()) || d.Approved || d.Denied
+	}
+
+	// Refusing the request needs no credentials: the resource owner has
+	// said no, which is an answer the device is entitled to receive as
+	// soon as it is given.
+	if r.PostFormValue("action") == "deny" {
+		d, ok := s.store.GetDeviceByUserCode(userCode)
+		if invalidCode(d, ok) || !s.store.DenyDevice(d.DeviceHash) {
+			if s.opts.RateLimiter != nil {
+				s.opts.RateLimiter.RecordFailedAttempt(ip)
+			}
+			s.logf("oauth device verify: ip=%s error=unknown_expired_or_resolved_code", ip)
+			reRender(http.StatusBadRequest, "That code is not valid or has expired")
+			return
+		}
+		s.logf("oauth device verify: ip=%s denied", ip)
+		_ = s.page.Render(w, http.StatusOK, LoginPageData{
+			Page:    "done",
+			Message: "Request denied. You can close this window.",
+		})
+		return
 	}
 
 	d, ok := s.store.GetDeviceByUserCode(userCode)
@@ -343,7 +392,7 @@ func (s *Server) handleDeviceCodeGrant(w http.ResponseWriter, r *http.Request) *
 		return newError("authorization_pending", "the user has not yet approved this device", http.StatusBadRequest)
 	}
 
-	tr, err := s.issueTokens(clientID, taken.Subject, taken.Scope)
+	tr, err := s.issueTokens(clientID, taken.Subject, taken.Scope, "")
 	if err != nil {
 		return newError("server_error", "failed to issue tokens", http.StatusServiceUnavailable)
 	}

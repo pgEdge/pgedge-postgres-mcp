@@ -70,10 +70,16 @@ func (s *Server) handleRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Registration is a metered resource, not merely a guarded one: an
+	// unauthenticated caller can register as many clients as it likes,
+	// so every registration counts against the per-IP limiter, whether
+	// or not it succeeded. RecordFailedAttempt is the limiter's only
+	// way of counting; nothing here implies the request failed.
+	if s.opts.RateLimiter != nil {
+		s.opts.RateLimiter.RecordFailedAttempt(ip)
+	}
+
 	fail := func(e *Error) {
-		if s.opts.RateLimiter != nil {
-			s.opts.RateLimiter.RecordFailedAttempt(ip)
-		}
 		writeJSONError(w, e)
 	}
 
@@ -137,6 +143,7 @@ func (s *Server) handleRegister(w http.ResponseWriter, r *http.Request) {
 		Name:         clientName,
 		RedirectURIs: req.RedirectURIs,
 		CreatedAt:    now,
+		LastUsed:     now,
 	}
 	if err := s.store.PutClient(client); err != nil {
 		fail(newError("server_error", "failed to store client", http.StatusInternalServerError))

@@ -26,6 +26,13 @@ type Client struct {
 	Name         string
 	RedirectURIs []string
 	CreatedAt    time.Time
+
+	// LastUsed is when the client was last seen at the authorisation or
+	// token endpoint. It is set at registration and refreshed by
+	// TouchClient, so that Sweep can retire the registrations of
+	// clients that have gone away, and PutClient can evict the least
+	// recently used one when the table is full.
+	LastUsed time.Time
 }
 
 // AuthCode is a single-use authorisation code issued during the
@@ -64,6 +71,21 @@ type Token struct {
 	RefreshHash string // for access tokens: the refresh token that issued it (may be empty)
 	IsRefresh   bool
 	Issued      []string // for refresh tokens: hashes of access tokens issued from it
+
+	// Family identifies the chain of tokens descended from a single
+	// authorisation: the authorisation code grant starts a new family
+	// and each refresh rotation carries it forward, so that a replayed
+	// refresh token can revoke the whole chain.
+	Family string
+}
+
+// rotatedRefresh records the family a refresh token belonged to before
+// it was rotated away, so that a replay of the old token can be
+// recognised and answered by revoking the family. Until bounds how long
+// the record is kept.
+type rotatedRefresh struct {
+	Family string
+	Until  time.Time
 }
 
 // usedCode records the refresh token issued from an authorisation code
@@ -89,24 +111,40 @@ type Store struct {
 
 	limits Limits
 
+	// clientRetention is how long an unused client registration is
+	// kept, over and above clientIdleGrace: a server passes its refresh
+	// token lifetime, since a client whose longest-lived credential has
+	// expired has nothing left to present.
+	clientRetention time.Duration
+
 	clients   map[string]*Client
 	codes     map[string]*AuthCode
 	devices   map[string]*DeviceCode
 	userCodes map[string]string // device user code -> device hash
 	tokens    map[string]*Token
 	usedCodes map[string]*usedCode
+	rotated   map[string]*rotatedRefresh
 }
 
-// NewStore creates an empty Store bounded by limits.
-func NewStore(limits Limits) *Store {
+// clientIdleGrace is added to a Store's clientRetention before an idle
+// client registration is swept, so that a client returning at the very
+// end of its refresh token's life still finds itself registered.
+const clientIdleGrace = time.Hour
+
+// NewStore creates an empty Store bounded by limits, retaining an
+// unused client registration for clientRetention (plus an hour's
+// grace) after it was last seen.
+func NewStore(limits Limits, clientRetention time.Duration) *Store {
 	return &Store{
-		limits:    limits,
-		clients:   make(map[string]*Client),
-		codes:     make(map[string]*AuthCode),
-		devices:   make(map[string]*DeviceCode),
-		userCodes: make(map[string]string),
-		tokens:    make(map[string]*Token),
-		usedCodes: make(map[string]*usedCode),
+		limits:          limits,
+		clientRetention: clientRetention,
+		clients:         make(map[string]*Client),
+		codes:           make(map[string]*AuthCode),
+		devices:         make(map[string]*DeviceCode),
+		userCodes:       make(map[string]string),
+		tokens:          make(map[string]*Token),
+		usedCodes:       make(map[string]*usedCode),
+		rotated:         make(map[string]*rotatedRefresh),
 	}
 }
 
@@ -143,17 +181,110 @@ func cloneToken(t *Token) *Token {
 	return &cp
 }
 
-// PutClient adds or replaces a client, provided the collection has not
-// reached its limit.
+// PutClient adds or replaces a client. When the collection is already
+// full, the least recently used client that has no live tokens is
+// evicted to make room, since a registration nobody has come back for
+// is worth less than the one being made now; ErrStoreFull is returned
+// only when every registered client still holds a live token.
+//
+// c.LastUsed stands in for the current time, so that eviction does not
+// need a clock of its own; a zero LastUsed makes every token look live
+// and so fails closed with ErrStoreFull rather than evicting.
 func (s *Store) PutClient(c *Client) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	if _, exists := s.clients[c.ID]; !exists && len(s.clients) >= s.limits.Clients {
-		return ErrStoreFull
+		victim, found := s.lruEvictableClientLocked(c.LastUsed)
+		if !found {
+			return ErrStoreFull
+		}
+		delete(s.clients, victim)
 	}
 	s.clients[c.ID] = cloneClient(c)
 	return nil
+}
+
+// lruEvictableClientLocked returns the id of the least recently used
+// client that has no live token at now. Callers must hold s.mu.
+func (s *Store) lruEvictableClientLocked(now time.Time) (id string, found bool) {
+	var oldest time.Time
+	for cid, c := range s.clients {
+		if s.hasLiveTokensLocked(cid, now) {
+			continue
+		}
+		if !found || c.LastUsed.Before(oldest) {
+			id, oldest, found = cid, c.LastUsed, true
+		}
+	}
+	return id, found
+}
+
+// hasLiveTokensLocked reports whether clientID has any token that has
+// not expired at now. Callers must hold s.mu.
+func (s *Store) hasLiveTokensLocked(clientID string, now time.Time) bool {
+	for _, t := range s.tokens {
+		if t.ClientID == clientID && t.ExpiresAt.After(now) {
+			return true
+		}
+	}
+	return false
+}
+
+// TouchClient records that the client registered under id has just been
+// seen, at now. It is a no-op for an unknown id, so that a request
+// naming a client that has already been swept does not resurrect it.
+func (s *Store) TouchClient(id string, now time.Time) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if c, ok := s.clients[id]; ok {
+		c.LastUsed = now
+	}
+}
+
+// MarkRefreshRotated records that the refresh token hashed to hash has
+// been rotated away from family, keeping the record until until so that
+// a replay of the old token can be recognised. The record is bounded by
+// the same limit as tokens.
+func (s *Store) MarkRefreshRotated(hash, family string, until time.Time) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if _, exists := s.rotated[hash]; !exists && len(s.rotated) >= s.limits.Tokens {
+		return
+	}
+	s.rotated[hash] = &rotatedRefresh{Family: family, Until: until}
+}
+
+// RotatedRefreshFamily returns the family a rotated refresh token
+// belonged to, if hash names one that is still on record.
+func (s *Store) RotatedRefreshFamily(hash string) (family string, ok bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	r, found := s.rotated[hash]
+	if !found {
+		return "", false
+	}
+	return r.Family, true
+}
+
+// DeleteFamily removes every token belonging to family, which is how a
+// replayed refresh token is answered: the whole chain descended from
+// the original authorisation is revoked.
+func (s *Store) DeleteFamily(family string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if family == "" {
+		return
+	}
+	for hash, t := range s.tokens {
+		if t.Family == family {
+			delete(s.tokens, hash)
+		}
+	}
 }
 
 // GetClient returns a copy of the client registered under id, if any.
@@ -309,6 +440,23 @@ func (s *Store) ApproveDevice(hash, subject string) (ok bool) {
 	return true
 }
 
+// DenyDevice marks the device code stored under hash as refused by the
+// resource owner, but only if it is not already approved or denied. Like
+// ApproveDevice, the check and the write happen under one lock, so the
+// outcome of a race between an approval and a refusal is whichever
+// arrived first, and never both.
+func (s *Store) DenyDevice(hash string) (ok bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	dev, found := s.devices[hash]
+	if !found || dev.Approved || dev.Denied {
+		return false
+	}
+	dev.Denied = true
+	return true
+}
+
 // DeleteDevice removes the device code stored under hash, along with its
 // user-code mapping.
 func (s *Store) DeleteDevice(hash string) {
@@ -450,8 +598,10 @@ func (s *Store) deleteTokenLocked(hash string) {
 	}
 }
 
-// Sweep removes every client-facing entry whose ExpiresAt is before now.
-// Clients have no expiry and are left untouched.
+// Sweep removes every client-facing entry whose ExpiresAt is before
+// now, along with the client registrations that have not been used
+// within clientRetention plus clientIdleGrace and hold no live tokens,
+// so that a flood of dynamic registrations drains away by itself.
 func (s *Store) Sweep(now time.Time) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -475,6 +625,21 @@ func (s *Store) Sweep(now time.Time) {
 	for hash, u := range s.usedCodes {
 		if u.Until.Before(now) {
 			delete(s.usedCodes, hash)
+		}
+	}
+	for hash, r := range s.rotated {
+		if r.Until.Before(now) {
+			delete(s.rotated, hash)
+		}
+	}
+
+	// Clients are swept last, so that the token expiry above has
+	// already run and a client whose last token has just expired is
+	// eligible in the same pass.
+	cutoff := now.Add(-(s.clientRetention + clientIdleGrace))
+	for id, c := range s.clients {
+		if c.LastUsed.Before(cutoff) && !s.hasLiveTokensLocked(id, now) {
+			delete(s.clients, id)
 		}
 	}
 }

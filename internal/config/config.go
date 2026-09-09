@@ -1739,6 +1739,12 @@ func validateConfig(cfg *Config) error {
 	return nil
 }
 
+// allowedLogoExtensions lists the file extensions accepted for the
+// login page logo, matching the formats internal/oauth will serve.
+var allowedLogoExtensions = map[string]bool{
+	".png": true, ".jpg": true, ".jpeg": true, ".gif": true, ".webp": true,
+}
+
 // cssHexColour matches a CSS hex colour in 3, 6 or 8 digit form.
 var cssHexColour = regexp.MustCompile(`^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$`)
 
@@ -1785,6 +1791,11 @@ func validateAuthConfig(a *AuthConfig) error {
 		if !cssHexColour.MatchString(c) {
 			return fmt.Errorf("http.auth.oauth.login_page.%s: %q is not a CSS hex colour", name, c)
 		}
+	}
+	// The logo is served from the same origin as the login page, so it
+	// must be a passive image format: an SVG could carry script.
+	if lp.LogoFile != "" && !allowedLogoExtensions[strings.ToLower(filepath.Ext(lp.LogoFile))] {
+		return fmt.Errorf("http.auth.oauth.login_page.logo_file: %q must be a PNG, JPEG, GIF or WebP image", lp.LogoFile)
 	}
 	for name, p := range map[string]string{"logo_file": lp.LogoFile, "template_file": lp.TemplateFile} {
 		if p == "" {

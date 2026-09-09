@@ -42,6 +42,17 @@ const (
 
 	// OpenAPIPath is the path for the OpenAPI specification endpoint (public for API discoverability)
 	OpenAPIPath = "/api/openapi.json"
+
+	// OAuthMetadataPath and OAuthProtectedResourcePath are the two
+	// RFC 8414 and RFC 9728 discovery documents. They bypass
+	// authentication whether or not OAuth is switched on, so that a
+	// client discovering the server is told plainly that there is no
+	// authorisation server here (a 404 from the mux) rather than being
+	// challenged for a credential it is trying to work out how to
+	// obtain. The strings are repeated from internal/oauth rather than
+	// imported, since internal/oauth imports this package.
+	OAuthMetadataPath          = "/.well-known/oauth-authorization-server"
+	OAuthProtectedResourcePath = "/.well-known/oauth-protected-resource"
 )
 
 // GetTokenHashFromContext retrieves the token hash from the request context

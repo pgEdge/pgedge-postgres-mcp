@@ -13,6 +13,9 @@ package oauth
 import (
 	"context"
 	"errors"
+	"sync"
+
+	"golang.org/x/crypto/bcrypt"
 
 	"pgedge-postgres-mcp/internal/auth"
 )
@@ -54,6 +57,34 @@ type UserStoreAuthenticator struct {
 	MaxFailedAttempts int
 }
 
+// dummyHash returns a bcrypt hash of an unguessable value, generated
+// once at the same cost the user store uses. Comparing against it makes
+// an unknown or disabled username cost the same as a real password
+// check, so the response time does not tell a caller which usernames
+// exist. It is generated lazily rather than at package initialisation,
+// since a cost-12 hash takes a noticeable fraction of a second.
+var dummyHash = sync.OnceValue(func() []byte {
+	secret, err := randomToken(32)
+	if err != nil {
+		// Nothing here is secret-bearing: the value is never compared
+		// against anything a caller supplies successfully.
+		secret = "dummy password for constant-time comparison"
+	}
+	h, err := bcrypt.GenerateFromPassword([]byte(secret), auth.BcryptCost)
+	if err != nil {
+		return nil
+	}
+	return h
+})
+
+// equaliseFailedLogin spends the time a real password check would have
+// cost, for a username the store rejected without reaching bcrypt.
+func equaliseFailedLogin(password string) {
+	if h := dummyHash(); h != nil {
+		_ = bcrypt.CompareHashAndPassword(h, []byte(password))
+	}
+}
+
 // Authenticate verifies username and password against the user store,
 // returning the username as the subject on success.
 func (a *UserStoreAuthenticator) Authenticate(ctx context.Context, username, password, clientIP string) (string, error) {
@@ -63,8 +94,16 @@ func (a *UserStoreAuthenticator) Authenticate(ctx context.Context, username, pas
 		}
 	}
 
+	// Whether the store will run a bcrypt comparison has to be settled
+	// before the attempt, since a failed one disables an account at the
+	// lockout threshold and so changes the answer.
+	verified := a.Users.CanVerifyPassword(username)
+
 	_, _, err := a.Users.AuthenticateUser(username, password, a.MaxFailedAttempts)
 	if err != nil {
+		if !verified {
+			equaliseFailedLogin(password)
+		}
 		if a.RateLimiter != nil && clientIP != "" {
 			a.RateLimiter.RecordFailedAttempt(clientIP)
 		}

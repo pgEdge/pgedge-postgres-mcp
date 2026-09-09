@@ -17,7 +17,7 @@ import (
 )
 
 func TestTakeCodeIsSingleUse(t *testing.T) {
-	s := NewStore(DefaultLimits)
+	s := NewStore(DefaultLimits, testClientRetention)
 	_ = s.PutCode(&AuthCode{Hash: "h", ExpiresAt: time.Now().Add(time.Minute)})
 	if _, ok := s.TakeCode("h"); !ok {
 		t.Fatal("first take failed")
@@ -28,15 +28,15 @@ func TestTakeCodeIsSingleUse(t *testing.T) {
 }
 
 func TestStoreLimits(t *testing.T) {
-	s := NewStore(Limits{Clients: 1, Codes: 1, DeviceCodes: 1, Tokens: 1})
-	_ = s.PutClient(&Client{ID: "a"})
-	if err := s.PutClient(&Client{ID: "b"}); !errors.Is(err, ErrStoreFull) {
+	s := NewStore(Limits{Clients: 1, Codes: 1, DeviceCodes: 1, Tokens: 1}, testClientRetention)
+	_ = s.PutCode(&AuthCode{Hash: "a", ExpiresAt: time.Now().Add(time.Minute)})
+	if err := s.PutCode(&AuthCode{Hash: "b", ExpiresAt: time.Now().Add(time.Minute)}); !errors.Is(err, ErrStoreFull) {
 		t.Fatalf("got %v", err)
 	}
 }
 
 func TestSweepRemovesExpired(t *testing.T) {
-	s := NewStore(DefaultLimits)
+	s := NewStore(DefaultLimits, testClientRetention)
 	now := time.Now()
 	_ = s.PutToken(&Token{Hash: "old", ExpiresAt: now.Add(-time.Second)})
 	_ = s.PutToken(&Token{Hash: "new", ExpiresAt: now.Add(time.Hour)})
@@ -50,7 +50,7 @@ func TestSweepRemovesExpired(t *testing.T) {
 }
 
 func TestDeleteRefreshCascades(t *testing.T) {
-	s := NewStore(DefaultLimits)
+	s := NewStore(DefaultLimits, testClientRetention)
 	exp := time.Now().Add(time.Hour)
 	_ = s.PutToken(&Token{Hash: "r", IsRefresh: true, Issued: []string{"a1"}, ExpiresAt: exp})
 	_ = s.PutToken(&Token{Hash: "a1", RefreshHash: "r", ExpiresAt: exp})
@@ -61,7 +61,7 @@ func TestDeleteRefreshCascades(t *testing.T) {
 }
 
 func TestTakeTokenCascadesAndIsSingleUse(t *testing.T) {
-	s := NewStore(DefaultLimits)
+	s := NewStore(DefaultLimits, testClientRetention)
 	exp := time.Now().Add(time.Hour)
 	_ = s.PutToken(&Token{Hash: "r", IsRefresh: true, Issued: []string{"a1"}, ExpiresAt: exp})
 	_ = s.PutToken(&Token{Hash: "a1", RefreshHash: "r", ExpiresAt: exp})
@@ -80,7 +80,7 @@ func TestTakeTokenCascadesAndIsSingleUse(t *testing.T) {
 }
 
 func TestDeleteAccessTokenPrunesParentIssued(t *testing.T) {
-	s := NewStore(DefaultLimits)
+	s := NewStore(DefaultLimits, testClientRetention)
 	exp := time.Now().Add(time.Hour)
 	_ = s.PutToken(&Token{Hash: "r", IsRefresh: true, Issued: []string{"a1", "a2"}, ExpiresAt: exp})
 	_ = s.PutToken(&Token{Hash: "a1", RefreshHash: "r", ExpiresAt: exp})
@@ -109,7 +109,7 @@ func TestDeleteAccessTokenPrunesParentIssued(t *testing.T) {
 }
 
 func TestPutDeviceCodeEnforcesLimit(t *testing.T) {
-	s := NewStore(Limits{Clients: 1, Codes: 1, DeviceCodes: 1, Tokens: 1})
+	s := NewStore(Limits{Clients: 1, Codes: 1, DeviceCodes: 1, Tokens: 1}, testClientRetention)
 	exp := time.Now().Add(time.Hour)
 	if err := s.PutDeviceCode(&DeviceCode{DeviceHash: "d1", UserCode: "U1", ExpiresAt: exp}); err != nil {
 		t.Fatalf("first put failed: %v", err)
@@ -120,7 +120,7 @@ func TestPutDeviceCodeEnforcesLimit(t *testing.T) {
 }
 
 func TestGetDeviceByHashAndUserCode(t *testing.T) {
-	s := NewStore(DefaultLimits)
+	s := NewStore(DefaultLimits, testClientRetention)
 	exp := time.Now().Add(time.Hour)
 	_ = s.PutDeviceCode(&DeviceCode{DeviceHash: "d1", UserCode: "ABCD", ExpiresAt: exp})
 
@@ -145,7 +145,7 @@ func TestGetDeviceByHashAndUserCode(t *testing.T) {
 }
 
 func TestUpdateDevice(t *testing.T) {
-	s := NewStore(DefaultLimits)
+	s := NewStore(DefaultLimits, testClientRetention)
 	exp := time.Now().Add(time.Hour)
 	_ = s.PutDeviceCode(&DeviceCode{DeviceHash: "d1", UserCode: "ABCD", ExpiresAt: exp})
 
@@ -161,7 +161,7 @@ func TestUpdateDevice(t *testing.T) {
 }
 
 func TestApproveDeviceSingleWriter(t *testing.T) {
-	s := NewStore(DefaultLimits)
+	s := NewStore(DefaultLimits, testClientRetention)
 	exp := time.Now().Add(time.Hour)
 	_ = s.PutDeviceCode(&DeviceCode{DeviceHash: "d1", UserCode: "ABCD", ExpiresAt: exp})
 
@@ -181,7 +181,7 @@ func TestApproveDeviceSingleWriter(t *testing.T) {
 }
 
 func TestUpdateDeviceRekeysUserCode(t *testing.T) {
-	s := NewStore(DefaultLimits)
+	s := NewStore(DefaultLimits, testClientRetention)
 	exp := time.Now().Add(time.Hour)
 	_ = s.PutDeviceCode(&DeviceCode{DeviceHash: "d1", UserCode: "OLD1", ExpiresAt: exp})
 
@@ -200,7 +200,7 @@ func TestUpdateDeviceRekeysUserCode(t *testing.T) {
 }
 
 func TestDeleteDeviceRemovesBothEntries(t *testing.T) {
-	s := NewStore(DefaultLimits)
+	s := NewStore(DefaultLimits, testClientRetention)
 	exp := time.Now().Add(time.Hour)
 	_ = s.PutDeviceCode(&DeviceCode{DeviceHash: "d1", UserCode: "ABCD", ExpiresAt: exp})
 
@@ -215,7 +215,7 @@ func TestDeleteDeviceRemovesBothEntries(t *testing.T) {
 }
 
 func TestSweepRemovesExpiredDeviceUserCodeIndex(t *testing.T) {
-	s := NewStore(DefaultLimits)
+	s := NewStore(DefaultLimits, testClientRetention)
 	now := time.Now()
 	_ = s.PutDeviceCode(&DeviceCode{DeviceHash: "d1", UserCode: "ABCD", ExpiresAt: now.Add(-time.Second)})
 
@@ -230,7 +230,7 @@ func TestSweepRemovesExpiredDeviceUserCodeIndex(t *testing.T) {
 }
 
 func TestGettersReturnCopies(t *testing.T) {
-	s := NewStore(DefaultLimits)
+	s := NewStore(DefaultLimits, testClientRetention)
 	_ = s.PutClient(&Client{ID: "a", RedirectURIs: []string{"x"}})
 	c, _ := s.GetClient("a")
 	c.RedirectURIs[0] = "y"
@@ -241,7 +241,7 @@ func TestGettersReturnCopies(t *testing.T) {
 }
 
 func TestMarkAndTakeUsedCode(t *testing.T) {
-	s := NewStore(DefaultLimits)
+	s := NewStore(DefaultLimits, testClientRetention)
 	until := time.Now().Add(time.Hour)
 	s.MarkCodeUsed("codehash", "refreshhash", until)
 
@@ -255,14 +255,14 @@ func TestMarkAndTakeUsedCode(t *testing.T) {
 }
 
 func TestTakeUsedCodeUnknown(t *testing.T) {
-	s := NewStore(DefaultLimits)
+	s := NewStore(DefaultLimits, testClientRetention)
 	if _, ok := s.TakeUsedCode("nope"); ok {
 		t.Fatal("unknown code hash should not be found")
 	}
 }
 
 func TestSweepRemovesExpiredUsedCode(t *testing.T) {
-	s := NewStore(DefaultLimits)
+	s := NewStore(DefaultLimits, testClientRetention)
 	now := time.Now()
 	s.MarkCodeUsed("codehash", "refreshhash", now.Add(-time.Second))
 
