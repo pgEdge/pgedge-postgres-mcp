@@ -39,6 +39,12 @@ const deviceCodePollInterval = 5 * time.Second
 // unintended word): only consonants and the digits 2-9.
 const userCodeAlphabet = "BCDFGHJKLMNPQRSTVWXZ23456789"
 
+// userCodeRejectionCeiling is the largest multiple of len(userCodeAlphabet)
+// not exceeding 256: a random byte at or above this value is discarded
+// and redrawn by newUserCode, so reducing the remaining range modulo
+// len(userCodeAlphabet) introduces no bias towards any letter.
+const userCodeRejectionCeiling = 252 // 28 * 9
+
 // deviceResponse is the RFC 8628 section 3.2 device authorisation
 // response body.
 type deviceResponse struct {
@@ -52,14 +58,22 @@ type deviceResponse struct {
 
 // newUserCode returns a fresh 8-character user code drawn from
 // userCodeAlphabet, formatted as two groups of four separated by a
-// hyphen (e.g. "WXYZ-2345").
+// hyphen (e.g. "WXYZ-2345"). Each character is drawn by rejection
+// sampling: a random byte at or above userCodeRejectionCeiling is
+// discarded and redrawn, so every letter of the alphabet is equally
+// likely, unlike a plain modulo reduction over the full byte range.
 func newUserCode() (string, error) {
-	b := make([]byte, 8)
-	if _, err := rand.Read(b); err != nil {
-		return "", errors.New("oauth: random user code: " + err.Error())
-	}
-	for i, v := range b {
-		b[i] = userCodeAlphabet[int(v)%len(userCodeAlphabet)]
+	var b [8]byte
+	draw := make([]byte, 1)
+	for i := 0; i < len(b); {
+		if _, err := rand.Read(draw); err != nil {
+			return "", errors.New("oauth: random user code: " + err.Error())
+		}
+		if draw[0] >= userCodeRejectionCeiling {
+			continue
+		}
+		b[i] = userCodeAlphabet[int(draw[0])%len(userCodeAlphabet)]
+		i++
 	}
 	return string(b[:4]) + "-" + string(b[4:]), nil
 }
@@ -170,7 +184,12 @@ func (s *Server) handleDevice(w http.ResponseWriter, r *http.Request) {
 // 8628 section 3.3): GET renders the form pre-filled with the user_code
 // from the query string, and POST verifies the resource owner's
 // credentials, following the same CSRF and authentication pattern as
-// handleAuthorize.
+// handleAuthorize. It is rate limited per IP like the other endpoints,
+// so that guessing user codes is bounded: a failed attempt is recorded
+// whenever the submitted code does not resolve to a device that is still
+// pending approval (unknown, expired, or already approved or denied),
+// without distinguishing which, so a guesser learns nothing about which
+// codes are live.
 func (s *Server) handleDeviceVerify(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet && r.Method != http.MethodPost {
 		writeJSONError(w, newError("invalid_request", "method not allowed", http.StatusMethodNotAllowed))
@@ -178,6 +197,11 @@ func (s *Server) handleDeviceVerify(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ip := s.clientIP(r)
+	if s.opts.RateLimiter != nil && !s.opts.RateLimiter.IsAllowed(ip) {
+		w.Header().Set("Retry-After", "60")
+		writeJSONError(w, newError("access_denied", "too many requests", http.StatusTooManyRequests))
+		return
+	}
 
 	if r.Method == http.MethodGet {
 		userCode := normaliseUserCode(r.URL.Query().Get("user_code"))
@@ -218,9 +242,20 @@ func (s *Server) handleDeviceVerify(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// invalidCode reports the same fixed message for an unknown code, an
+	// expired one, and one that has already been resolved (approved or
+	// denied), so a caller probing user codes cannot distinguish a live,
+	// pending code from any other kind of miss.
+	invalidCode := func(d *DeviceCode, ok bool) bool {
+		return !ok || !d.ExpiresAt.After(s.now()) || d.Approved || d.Denied
+	}
+
 	d, ok := s.store.GetDeviceByUserCode(userCode)
-	if !ok || !d.ExpiresAt.After(s.now()) {
-		s.logf("oauth device verify: ip=%s error=unknown_or_expired_code", ip)
+	if invalidCode(d, ok) {
+		if s.opts.RateLimiter != nil {
+			s.opts.RateLimiter.RecordFailedAttempt(ip)
+		}
+		s.logf("oauth device verify: ip=%s error=unknown_expired_or_resolved_code", ip)
 		reRender(http.StatusBadRequest, "That code is not valid or has expired")
 		return
 	}
@@ -237,9 +272,15 @@ func (s *Server) handleDeviceVerify(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	d.Subject = subject
-	d.Approved = true
-	s.store.UpdateDevice(d)
+	// ApproveDevice is the single-writer gate: if another request
+	// already approved (or denied) this device code between the lookup
+	// above and here, this call loses and the code is reported as
+	// invalid rather than silently overwriting the earlier approval.
+	if !s.store.ApproveDevice(d.DeviceHash, subject) {
+		s.logf("oauth device verify: subject=%q ip=%s error=already_resolved", subject, ip)
+		reRender(http.StatusBadRequest, "That code is not valid or has expired")
+		return
+	}
 
 	s.logf("oauth device verify: subject=%q ip=%s success", subject, ip)
 	_ = s.page.Render(w, http.StatusOK, LoginPageData{Page: "done"})

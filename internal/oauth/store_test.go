@@ -160,6 +160,26 @@ func TestUpdateDevice(t *testing.T) {
 	}
 }
 
+func TestApproveDeviceSingleWriter(t *testing.T) {
+	s := NewStore(DefaultLimits)
+	exp := time.Now().Add(time.Hour)
+	_ = s.PutDeviceCode(&DeviceCode{DeviceHash: "d1", UserCode: "ABCD", ExpiresAt: exp})
+
+	if ok := s.ApproveDevice("d1", "alice"); !ok {
+		t.Fatal("first approval should succeed")
+	}
+	if ok := s.ApproveDevice("d1", "bob"); ok {
+		t.Fatal("second approval should fail")
+	}
+	got, _ := s.GetDeviceByHash("d1")
+	if !got.Approved || got.Subject != "alice" {
+		t.Fatalf("approval overwritten: %+v", got)
+	}
+	if ok := s.ApproveDevice("nope", "alice"); ok {
+		t.Fatal("approving an unknown hash should fail")
+	}
+}
+
 func TestUpdateDeviceRekeysUserCode(t *testing.T) {
 	s := NewStore(DefaultLimits)
 	exp := time.Now().Add(time.Hour)

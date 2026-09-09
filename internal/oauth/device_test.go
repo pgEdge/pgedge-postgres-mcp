@@ -224,6 +224,49 @@ func TestNormaliseUserCodeShortInput(t *testing.T) {
 	}
 }
 
+func TestDeviceVerifyApprovalSingleWriter(t *testing.T) {
+	ts := newTestServer(t, nil)
+	ts.auth.users["bob"] = "hunter2 hunter2"
+	cid, dr := startDevice(t, ts)
+
+	if rec := approveDevice(t, ts, dr.UserCode, "alice", "correct horse"); rec.Code != 200 {
+		t.Fatal(rec.Code, rec.Body.String())
+	}
+	if rec := approveDevice(t, ts, dr.UserCode, "bob", "hunter2 hunter2"); rec.Code != 400 {
+		t.Fatal(rec.Code, rec.Body.String())
+	}
+
+	ts.now = ts.now.Add(6 * time.Second)
+	rec, tr := pollDevice(ts, cid, dr.DeviceCode)
+	if rec.Code != 200 || tr.AccessToken == "" {
+		t.Fatal(rec.Code, rec.Body.String())
+	}
+	if sub, _, ok := ts.srv.ValidateAccessToken(tr.AccessToken); !ok || sub != "alice" {
+		t.Fatal(sub, ok)
+	}
+}
+
+func TestDeviceVerifyRateLimitedByIP(t *testing.T) {
+	rl := auth.NewRateLimiter(1, 2)
+	t.Cleanup(rl.Stop)
+	ts := newTestServer(t, func(o *Options) { o.RateLimiter = rl })
+
+	// Two POSTs with a bogus, never-issued user code, each recording a
+	// failed attempt (guessing a code counts, unlike a login form retry
+	// with a valid CSRF token and just the wrong password).
+	if rec := approveDevice(t, ts, "ZZZZ-ZZZZ", "alice", "correct horse"); rec.Code != 400 {
+		t.Fatal(rec.Code, rec.Body.String())
+	}
+	if rec := approveDevice(t, ts, "ZZZZ-ZZZZ", "alice", "correct horse"); rec.Code != 400 {
+		t.Fatal(rec.Code, rec.Body.String())
+	}
+
+	rec := ts.do("GET", DeviceVerifyPath, "", "")
+	if rec.Code != 429 || rec.Header().Get("Retry-After") != "60" {
+		t.Fatal(rec.Code, rec.Header())
+	}
+}
+
 func TestDeviceCodeGrantDenied(t *testing.T) {
 	ts := newTestServer(t, nil)
 	cid, dr := startDevice(t, ts)

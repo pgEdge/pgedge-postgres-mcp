@@ -288,6 +288,27 @@ func (s *Store) UpdateDevice(d *DeviceCode) {
 	s.devices[d.DeviceHash] = cloneDeviceCode(d)
 }
 
+// ApproveDevice marks the device code stored under hash as approved by
+// subject, but only if it is not already approved or denied. The check
+// and the write happen under one lock, so of two concurrent callers
+// approving the same device code (whether as the same or different
+// resource owners), at most one can ever succeed: the loser's write is
+// discarded and it receives ok == false, which makes approval
+// single-writer regardless of how many verification requests race for
+// the same user code.
+func (s *Store) ApproveDevice(hash, subject string) (ok bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	dev, found := s.devices[hash]
+	if !found || dev.Approved || dev.Denied {
+		return false
+	}
+	dev.Subject = subject
+	dev.Approved = true
+	return true
+}
+
 // DeleteDevice removes the device code stored under hash, along with its
 // user-code mapping.
 func (s *Store) DeleteDevice(hash string) {
