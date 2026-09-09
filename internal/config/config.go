@@ -13,9 +13,11 @@ package config
 import (
 	"fmt"
 	"log"
+	"net"
 	"net/url"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -199,6 +201,93 @@ type AuthConfig struct {
 	MaxFailedAttemptsBeforeLockout int    `yaml:"max_failed_attempts_before_lockout"` // Number of failed login attempts before account lockout (0 = disabled)
 	RateLimitWindowMinutes         int    `yaml:"rate_limit_window_minutes"`          // Time window in minutes for rate limiting (default: 15)
 	RateLimitMaxAttempts           int    `yaml:"rate_limit_max_attempts"`            // Maximum failed attempts per IP in the time window (default: 10)
+
+	Methods AuthMethodsConfig `yaml:"methods"` // Which authentication methods are enabled
+	OAuth   OAuthConfig       `yaml:"oauth"`   // OAuth 2.0 authorisation server settings
+}
+
+// AuthMethodsConfig controls which authentication methods are available.
+// Each pointer defaults to enabled (true) when left unset, so that an
+// existing configuration that never mentions this block keeps working
+// exactly as it did before these methods existed.
+type AuthMethodsConfig struct {
+	APITokens     *bool `yaml:"api_tokens"`     // nil means true
+	PasswordLogin *bool `yaml:"password_login"` // nil means true
+	OAuth         *bool `yaml:"oauth"`          // nil means true
+}
+
+// boolOrTrue reports the value pointed to by p, treating a nil pointer as
+// true. It is used throughout AuthMethodsConfig and OAuthConfig so that an
+// operator only has to mention a setting in order to disable it.
+func boolOrTrue(p *bool) bool { return p == nil || *p }
+
+// APITokensEnabled reports whether API token authentication is enabled.
+func (m AuthMethodsConfig) APITokensEnabled() bool { return boolOrTrue(m.APITokens) }
+
+// PasswordLoginEnabled reports whether username/password login is enabled.
+func (m AuthMethodsConfig) PasswordLoginEnabled() bool { return boolOrTrue(m.PasswordLogin) }
+
+// OAuthEnabled reports whether the OAuth authentication method is enabled.
+func (m AuthMethodsConfig) OAuthEnabled() bool { return boolOrTrue(m.OAuth) }
+
+// LoginPageConfig customises the branding of the OAuth login page.
+type LoginPageConfig struct {
+	Title           string `yaml:"title"`
+	Subtitle        string `yaml:"subtitle"`
+	Message         string `yaml:"message"`
+	Footer          string `yaml:"footer"`
+	LogoFile        string `yaml:"logo_file"`
+	PrimaryColour   string `yaml:"primary_colour"`
+	SecondaryColour string `yaml:"secondary_colour"`
+	TemplateFile    string `yaml:"template_file"`
+}
+
+// OAuthConfig holds the settings for the built-in OAuth 2.0 authorisation
+// server. OAuth is only active once an issuer is configured; see
+// AuthConfig.OAuthActive.
+type OAuthConfig struct {
+	Issuer                    string          `yaml:"issuer"`
+	AccessTokenLifetime       time.Duration   `yaml:"access_token_lifetime"`
+	RefreshTokenLifetime      time.Duration   `yaml:"refresh_token_lifetime"`
+	AuthorizationCodeLifetime time.Duration   `yaml:"authorization_code_lifetime"`
+	DeviceCodeLifetime        time.Duration   `yaml:"device_code_lifetime"`
+	AllowDynamicRegistration  *bool           `yaml:"allow_dynamic_registration"` // nil means true
+	AllowedRedirectURIs       []string        `yaml:"allowed_redirect_uris"`
+	LoginPage                 LoginPageConfig `yaml:"login_page"`
+}
+
+// DynamicRegistrationAllowed reports whether clients may register themselves
+// dynamically, defaulting to true when unset.
+func (o OAuthConfig) DynamicRegistrationAllowed() bool {
+	return boolOrTrue(o.AllowDynamicRegistration)
+}
+
+// OAuthActive reports whether the OAuth authorisation server is switched on:
+// authentication as a whole is enabled, the OAuth method has not been
+// explicitly disabled, and an issuer has been configured. Leaving the issuer
+// unset keeps a server exactly as it behaved before OAuth existed.
+func (a AuthConfig) OAuthActive() bool {
+	return a.Enabled && a.Methods.OAuthEnabled() && a.OAuth.Issuer != ""
+}
+
+// Defaults for the OAuth authorisation server.
+const (
+	DefaultAccessTokenLifetime       = time.Hour
+	DefaultRefreshTokenLifetime      = 24 * time.Hour
+	DefaultAuthorizationCodeLifetime = 10 * time.Minute
+	DefaultDeviceCodeLifetime        = 15 * time.Minute
+	DefaultLoginTitle                = "Sign in"
+	DefaultLoginSubtitle             = "Sign in to the pgEdge Postgres MCP Server"
+	DefaultPrimaryColour             = "#15AABF"
+	DefaultSecondaryColour           = "#0C8599"
+)
+
+// DefaultAllowedRedirectURIs lists the redirect URIs accepted out of the
+// box: the Claude.ai MCP callback plus loopback callbacks for local tools.
+var DefaultAllowedRedirectURIs = []string{
+	"https://claude.ai/api/mcp/auth_callback",
+	"http://127.0.0.1/callback",
+	"http://localhost/callback",
 }
 
 // TLSConfig holds TLS/HTTPS settings
@@ -593,6 +682,10 @@ func LoadConfig(configPath string, cliFlags CLIFlags) (*Config, error) {
 		return nil, fmt.Errorf("applying CLI flags: %w", err)
 	}
 
+	// Strip a trailing slash from the OAuth issuer so that URL building
+	// elsewhere in the authorisation server can join paths uniformly.
+	cfg.HTTP.Auth.OAuth.Issuer = strings.TrimSuffix(cfg.HTTP.Auth.OAuth.Issuer, "/")
+
 	// Validate final configuration
 	if err := validateConfig(cfg); err != nil {
 		return nil, fmt.Errorf("invalid configuration: %w", err)
@@ -689,6 +782,19 @@ func defaultConfig() *Config {
 				MaxFailedAttemptsBeforeLockout: 0,    // Disabled by default (0 = no lockout)
 				RateLimitWindowMinutes:         15,   // 15 minute window for rate limiting
 				RateLimitMaxAttempts:           10,   // 10 attempts per IP per window
+				OAuth: OAuthConfig{
+					AccessTokenLifetime:       DefaultAccessTokenLifetime,
+					RefreshTokenLifetime:      DefaultRefreshTokenLifetime,
+					AuthorizationCodeLifetime: DefaultAuthorizationCodeLifetime,
+					DeviceCodeLifetime:        DefaultDeviceCodeLifetime,
+					AllowedRedirectURIs:       append([]string(nil), DefaultAllowedRedirectURIs...),
+					LoginPage: LoginPageConfig{
+						Title:           DefaultLoginTitle,
+						Subtitle:        DefaultLoginSubtitle,
+						PrimaryColour:   DefaultPrimaryColour,
+						SecondaryColour: DefaultSecondaryColour,
+					},
+				},
 			},
 			ClientIP: ClientIPConfig{
 				Source:         "socket",    // Trust the connection, not the caller's headers
@@ -813,6 +919,66 @@ func mergeConfig(dest, src *Config) {
 	}
 	if src.HTTP.Auth.RateLimitMaxAttempts > 0 {
 		dest.HTTP.Auth.RateLimitMaxAttempts = src.HTTP.Auth.RateLimitMaxAttempts
+	}
+
+	// Auth methods - each is a *bool, so only copy the ones the source
+	// actually mentions; leaving the pointer nil elsewhere keeps the
+	// default-enabled behaviour.
+	if src.HTTP.Auth.Methods.APITokens != nil {
+		dest.HTTP.Auth.Methods.APITokens = src.HTTP.Auth.Methods.APITokens
+	}
+	if src.HTTP.Auth.Methods.PasswordLogin != nil {
+		dest.HTTP.Auth.Methods.PasswordLogin = src.HTTP.Auth.Methods.PasswordLogin
+	}
+	if src.HTTP.Auth.Methods.OAuth != nil {
+		dest.HTTP.Auth.Methods.OAuth = src.HTTP.Auth.Methods.OAuth
+	}
+
+	// OAuth authorisation server
+	if src.HTTP.Auth.OAuth.Issuer != "" {
+		dest.HTTP.Auth.OAuth.Issuer = src.HTTP.Auth.OAuth.Issuer
+	}
+	if src.HTTP.Auth.OAuth.AccessTokenLifetime != 0 {
+		dest.HTTP.Auth.OAuth.AccessTokenLifetime = src.HTTP.Auth.OAuth.AccessTokenLifetime
+	}
+	if src.HTTP.Auth.OAuth.RefreshTokenLifetime != 0 {
+		dest.HTTP.Auth.OAuth.RefreshTokenLifetime = src.HTTP.Auth.OAuth.RefreshTokenLifetime
+	}
+	if src.HTTP.Auth.OAuth.AuthorizationCodeLifetime != 0 {
+		dest.HTTP.Auth.OAuth.AuthorizationCodeLifetime = src.HTTP.Auth.OAuth.AuthorizationCodeLifetime
+	}
+	if src.HTTP.Auth.OAuth.DeviceCodeLifetime != 0 {
+		dest.HTTP.Auth.OAuth.DeviceCodeLifetime = src.HTTP.Auth.OAuth.DeviceCodeLifetime
+	}
+	if src.HTTP.Auth.OAuth.AllowDynamicRegistration != nil {
+		dest.HTTP.Auth.OAuth.AllowDynamicRegistration = src.HTTP.Auth.OAuth.AllowDynamicRegistration
+	}
+	if src.HTTP.Auth.OAuth.AllowedRedirectURIs != nil {
+		dest.HTTP.Auth.OAuth.AllowedRedirectURIs = src.HTTP.Auth.OAuth.AllowedRedirectURIs
+	}
+	if src.HTTP.Auth.OAuth.LoginPage.Title != "" {
+		dest.HTTP.Auth.OAuth.LoginPage.Title = src.HTTP.Auth.OAuth.LoginPage.Title
+	}
+	if src.HTTP.Auth.OAuth.LoginPage.Subtitle != "" {
+		dest.HTTP.Auth.OAuth.LoginPage.Subtitle = src.HTTP.Auth.OAuth.LoginPage.Subtitle
+	}
+	if src.HTTP.Auth.OAuth.LoginPage.Message != "" {
+		dest.HTTP.Auth.OAuth.LoginPage.Message = src.HTTP.Auth.OAuth.LoginPage.Message
+	}
+	if src.HTTP.Auth.OAuth.LoginPage.Footer != "" {
+		dest.HTTP.Auth.OAuth.LoginPage.Footer = src.HTTP.Auth.OAuth.LoginPage.Footer
+	}
+	if src.HTTP.Auth.OAuth.LoginPage.LogoFile != "" {
+		dest.HTTP.Auth.OAuth.LoginPage.LogoFile = src.HTTP.Auth.OAuth.LoginPage.LogoFile
+	}
+	if src.HTTP.Auth.OAuth.LoginPage.PrimaryColour != "" {
+		dest.HTTP.Auth.OAuth.LoginPage.PrimaryColour = src.HTTP.Auth.OAuth.LoginPage.PrimaryColour
+	}
+	if src.HTTP.Auth.OAuth.LoginPage.SecondaryColour != "" {
+		dest.HTTP.Auth.OAuth.LoginPage.SecondaryColour = src.HTTP.Auth.OAuth.LoginPage.SecondaryColour
+	}
+	if src.HTTP.Auth.OAuth.LoginPage.TemplateFile != "" {
+		dest.HTTP.Auth.OAuth.LoginPage.TemplateFile = src.HTTP.Auth.OAuth.LoginPage.TemplateFile
 	}
 
 	// Client IP resolution
@@ -1184,6 +1350,10 @@ func applyEnvironmentVariables(cfg *Config) {
 	setIntFromEnv(&cfg.HTTP.Auth.MaxFailedAttemptsBeforeLockout, "PGEDGE_AUTH_MAX_FAILED_ATTEMPTS_BEFORE_LOCKOUT")
 	setIntFromEnv(&cfg.HTTP.Auth.RateLimitWindowMinutes, "PGEDGE_AUTH_RATE_LIMIT_WINDOW_MINUTES")
 	setIntFromEnv(&cfg.HTTP.Auth.RateLimitMaxAttempts, "PGEDGE_AUTH_RATE_LIMIT_MAX_ATTEMPTS")
+	setStringFromEnv(&cfg.HTTP.Auth.OAuth.Issuer, "PGEDGE_AUTH_OAUTH_ISSUER")
+	setBoolPtrFromEnv(&cfg.HTTP.Auth.Methods.APITokens, "PGEDGE_AUTH_METHOD_API_TOKENS")
+	setBoolPtrFromEnv(&cfg.HTTP.Auth.Methods.PasswordLogin, "PGEDGE_AUTH_METHOD_PASSWORD_LOGIN")
+	setBoolPtrFromEnv(&cfg.HTTP.Auth.Methods.OAuth, "PGEDGE_AUTH_METHOD_OAUTH")
 
 	// Client IP resolution
 	setStringFromEnv(&cfg.HTTP.ClientIP.Source, "PGEDGE_HTTP_CLIENT_IP_SOURCE")
@@ -1535,6 +1705,10 @@ func validateConfig(cfg *Config) error {
 		}
 	}
 
+	if err := validateAuthConfig(&cfg.HTTP.Auth); err != nil {
+		return err
+	}
+
 	// Database configuration validation
 	// Validate each database in the list
 	seenNames := make(map[string]bool)
@@ -1563,6 +1737,75 @@ func validateConfig(cfg *Config) error {
 	}
 
 	return nil
+}
+
+// cssHexColour matches a CSS hex colour in 3, 6 or 8 digit form.
+var cssHexColour = regexp.MustCompile(`^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$`)
+
+// validateAuthConfig checks the HTTP authentication settings, including the
+// OAuth authorisation server block when it is active. It returns nil
+// whenever authentication as a whole is disabled, since none of these
+// settings then have any effect.
+func validateAuthConfig(a *AuthConfig) error {
+	if !a.Enabled {
+		return nil
+	}
+	if !a.Methods.APITokensEnabled() && !a.Methods.PasswordLoginEnabled() && !a.Methods.OAuthEnabled() {
+		return fmt.Errorf("http.auth.methods: at least one authentication method must be enabled")
+	}
+	if !a.OAuthActive() {
+		return nil
+	}
+	o := &a.OAuth
+	u, err := url.Parse(o.Issuer)
+	if err != nil || u.Host == "" || (u.Scheme != "http" && u.Scheme != "https") {
+		return fmt.Errorf("http.auth.oauth.issuer: must be an absolute http(s) URL")
+	}
+	if u.Scheme == "http" && !isLoopbackHost(u.Hostname()) {
+		return fmt.Errorf("http.auth.oauth.issuer must use https unless the host is loopback")
+	}
+	if u.RawQuery != "" || u.Fragment != "" {
+		return fmt.Errorf("http.auth.oauth.issuer: must not contain a query or fragment")
+	}
+	for name, d := range map[string]time.Duration{
+		"access_token_lifetime": o.AccessTokenLifetime, "refresh_token_lifetime": o.RefreshTokenLifetime,
+		"authorization_code_lifetime": o.AuthorizationCodeLifetime, "device_code_lifetime": o.DeviceCodeLifetime,
+	} {
+		if d <= 0 {
+			return fmt.Errorf("http.auth.oauth.%s: must be positive", name)
+		}
+	}
+	for _, r := range o.AllowedRedirectURIs {
+		if ru, err := url.Parse(r); err != nil || ru.Scheme == "" || ru.Host == "" {
+			return fmt.Errorf("http.auth.oauth.allowed_redirect_uris: %q is not an absolute URL", r)
+		}
+	}
+	lp := &o.LoginPage
+	for name, c := range map[string]string{"primary_colour": lp.PrimaryColour, "secondary_colour": lp.SecondaryColour} {
+		if !cssHexColour.MatchString(c) {
+			return fmt.Errorf("http.auth.oauth.login_page.%s: %q is not a CSS hex colour", name, c)
+		}
+	}
+	for name, p := range map[string]string{"logo_file": lp.LogoFile, "template_file": lp.TemplateFile} {
+		if p == "" {
+			continue
+		}
+		if _, err := os.Stat(p); err != nil {
+			return fmt.Errorf("http.auth.oauth.login_page.%s: %w", name, err)
+		}
+	}
+	return nil
+}
+
+// isLoopbackHost reports whether h is "localhost" or a loopback IP address,
+// the exception that lets an operator use a plain http issuer for local
+// development without also relaxing the rule for public hosts.
+func isLoopbackHost(h string) bool {
+	if h == "localhost" {
+		return true
+	}
+	ip := net.ParseIP(h)
+	return ip != nil && ip.IsLoopback()
 }
 
 // readAPIKeyFromFile reads an API key from a file

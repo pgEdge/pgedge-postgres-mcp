@@ -2380,3 +2380,116 @@ func TestMergeTraceMetadataOnlyNilLeavesDestUnchanged(t *testing.T) {
 		t.Error("expected dest's true to survive a merge where src leaves the field nil")
 	}
 }
+
+// loadConfigFromYAML writes the given YAML content to a temp file and loads
+// it via LoadConfig, failing the test immediately if loading errors.
+func loadConfigFromYAML(t *testing.T, content string) *Config {
+	t.Helper()
+	cfg, err := loadConfigFromYAMLErr(t, content)
+	if err != nil {
+		t.Fatalf("failed to load config: %v", err)
+	}
+	return cfg
+}
+
+// loadConfigFromYAMLErr writes the given YAML content to a temp file and
+// loads it via LoadConfig, returning any error for the caller to inspect.
+func loadConfigFromYAMLErr(t *testing.T, content string) (*Config, error) {
+	t.Helper()
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "config.yaml")
+	if err := os.WriteFile(configPath, []byte(content), 0644); err != nil {
+		t.Fatalf("failed to write config file: %v", err)
+	}
+	flags := CLIFlags{ConfigFileSet: true, ConfigFile: configPath}
+	return LoadConfig(configPath, flags)
+}
+
+func TestAuthMethodsDefaults(t *testing.T) {
+	var m AuthMethodsConfig
+	if !m.APITokensEnabled() || !m.PasswordLoginEnabled() || !m.OAuthEnabled() {
+		t.Fatal("all methods should default to enabled")
+	}
+	f := false
+	m.OAuth = &f
+	if m.OAuthEnabled() {
+		t.Fatal("explicit false should disable")
+	}
+}
+
+func TestOAuthActiveRequiresIssuer(t *testing.T) {
+	a := AuthConfig{Enabled: true}
+	if a.OAuthActive() {
+		t.Fatal("no issuer should mean inactive")
+	}
+	a.OAuth.Issuer = "https://mcp.example.com"
+	if !a.OAuthActive() {
+		t.Fatal("issuer set should mean active")
+	}
+	a.Enabled = false
+	if a.OAuthActive() {
+		t.Fatal("auth disabled should mean inactive")
+	}
+}
+
+func TestOAuthConfigDefaultsApplied(t *testing.T) {
+	cfg := loadConfigFromYAML(t, `
+http:
+  enabled: true
+  auth:
+    enabled: true
+    oauth:
+      issuer: "https://mcp.example.com"
+`)
+	o := cfg.HTTP.Auth.OAuth
+	if o.AccessTokenLifetime != time.Hour || o.RefreshTokenLifetime != 24*time.Hour {
+		t.Fatalf("lifetimes not defaulted: %+v", o)
+	}
+	if o.LoginPage.PrimaryColour != "#15AABF" || o.LoginPage.Title != "Sign in" {
+		t.Fatalf("login page not defaulted: %+v", o.LoginPage)
+	}
+	if len(o.AllowedRedirectURIs) != 3 {
+		t.Fatalf("redirect defaults: %v", o.AllowedRedirectURIs)
+	}
+}
+
+func TestOAuthConfigValidation(t *testing.T) {
+	cases := []struct {
+		name string
+		yaml string
+		want string // substring of the error
+	}{
+		{"http issuer on public host", `issuer: "http://mcp.example.com"`, "issuer must use https"},
+		{"http issuer on localhost ok", `issuer: "http://localhost:8080"`, ""},
+		{"bad colour", "issuer: \"https://mcp.example.com\"\n      login_page:\n        primary_colour: \"cyan\"", "primary_colour"},
+		{"negative lifetime", "issuer: \"https://mcp.example.com\"\n      access_token_lifetime: -1s", "access_token_lifetime"},
+		{"missing logo file", "issuer: \"https://mcp.example.com\"\n      login_page:\n        logo_file: /nonexistent/logo.png", "logo_file"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := loadConfigFromYAMLErr(t, "http:\n  enabled: true\n  auth:\n    enabled: true\n    oauth:\n      "+tc.yaml+"\n")
+			if tc.want == "" && err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if tc.want != "" && (err == nil || !strings.Contains(err.Error(), tc.want)) {
+				t.Fatalf("want error containing %q, got %v", tc.want, err)
+			}
+		})
+	}
+}
+
+func TestAllMethodsDisabledRejected(t *testing.T) {
+	_, err := loadConfigFromYAMLErr(t, `
+http:
+  enabled: true
+  auth:
+    enabled: true
+    methods:
+      api_tokens: false
+      password_login: false
+      oauth: false
+`)
+	if err == nil || !strings.Contains(err.Error(), "at least one authentication method") {
+		t.Fatalf("got %v", err)
+	}
+}
