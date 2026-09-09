@@ -177,6 +177,10 @@ The CLI caches OAuth tokens in a file named `oauth-tokens.yaml`,
 stored beside its preferences file, and refreshes them automatically
 as they approach expiry.
 
+The CLI accepts OAuth only when the issuer the server advertises
+matches the URL the CLI was given, so where a deployment answers on
+more than one hostname, point the CLI at the issuer's own public URL.
+
 In the following example, the `-mcp-auth-mode` flag and `-no-browser`
 flag select the device authorisation grant:
 

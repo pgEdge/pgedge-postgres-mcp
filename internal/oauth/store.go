@@ -208,9 +208,10 @@ func (s *Store) PutClient(c *Client) error {
 // lruEvictableClientLocked returns the id of the least recently used
 // client that has no live token at now. Callers must hold s.mu.
 func (s *Store) lruEvictableClientLocked(now time.Time) (id string, found bool) {
+	live := s.clientsWithLiveTokensLocked(now)
 	var oldest time.Time
 	for cid, c := range s.clients {
-		if s.hasLiveTokensLocked(cid, now) {
+		if live[cid] {
 			continue
 		}
 		if !found || c.LastUsed.Before(oldest) {
@@ -220,15 +221,19 @@ func (s *Store) lruEvictableClientLocked(now time.Time) (id string, found bool) 
 	return id, found
 }
 
-// hasLiveTokensLocked reports whether clientID has any token that has
-// not expired at now. Callers must hold s.mu.
-func (s *Store) hasLiveTokensLocked(clientID string, now time.Time) bool {
+// clientsWithLiveTokensLocked returns the set of client ids holding at
+// least one token that has not expired at now. It is built once per
+// pass, rather than asking the question per client, so a sweep or an
+// eviction costs one walk of the tokens instead of one per client.
+// Callers must hold s.mu.
+func (s *Store) clientsWithLiveTokensLocked(now time.Time) map[string]bool {
+	live := make(map[string]bool)
 	for _, t := range s.tokens {
-		if t.ClientID == clientID && t.ExpiresAt.After(now) {
-			return true
+		if t.ExpiresAt.After(now) {
+			live[t.ClientID] = true
 		}
 	}
-	return false
+	return live
 }
 
 // TouchClient records that the client registered under id has just been
@@ -245,16 +250,38 @@ func (s *Store) TouchClient(id string, now time.Time) {
 
 // MarkRefreshRotated records that the refresh token hashed to hash has
 // been rotated away from family, keeping the record until until so that
-// a replay of the old token can be recognised. The record is bounded by
-// the same limit as tokens.
+// a replay of the old token can be recognised. The records are bounded
+// by the same limit as tokens; when that is reached the record expiring
+// soonest is discarded to make room, rather than the new one being
+// dropped, so that rotating one token over and over cannot fill the
+// table and quietly switch replay detection off for everyone else.
 func (s *Store) MarkRefreshRotated(hash, family string, until time.Time) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	if _, exists := s.rotated[hash]; !exists && len(s.rotated) >= s.limits.Tokens {
-		return
+		s.evictOldestRotatedLocked()
 	}
 	s.rotated[hash] = &rotatedRefresh{Family: family, Until: until}
+}
+
+// evictOldestRotatedLocked removes the rotation record whose retention
+// ends soonest, which is the one closest to being swept anyway.
+// Callers must hold s.mu.
+func (s *Store) evictOldestRotatedLocked() {
+	var (
+		oldestHash string
+		oldest     time.Time
+		found      bool
+	)
+	for hash, r := range s.rotated {
+		if !found || r.Until.Before(oldest) {
+			oldestHash, oldest, found = hash, r.Until, true
+		}
+	}
+	if found {
+		delete(s.rotated, oldestHash)
+	}
 }
 
 // RotatedRefreshFamily returns the family a rotated refresh token
@@ -637,8 +664,9 @@ func (s *Store) Sweep(now time.Time) {
 	// already run and a client whose last token has just expired is
 	// eligible in the same pass.
 	cutoff := now.Add(-(s.clientRetention + clientIdleGrace))
+	live := s.clientsWithLiveTokensLocked(now)
 	for id, c := range s.clients {
-		if c.LastUsed.Before(cutoff) && !s.hasLiveTokensLocked(id, now) {
+		if c.LastUsed.Before(cutoff) && !live[id] {
 			delete(s.clients, id)
 		}
 	}

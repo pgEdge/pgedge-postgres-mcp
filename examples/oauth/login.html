@@ -19,7 +19,9 @@
       user_code field when .IsDeviceFlow is true, pre-filled from
       .UserCode, along with a submit button named "action" with the
       value "deny", so the user can refuse the request without
-      signing in.
+      signing in. That button needs the formnovalidate attribute,
+      since it shares a form with required fields the user has no
+      reason to fill in before refusing.
     - Render no credential form on the "error" page: it is shown when
       the client or its redirect URI cannot be trusted, so there is
       nowhere safe to send a credential.
@@ -217,7 +219,7 @@ button.secondary:hover { background: #F1F5F9; }
 </div>
 {{if .IsDeviceFlow}}
 <button type="submit" name="action" value="approve">Approve</button>
-<button type="submit" class="secondary" name="action" value="deny">Deny</button>
+<button type="submit" class="secondary" name="action" value="deny" formnovalidate>Deny</button>
 {{else}}
 <button type="submit">Sign in</button>
 {{end}}

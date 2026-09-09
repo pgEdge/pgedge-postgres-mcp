@@ -14,6 +14,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"strings"
 	"testing"
@@ -60,6 +61,23 @@ func TestDevicePageHasUserCodeField(t *testing.T) {
 	out := renderToString(t, p, LoginPageData{Page: "device", IsDeviceFlow: true, UserCode: "ABCD-EFGH"})
 	if !strings.Contains(out, `name="user_code"`) || !strings.Contains(out, "ABCD-EFGH") {
 		t.Fatal(out)
+	}
+}
+
+// TestDenyButtonSkipsValidation covers the consent page's Deny button:
+// it sits in the same form as the required user code and credential
+// fields, so without formnovalidate the browser refuses the click
+// rather than submitting the refusal.
+func TestDenyButtonSkipsValidation(t *testing.T) {
+	p, _ := newLoginPage(config.LoginPageConfig{PrimaryColour: "#000", SecondaryColour: "#000"})
+	out := renderToString(t, p, LoginPageData{Page: "device", IsDeviceFlow: true, UserCode: "ABCD-EFGH", Client: "Test"})
+
+	deny := regexp.MustCompile(`<button[^>]*value="deny"[^>]*>`).FindString(out)
+	if deny == "" {
+		t.Fatalf("no deny button rendered:\n%s", out)
+	}
+	if !strings.Contains(deny, "formnovalidate") {
+		t.Errorf("deny button does not skip validation: %s", deny)
 	}
 }
 

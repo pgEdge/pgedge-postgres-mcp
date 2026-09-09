@@ -370,6 +370,11 @@ enter on another device:
 ./bin/pgedge-nla-cli -mcp-mode http -no-browser
 ```
 
+The client accepts OAuth only when the issuer the server advertises
+matches the URL it was given, so where a deployment answers on more
+than one hostname, set `PGEDGE_MCP_URL` to the issuer's own public
+URL.
+
 The client caches its OAuth tokens in `oauth-tokens.yaml`, stored
 beside its preferences file, and refreshes them automatically. Run
 `/logout` to end the session and clear the cache. See

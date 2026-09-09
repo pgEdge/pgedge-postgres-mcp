@@ -113,6 +113,28 @@ func TestDeleteFamilyRemovesEveryTokenInIt(t *testing.T) {
 	}
 }
 
+// TestMarkRefreshRotatedEvictsOldestWhenFull covers the finding that a
+// full rotation table must give up its soonest-expiring record rather
+// than refuse the new one, so that rotating a single token repeatedly
+// cannot switch replay detection off for everybody else.
+func TestMarkRefreshRotatedEvictsOldestWhenFull(t *testing.T) {
+	s := NewStore(Limits{Clients: 10, Codes: 10, DeviceCodes: 10, Tokens: 2}, testClientRetention)
+	now := time.Now()
+
+	s.MarkRefreshRotated("oldest", "f1", now.Add(time.Minute))
+	s.MarkRefreshRotated("middle", "f2", now.Add(time.Hour))
+	s.MarkRefreshRotated("newest", "f3", now.Add(2*time.Hour))
+
+	if _, ok := s.RotatedRefreshFamily("oldest"); ok {
+		t.Error("soonest-expiring record was not evicted")
+	}
+	for _, hash := range []string{"middle", "newest"} {
+		if _, ok := s.RotatedRefreshFamily(hash); !ok {
+			t.Errorf("record %q was lost", hash)
+		}
+	}
+}
+
 func TestRotatedRefreshLookupAndSweep(t *testing.T) {
 	s := NewStore(DefaultLimits, testClientRetention)
 	now := time.Now()
