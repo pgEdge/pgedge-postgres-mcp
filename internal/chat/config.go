@@ -41,11 +41,12 @@ type MCPConfig struct {
 	URL              string `yaml:"url"`                // HTTP URL (for http mode)
 	ServerPath       string `yaml:"server_path"`        // Path to server binary (for stdio mode)
 	ServerConfigPath string `yaml:"server_config_path"` // Path to server config file (for stdio mode)
-	AuthMode         string `yaml:"auth_mode"`          // none, token, or user (for http mode)
+	AuthMode         string `yaml:"auth_mode"`          // auto, none, token, user, or oauth (for http mode)
 	Token            string `yaml:"token"`              // Authentication token (for token mode)
 	Username         string `yaml:"username"`           // Username (for user mode)
 	Password         string `yaml:"password"`           // Password (for user mode)
 	TLS              bool   `yaml:"tls"`                // Use TLS/HTTPS
+	NoBrowser        bool   `yaml:"no_browser"`         // Skip the loopback browser flow and use the OAuth device flow instead
 }
 
 // LLMConfig holds LLM provider configuration
@@ -82,7 +83,7 @@ func defaultConfig() *Config {
 		MCP: MCPConfig{
 			Mode:       "stdio",
 			ServerPath: "../../bin/pgedge-postgres-mcp",
-			AuthMode:   "user",
+			AuthMode:   "auto",
 			Token:      "", // Will be loaded separately
 			TLS:        false,
 		},
@@ -115,6 +116,9 @@ func applyEnvironmentVariables(cfg *Config) {
 	setStringFromEnv(&cfg.MCP.AuthMode, "PGEDGE_MCP_AUTH_MODE")
 	setStringFromEnv(&cfg.MCP.Username, "PGEDGE_MCP_USERNAME")
 	setStringFromEnv(&cfg.MCP.Password, "PGEDGE_MCP_PASSWORD")
+	if os.Getenv("PGEDGE_MCP_NO_BROWSER") != "" {
+		cfg.MCP.NoBrowser = true
+	}
 
 	setStringFromEnv(&cfg.LLM.Provider, "PGEDGE_LLM_PROVIDER")
 	setStringFromEnv(&cfg.LLM.Model, "PGEDGE_LLM_MODEL")
@@ -263,8 +267,10 @@ func (c *Config) Validate() error {
 		}
 
 		// Validate auth mode
-		if c.MCP.AuthMode != "none" && c.MCP.AuthMode != "token" && c.MCP.AuthMode != "user" {
-			return fmt.Errorf("invalid auth-mode: %s (must be none, token, or user)", c.MCP.AuthMode)
+		switch c.MCP.AuthMode {
+		case "auto", "none", "token", "user", "oauth":
+		default:
+			return fmt.Errorf("invalid auth-mode: %s (must be auto, none, token, user, or oauth)", c.MCP.AuthMode)
 		}
 	} else if c.MCP.ServerPath == "" {
 		return fmt.Errorf("mcp-server-path is required for stdio mode")

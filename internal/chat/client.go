@@ -14,6 +14,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -57,6 +58,7 @@ type Client struct {
 	prompts               []mcp.Prompt
 	preferences           *Preferences
 	conversations         *ConversationsClient
+	oauth                 *OAuthClient
 	currentConversationID string
 	currentDBWritable     bool
 }
@@ -219,63 +221,9 @@ func (c *Client) Run(ctx context.Context) error {
 // connectToMCP establishes connection to the MCP server
 func (c *Client) connectToMCP(ctx context.Context) error {
 	if c.config.MCP.Mode == "http" {
-		// HTTP mode
-		var token string
-
-		switch c.config.MCP.AuthMode {
-		case "none":
-			// No authentication - connect without a token
-			// Used when server has auth disabled
-			token = ""
-		case "user":
-			// User authentication mode
-			username := c.config.MCP.Username
-			password := c.config.MCP.Password
-
-			// Prompt for username if not provided
-			if username == "" {
-				var err error
-				username, err = c.ui.PromptForUsername(ctx)
-				if err != nil {
-					// User interrupted (Ctrl+C) or other input error
-					return fmt.Errorf("authentication canceled")
-				}
-				if username == "" {
-					return fmt.Errorf("username is required for user authentication")
-				}
-			}
-
-			// Prompt for password if not provided
-			if password == "" {
-				var err error
-				password, err = c.ui.PromptForPassword(ctx)
-				if err != nil {
-					// User interrupted (Ctrl+C) or other input error
-					return fmt.Errorf("authentication canceled")
-				}
-				if password == "" {
-					return fmt.Errorf("password is required for user authentication")
-				}
-			}
-
-			// Authenticate and get session token
-			sessionToken, err := c.authenticateUser(ctx, username, password)
-			if err != nil {
-				return fmt.Errorf("authentication failed: %w", err)
-			}
-			token = sessionToken
-		default:
-			// Token authentication mode (default for non-"none", non-"user")
-			token = c.config.MCP.Token
-			if token == "" {
-				// Prompt for token
-				token = c.ui.PromptForToken()
-				if token == "" {
-					return fmt.Errorf("authentication token is required for HTTP mode")
-				}
-			}
-		}
-
+		// HTTP mode. The URL is normalised up front so every auth mode
+		// (and the OAuth discovery request, which needs the origin
+		// without /mcp/v1) can rely on it.
 		url := c.config.MCP.URL
 		if !strings.HasPrefix(url, "http://") && !strings.HasPrefix(url, "https://") {
 			if c.config.MCP.TLS {
@@ -284,8 +232,6 @@ func (c *Client) connectToMCP(ctx context.Context) error {
 				url = "http://" + url
 			}
 		}
-
-		// Ensure URL ends with /mcp/v1
 		if !strings.HasSuffix(url, "/mcp/v1") {
 			if strings.HasSuffix(url, "/") {
 				url += "mcp/v1"
@@ -294,9 +240,60 @@ func (c *Client) connectToMCP(ctx context.Context) error {
 			}
 		}
 
-		c.mcp = NewHTTPClient(url, token)
+		var tokenSource TokenSource
+
+		switch c.config.MCP.AuthMode {
+		case "auto", "oauth":
+			origin := strings.TrimSuffix(url, "/mcp/v1")
+			meta, err := DiscoverOAuth(ctx, http.DefaultClient, origin)
+			switch {
+			case err == nil:
+				oc := c.newOAuthClient(origin, meta)
+				if err := oc.Login(ctx); err != nil {
+					return fmt.Errorf("OAuth login failed: %w", err)
+				}
+				c.oauth = oc
+				tokenSource = oc.Token
+				if subject := oc.Subject(); subject != "" {
+					c.ui.PrintSystemMessage(fmt.Sprintf("Authenticated via OAuth as %s", subject))
+				}
+			case errors.Is(err, ErrNoOAuth) && c.config.MCP.AuthMode == "auto":
+				// The server does not advertise OAuth: fall back to a
+				// configured token, or interactive username/password
+				// authentication.
+				ts, err := c.legacyTokenSource(ctx)
+				if err != nil {
+					return err
+				}
+				tokenSource = ts
+			default:
+				return fmt.Errorf("OAuth discovery failed: %w", err)
+			}
+		case "none":
+			// No authentication - connect without a token. Used when the
+			// server has auth disabled.
+			tokenSource = func() string { return "" }
+		case "user":
+			ts, err := c.userAuthTokenSource(ctx)
+			if err != nil {
+				return err
+			}
+			tokenSource = ts
+		default:
+			// Token authentication mode (the only remaining case is "token").
+			token := c.config.MCP.Token
+			if token == "" {
+				token = c.ui.PromptForToken()
+				if token == "" {
+					return fmt.Errorf("authentication token is required for HTTP mode")
+				}
+			}
+			tokenSource = func() string { return token }
+		}
+
+		c.mcp = NewHTTPClientWithSource(url, tokenSource)
 		// Initialize conversations client for HTTP mode with authentication
-		c.conversations = NewConversationsClient(url, token)
+		c.conversations = NewConversationsClientWithSource(url, tokenSource)
 	} else {
 		// Stdio mode
 		mcpClient, err := NewStdioClient(c.config.MCP.ServerPath, c.config.MCP.ServerConfigPath)
@@ -307,6 +304,71 @@ func (c *Client) connectToMCP(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+// newOAuthClient builds the OAuthClient used to authenticate against the
+// server at origin, whose metadata has already been discovered as meta.
+func (c *Client) newOAuthClient(origin string, meta *oauthMetadata) *OAuthClient {
+	oc := &OAuthClient{
+		BaseURL:   origin,
+		HTTP:      &http.Client{},
+		NoBrowser: c.config.MCP.NoBrowser,
+		Prompt:    c.ui.PrintSystemMessage,
+	}
+	oc.meta = meta
+	return oc
+}
+
+// legacyTokenSource resolves the token source auth-mode "auto" falls back
+// to when the server does not advertise OAuth: a configured static token,
+// or interactive username/password authentication.
+func (c *Client) legacyTokenSource(ctx context.Context) (TokenSource, error) {
+	if c.config.MCP.Token != "" {
+		token := c.config.MCP.Token
+		return func() string { return token }, nil
+	}
+	return c.userAuthTokenSource(ctx)
+}
+
+// userAuthTokenSource prompts for (or uses configured) credentials,
+// authenticates against the server, and returns a TokenSource fixed to
+// the resulting session token.
+func (c *Client) userAuthTokenSource(ctx context.Context) (TokenSource, error) {
+	username := c.config.MCP.Username
+	password := c.config.MCP.Password
+
+	// Prompt for username if not provided
+	if username == "" {
+		var err error
+		username, err = c.ui.PromptForUsername(ctx)
+		if err != nil {
+			// User interrupted (Ctrl+C) or other input error
+			return nil, fmt.Errorf("authentication canceled")
+		}
+		if username == "" {
+			return nil, fmt.Errorf("username is required for user authentication")
+		}
+	}
+
+	// Prompt for password if not provided
+	if password == "" {
+		var err error
+		password, err = c.ui.PromptForPassword(ctx)
+		if err != nil {
+			// User interrupted (Ctrl+C) or other input error
+			return nil, fmt.Errorf("authentication canceled")
+		}
+		if password == "" {
+			return nil, fmt.Errorf("password is required for user authentication")
+		}
+	}
+
+	// Authenticate and get session token
+	sessionToken, err := c.authenticateUser(ctx, username, password)
+	if err != nil {
+		return nil, fmt.Errorf("authentication failed: %w", err)
+	}
+	return func() string { return sessionToken }, nil
 }
 
 // authenticateUser authenticates with username/password and returns a session token
@@ -854,8 +916,10 @@ func (c *Client) tryServerCompaction(messages []llmlib.Message, maxTokens, recen
 	}
 
 	req.Header.Set("Content-Type", "application/json")
-	if httpClient.token != "" {
-		req.Header.Set("Authorization", "Bearer "+httpClient.token)
+	if httpClient.tokenSource != nil {
+		if token := httpClient.tokenSource(); token != "" {
+			req.Header.Set("Authorization", "Bearer "+token)
+		}
 	}
 
 	resp, err := httpClient.client.Do(req)

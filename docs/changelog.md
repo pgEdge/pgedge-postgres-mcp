@@ -9,6 +9,18 @@ and this project adheres to
 
 ## [Unreleased]
 
+### Added
+
+- The CLI chat client now authenticates via OAuth automatically when
+  the server advertises it, using a loopback browser redirect where
+  possible and falling back to the device authorisation flow on
+  headless sessions or when `--no-browser` is given. Tokens are cached
+  per server and refreshed transparently; `/logout` ends the session.
+  The `mcp-auth-mode` setting gained an `auto` option (the new
+  default), which tries OAuth first and falls back to the previous
+  token or username/password behaviour when the server does not
+  advertise it.
+
 ### Changed
 
 - `/api/user/info` now reports an API token as authenticated, with
