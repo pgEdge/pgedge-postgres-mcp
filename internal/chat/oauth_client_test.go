@@ -17,11 +17,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"testing"
@@ -398,6 +400,71 @@ func TestLoopbackRejectsWrongState(t *testing.T) {
 	}
 }
 
+// twiceOpenURL performs a GET on rawURL twice, following each redirect
+// back to the CLI's loopback listener, so a test can simulate a second
+// request reaching the callback (a double-clicked link, a browser retry,
+// or a stray probe) after the first has already been handled. It records
+// both responses' status and body for the test to inspect.
+type recordedResponse struct {
+	status int
+	body   string
+}
+
+func twiceOpenURL(responses *[]recordedResponse) func(string) error {
+	return func(rawURL string) error {
+		client := &http.Client{
+			CheckRedirect: func(req *http.Request, via []*http.Request) error {
+				return nil
+			},
+		}
+		for i := 0; i < 2; i++ {
+			resp, err := client.Get(rawURL)
+			if err != nil {
+				return err
+			}
+			body, _ := io.ReadAll(resp.Body)
+			resp.Body.Close()
+			*responses = append(*responses, recordedResponse{status: resp.StatusCode, body: string(body)})
+		}
+		return nil
+	}
+}
+
+func TestLoopbackSecondCallbackGetsAlreadyHandled(t *testing.T) {
+	f := newFakeOAuthServer(t)
+	cachePath := filepath.Join(t.TempDir(), "oauth-tokens.yaml")
+	forceLoopbackEnvironment(t)
+
+	var responses []recordedResponse
+	oc := &OAuthClient{
+		BaseURL:   f.srv.URL,
+		CachePath: cachePath,
+		OpenURL:   twiceOpenURL(&responses),
+		Prompt:    func(string) {},
+	}
+
+	if err := oc.Login(context.Background()); err != nil {
+		t.Fatalf("Login: %v", err)
+	}
+	if oc.Token() == "" {
+		t.Fatal("Token() returned empty string after login")
+	}
+
+	if len(responses) != 2 {
+		t.Fatalf("expected 2 responses from the loopback listener, got %d", len(responses))
+	}
+	first, second := responses[0], responses[1]
+	if strings.Contains(first.body, "already been handled") {
+		t.Errorf("first callback got the already-handled page: %q", first.body)
+	}
+	if !strings.Contains(second.body, "already been handled") {
+		t.Errorf("second callback did not get the already-handled page: %q", second.body)
+	}
+	if second.status != http.StatusOK {
+		t.Errorf("second callback status = %d, want 200", second.status)
+	}
+}
+
 func TestDeviceLoginWhenNoBrowser(t *testing.T) {
 	f := newFakeOAuthServer(t)
 	f.deviceApproveAt = 3
@@ -557,6 +624,62 @@ func TestCacheIsPerIssuer(t *testing.T) {
 	}
 	if _, ok := cache[f2.srv.URL]; !ok {
 		t.Errorf("missing entry for %q", f2.srv.URL)
+	}
+}
+
+// TestSaveOAuthCacheFixesLoosePermissions confirms that saving over an
+// existing, looser-mode cache file (and directory) tightens the mode
+// back to 0600/0700 rather than leaving whatever mode the file already
+// had, which is what os.WriteFile alone would do: it only applies the
+// given mode when it creates the file.
+func TestSaveOAuthCacheFixesLoosePermissions(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Unix file permissions do not apply on Windows")
+	}
+
+	dir := t.TempDir()
+	path := filepath.Join(dir, "oauth-tokens.yaml")
+
+	if err := os.WriteFile(path, []byte("stale: true\n"), 0o644); err != nil {
+		t.Fatalf("seed cache file: %v", err)
+	}
+	if err := os.Chmod(dir, 0o755); err != nil {
+		t.Fatalf("loosen cache directory mode: %v", err)
+	}
+
+	cache := map[string]oauthCacheEntry{
+		"https://issuer.example": {AccessToken: "tok"},
+	}
+	if err := saveOAuthCache(path, cache); err != nil {
+		t.Fatalf("saveOAuthCache: %v", err)
+	}
+
+	fileInfo, err := os.Stat(path)
+	if err != nil {
+		t.Fatalf("stat cache file: %v", err)
+	}
+	if perm := fileInfo.Mode().Perm(); perm != 0o600 {
+		t.Errorf("cache file mode = %o, want 0600", perm)
+	}
+
+	dirInfo, err := os.Stat(dir)
+	if err != nil {
+		t.Fatalf("stat cache directory: %v", err)
+	}
+	if perm := dirInfo.Mode().Perm(); perm != 0o700 {
+		t.Errorf("cache directory mode = %o, want 0700", perm)
+	}
+
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read cache file: %v", err)
+	}
+	var roundTripped map[string]oauthCacheEntry
+	if err := yaml.Unmarshal(data, &roundTripped); err != nil {
+		t.Fatalf("unmarshal cache: %v", err)
+	}
+	if roundTripped["https://issuer.example"].AccessToken != "tok" {
+		t.Errorf("cache content = %v, want the freshly saved entry", roundTripped)
 	}
 }
 

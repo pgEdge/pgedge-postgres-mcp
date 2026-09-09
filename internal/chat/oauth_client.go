@@ -36,6 +36,7 @@ import (
 	"runtime"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"gopkg.in/yaml.v3"
@@ -264,14 +265,50 @@ func loadOAuthCache(path string) (map[string]oauthCacheEntry, error) {
 // (mode 0700) if necessary and writing the file itself with mode 0600,
 // since it holds bearer tokens.
 func saveOAuthCache(path string, cache map[string]oauthCacheEntry) error {
-	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+	dir := filepath.Dir(path)
+	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return fmt.Errorf("create oauth cache directory: %w", err)
 	}
+	// MkdirAll only applies the mode when it creates the directory: an
+	// existing, looser-mode directory keeps whatever it already had.
+	// Force it back to 0700 either way, since the directory holds
+	// nothing but bearer tokens.
+	if err := os.Chmod(dir, 0o700); err != nil {
+		return fmt.Errorf("set oauth cache directory permissions: %w", err)
+	}
+
 	data, err := yaml.Marshal(cache)
 	if err != nil {
 		return fmt.Errorf("marshal oauth cache: %w", err)
 	}
-	if err := os.WriteFile(path, data, 0o600); err != nil {
+
+	// Write to a temporary file in the same directory, created with the
+	// final 0600 mode from the outset (so the mode is never briefly the
+	// process umask's default), then rename it over the target. The
+	// rename is atomic on the platforms this CLI ships for, so a reader
+	// never sees a partially written cache, and the target's mode is
+	// whatever the temporary file's was, sidestepping the "os.WriteFile
+	// only sets the mode when creating the file" pitfall for an
+	// existing, looser-mode cache file.
+	tmp, err := os.CreateTemp(dir, ".oauth-tokens-*.yaml.tmp")
+	if err != nil {
+		return fmt.Errorf("create temporary oauth cache file: %w", err)
+	}
+	tmpPath := tmp.Name()
+	defer os.Remove(tmpPath) // no-op once the rename below succeeds
+
+	if err := tmp.Chmod(0o600); err != nil {
+		tmp.Close()
+		return fmt.Errorf("set oauth cache file permissions: %w", err)
+	}
+	if _, err := tmp.Write(data); err != nil {
+		tmp.Close()
+		return fmt.Errorf("write oauth cache: %w", err)
+	}
+	if err := tmp.Close(); err != nil {
+		return fmt.Errorf("write oauth cache: %w", err)
+	}
+	if err := os.Rename(tmpPath, path); err != nil {
 		return fmt.Errorf("write oauth cache: %w", err)
 	}
 	return nil
@@ -438,24 +475,46 @@ func (c *OAuthClient) loginLoopback(ctx context.Context, clientID string) error 
 		err  error
 	}
 	resultCh := make(chan result, 1)
+	// delivered guards against a second request to the callback (a
+	// double-clicked link, a browser retry, or a stray probe) blocking
+	// forever on a full, unread resultCh: only the first request that
+	// wins the compare-and-swap gets to deliver a result, and every
+	// later one gets a fixed "already handled" page instead of being
+	// processed (or hung) a second time.
+	var delivered atomic.Bool
 
 	mux := http.NewServeMux()
 	mux.HandleFunc(oauthLoopbackRedirectPath, func(w http.ResponseWriter, r *http.Request) {
+		if !delivered.CompareAndSwap(false, true) {
+			fmt.Fprint(w, "<html><body>This login has already been handled. You can close this window and return to the terminal.</body></html>")
+			return
+		}
+
 		q := r.URL.Query()
+		var res result
 		switch {
 		case q.Get("error") != "":
 			desc := q.Get("error_description")
 			fmt.Fprintf(w, "<html><body>Login failed: %s. You can return to the terminal.</body></html>", htmlEscape(q.Get("error")))
-			resultCh <- result{err: fmt.Errorf("authorisation server denied the request: %s %s", q.Get("error"), desc)}
+			res = result{err: fmt.Errorf("authorisation server denied the request: %s %s", q.Get("error"), desc)}
 		case q.Get("state") != state:
 			fmt.Fprint(w, "<html><body>Login failed: invalid state. You can return to the terminal.</body></html>")
-			resultCh <- result{err: errors.New("authorisation response carried an unexpected state parameter")}
+			res = result{err: errors.New("authorisation response carried an unexpected state parameter")}
 		case q.Get("code") == "":
 			fmt.Fprint(w, "<html><body>Login failed: no authorisation code received. You can return to the terminal.</body></html>")
-			resultCh <- result{err: errors.New("authorisation response carried no code")}
+			res = result{err: errors.New("authorisation response carried no code")}
 		default:
 			fmt.Fprint(w, "<html><body>Login complete. You can return to the terminal.</body></html>")
-			resultCh <- result{code: q.Get("code")}
+			res = result{code: q.Get("code")}
+		}
+
+		// resultCh has capacity 1 and delivered's CAS guarantees only one
+		// goroutine reaches this point, so this send never actually
+		// blocks; the select is defensive, so a future change here can
+		// never turn this handler into one that hangs.
+		select {
+		case resultCh <- res:
+		default:
 		}
 	})
 	srv := &http.Server{Handler: mux}
