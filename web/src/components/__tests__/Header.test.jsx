@@ -13,7 +13,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import Header from '../Header';
 import { AuthProvider } from '../../contexts/AuthContext';
-import { mockDiscover, mockListTools, mockUserInfo } from '../../test-utils/mcp-mocks';
+import { mockDiscover, mockListTools, mockUserInfo, mockOAuthAbsent } from '../../test-utils/mcp-mocks';
 
 // Mock the logo imports
 vi.mock('../../assets/images/logo-light.png', () => ({
@@ -41,7 +41,9 @@ describe('Header Component', () => {
         // Mock authenticated state via MCP JSON-RPC protocol
         localStorage.setItem('mcp-session-token', 'test-token');
 
-        // Mock the sequence of calls that checkAuth makes:
+        // Mock the sequence of calls that checkAuth makes, prefixed by
+        // AuthProvider's mount-time OAuth discovery call (absent here):
+        global.fetch.mockResolvedValueOnce(mockOAuthAbsent());
         global.fetch.mockResolvedValueOnce(mockDiscover(1));
         global.fetch.mockResolvedValueOnce(mockListTools(2));
         global.fetch.mockResolvedValueOnce(mockUserInfo(user.username));
