@@ -171,4 +171,31 @@ describe('oauth helpers', () => {
         const params = new URLSearchParams(options.body);
         expect(params.get('token')).toBe('refresh-1');
     });
+
+    it('revoke aborts a request that never resolves after its timeout', async () => {
+        vi.useFakeTimers();
+        try {
+            let capturedSignal;
+            const fetchImpl = vi.fn((url, options) => {
+                capturedSignal = options.signal;
+                // Never resolves on its own; only settles if aborted.
+                return new Promise((_, reject) => {
+                    options.signal.addEventListener('abort', () => {
+                        reject(new DOMException('Aborted', 'AbortError'));
+                    });
+                });
+            });
+
+            const revokePromise = revoke(META, { refreshToken: 'refresh-1' }, fetchImpl);
+
+            await vi.advanceTimersByTimeAsync(5000);
+
+            // revoke() swallows the abort, same as any other network
+            // failure -- it never throws for the caller.
+            await expect(revokePromise).resolves.toBeUndefined();
+            expect(capturedSignal.aborted).toBe(true);
+        } finally {
+            vi.useRealTimers();
+        }
+    });
 });

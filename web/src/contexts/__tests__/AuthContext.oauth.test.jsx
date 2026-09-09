@@ -216,13 +216,14 @@ describe('AuthContext handleUnauthorized', () => {
         expect(params.get('refresh_token')).toBe('refresh-token-1');
     });
 
-    it('does not retry a refresh already attempted for the same access token', async () => {
+    it('shares one in-flight refresh across two concurrent 401s for the same token', async () => {
         seedOAuthSession('access-token-1');
         const result = await mountAuthenticated();
 
-        // A second 401 for the SAME token arrives before any refresh has
-        // replaced it (e.g. two requests failing back-to-back); only the
-        // first should reach the network, the second should short-circuit.
+        // Two requests fail with 401 for the same still-current token at
+        // roughly the same time (the common case, not a sign the token is
+        // unrecoverable): both should be told the retry succeeded, and
+        // only one refresh should actually reach the network.
         global.fetch.mockResolvedValueOnce({
             ok: true,
             status: 200,
@@ -243,17 +244,69 @@ describe('AuthContext handleUnauthorized', () => {
             ]);
         });
 
-        // Only the first reaches the network; the second, recognising the
-        // same access token already has a refresh in flight/attempted,
-        // short-circuits straight to false without a second request. (Which
-        // of the two completes last is a genuine race -- by design, the
-        // dedup guard's only hard guarantee is a single network call and
-        // the second caller being told not to retry.)
         expect(firstRecovered).toBe(true);
-        expect(secondRecovered).toBe(false);
+        expect(secondRecovered).toBe(true);
+        expect(result.current.sessionToken).toBe('access-token-2');
 
         const refreshCalls = global.fetch.mock.calls.filter(([url]) => url === '/oauth/token');
         expect(refreshCalls).toHaveLength(1);
+    });
+
+    it('logout clears the session immediately even if revoke never resolves', async () => {
+        seedOAuthSession('access-token-1');
+        const result = await mountAuthenticated();
+
+        // Simulate a hung server: the revocation request never settles.
+        global.fetch.mockImplementationOnce(() => new Promise(() => {}));
+
+        await act(async () => {
+            await result.current.logout();
+        });
+
+        expect(result.current.user).toBe(null);
+        expect(result.current.sessionToken).toBeFalsy();
+        expect(localStorage.getItem(STORAGE_SESSION)).toBeNull();
+    });
+
+    it('a refresh that resolves after forceLogout does not resurrect the session', async () => {
+        seedOAuthSession('access-token-1');
+        const result = await mountAuthenticated();
+
+        // The refresh's own fetch call is left pending, simulating a
+        // slow token endpoint, so forceLogout() below runs while it is
+        // still in flight.
+        let resolveRefresh;
+        const pendingRefresh = new Promise((resolve) => {
+            resolveRefresh = resolve;
+        });
+        global.fetch.mockImplementationOnce(() => pendingRefresh);
+
+        let handleUnauthorizedPromise;
+        act(() => {
+            handleUnauthorizedPromise = result.current.handleUnauthorized();
+            result.current.forceLogout();
+        });
+
+        await act(async () => {
+            resolveRefresh({
+                ok: true,
+                status: 200,
+                json: async () => ({
+                    access_token: 'access-token-2',
+                    token_type: 'Bearer',
+                    expires_in: 1800,
+                    refresh_token: 'refresh-token-2',
+                }),
+            });
+            await handleUnauthorizedPromise;
+        });
+
+        // The refresh technically succeeded, but it is stale by the time
+        // it resolves: forceLogout() already moved the session on, so its
+        // result must be discarded rather than resurrecting a session.
+        expect(result.current.user).toBe(null);
+        expect(result.current.sessionToken).toBeFalsy();
+        expect(localStorage.getItem(STORAGE_SESSION)).toBeNull();
     });
 
     it('resolves false and clears the session when a refresh attempt fails', async () => {

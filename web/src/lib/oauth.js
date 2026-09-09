@@ -27,6 +27,11 @@ export const STORAGE_CLIENT = 'mcp-oauth-client';
 // duration of a single sign-in round trip.
 export const STORAGE_PKCE = 'mcp-oauth-pkce';
 
+// How long revoke() waits for the server before giving up. Revocation is
+// best-effort and must never hold up the UI, so a hung server aborts the
+// request rather than leaving the caller waiting indefinitely.
+const REVOKE_TIMEOUT_MS = 5000;
+
 // toPath reduces an absolute URL to its same-origin path, so the browser
 // calls the proxied route (/oauth/register, /oauth/token, /oauth/revoke)
 // rather than the issuer's own origin, which may not be reachable directly
@@ -240,7 +245,10 @@ export async function refresh(meta, clientId, session, fetchImpl = fetch) {
  * revoke asks the server to invalidate the session's refresh token. The
  * revocation endpoint always returns 200 per RFC 7009, so this never
  * throws for a rejected token, only for a network failure -- and even
- * then, callers should treat it as best-effort.
+ * then, callers should treat it as best-effort. Bounded by
+ * REVOKE_TIMEOUT_MS, so a hung server cannot hold a caller open
+ * indefinitely; callers that must not be delayed at all should not
+ * await this and should catch any rejection themselves regardless.
  * @param {object} meta - OAuth metadata (from discover())
  * @param {object} session - session holding refreshToken
  * @param {typeof fetch} fetchImpl - fetch implementation (for testing)
@@ -250,14 +258,19 @@ export async function revoke(meta, session, fetchImpl = fetch) {
     if (!session || !session.refreshToken) {
         return;
     }
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), REVOKE_TIMEOUT_MS);
     try {
         await fetchImpl(toPath(meta.revocation_endpoint), {
             method: 'POST',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
             body: new URLSearchParams({ token: session.refreshToken }).toString(),
+            signal: controller.signal,
         });
     } catch {
         // Best-effort: the local session is cleared regardless.
+    } finally {
+        clearTimeout(timeoutId);
     }
 }
 

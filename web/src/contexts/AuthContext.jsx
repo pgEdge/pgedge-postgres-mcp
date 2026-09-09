@@ -52,6 +52,18 @@ export const AuthProvider = ({ children }) => {
     // unbounded refresh loop: at most one attempt is made per token.
     const refreshAttemptedForRef = useRef(null);
 
+    // The in-flight reactive refresh, if any: { token, promise }. Lets a
+    // second 401 for the same token that arrives while a refresh is
+    // already under way await that same refresh, instead of starting a
+    // duplicate request or logging the user out from under the first.
+    const refreshInFlightRef = useRef(null);
+
+    // Bumped by forceLogout()/logout(); captured before starting any
+    // refresh (scheduled or 401-triggered) so a refresh that resolves
+    // after a logout has already happened can recognise itself as stale
+    // and not resurrect a session the user just left.
+    const sessionGenerationRef = useRef(0);
+
     // The token consumers should use: an OAuth session's access token
     // takes priority over the legacy username/password session token.
     const sessionToken = oauthSession ? oauthSession.accessToken : legacyToken;
@@ -201,15 +213,25 @@ export const AuthProvider = ({ children }) => {
 
         const delay = Math.max(0, oauthSession.expiresAt - Date.now() - REFRESH_MARGIN_MS);
 
+        const generation = sessionGenerationRef.current;
+
         refreshTimerRef.current = setTimeout(async () => {
             try {
                 const clientId = await ensureClient(oauth.meta);
                 const next = await refreshOAuthSession(oauth.meta, clientId, oauthSession);
+                if (sessionGenerationRef.current !== generation) {
+                    // A logout happened while this refresh was in
+                    // flight; the result is stale and must not
+                    // resurrect a session the user already left.
+                    return;
+                }
                 saveSession(next);
                 setOauthSession(next);
             } catch (err) {
                 console.error('Token refresh failed:', err);
-                forceLogout();
+                if (sessionGenerationRef.current === generation) {
+                    forceLogout();
+                }
             }
         }, delay);
 
@@ -270,13 +292,14 @@ export const AuthProvider = ({ children }) => {
         }
 
         refreshAttemptedForRef.current = null;
+        sessionGenerationRef.current += 1;
 
-        if (oauth.enabled && oauthSession) {
-            // Best-effort: the local session is cleared regardless of
-            // whether the server accepted the revocation.
-            await revokeOAuthSession(oauth.meta, oauthSession);
-        }
+        const sessionToRevoke = oauth.enabled ? oauthSession : null;
+        const metaForRevoke = oauth.meta;
 
+        // Clear all local state and storage first, unconditionally: the
+        // user must see themselves logged out immediately, regardless of
+        // whether the server is slow, unreachable, or hung.
         clearSession();
         setOauthSession(null);
 
@@ -284,6 +307,15 @@ export const AuthProvider = ({ children }) => {
         localStorage.removeItem(LEGACY_TOKEN_KEY);
 
         setUser(null);
+
+        if (sessionToRevoke) {
+            // Best-effort and fire-and-forget: never await this, so a
+            // slow or hung server cannot delay the UI or leave the user
+            // looking logged in. revoke() itself is bounded by
+            // REVOKE_TIMEOUT_MS; the catch here is just for the
+            // vanishingly unlikely case it rejects outside that.
+            revokeOAuthSession(metaForRevoke, sessionToRevoke).catch(() => {});
+        }
 
         // Note: for the legacy flow, we don't need to call a logout API -
         // the session token simply expires on the server after its TTL.
@@ -299,6 +331,7 @@ export const AuthProvider = ({ children }) => {
         }
 
         refreshAttemptedForRef.current = null;
+        sessionGenerationRef.current += 1;
 
         clearSession();
         setOauthSession(null);
@@ -314,13 +347,23 @@ export const AuthProvider = ({ children }) => {
     // access token, so a token that keeps coming back invalid cannot
     // loop) and reports whether the caller can retry with the refreshed
     // token; without one -- or once a refresh for this token has
-    // already been tried, or the refresh itself fails -- it forces a
-    // logout and reports that the caller should give up. For the
-    // legacy username/password flow, this is exactly what forceLogout
-    // always did.
+    // already been tried and is no longer in flight, or the refresh
+    // itself fails -- it forces a logout and reports that the caller
+    // should give up. For the legacy username/password flow, this is
+    // exactly what forceLogout always did.
+    //
+    // Two 401s for the same token arriving close together (e.g. two
+    // requests in flight when the token expired) are the common case,
+    // not a sign the token is unrecoverable: the second caller shares
+    // the first's in-flight refresh instead of starting a duplicate
+    // request or being logged out from under the first.
     const handleUnauthorized = async () => {
         if (oauth.enabled && oauthSession) {
             const token = oauthSession.accessToken;
+
+            if (refreshInFlightRef.current && refreshInFlightRef.current.token === token) {
+                return refreshInFlightRef.current.promise;
+            }
 
             if (refreshAttemptedForRef.current === token) {
                 forceLogout();
@@ -328,17 +371,33 @@ export const AuthProvider = ({ children }) => {
             }
             refreshAttemptedForRef.current = token;
 
-            try {
-                const clientId = await ensureClient(oauth.meta);
-                const next = await refreshOAuthSession(oauth.meta, clientId, oauthSession);
-                saveSession(next);
-                setOauthSession(next);
-                return true;
-            } catch (err) {
-                console.error('Token refresh failed:', err);
-                forceLogout();
-                return false;
-            }
+            const generation = sessionGenerationRef.current;
+            const attempt = (async () => {
+                try {
+                    const clientId = await ensureClient(oauth.meta);
+                    const next = await refreshOAuthSession(oauth.meta, clientId, oauthSession);
+                    if (sessionGenerationRef.current !== generation) {
+                        // A logout happened while this refresh was in
+                        // flight; do not resurrect a session the user
+                        // already left.
+                        return false;
+                    }
+                    saveSession(next);
+                    setOauthSession(next);
+                    return true;
+                } catch (err) {
+                    console.error('Token refresh failed:', err);
+                    if (sessionGenerationRef.current === generation) {
+                        forceLogout();
+                    }
+                    return false;
+                } finally {
+                    refreshInFlightRef.current = null;
+                }
+            })();
+
+            refreshInFlightRef.current = { token, promise: attempt };
+            return attempt;
         }
 
         forceLogout();
