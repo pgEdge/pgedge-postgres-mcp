@@ -13,29 +13,35 @@ package oauth
 import (
 	"net"
 	"net/url"
+	"strings"
 )
 
 // redirectURIAllowed reports whether uri is permitted for use as an OAuth
-// redirect target, given the configured allowed list. Matching is exact,
-// except that a loopback host (127.0.0.1, [::1] or localhost) may use any
-// port so long as its scheme, host and path match an allowed entry with
-// the same host.
+// redirect target, given the configured allowed list. Matching is exact
+// (scheme and host compared case-insensitively; everything else,
+// including the path, byte-for-byte), except that a loopback host
+// (127.0.0.1, [::1] or localhost) may use any port so long as its scheme,
+// host and path match an allowed entry with the same host. A URI carrying
+// userinfo (e.g. "http://attacker@127.0.0.1/callback") is always rejected,
+// since a browser silently drops it and it exists only to mislead a
+// reviewer of the URI.
 func redirectURIAllowed(uri string, allowed []string) bool {
 	u, err := url.Parse(uri)
-	if err != nil || u.Scheme == "" || u.Host == "" || u.Fragment != "" {
+	if err != nil || u.Scheme == "" || u.Host == "" || u.Fragment != "" || u.User != nil {
 		return false
 	}
 
 	for _, a := range allowed {
-		if a == uri {
-			return true
-		}
 		au, err := url.Parse(a)
 		if err != nil {
 			continue
 		}
-		if isLoopbackHostname(u.Hostname()) && u.Hostname() == au.Hostname() &&
-			u.Scheme == au.Scheme && u.Path == au.Path && u.RawQuery == "" && au.RawQuery == "" {
+		if strings.EqualFold(u.Scheme, au.Scheme) && strings.EqualFold(u.Host, au.Host) &&
+			u.Path == au.Path && u.RawQuery == au.RawQuery {
+			return true
+		}
+		if isLoopbackHostname(u.Hostname()) && strings.EqualFold(u.Hostname(), au.Hostname()) &&
+			strings.EqualFold(u.Scheme, au.Scheme) && u.Path == au.Path && u.RawQuery == "" && au.RawQuery == "" {
 			return true
 		}
 	}

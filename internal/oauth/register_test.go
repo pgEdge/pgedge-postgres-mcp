@@ -19,6 +19,7 @@ import (
 	"testing"
 	"time"
 
+	"pgedge-postgres-mcp/internal/auth"
 	"pgedge-postgres-mcp/internal/config"
 )
 
@@ -123,5 +124,24 @@ func TestRegisterMethodNotAllowed(t *testing.T) {
 	ts := newTestServer(t, nil)
 	if rec := ts.do("GET", RegisterPath, "", ""); rec.Code != 405 {
 		t.Fatal(rec.Code)
+	}
+}
+
+func TestRegisterRateLimitedAfterBadMethodAttempts(t *testing.T) {
+	rl := auth.NewRateLimiter(1, 1)
+	t.Cleanup(rl.Stop)
+	ts := newTestServer(t, func(o *Options) { o.RateLimiter = rl })
+
+	// Two disallowed-method requests, each recording a failed attempt
+	// against the limiter.
+	ts.do("GET", RegisterPath, "", "")
+	ts.do("GET", RegisterPath, "", "")
+
+	rec := ts.do("POST", RegisterPath, "application/json", `{"redirect_uris":["https://claude.ai/api/mcp/auth_callback"]}`)
+	if rec.Code != 429 {
+		t.Fatalf("status %d: %s", rec.Code, rec.Body)
+	}
+	if got := rec.Header().Get("Retry-After"); got != "60" {
+		t.Fatalf("Retry-After = %q", got)
 	}
 }

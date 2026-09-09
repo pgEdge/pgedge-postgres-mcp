@@ -60,13 +60,11 @@ func (s *Server) handleRegister(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	if r.Method != http.MethodPost {
-		writeJSONError(w, newError("invalid_request", "method not allowed", http.StatusMethodNotAllowed))
-		return
-	}
-
 	ip := s.clientIP(r)
 	if s.opts.RateLimiter != nil && !s.opts.RateLimiter.IsAllowed(ip) {
+		// Already blocked: don't record another attempt, since doing so
+		// would only extend the block window for a caller who is
+		// getting no further than this check anyway.
 		w.Header().Set("Retry-After", "60")
 		writeJSONError(w, newError("access_denied", "too many requests", http.StatusTooManyRequests))
 		return
@@ -77,6 +75,11 @@ func (s *Server) handleRegister(w http.ResponseWriter, r *http.Request) {
 			s.opts.RateLimiter.RecordFailedAttempt(ip)
 		}
 		writeJSONError(w, e)
+	}
+
+	if r.Method != http.MethodPost {
+		fail(newError("invalid_request", "method not allowed", http.StatusMethodNotAllowed))
+		return
 	}
 
 	r.Body = http.MaxBytesReader(w, r.Body, maxRegistrationBodyBytes)
