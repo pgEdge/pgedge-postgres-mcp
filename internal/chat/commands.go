@@ -165,6 +165,8 @@ Available Commands:
   Navigation:
     /help                       Show this help message
     /clear                      Clear the screen
+    /paste                      Enter multi-line input; Ctrl+D sends,
+                                Ctrl+C cancels
     /quit, /exit                Exit the CLI
 
   LLM Settings:

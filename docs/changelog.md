@@ -9,6 +9,24 @@ and this project adheres to
 
 ## [Unreleased]
 
+### Added
+
+- The CLI has a `/paste` command for multi-line input. Pasting a
+  multi-line query at the normal prompt sends each line to the LLM as a
+  separate request, because the terminal delivers every newline as if
+  Enter had been pressed. After `/paste`, the CLI collects lines under a
+  `...:` continuation prompt until Ctrl+D is pressed on an empty line,
+  then sends the whole text as one request; Ctrl+C discards the text and
+  returns to the normal prompt. The collected lines are not added to the
+  command history. This needs nothing from the terminal, so it behaves
+  the same in every terminal emulator and on every platform. Fixes #57.
+
+### Changed
+
+- Pressing Ctrl+D at the CLI prompt now echoes `^D` rather than `exit`
+  before the goodbye message, so that the same key reads sensibly when
+  used to finish a `/paste`.
+
 ### Fixed
 
 - The release workflow now names its archives after the tag that
