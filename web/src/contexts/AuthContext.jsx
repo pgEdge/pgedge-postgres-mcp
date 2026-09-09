@@ -47,6 +47,11 @@ export const AuthProvider = ({ children }) => {
     const [authError, setAuthError] = useState('');
     const refreshTimerRef = useRef(null);
 
+    // The access token a reactive (401-triggered) refresh has already
+    // been attempted for, so a still-invalid token cannot trigger an
+    // unbounded refresh loop: at most one attempt is made per token.
+    const refreshAttemptedForRef = useRef(null);
+
     // The token consumers should use: an OAuth session's access token
     // takes priority over the legacy username/password session token.
     const sessionToken = oauthSession ? oauthSession.accessToken : legacyToken;
@@ -264,6 +269,8 @@ export const AuthProvider = ({ children }) => {
             refreshTimerRef.current = null;
         }
 
+        refreshAttemptedForRef.current = null;
+
         if (oauth.enabled && oauthSession) {
             // Best-effort: the local session is cleared regardless of
             // whether the server accepted the revocation.
@@ -291,6 +298,8 @@ export const AuthProvider = ({ children }) => {
             refreshTimerRef.current = null;
         }
 
+        refreshAttemptedForRef.current = null;
+
         clearSession();
         setOauthSession(null);
 
@@ -298,6 +307,42 @@ export const AuthProvider = ({ children }) => {
         localStorage.removeItem(LEGACY_TOKEN_KEY);
 
         setUser(null);
+    };
+
+    // handleUnauthorized responds to a 401 from an MCP call: with an
+    // OAuth session, it attempts one refresh (never more than one per
+    // access token, so a token that keeps coming back invalid cannot
+    // loop) and reports whether the caller can retry with the refreshed
+    // token; without one -- or once a refresh for this token has
+    // already been tried, or the refresh itself fails -- it forces a
+    // logout and reports that the caller should give up. For the
+    // legacy username/password flow, this is exactly what forceLogout
+    // always did.
+    const handleUnauthorized = async () => {
+        if (oauth.enabled && oauthSession) {
+            const token = oauthSession.accessToken;
+
+            if (refreshAttemptedForRef.current === token) {
+                forceLogout();
+                return false;
+            }
+            refreshAttemptedForRef.current = token;
+
+            try {
+                const clientId = await ensureClient(oauth.meta);
+                const next = await refreshOAuthSession(oauth.meta, clientId, oauthSession);
+                saveSession(next);
+                setOauthSession(next);
+                return true;
+            } catch (err) {
+                console.error('Token refresh failed:', err);
+                forceLogout();
+                return false;
+            }
+        }
+
+        forceLogout();
+        return false;
     };
 
     return (
@@ -308,6 +353,7 @@ export const AuthProvider = ({ children }) => {
             login,
             logout,
             forceLogout,
+            handleUnauthorized,
             oauthEnabled: oauth.enabled,
             startOAuthLogin,
             authError,
