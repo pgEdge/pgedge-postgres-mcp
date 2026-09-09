@@ -336,6 +336,26 @@ func (s *Store) DeleteToken(hash string) {
 	s.deleteTokenLocked(hash)
 }
 
+// TakeToken atomically looks up and removes the token stored under hash,
+// applying the same cascade as DeleteToken, and returns a copy of the
+// token as it stood immediately before removal. Because the lookup and
+// removal happen under a single lock, at most one of two concurrent
+// callers presenting the same token can ever receive ok == true, which
+// makes it safe to use for single-use tokens such as a refresh token
+// being rotated.
+func (s *Store) TakeToken(hash string) (*Token, bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	t, ok := s.tokens[hash]
+	if !ok {
+		return nil, false
+	}
+	cp := cloneToken(t)
+	s.deleteTokenLocked(hash)
+	return cp, true
+}
+
 // deleteTokenLocked implements DeleteToken; callers must hold s.mu.
 func (s *Store) deleteTokenLocked(hash string) {
 	t, ok := s.tokens[hash]

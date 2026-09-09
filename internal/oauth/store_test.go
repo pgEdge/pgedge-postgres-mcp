@@ -60,6 +60,25 @@ func TestDeleteRefreshCascades(t *testing.T) {
 	}
 }
 
+func TestTakeTokenCascadesAndIsSingleUse(t *testing.T) {
+	s := NewStore(DefaultLimits)
+	exp := time.Now().Add(time.Hour)
+	_ = s.PutToken(&Token{Hash: "r", IsRefresh: true, Issued: []string{"a1"}, ExpiresAt: exp})
+	_ = s.PutToken(&Token{Hash: "a1", RefreshHash: "r", ExpiresAt: exp})
+
+	t1, ok := s.TakeToken("r")
+	if !ok || t1.Hash != "r" || !t1.IsRefresh {
+		t.Fatalf("first take: %+v, %v", t1, ok)
+	}
+	if _, ok := s.GetToken("a1"); ok {
+		t.Fatal("cascade did not remove the access token")
+	}
+
+	if _, ok := s.TakeToken("r"); ok {
+		t.Fatal("second take of the same hash should fail")
+	}
+}
+
 func TestDeleteAccessTokenPrunesParentIssued(t *testing.T) {
 	s := NewStore(DefaultLimits)
 	exp := time.Now().Add(time.Hour)

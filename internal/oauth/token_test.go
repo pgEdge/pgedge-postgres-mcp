@@ -15,8 +15,11 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"strings"
+	"sync"
 	"testing"
 	"time"
+
+	"pgedge-postgres-mcp/internal/auth"
 )
 
 func obtainCode(t *testing.T, ts *testServer, redirect string) (cid, code string) {
@@ -153,5 +156,52 @@ func TestAccessTokenIsNotARefreshToken(t *testing.T) {
 	_, tr := exchange(ts, codeForm(cid, code, claudeCB))
 	if _, _, ok := ts.srv.ValidateAccessToken(tr.RefreshToken); ok {
 		t.Fatal("refresh token accepted as access token")
+	}
+}
+
+func TestConcurrentRefreshRotationOnlyOneSucceeds(t *testing.T) {
+	ts := newTestServer(t, nil)
+	cid, code := obtainCode(t, ts, claudeCB)
+	_, tr := exchange(ts, codeForm(cid, code, claudeCB))
+
+	const n = 20
+	var wg sync.WaitGroup
+	var mu sync.Mutex
+	codes := make(map[int]int, 2)
+	for i := 0; i < n; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			rec, _ := exchange(ts, url.Values{"grant_type": {"refresh_token"}, "refresh_token": {tr.RefreshToken}, "client_id": {cid}})
+			mu.Lock()
+			codes[rec.Code]++
+			mu.Unlock()
+		}()
+	}
+	wg.Wait()
+
+	if codes[200] != 1 {
+		t.Fatalf("expected exactly one 200, got %v", codes)
+	}
+	if codes[400] != n-1 {
+		t.Fatalf("expected the rest to be 400, got %v", codes)
+	}
+}
+
+func TestTokenEndpointRateLimited(t *testing.T) {
+	rl := auth.NewRateLimiter(1, 1)
+	t.Cleanup(rl.Stop)
+	ts := newTestServer(t, func(o *Options) { o.RateLimiter = rl })
+
+	f := url.Values{"grant_type": {"authorization_code"}, "code": {"bogus"}, "client_id": {"nope"}, "redirect_uri": {claudeCB}, "code_verifier": {goodVerifier}}
+	exchange(ts, f)
+	exchange(ts, f)
+
+	rec, _ := exchange(ts, f)
+	if rec.Code != 429 {
+		t.Fatalf("status %d: %s", rec.Code, rec.Body)
+	}
+	if got := rec.Header().Get("Retry-After"); got != "60" {
+		t.Fatalf("Retry-After = %q", got)
 	}
 }
