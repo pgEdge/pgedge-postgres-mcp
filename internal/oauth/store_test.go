@@ -60,6 +60,136 @@ func TestDeleteRefreshCascades(t *testing.T) {
 	}
 }
 
+func TestDeleteAccessTokenPrunesParentIssued(t *testing.T) {
+	s := NewStore(DefaultLimits)
+	exp := time.Now().Add(time.Hour)
+	_ = s.PutToken(&Token{Hash: "r", IsRefresh: true, Issued: []string{"a1", "a2"}, ExpiresAt: exp})
+	_ = s.PutToken(&Token{Hash: "a1", RefreshHash: "r", ExpiresAt: exp})
+	_ = s.PutToken(&Token{Hash: "a2", RefreshHash: "r", ExpiresAt: exp})
+
+	s.DeleteToken("a1")
+
+	if _, ok := s.GetToken("a1"); ok {
+		t.Fatal("deleted access token still present")
+	}
+	if _, ok := s.GetToken("a2"); !ok {
+		t.Fatal("sibling access token wrongly removed")
+	}
+	r, ok := s.GetToken("r")
+	if !ok {
+		t.Fatal("refresh token wrongly removed")
+	}
+	for _, h := range r.Issued {
+		if h == "a1" {
+			t.Fatal("deleted access token hash still in parent's Issued")
+		}
+	}
+	if len(r.Issued) != 1 || r.Issued[0] != "a2" {
+		t.Fatalf("unexpected Issued after prune: %v", r.Issued)
+	}
+}
+
+func TestPutDeviceCodeEnforcesLimit(t *testing.T) {
+	s := NewStore(Limits{Clients: 1, Codes: 1, DeviceCodes: 1, Tokens: 1})
+	exp := time.Now().Add(time.Hour)
+	if err := s.PutDeviceCode(&DeviceCode{DeviceHash: "d1", UserCode: "U1", ExpiresAt: exp}); err != nil {
+		t.Fatalf("first put failed: %v", err)
+	}
+	if err := s.PutDeviceCode(&DeviceCode{DeviceHash: "d2", UserCode: "U2", ExpiresAt: exp}); !errors.Is(err, ErrStoreFull) {
+		t.Fatalf("got %v", err)
+	}
+}
+
+func TestGetDeviceByHashAndUserCode(t *testing.T) {
+	s := NewStore(DefaultLimits)
+	exp := time.Now().Add(time.Hour)
+	_ = s.PutDeviceCode(&DeviceCode{DeviceHash: "d1", UserCode: "ABCD", ExpiresAt: exp})
+
+	byHash, ok := s.GetDeviceByHash("d1")
+	if !ok {
+		t.Fatal("GetDeviceByHash: not found")
+	}
+	byCode, ok := s.GetDeviceByUserCode("ABCD")
+	if !ok {
+		t.Fatal("GetDeviceByUserCode: not found")
+	}
+	if byHash.DeviceHash != byCode.DeviceHash || byHash.UserCode != byCode.UserCode {
+		t.Fatalf("records differ: %+v vs %+v", byHash, byCode)
+	}
+
+	if _, ok := s.GetDeviceByHash("nope"); ok {
+		t.Fatal("unknown hash found")
+	}
+	if _, ok := s.GetDeviceByUserCode("nope"); ok {
+		t.Fatal("unknown user code found")
+	}
+}
+
+func TestUpdateDevice(t *testing.T) {
+	s := NewStore(DefaultLimits)
+	exp := time.Now().Add(time.Hour)
+	_ = s.PutDeviceCode(&DeviceCode{DeviceHash: "d1", UserCode: "ABCD", ExpiresAt: exp})
+
+	s.UpdateDevice(&DeviceCode{DeviceHash: "d1", UserCode: "ABCD", Approved: true, Subject: "user1", ExpiresAt: exp})
+
+	got, ok := s.GetDeviceByHash("d1")
+	if !ok {
+		t.Fatal("device disappeared after update")
+	}
+	if !got.Approved || got.Subject != "user1" {
+		t.Fatalf("update not applied: %+v", got)
+	}
+}
+
+func TestUpdateDeviceRekeysUserCode(t *testing.T) {
+	s := NewStore(DefaultLimits)
+	exp := time.Now().Add(time.Hour)
+	_ = s.PutDeviceCode(&DeviceCode{DeviceHash: "d1", UserCode: "OLD1", ExpiresAt: exp})
+
+	s.UpdateDevice(&DeviceCode{DeviceHash: "d1", UserCode: "NEW1", ExpiresAt: exp})
+
+	if _, ok := s.GetDeviceByUserCode("OLD1"); ok {
+		t.Fatal("stale user code still resolves")
+	}
+	got, ok := s.GetDeviceByUserCode("NEW1")
+	if !ok {
+		t.Fatal("new user code does not resolve")
+	}
+	if got.DeviceHash != "d1" {
+		t.Fatalf("unexpected device hash: %s", got.DeviceHash)
+	}
+}
+
+func TestDeleteDeviceRemovesBothEntries(t *testing.T) {
+	s := NewStore(DefaultLimits)
+	exp := time.Now().Add(time.Hour)
+	_ = s.PutDeviceCode(&DeviceCode{DeviceHash: "d1", UserCode: "ABCD", ExpiresAt: exp})
+
+	s.DeleteDevice("d1")
+
+	if _, ok := s.GetDeviceByHash("d1"); ok {
+		t.Fatal("device hash entry survived DeleteDevice")
+	}
+	if _, ok := s.GetDeviceByUserCode("ABCD"); ok {
+		t.Fatal("user code index entry survived DeleteDevice")
+	}
+}
+
+func TestSweepRemovesExpiredDeviceUserCodeIndex(t *testing.T) {
+	s := NewStore(DefaultLimits)
+	now := time.Now()
+	_ = s.PutDeviceCode(&DeviceCode{DeviceHash: "d1", UserCode: "ABCD", ExpiresAt: now.Add(-time.Second)})
+
+	s.Sweep(now)
+
+	if _, ok := s.GetDeviceByHash("d1"); ok {
+		t.Fatal("expired device hash entry survived Sweep")
+	}
+	if _, ok := s.GetDeviceByUserCode("ABCD"); ok {
+		t.Fatal("expired device's user code index entry survived Sweep")
+	}
+}
+
 func TestGettersReturnCopies(t *testing.T) {
 	s := NewStore(DefaultLimits)
 	_ = s.PutClient(&Client{ID: "a", RedirectURIs: []string{"x"}})

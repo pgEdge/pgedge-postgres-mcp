@@ -229,13 +229,20 @@ func (s *Store) GetDeviceByUserCode(code string) (*DeviceCode, bool) {
 }
 
 // UpdateDevice replaces the stored device code sharing d's DeviceHash. It
-// is a no-op if that hash is not present.
+// is a no-op if that hash is not present. If d.UserCode differs from the
+// stored record's, the userCodes index is re-keyed so it never goes
+// stale.
 func (s *Store) UpdateDevice(d *DeviceCode) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	if _, ok := s.devices[d.DeviceHash]; !ok {
+	old, ok := s.devices[d.DeviceHash]
+	if !ok {
 		return
+	}
+	if old.UserCode != d.UserCode {
+		delete(s.userCodes, old.UserCode)
+		s.userCodes[d.UserCode] = d.DeviceHash
 	}
 	s.devices[d.DeviceHash] = cloneDeviceCode(d)
 }

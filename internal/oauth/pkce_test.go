@@ -43,3 +43,24 @@ func TestValidCodeVerifierLength(t *testing.T) {
 		t.Fatal("bad char accepted")
 	}
 }
+
+func TestValidCodeChallenge(t *testing.T) {
+	if !validCodeChallenge(strings.Repeat("a", 43)) {
+		t.Fatal("valid 43-char base64url challenge rejected")
+	}
+	if validCodeChallenge(strings.Repeat("a", 42)) {
+		t.Fatal("42-char challenge accepted")
+	}
+	if validCodeChallenge(strings.Repeat("a", 44)) {
+		t.Fatal("44-char challenge accepted")
+	}
+	if validCodeChallenge(strings.Repeat("a", 42) + "+") {
+		t.Fatal("challenge with '+' accepted")
+	}
+	if validCodeChallenge(strings.Repeat("a", 42) + "/") {
+		t.Fatal("challenge with '/' accepted")
+	}
+	if validCodeChallenge(strings.Repeat("a", 42) + "=") {
+		t.Fatal("challenge with '=' accepted")
+	}
+}
