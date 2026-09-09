@@ -164,21 +164,31 @@ func TestConcurrentRefreshRotationOnlyOneSucceeds(t *testing.T) {
 	cid, code := obtainCode(t, ts, claudeCB)
 	_, tr := exchange(ts, codeForm(cid, code, claudeCB))
 
-	const n = 20
-	var wg sync.WaitGroup
-	var mu sync.Mutex
-	codes := make(map[int]int, 2)
+	const n = 50
+	var ready sync.WaitGroup
+	ready.Add(n)
+	start := make(chan struct{})
+	results := make(chan int, n)
+
 	for i := 0; i < n; i++ {
-		wg.Add(1)
 		go func() {
-			defer wg.Done()
+			ready.Done()
+			<-start
 			rec, _ := exchange(ts, url.Values{"grant_type": {"refresh_token"}, "refresh_token": {tr.RefreshToken}, "client_id": {cid}})
-			mu.Lock()
-			codes[rec.Code]++
-			mu.Unlock()
+			results <- rec.Code
 		}()
 	}
-	wg.Wait()
+
+	// Wait until every goroutine has reached the gate, then release them
+	// all at once, so as many as possible are inside the take-and-delete
+	// window concurrently rather than trickling in one at a time.
+	ready.Wait()
+	close(start)
+
+	codes := make(map[int]int, 2)
+	for i := 0; i < n; i++ {
+		codes[<-results]++
+	}
 
 	if codes[200] != 1 {
 		t.Fatalf("expected exactly one 200, got %v", codes)
