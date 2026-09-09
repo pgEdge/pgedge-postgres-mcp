@@ -406,8 +406,8 @@ The CLI supports the following keyboard shortcuts:
 | Escape | Cancel the current LLM request and return to prompt |
 | Up/Down | Navigate through command history |
 | Ctrl+R | Reverse search through command history |
-| Ctrl+C | Exit the chat client |
-| Ctrl+D | Exit the chat client (EOF) |
+| Ctrl+C | Exit the chat client, or cancel a `/paste` |
+| Ctrl+D | Exit the chat client (EOF), or send a `/paste` |
 
 ### Cancelling Requests
 
@@ -456,6 +456,30 @@ The chat client supports **slash commands** for managing settings and configurat
 ```
 
 Shows comprehensive help for all slash commands with examples.
+
+### Multi-line Input
+
+The terminal delivers each newline in pasted text as if you had pressed
+Enter, so a multi-line query pasted at the normal prompt is sent to the LLM
+one line at a time. The `/paste` command collects several lines and sends
+them as a single request instead:
+
+```
+You: /paste
+System: Paste your text; Ctrl+D on an empty line sends it, Ctrl+C cancels.
+...: SELECT empno,
+...:        ename,
+...:        sal
+...: FROM emp
+...: WHERE deptno = 10;
+...: ^D
+```
+
+The `...:` prompt marks each collected line. Press Ctrl+D on an empty line
+to send the text, or Ctrl+C to discard the text and return to the normal
+prompt. Lines collected by `/paste` are taken as written, so a line that
+starts with `/` is part of the text rather than a command, and the lines are
+not added to the command history.
 
 ### Manage Status Messages
 

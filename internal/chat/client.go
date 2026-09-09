@@ -14,6 +14,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -613,7 +614,7 @@ func (c *Client) chatLoop(ctx context.Context) error {
 		HistoryLimit:           1000,
 		DisableAutoSaveHistory: false,
 		InterruptPrompt:        "^C",
-		EOFPrompt:              "exit",
+		EOFPrompt:              "^D",
 		HistorySearchFold:      true, // Enable case-insensitive history search
 		// Unfortunately, chzyer/readline doesn't support prefix-based history filtering
 		// on up/down arrows natively. Users can use Ctrl+R for reverse search.
@@ -657,6 +658,12 @@ func (c *Client) chatLoop(ctx context.Context) error {
 
 		// Check for slash commands (all CLI commands start with /)
 		if cmd := ParseSlashCommand(userInput); cmd != nil {
+			// /paste needs the readline instance, so it is handled here
+			// rather than in HandleSlashCommand.
+			if cmd.Command == "paste" {
+				c.handlePaste(ctx, rl)
+				continue
+			}
 			if c.HandleSlashCommand(ctx, cmd) {
 				continue // Command was handled
 			}
@@ -673,6 +680,66 @@ func (c *Client) chatLoop(ctx context.Context) error {
 		c.ui.PrintSeparator()
 		// Readline will automatically display the prompt on the next iteration
 	}
+}
+
+// lineReader is the part of readline.Instance that collectPastedInput uses,
+// kept as an interface so that the collection logic can be tested without a
+// terminal.
+type lineReader interface {
+	Readline() (string, error)
+}
+
+// collectPastedInput reads lines until Ctrl+D (reported by readline as
+// io.EOF) and returns them joined with newlines, with leading and trailing
+// blank lines removed. Ctrl+C (readline.ErrInterrupt) discards everything
+// read so far and returns aborted=true. Lines are taken verbatim, so a
+// pasted line that happens to start with '/' is content, not a command.
+func collectPastedInput(r lineReader) (text string, aborted bool, err error) {
+	var lines []string
+	for {
+		line, err := r.Readline()
+		switch {
+		case err == nil:
+			lines = append(lines, line)
+		case errors.Is(err, io.EOF):
+			return strings.Trim(strings.Join(lines, "\n"), " \t\r\n"), false, nil
+		case errors.Is(err, readline.ErrInterrupt):
+			return "", true, nil
+		default:
+			return "", false, err
+		}
+	}
+}
+
+// handlePaste implements the /paste command: it switches to a continuation
+// prompt, collects lines until Ctrl+D, and sends the result to the LLM as a
+// single query. Pasted lines are kept out of the readline history, since the
+// history file is line-based and the fragments would be useless there.
+func (c *Client) handlePaste(ctx context.Context, rl *readline.Instance) {
+	c.ui.PrintSystemMessage("Paste your text; Ctrl+D on an empty line sends it, Ctrl+C cancels.")
+
+	rl.HistoryDisable()
+	rl.SetPrompt(c.ui.GetContinuationPrompt())
+	text, aborted, err := collectPastedInput(rl)
+	rl.SetPrompt(c.ui.GetPrompt())
+	rl.HistoryEnable()
+
+	switch {
+	case err != nil:
+		c.ui.PrintError(fmt.Sprintf("Failed to read pasted input: %v", err))
+		return
+	case aborted:
+		c.ui.PrintSystemMessage("Paste cancelled.")
+		return
+	case text == "":
+		c.ui.PrintSystemMessage("Nothing to send.")
+		return
+	}
+
+	if err := c.processQuery(ctx, text); err != nil {
+		c.ui.PrintError(err.Error())
+	}
+	c.ui.PrintSeparator()
 }
 
 // getBriefDescription extracts the first line or sentence from a description
