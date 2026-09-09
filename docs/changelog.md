@@ -11,6 +11,10 @@ and this project adheres to
 
 ### Added
 
+- OAuth 2.0 authorisation server with authorisation code (PKCE) and
+  device grants, so Claude Desktop, the Claude mobile apps, the CLI
+  and the web client can sign in through a brandable login page
+  (#287).
 - The CLI chat client now authenticates via OAuth automatically when
   the server advertises it, using a loopback browser redirect where
   possible and falling back to the device authorisation flow on
@@ -23,9 +27,12 @@ and this project adheres to
 
 ### Changed
 
+- Authentication methods (API tokens, password login, OAuth) can be
+  enabled individually under `http.auth.methods`.
 - `/api/user/info` now reports an API token as authenticated, with
   `auth_method: "api"`, rather than the "invalid or expired session"
-  error it previously returned for that credential kind.
+  error it previously returned for that credential kind, and now
+  reports `auth_method: "oauth"` for an OAuth-issued token.
 
 ### Fixed
 

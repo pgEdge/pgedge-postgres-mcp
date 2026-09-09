@@ -1,0 +1,68 @@
+# Example http.auth block with OAuth enabled and branding set.
+#
+# Merge this fragment into your own pgedge-postgres-mcp.yaml, replacing
+# the example hostname, colours and message text with your own values.
+# See docs/guide/auth_oauth.md for the full list of options.
+
+http:
+    enabled: true
+    address: ":8080"
+
+    allowed_origins:
+        # The origin the web client is served from, so the server can
+        # derive the OAuth redirect URI <origin>/oauth/callback for it.
+        - https://web.mcp.example.com
+
+    auth:
+        enabled: true
+        token_file: "./postgres-mcp-tokens.yaml"
+        user_file: "./postgres-mcp-users.yaml"
+
+        # Enable or disable each authentication method independently.
+        # Every method defaults to true, so this block can be omitted
+        # entirely to keep all three enabled.
+        methods:
+            api_tokens: true
+            password_login: true
+            oauth: true
+
+        oauth:
+            # The issuer is the base URL clients use to discover and
+            # reach the authorisation server; it usually matches the
+            # server's own public address. Must be https unless the
+            # host is localhost or a loopback address.
+            issuer: "https://mcp.example.com"
+
+            # Token and code lifetimes; each accepts a Go duration
+            # string such as "1h", "24h" or "10m".
+            access_token_lifetime: "1h"
+            refresh_token_lifetime: "24h"
+            authorization_code_lifetime: "10m"
+            device_code_lifetime: "15m"
+
+            # Allow clients to register themselves dynamically (RFC
+            # 7591). Set to false to require every client ID to be
+            # listed in allowed_redirect_uris in advance.
+            allow_dynamic_registration: true
+
+            # Redirect URIs accepted at authorisation time, beyond the
+            # defaults (the Claude.ai callback and loopback callbacks
+            # for local tools). The web client's origin from
+            # allowed_origins above is added automatically.
+            allowed_redirect_uris:
+                - "https://mcp.example.com/oauth/callback"
+
+            # Branding for the login page; every field is optional.
+            login_page:
+                title: "Example Corp"
+                subtitle: "Sign in to your Example Corp database assistant"
+                message: |
+                    Use your Example Corp single sign-on username and
+                    password.
+
+                    Contact support@example.com if you cannot sign in.
+                footer: "(c) Example Corp"
+                # logo_file: "/etc/pgedge/logo.png"
+                primary_colour: "#15AABF"
+                secondary_colour: "#0C8599"
+                # template_file: "/etc/pgedge/login.html"

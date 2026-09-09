@@ -44,6 +44,17 @@ specify property values, grouped by section.
 | `http.auth.max_failed_attempts_before_lockout` | N/A | `PGEDGE_AUTH_MAX_FAILED_ATTEMPTS_BEFORE_LOCKOUT` | Lock account after N failed attempts (0 = disabled, default: 0) |
 | `http.auth.rate_limit_window_minutes` | N/A | `PGEDGE_AUTH_RATE_LIMIT_WINDOW_MINUTES` | Time window for rate limiting in minutes (default: 15) |
 | `http.auth.rate_limit_max_attempts` | N/A | `PGEDGE_AUTH_RATE_LIMIT_MAX_ATTEMPTS` | Max failed attempts per IP per window (default: 10) |
+| `http.auth.methods.api_tokens` | N/A | `PGEDGE_AUTH_METHOD_API_TOKENS` | Enable API token authentication as a method (default: true) |
+| `http.auth.methods.password_login` | N/A | `PGEDGE_AUTH_METHOD_PASSWORD_LOGIN` | Enable username/password authentication as a method (default: true) |
+| `http.auth.methods.oauth` | N/A | `PGEDGE_AUTH_METHOD_OAUTH` | Enable the OAuth authentication method (default: true) |
+| `http.auth.oauth.issuer` | N/A | `PGEDGE_AUTH_OAUTH_ISSUER` | Issuer URL that switches on the OAuth authorisation server; unset disables it |
+| `http.auth.oauth.access_token_lifetime` | N/A | N/A | Access token lifetime, e.g. `1h` (default: 1h) |
+| `http.auth.oauth.refresh_token_lifetime` | N/A | N/A | Refresh token lifetime, e.g. `24h` (default: 24h) |
+| `http.auth.oauth.authorization_code_lifetime` | N/A | N/A | Authorisation code lifetime, e.g. `10m` (default: 10m) |
+| `http.auth.oauth.device_code_lifetime` | N/A | N/A | Device code lifetime, e.g. `15m` (default: 15m) |
+| `http.auth.oauth.allow_dynamic_registration` | N/A | N/A | Allow clients to register themselves (default: true) |
+| `http.auth.oauth.allowed_redirect_uris` | N/A | N/A | Additional redirect URIs accepted at authorisation time |
+| `http.auth.oauth.login_page.*` | N/A | N/A | Login page branding; see [Authentication - OAuth](auth_oauth.md#branding) |
 | `http.client_ip.source` | N/A | `PGEDGE_HTTP_CLIENT_IP_SOURCE` | Where the client address is read from; `socket` or `header` (default: "socket") |
 | `http.client_ip.header` | N/A | `PGEDGE_HTTP_CLIENT_IP_HEADER` | Forwarding header read when the source is `header` (default: "X-Real-IP") |
 | `http.client_ip.trusted_proxies` | N/A | `PGEDGE_HTTP_CLIENT_IP_TRUSTED_PROXIES` | Comma-separated addresses or CIDR blocks permitted to set that header |

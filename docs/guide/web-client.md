@@ -20,6 +20,13 @@ are created either:
 - Via the `INIT_USERS` environment variable (Docker
   deployment with `PGEDGE_HTTP_ENABLED=true`).
 
+When the server advertises OAuth, the login page offers a sign-in
+button that redirects to the server's own branded login page instead
+of asking for a password here. The web client's own origin must
+appear in `http.allowed_origins` for the redirect back to succeed;
+see [Authentication - OAuth](auth_oauth.md#web-client-behaviour) for
+details.
+
 See [Authentication](authentication.md) for details on user management.
 
 For online assistance, click the help icon (`?`) in the header to open the help panel:

@@ -1,0 +1,192 @@
+<!--
+    Example OAuth login page template for the pgEdge Postgres MCP
+    Server, copied from the server's built-in template
+    (internal/oauth/templates/login.html). Point
+    http.auth.oauth.login_page.template_file at a copy of this file
+    to replace the built-in page with your own branding or markup.
+
+    The template contract, which any custom template must honour:
+
+    - Define a template named "page" (the {{define "page"}} ... {{end}}
+      wrapper below); the server executes that named template, not
+      the file as a whole.
+    - Post the form back to the same URL (an empty "action" attribute
+      does this) using POST, and include these hidden fields:
+      csrf_token, response_type, client_id, redirect_uri, scope,
+      state, code_challenge and code_challenge_method.
+    - Include a username and password field on the login page; add a
+      user_code field when .IsDeviceFlow is true, pre-filled from
+      .UserCode.
+
+    Data available to the template:
+
+    - .Branding.Title, .Branding.Subtitle, .Branding.MessageParagraphs,
+      .Branding.Footer, .Branding.LogoURL, .Branding.PrimaryColour and
+      .Branding.SecondaryColour, all sourced from
+      http.auth.oauth.login_page in the server configuration.
+    - .Error, a message to show when a previous attempt failed.
+    - .CSRFToken, the anti-forgery token to post back in the
+      csrf_token hidden field.
+    - .Client, the requesting client's name where known.
+    - .OAuth.ResponseType, .OAuth.ClientID, .OAuth.RedirectURI,
+      .OAuth.Scope, .OAuth.State, .OAuth.CodeChallenge and
+      .OAuth.CodeChallengeMethod, the authorisation request
+      parameters to post back as hidden fields.
+    - .UserCode and .IsDeviceFlow, used by the device authorisation
+      grant.
+    - .Page, one of "login", "device" or "done", identifying which
+      stage of the flow is being rendered.
+
+    See docs/guide/auth_oauth.md for the full explanation, and
+    examples/oauth/README.md for how to point the server at a copy of
+    this file.
+-->
+{{define "page"}}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="referrer" content="no-referrer">
+<title>{{.Branding.Title}}</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+    background: linear-gradient(135deg, {{.Branding.PrimaryColour}} 0%, {{.Branding.SecondaryColour}} 100%);
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+}
+.card {
+    background: #ffffff;
+    border-radius: 12px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
+    padding: 40px;
+    width: 100%;
+    max-width: 420px;
+}
+.logo { text-align: center; margin-bottom: 20px; }
+.logo img { max-height: 40px; }
+h1 {
+    color: #1F2937;
+    font-size: 22px;
+    font-weight: 600;
+    text-align: center;
+    margin-bottom: 6px;
+}
+.subtitle { color: #6B7280; text-align: center; margin-bottom: 20px; font-size: 14px; }
+.notice {
+    background: #F1F5F9;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    padding: 12px 14px;
+    margin-bottom: 20px;
+    color: #374151;
+    font-size: 13px;
+}
+.notice p { white-space: pre-line; margin: 0 0 6px 0; }
+.notice p:last-child { margin-bottom: 0; }
+.error {
+    background: #fee2e2;
+    border: 1px solid #fca5a5;
+    color: #dc2626;
+    padding: 12px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    font-size: 14px;
+}
+.form-group { margin-bottom: 18px; }
+label {
+    display: block;
+    color: #374151;
+    font-size: 14px;
+    font-weight: 500;
+    margin-bottom: 6px;
+}
+input[type="text"], input[type="password"] {
+    width: 100%;
+    padding: 12px 14px;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    font-size: 16px;
+}
+input[type="text"]:focus, input[type="password"]:focus {
+    outline: none;
+    border-color: {{.Branding.PrimaryColour}};
+    box-shadow: 0 0 0 3px {{.Branding.PrimaryColour}}33;
+}
+button {
+    width: 100%;
+    padding: 14px;
+    background: {{.Branding.PrimaryColour}};
+    color: #ffffff;
+    border: none;
+    border-radius: 8px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+}
+button:hover { background: {{.Branding.SecondaryColour}}; }
+.footer {
+    text-align: center;
+    margin-top: 24px;
+    color: #9CA3AF;
+    font-size: 12px;
+}
+.done {
+    color: #1F2937;
+    font-size: 15px;
+    text-align: center;
+}
+</style>
+</head>
+<body>
+<div class="card">
+<div class="logo"><img src="{{.Branding.LogoURL}}" alt="{{.Branding.Title}}"></div>
+{{if eq .Page "done"}}
+<p class="done">You're signed in. You can close this window and return to your application.</p>
+{{else}}
+<h1>{{.Branding.Title}}</h1>
+{{if .Branding.Subtitle}}<p class="subtitle">{{.Branding.Subtitle}}</p>{{end}}
+{{if .Client}}<p class="subtitle">{{.Client}} would like to sign in.</p>{{end}}
+{{if .Branding.MessageParagraphs}}
+<div class="notice">
+{{range .Branding.MessageParagraphs}}<p>{{.}}</p>
+{{end}}
+</div>
+{{end}}
+{{if .Error}}<div class="error">{{.Error}}</div>{{end}}
+<form method="POST" action="">
+<input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
+<input type="hidden" name="response_type" value="{{.OAuth.ResponseType}}">
+<input type="hidden" name="client_id" value="{{.OAuth.ClientID}}">
+<input type="hidden" name="redirect_uri" value="{{.OAuth.RedirectURI}}">
+<input type="hidden" name="scope" value="{{.OAuth.Scope}}">
+<input type="hidden" name="state" value="{{.OAuth.State}}">
+<input type="hidden" name="code_challenge" value="{{.OAuth.CodeChallenge}}">
+<input type="hidden" name="code_challenge_method" value="{{.OAuth.CodeChallengeMethod}}">
+{{if .IsDeviceFlow}}
+<div class="form-group">
+<label for="user_code">Device code</label>
+<input type="text" id="user_code" name="user_code" value="{{.UserCode}}" autocomplete="off" required>
+</div>
+{{end}}
+<div class="form-group">
+<label for="username">Username</label>
+<input type="text" id="username" name="username" autocomplete="username" required>
+</div>
+<div class="form-group">
+<label for="password">Password</label>
+<input type="password" id="password" name="password" autocomplete="current-password" required>
+</div>
+<button type="submit">Sign in</button>
+</form>
+{{end}}
+{{if .Branding.Footer}}<p class="footer">{{.Branding.Footer}}</p>{{end}}
+</div>
+</body>
+</html>
+{{end}}
