@@ -11,6 +11,16 @@ and this project adheres to
 
 ### Fixed
 
+- The Jinja2 raw block markers that shield three code blocks from the
+  documentation site's macro processing are now separated from their
+  fences by blank lines. Without the separation the closing fence and
+  the marker after it parse as a single paragraph, so a renderer with
+  the `attr_list` markdown extension enabled treats the marker as an
+  attribute list for that paragraph and swallows it, emitting bogus
+  attributes on the wrapping tag instead. The affected pages are
+  `docs/reference/tools.md`, `docs/guide/cli-client.md` and
+  `docs/contributing/ci-cd.md`.
+
 - The release workflow now names its archives after the tag that
   triggered it. GoReleaser was left to work the version out for itself,
   which it does by asking git which tags point at the commit and taking
