@@ -61,6 +61,7 @@ type Server struct {
 	opts      Options
 	store     *Store
 	csrf      *csrfSigner
+	page      *loginPage
 	stopSweep func()
 }
 
@@ -77,23 +78,31 @@ func New(opts Options) (*Server, error) {
 		return nil, err
 	}
 
+	page, err := newLoginPage(opts.Config.LoginPage)
+	if err != nil {
+		return nil, err
+	}
+
 	s := &Server{
 		opts:  opts,
 		store: NewStore(DefaultLimits),
 		csrf:  signer,
+		page:  page,
 	}
 	s.stopSweep = s.store.StartSweeper(time.Minute)
 	return s, nil
 }
 
 // RegisterRoutes registers the authorisation server's HTTP handlers on
-// mux. This task registers the metadata, protected resource and dynamic
-// client registration endpoints; later tasks add authorisation, token,
-// device and revocation routes.
+// mux. This task registers the metadata, protected resource, dynamic
+// client registration and authorisation endpoints; later tasks add the
+// token, device and revocation routes.
 func (s *Server) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc(MetadataPath, s.handleMetadata)
 	mux.HandleFunc(ProtectedResourcePath, s.handleProtectedResourceMetadata)
 	mux.HandleFunc(RegisterPath, s.handleRegister)
+	mux.HandleFunc(AuthorizePath, s.handleAuthorize)
+	mux.HandleFunc(LogoPath, s.page.ServeLogo)
 }
 
 // Close stops the background sweeper. It is safe to call more than once.
