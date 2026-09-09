@@ -119,6 +119,22 @@ export async function ensureClient(meta, fetchImpl = fetch) {
         return cached.clientId;
     }
 
+    return registerClient(meta, fetchImpl);
+}
+
+/**
+ * registerClient registers a new dynamic client with the server and
+ * caches it, replacing any client already cached for this issuer. Sign-in
+ * always registers afresh, because the server holds registrations in
+ * memory: a restart, or its own sweep of clients nobody has come back
+ * for, leaves a cached id naming a client that no longer exists. The
+ * cached id remains useful for refreshing and revoking the tokens that
+ * were issued to it.
+ * @param {object} meta - OAuth metadata (from discover())
+ * @param {typeof fetch} fetchImpl - fetch implementation (for testing)
+ * @returns {Promise<string>} - client_id
+ */
+export async function registerClient(meta, fetchImpl = fetch) {
     const redirectUri = window.location.origin + CALLBACK_PATH;
     const response = await fetchImpl(toPath(meta.registration_endpoint), {
         method: 'POST',

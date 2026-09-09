@@ -13,6 +13,7 @@ import { MCPClient } from '../lib/mcp-client';
 import {
     discover,
     ensureClient,
+    registerClient,
     generatePkce,
     randomState,
     buildAuthorizeUrl,
@@ -166,7 +167,29 @@ export const AuthProvider = ({ children }) => {
             }
 
             if (!token) {
-                const existingOAuthSession = loadSession();
+                let existingOAuthSession = loadSession();
+
+                // A session that expired whilst the tab was closed is
+                // not a session to throw away: renew it before deciding
+                // whether the user is signed in, and only fall through
+                // to clearing it if the renewal itself fails.
+                if (meta && existingOAuthSession
+                    && existingOAuthSession.refreshToken
+                    && existingOAuthSession.expiresAt <= Date.now()) {
+                    try {
+                        const clientId = await ensureClient(meta);
+                        const next = await refreshOAuthSession(meta, clientId, existingOAuthSession);
+                        if (cancelled) {
+                            return;
+                        }
+                        saveSession(next);
+                        setOauthSession(next);
+                        existingOAuthSession = next;
+                    } catch (err) {
+                        console.error('Stored OAuth session could not be refreshed:', err);
+                    }
+                }
+
                 token = existingOAuthSession ? existingOAuthSession.accessToken : legacyToken;
             }
 
@@ -272,7 +295,9 @@ export const AuthProvider = ({ children }) => {
             return;
         }
         try {
-            const clientId = await ensureClient(oauth.meta);
+            // Always register afresh: the cached client id may name a
+            // client the server has since forgotten.
+            const clientId = await registerClient(oauth.meta);
             const { verifier, challenge } = await generatePkce();
             const state = randomState();
             sessionStorage.setItem(STORAGE_PKCE, JSON.stringify({ verifier, state }));

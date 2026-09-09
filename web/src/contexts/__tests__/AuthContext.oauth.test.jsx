@@ -135,6 +135,104 @@ describe('AuthContext OAuth flow', () => {
         expect(result.current.authError).toMatch(/state/i);
         expect(localStorage.getItem(STORAGE_SESSION)).toBeNull();
     });
+
+    it('refreshes an expired stored session on mount rather than clearing it', async () => {
+        const issuer = 'http://localhost:8080';
+        localStorage.setItem(STORAGE_SESSION, JSON.stringify({
+            accessToken: 'expired-access',
+            refreshToken: 'refresh-token-1',
+            expiresAt: Date.now() - 1000,
+        }));
+        localStorage.setItem(STORAGE_CLIENT, JSON.stringify({ clientId: 'client-abc', issuer }));
+
+        // 1. discovery, 2. refresh, then the validation sequence.
+        global.fetch.mockResolvedValueOnce(mockOAuthMetadata({ issuer }));
+        global.fetch.mockResolvedValueOnce({
+            ok: true,
+            status: 200,
+            json: async () => ({
+                access_token: 'fresh-access',
+                token_type: 'Bearer',
+                expires_in: 3600,
+                refresh_token: 'refresh-token-2',
+            }),
+        });
+        global.fetch.mockResolvedValueOnce(mockDiscover(1));
+        global.fetch.mockResolvedValueOnce(mockListTools(2));
+        global.fetch.mockResolvedValueOnce(mockUserInfo('alice'));
+
+        const { result } = renderHook(() => useAuth(), { wrapper: AuthProvider });
+
+        await waitFor(() => {
+            expect(result.current.loading).toBe(false);
+        });
+
+        expect(result.current.sessionToken).toBe('fresh-access');
+        expect(JSON.parse(localStorage.getItem(STORAGE_SESSION)).accessToken).toBe('fresh-access');
+        expect(result.current.user).not.toBe(null);
+    });
+
+    it('clears an expired stored session when the refresh fails', async () => {
+        const issuer = 'http://localhost:8080';
+        localStorage.setItem(STORAGE_SESSION, JSON.stringify({
+            accessToken: 'expired-access',
+            refreshToken: 'refresh-token-1',
+            expiresAt: Date.now() - 1000,
+        }));
+        localStorage.setItem(STORAGE_CLIENT, JSON.stringify({ clientId: 'client-abc', issuer }));
+
+        global.fetch.mockResolvedValueOnce(mockOAuthMetadata({ issuer }));
+        global.fetch.mockResolvedValueOnce({
+            ok: false,
+            status: 400,
+            json: async () => ({ error: 'invalid_grant' }),
+        });
+
+        const { result } = renderHook(() => useAuth(), { wrapper: AuthProvider });
+
+        await waitFor(() => {
+            expect(result.current.loading).toBe(false);
+        });
+
+        expect(result.current.user).toBe(null);
+        expect(localStorage.getItem(STORAGE_SESSION)).toBeNull();
+    });
+
+    it('registers a fresh client each time a sign-in is started', async () => {
+        const issuer = 'http://localhost:8080';
+        localStorage.setItem(STORAGE_CLIENT, JSON.stringify({ clientId: 'stale-client', issuer }));
+
+        global.fetch.mockResolvedValueOnce(mockOAuthMetadata({ issuer }));
+        global.fetch.mockResolvedValueOnce({
+            ok: true,
+            status: 201,
+            json: async () => ({ client_id: 'client-fresh' }),
+        });
+
+        const assign = vi.fn();
+        const originalLocation = window.location;
+        delete window.location;
+        window.location = { ...originalLocation, assign, origin: originalLocation.origin };
+
+        try {
+            const { result } = renderHook(() => useAuth(), { wrapper: AuthProvider });
+            await waitFor(() => {
+                expect(result.current.loading).toBe(false);
+            });
+
+            await act(async () => {
+                await result.current.startOAuthLogin();
+            });
+
+            const registerCall = global.fetch.mock.calls.find(([url]) => url === '/oauth/register');
+            expect(registerCall).toBeDefined();
+            expect(JSON.parse(localStorage.getItem(STORAGE_CLIENT)).clientId).toBe('client-fresh');
+            expect(assign).toHaveBeenCalled();
+            expect(assign.mock.calls[0][0]).toContain('client_id=client-fresh');
+        } finally {
+            window.location = originalLocation;
+        }
+    });
 });
 
 describe('AuthContext handleUnauthorized', () => {
