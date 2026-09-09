@@ -66,6 +66,14 @@ type Token struct {
 	Issued      []string // for refresh tokens: hashes of access tokens issued from it
 }
 
+// usedCode records the refresh token issued from an authorisation code
+// that has already been redeemed, so a replay of that code can cascade
+// the revocation to every token it produced.
+type usedCode struct {
+	RefreshHash string
+	Until       time.Time
+}
+
 // Limits bounds how many entries each of the store's collections may
 // hold, so an unauthenticated caller cannot exhaust memory.
 type Limits struct{ Clients, Codes, DeviceCodes, Tokens int }
@@ -86,6 +94,7 @@ type Store struct {
 	devices   map[string]*DeviceCode
 	userCodes map[string]string // device user code -> device hash
 	tokens    map[string]*Token
+	usedCodes map[string]*usedCode
 }
 
 // NewStore creates an empty Store bounded by limits.
@@ -97,6 +106,7 @@ func NewStore(limits Limits) *Store {
 		devices:   make(map[string]*DeviceCode),
 		userCodes: make(map[string]string),
 		tokens:    make(map[string]*Token),
+		usedCodes: make(map[string]*usedCode),
 	}
 }
 
@@ -183,6 +193,37 @@ func (s *Store) TakeCode(hash string) (*AuthCode, bool) {
 	}
 	delete(s.codes, hash)
 	return cloneAuthCode(c), true
+}
+
+// MarkCodeUsed records that the authorisation code hashed to codeHash has
+// been redeemed for the refresh token hashed to refreshHash, so that a
+// replay of the same code can be detected and its issued tokens
+// cascade-revoked. The entry is bounded by the same limit as Codes and
+// expires at until, which should be no earlier than the code's original
+// expiry plus the access token lifetime.
+func (s *Store) MarkCodeUsed(codeHash, refreshHash string, until time.Time) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if _, exists := s.usedCodes[codeHash]; !exists && len(s.usedCodes) >= s.limits.Codes {
+		return
+	}
+	s.usedCodes[codeHash] = &usedCode{RefreshHash: refreshHash, Until: until}
+}
+
+// TakeUsedCode returns and removes the refresh token hash recorded for a
+// previously redeemed authorisation code, enforcing single use of the
+// replay record itself.
+func (s *Store) TakeUsedCode(codeHash string) (refreshHash string, ok bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	u, found := s.usedCodes[codeHash]
+	if !found {
+		return "", false
+	}
+	delete(s.usedCodes, codeHash)
+	return u.RefreshHash, true
 }
 
 // PutDeviceCode adds a device code, provided the collection has not
@@ -343,6 +384,11 @@ func (s *Store) Sweep(now time.Time) {
 	for hash, t := range s.tokens {
 		if t.ExpiresAt.Before(now) {
 			s.deleteTokenLocked(hash)
+		}
+	}
+	for hash, u := range s.usedCodes {
+		if u.Until.Before(now) {
+			delete(s.usedCodes, hash)
 		}
 	}
 }

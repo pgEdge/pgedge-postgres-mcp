@@ -200,3 +200,36 @@ func TestGettersReturnCopies(t *testing.T) {
 		t.Fatal("store mutated through getter")
 	}
 }
+
+func TestMarkAndTakeUsedCode(t *testing.T) {
+	s := NewStore(DefaultLimits)
+	until := time.Now().Add(time.Hour)
+	s.MarkCodeUsed("codehash", "refreshhash", until)
+
+	refresh, ok := s.TakeUsedCode("codehash")
+	if !ok || refresh != "refreshhash" {
+		t.Fatalf("got %q, %v", refresh, ok)
+	}
+	if _, ok := s.TakeUsedCode("codehash"); ok {
+		t.Fatal("used code entry should be single use")
+	}
+}
+
+func TestTakeUsedCodeUnknown(t *testing.T) {
+	s := NewStore(DefaultLimits)
+	if _, ok := s.TakeUsedCode("nope"); ok {
+		t.Fatal("unknown code hash should not be found")
+	}
+}
+
+func TestSweepRemovesExpiredUsedCode(t *testing.T) {
+	s := NewStore(DefaultLimits)
+	now := time.Now()
+	s.MarkCodeUsed("codehash", "refreshhash", now.Add(-time.Second))
+
+	s.Sweep(now)
+
+	if _, ok := s.TakeUsedCode("codehash"); ok {
+		t.Fatal("expired used-code entry survived Sweep")
+	}
+}

@@ -94,14 +94,16 @@ func New(opts Options) (*Server, error) {
 }
 
 // RegisterRoutes registers the authorisation server's HTTP handlers on
-// mux. This task registers the metadata, protected resource, dynamic
-// client registration and authorisation endpoints; later tasks add the
-// token, device and revocation routes.
+// mux: metadata, protected resource, dynamic client registration,
+// authorisation, token and revocation endpoints; a later task adds the
+// device routes.
 func (s *Server) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc(MetadataPath, s.handleMetadata)
 	mux.HandleFunc(ProtectedResourcePath, s.handleProtectedResourceMetadata)
 	mux.HandleFunc(RegisterPath, s.handleRegister)
 	mux.HandleFunc(AuthorizePath, s.handleAuthorize)
+	mux.HandleFunc(TokenPath, s.handleToken)
+	mux.HandleFunc(RevokePath, s.handleRevoke)
 	mux.HandleFunc(LogoPath, s.page.ServeLogo)
 }
 
