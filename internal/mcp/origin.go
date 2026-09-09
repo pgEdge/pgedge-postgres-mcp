@@ -96,6 +96,42 @@ func NewOriginPolicy(configured []string) (*OriginPolicy, error) {
 	return policy, nil
 }
 
+// originFromIssuer derives the scheme://host[:port] origin of an OAuth
+// issuer URL, for automatic inclusion in the allowed-origins policy: the
+// login form and device verification form both submit same-origin to
+// their own server, so a browser sends this as the request's Origin
+// header. ok is false when issuer is not an absolute http(s) URL.
+func originFromIssuer(issuer string) (origin string, ok bool) {
+	parsed, err := url.Parse(issuer)
+	if err != nil {
+		return "", false
+	}
+	scheme := strings.ToLower(parsed.Scheme)
+	if (scheme != "http" && scheme != "https") || parsed.Host == "" {
+		return "", false
+	}
+	return scheme + "://" + parsed.Host, true
+}
+
+// addOriginIfMissing appends origin to origins unless an equivalent entry
+// (compared after normalisation) is already present, so the startup log
+// and the configured list do not carry a visible duplicate when an
+// operator has already listed the issuer explicitly.
+func addOriginIfMissing(origins []string, origin string) []string {
+	normalised, err := normaliseOrigin(origin)
+	if err != nil {
+		return origins
+	}
+	for _, existing := range origins {
+		if existingNormalised, err := normaliseOrigin(existing); err == nil && existingNormalised == normalised {
+			return origins
+		}
+	}
+	extended := make([]string, len(origins), len(origins)+1)
+	copy(extended, origins)
+	return append(extended, origin)
+}
+
 // normaliseOrigin parses an origin and renders it as scheme://host:port
 // with the default port for the scheme filled in. Comparing normalised
 // forms means a configured "https://example.com" also matches a browser

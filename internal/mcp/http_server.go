@@ -85,7 +85,23 @@ func (s *Server) buildHandler(config *HTTPConfig) (http.Handler, error) {
 	// from an unexpected origin is turned away before any credential is
 	// examined. Wrapping the whole mux rather than the MCP handler alone
 	// covers /health and the LLM proxy routes as well.
-	originPolicy, err := NewOriginPolicy(config.AllowedOrigins)
+	//
+	// The OAuth login form and device verification form both submit
+	// same-origin to their own endpoints (/oauth/authorize,
+	// /oauth/device/verify), so a browser sends Origin: <issuer origin>
+	// on those posts. Origin validation is not exempted for OAuth's own
+	// routes -- they get exactly the same treatment as everything else --
+	// but the issuer's origin is added to the allowed list automatically
+	// when OAuth is active, so an operator does not also have to list it
+	// in http.allowed_origins for login to work.
+	allowedOrigins := config.AllowedOrigins
+	if config.OAuth != nil {
+		if issuerOrigin, ok := originFromIssuer(config.OAuth.Issuer()); ok {
+			allowedOrigins = addOriginIfMissing(allowedOrigins, issuerOrigin)
+			fmt.Fprintf(os.Stderr, "Accepting browser requests from the OAuth issuer origin: %s\n", issuerOrigin)
+		}
+	}
+	originPolicy, err := NewOriginPolicy(allowedOrigins)
 	if err != nil {
 		return nil, fmt.Errorf("invalid allowed origins: %w", err)
 	}

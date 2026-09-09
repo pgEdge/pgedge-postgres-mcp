@@ -9,6 +9,12 @@ and this project adheres to
 
 ## [Unreleased]
 
+### Changed
+
+- `/api/user/info` now reports an API token as authenticated, with
+  `auth_method: "api"`, rather than the "invalid or expired session"
+  error it previously returned for that credential kind.
+
 ### Fixed
 
 - The release workflow now names its archives after the tag that

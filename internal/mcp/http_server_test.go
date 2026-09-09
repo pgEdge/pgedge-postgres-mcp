@@ -1595,7 +1595,16 @@ func TestOAuthEndToEndThroughHTTPServer(t *testing.T) {
 	q.Set("username", "alice")
 	q.Set("password", "correct horse")
 	noRedirect := &http.Client{CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
-	post, err := noRedirect.PostForm(ts.URL+oauth.AuthorizePath, q)
+	// The login form submits same-origin, so a real browser sends
+	// Origin: <issuer origin> here; exercise that path rather than the
+	// no-Origin-header case the http.Client would send on its own.
+	authorizePostReq, err := http.NewRequest(http.MethodPost, ts.URL+oauth.AuthorizePath, strings.NewReader(q.Encode()))
+	if err != nil {
+		t.Fatalf("new authorize request: %v", err)
+	}
+	authorizePostReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	authorizePostReq.Header.Set("Origin", "http://localhost:8080")
+	post, err := noRedirect.Do(authorizePostReq)
 	if err != nil {
 		t.Fatalf("authorize POST: %v", err)
 	}
