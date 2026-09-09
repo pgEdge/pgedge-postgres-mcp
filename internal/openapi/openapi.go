@@ -14,6 +14,7 @@ package openapi
 
 import (
 	"pgedge-postgres-mcp/internal/mcp"
+	"pgedge-postgres-mcp/internal/oauth"
 )
 
 // M is a shorthand alias for building nested map structures.
@@ -65,6 +66,7 @@ func buildTags() A {
 		M{"name": "LLM Proxy", "description": "LLM provider and chat proxy endpoints."},
 		M{"name": "Conversations", "description": "Conversation management endpoints."},
 		M{"name": "OpenAPI", "description": "OpenAPI specification endpoint."},
+		M{"name": "OAuth", "description": "Built-in OAuth 2.0 authorisation server endpoints (RFC 8414, RFC 7591, RFC 6749, RFC 8628, RFC 7009), active only when configured with an issuer."},
 	}
 }
 
@@ -197,6 +199,16 @@ func buildPaths() M {
 		"/api/conversations":      buildConversationsPath(),
 		"/api/conversations/{id}": buildConversationByIDPath(),
 		"/api/openapi.json":       buildOpenAPISpecPath(),
+
+		oauth.MetadataPath:          buildOAuthMetadataPath(),
+		oauth.ProtectedResourcePath: buildOAuthProtectedResourcePath(),
+		oauth.RegisterPath:          buildOAuthRegisterPath(),
+		oauth.AuthorizePath:         buildOAuthAuthorizePath(),
+		oauth.TokenPath:             buildOAuthTokenPath(),
+		oauth.DevicePath:            buildOAuthDevicePath(),
+		oauth.DeviceVerifyPath:      buildOAuthDeviceVerifyPath(),
+		oauth.RevokePath:            buildOAuthRevokePath(),
+		oauth.LogoPath:              buildOAuthLogoPath(),
 	}
 }
 
@@ -647,6 +659,298 @@ func buildOpenAPISpecPath() M {
 	}
 }
 
+// formContent wraps a schema in an application/x-www-form-urlencoded
+// content block, for the OAuth endpoints that take a form-encoded body
+// per their RFC (RFC 6749, RFC 7009, RFC 8628).
+func formContent(schema M) M {
+	return M{
+		"application/x-www-form-urlencoded": M{
+			"schema": schema,
+		},
+	}
+}
+
+func buildOAuthMetadataPath() M {
+	return M{
+		"get": M{
+			"tags":        A{"OAuth"},
+			"summary":     "OAuth 2.0 authorisation server metadata",
+			"description": "Returns the RFC 8414 authorisation server metadata document, advertising the endpoints and capabilities below. No authentication is required.",
+			"operationId": "getOAuthMetadata",
+			"responses": M{
+				"200": M{
+					"description": "Authorisation server metadata.",
+					"content":     jsonContent(M{"type": "object"}),
+				},
+			},
+		},
+	}
+}
+
+func buildOAuthProtectedResourcePath() M {
+	return M{
+		"get": M{
+			"tags":        A{"OAuth"},
+			"summary":     "OAuth 2.0 protected resource metadata",
+			"description": "Returns the RFC 9728 protected resource metadata document, naming this server's own authorisation server. No authentication is required.",
+			"operationId": "getOAuthProtectedResourceMetadata",
+			"responses": M{
+				"200": M{
+					"description": "Protected resource metadata.",
+					"content":     jsonContent(M{"type": "object"}),
+				},
+			},
+		},
+	}
+}
+
+func buildOAuthRegisterPath() M {
+	return M{
+		"post": M{
+			"tags":        A{"OAuth"},
+			"summary":     "Register an OAuth client",
+			"description": "Implements RFC 7591 dynamic client registration for public clients (no client secret). Disabled, returning 404, when dynamic registration is switched off in configuration. No authentication is required.",
+			"operationId": "registerOAuthClient",
+			"requestBody": M{
+				"required": true,
+				"content": jsonContent(M{
+					"type": "object",
+					"properties": M{
+						"redirect_uris": M{
+							"type":  "array",
+							"items": M{"type": "string"},
+						},
+					},
+					"required": A{"redirect_uris"},
+				}),
+			},
+			"responses": M{
+				"201": M{
+					"description": "The registered client.",
+					"content": jsonContent(M{
+						"type": "object",
+						"properties": M{
+							"client_id":     M{"type": "string"},
+							"redirect_uris": M{"type": "array", "items": M{"type": "string"}},
+						},
+					}),
+				},
+				"400": M{
+					"description": "Malformed registration request.",
+					"content":     jsonContent(M{"type": "object"}),
+				},
+			},
+		},
+	}
+}
+
+func buildOAuthAuthorizePath() M {
+	return M{
+		"get": M{
+			"tags":        A{"OAuth"},
+			"summary":     "Render the authorisation (login) page",
+			"description": "Renders an HTML sign-in form for the resource owner, per RFC 6749 section 4.1.1. No authentication is required.",
+			"operationId": "getOAuthAuthorize",
+			"parameters": A{
+				M{"name": "response_type", "in": "query", "required": true, "schema": M{"type": "string", "enum": A{"code"}}},
+				M{"name": "client_id", "in": "query", "required": true, "schema": M{"type": "string"}},
+				M{"name": "redirect_uri", "in": "query", "required": true, "schema": M{"type": "string"}},
+				M{"name": "state", "in": "query", "required": false, "schema": M{"type": "string"}},
+				M{"name": "scope", "in": "query", "required": false, "schema": M{"type": "string"}},
+				M{"name": "code_challenge", "in": "query", "required": true, "schema": M{"type": "string"}},
+				M{"name": "code_challenge_method", "in": "query", "required": true, "schema": M{"type": "string", "enum": A{"S256"}}},
+			},
+			"responses": M{
+				"200": M{
+					"description": "The HTML sign-in form.",
+					"content":     M{"text/html": M{"schema": M{"type": "string"}}},
+				},
+				"400": M{
+					"description": "Invalid or unregistered client, or disallowed redirect URI.",
+					"content":     jsonContent(M{"type": "object"}),
+				},
+			},
+		},
+		"post": M{
+			"tags":        A{"OAuth"},
+			"summary":     "Submit the authorisation (login) form",
+			"description": "Authenticates the resource owner's username and password against the same fields listed above plus username, password and csrf_token, then redirects to redirect_uri with an authorisation code (or an error) per RFC 6749 section 4.1.2. No bearer authentication is required.",
+			"operationId": "postOAuthAuthorize",
+			"requestBody": M{
+				"required": true,
+				"content":  formContent(M{"type": "object"}),
+			},
+			"responses": M{
+				"302": M{
+					"description": "Redirect to redirect_uri, carrying either a code or an error.",
+				},
+			},
+		},
+	}
+}
+
+func buildOAuthTokenPath() M {
+	return M{
+		"post": M{
+			"tags":        A{"OAuth"},
+			"summary":     "Exchange a grant for tokens",
+			"description": "Implements the RFC 6749 token endpoint for the authorization_code and refresh_token grants, and the RFC 8628 device_code grant, dispatching on the grant_type form field. No bearer authentication is required.",
+			"operationId": "postOAuthToken",
+			"requestBody": M{
+				"required": true,
+				"content": formContent(M{
+					"type": "object",
+					"properties": M{
+						"grant_type":    M{"type": "string", "enum": A{"authorization_code", "refresh_token", oauth.DeviceGrantType}},
+						"code":          M{"type": "string"},
+						"client_id":     M{"type": "string"},
+						"redirect_uri":  M{"type": "string"},
+						"code_verifier": M{"type": "string"},
+						"refresh_token": M{"type": "string"},
+						"device_code":   M{"type": "string"},
+					},
+					"required": A{"grant_type"},
+				}),
+			},
+			"responses": M{
+				"200": M{
+					"description": "The issued access token, and a refresh token where the grant issues one.",
+					"content": jsonContent(M{
+						"type": "object",
+						"properties": M{
+							"access_token":  M{"type": "string"},
+							"refresh_token": M{"type": "string"},
+							"token_type":    M{"type": "string"},
+							"expires_in":    M{"type": "integer"},
+						},
+					}),
+				},
+				"400": M{
+					"description": "Invalid grant, code, or client.",
+					"content":     jsonContent(M{"type": "object"}),
+				},
+			},
+		},
+	}
+}
+
+func buildOAuthDevicePath() M {
+	return M{
+		"post": M{
+			"tags":        A{"OAuth"},
+			"summary":     "Start a device authorisation flow",
+			"description": "Implements the RFC 8628 device authorisation request. No authentication is required.",
+			"operationId": "postOAuthDevice",
+			"requestBody": M{
+				"required": true,
+				"content": formContent(M{
+					"type": "object",
+					"properties": M{
+						"client_id": M{"type": "string"},
+						"scope":     M{"type": "string"},
+					},
+					"required": A{"client_id"},
+				}),
+			},
+			"responses": M{
+				"200": M{
+					"description": "The device and user codes, and the verification URI to display to the user.",
+					"content": jsonContent(M{
+						"type": "object",
+						"properties": M{
+							"device_code":               M{"type": "string"},
+							"user_code":                 M{"type": "string"},
+							"verification_uri":          M{"type": "string"},
+							"verification_uri_complete": M{"type": "string"},
+							"expires_in":                M{"type": "integer"},
+							"interval":                  M{"type": "integer"},
+						},
+					}),
+				},
+			},
+		},
+	}
+}
+
+func buildOAuthDeviceVerifyPath() M {
+	return M{
+		"get": M{
+			"tags":        A{"OAuth"},
+			"summary":     "Render the device verification page",
+			"description": "Renders an HTML form for the user to enter (or confirm) the user_code shown on the other device, per RFC 8628 section 3.3. No authentication is required.",
+			"operationId": "getOAuthDeviceVerify",
+			"parameters": A{
+				M{"name": "user_code", "in": "query", "required": false, "schema": M{"type": "string"}},
+			},
+			"responses": M{
+				"200": M{
+					"description": "The HTML verification form.",
+					"content":     M{"text/html": M{"schema": M{"type": "string"}}},
+				},
+			},
+		},
+		"post": M{
+			"tags":        A{"OAuth"},
+			"summary":     "Submit the device verification form",
+			"description": "Confirms or denies the device authorisation request identified by user_code, after authenticating the resource owner. No bearer authentication is required.",
+			"operationId": "postOAuthDeviceVerify",
+			"requestBody": M{
+				"required": true,
+				"content":  formContent(M{"type": "object"}),
+			},
+			"responses": M{
+				"200": M{
+					"description": "Confirmation (or denial) result page.",
+					"content":     M{"text/html": M{"schema": M{"type": "string"}}},
+				},
+			},
+		},
+	}
+}
+
+func buildOAuthRevokePath() M {
+	return M{
+		"post": M{
+			"tags":        A{"OAuth"},
+			"summary":     "Revoke a token",
+			"description": "Implements RFC 7009 token revocation. Always responds 200, whether or not the token existed, so as not to leak which tokens are valid. Revoking a refresh token also revokes the access token issued alongside it. No authentication is required.",
+			"operationId": "postOAuthRevoke",
+			"requestBody": M{
+				"required": true,
+				"content": formContent(M{
+					"type": "object",
+					"properties": M{
+						"token": M{"type": "string"},
+					},
+					"required": A{"token"},
+				}),
+			},
+			"responses": M{
+				"200": M{
+					"description": "The token was revoked, or did not exist.",
+				},
+			},
+		},
+	}
+}
+
+func buildOAuthLogoPath() M {
+	return M{
+		"get": M{
+			"tags":        A{"OAuth"},
+			"summary":     "Get the login page logo",
+			"description": "Returns the logo image displayed on the OAuth sign-in and device verification pages. No authentication is required.",
+			"operationId": "getOAuthLogo",
+			"responses": M{
+				"200": M{
+					"description": "The logo image.",
+					"content":     M{"image/png": M{"schema": M{"type": "string", "format": "binary"}}},
+				},
+			},
+		},
+	}
+}
+
 // ---------------------------------------------------------------------------
 // Component schemas
 // ---------------------------------------------------------------------------
@@ -921,7 +1225,12 @@ func schemaUserInfoResponse() M {
 			},
 			"username": M{
 				"type":        "string",
-				"description": "The username of the authenticated user. Absent when not authenticated.",
+				"description": "The username of the authenticated user. Absent when not authenticated, and empty for an API token, which carries no username.",
+			},
+			"auth_method": M{
+				"type":        "string",
+				"description": "Which credential kind authenticated the request.",
+				"enum":        A{"api", "session", "oauth"},
 			},
 			"error": M{
 				"type":        "string",

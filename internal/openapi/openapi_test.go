@@ -16,6 +16,7 @@ import (
 	"testing"
 
 	"pgedge-postgres-mcp/internal/mcp"
+	"pgedge-postgres-mcp/internal/oauth"
 )
 
 func TestBuildSpec_TopLevel(t *testing.T) {
@@ -72,6 +73,20 @@ func TestBuildSpec_RequiredPaths(t *testing.T) {
 	for _, path := range requiredPaths {
 		if _, ok := paths[path]; !ok {
 			t.Errorf("missing required path: %s", path)
+		}
+	}
+}
+
+// TestBuildSpec_OAuthPaths verifies that every path the OAuth
+// authorisation server registers (internal/oauth.PublicPaths) is
+// documented in the spec.
+func TestBuildSpec_OAuthPaths(t *testing.T) {
+	spec := BuildSpec()
+	paths := spec["paths"].(M)
+
+	for _, path := range oauth.PublicPaths() {
+		if _, ok := paths[path]; !ok {
+			t.Errorf("missing OAuth path: %s", path)
 		}
 	}
 }
