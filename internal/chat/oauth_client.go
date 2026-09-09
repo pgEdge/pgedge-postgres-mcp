@@ -279,7 +279,7 @@ func validateMetadata(m *oauthMetadata, baseURL string) error {
 		if err != nil || u.Scheme == "" || u.Host == "" {
 			return fmt.Errorf("%s %q is not an absolute URL", name, raw)
 		}
-		if u.Scheme != "https" && !(u.Scheme == "http" && isLoopbackHost(u.Host)) {
+		if u.Scheme != "https" && (u.Scheme != "http" || !isLoopbackHost(u.Host)) {
 			return fmt.Errorf("%s %q must use https unless the host is loopback", name, raw)
 		}
 		origin, err := originOf(raw)
