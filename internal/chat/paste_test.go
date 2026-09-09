@@ -79,6 +79,11 @@ func TestCollectPastedInput(t *testing.T) {
 			wantText: "first\n\nsecond",
 		},
 		{
+			name:     "indentation on the first and last lines is preserved",
+			reader:   script("  ", "    def f():", "        return 1  ", "\t", io.EOF),
+			wantText: "    def f():\n        return 1  ",
+		},
+		{
 			name:     "lines starting with a slash are content, not commands",
 			reader:   script("/help me write this", "/quit is not a command here", io.EOF),
 			wantText: "/help me write this\n/quit is not a command here",

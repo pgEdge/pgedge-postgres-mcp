@@ -692,8 +692,9 @@ type lineReader interface {
 // collectPastedInput reads lines until Ctrl+D (reported by readline as
 // io.EOF) and returns them joined with newlines, with leading and trailing
 // blank lines removed. Ctrl+C (readline.ErrInterrupt) discards everything
-// read so far and returns aborted=true. Lines are taken verbatim, so a
-// pasted line that happens to start with '/' is content, not a command.
+// read so far and returns aborted=true. Lines are taken verbatim, including
+// their indentation, so a pasted line that happens to start with '/' is
+// content, not a command.
 func collectPastedInput(r lineReader) (text string, aborted bool, err error) {
 	var lines []string
 	for {
@@ -702,13 +703,26 @@ func collectPastedInput(r lineReader) (text string, aborted bool, err error) {
 		case err == nil:
 			lines = append(lines, line)
 		case errors.Is(err, io.EOF):
-			return strings.Trim(strings.Join(lines, "\n"), " \t\r\n"), false, nil
+			return strings.Join(trimBlankLines(lines), "\n"), false, nil
 		case errors.Is(err, readline.ErrInterrupt):
 			return "", true, nil
 		default:
 			return "", false, err
 		}
 	}
+}
+
+// trimBlankLines drops leading and trailing lines that contain only
+// whitespace, leaving every other line, and its whitespace, untouched.
+func trimBlankLines(lines []string) []string {
+	start, end := 0, len(lines)
+	for start < end && strings.TrimSpace(lines[start]) == "" {
+		start++
+	}
+	for end > start && strings.TrimSpace(lines[end-1]) == "" {
+		end--
+	}
+	return lines[start:end]
 }
 
 // handlePaste implements the /paste command: it switches to a continuation
