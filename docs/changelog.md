@@ -29,6 +29,17 @@ and this project adheres to
 
 - Authentication methods (API tokens, password login, OAuth) can be
   enabled individually under `http.auth.methods`.
+- Enabling OAuth adds the issuer's own origin to the browser origins
+  the server accepts, so that the login form can post back to it. A
+  server with OAuth enabled and an empty `http.allowed_origins`
+  therefore accepts the issuer origin alongside the loopback default,
+  rather than loopback origins on any port alone; name the origins you
+  intend to serve the web client from explicitly.
+- Listing anything in `http.auth.oauth.allowed_redirect_uris` replaces
+  the three built-in defaults rather than adding to them. Repeat any of
+  `https://claude.ai/api/mcp/auth_callback`,
+  `http://127.0.0.1/callback` or `http://localhost/callback` that you
+  still need.
 - `/api/user/info` now reports an API token as authenticated, with
   `auth_method: "api"`, rather than the "invalid or expired session"
   error it previously returned for that credential kind, and now

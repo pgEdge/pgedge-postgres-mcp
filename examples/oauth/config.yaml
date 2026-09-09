@@ -40,16 +40,21 @@ http:
             authorization_code_lifetime: "10m"
             device_code_lifetime: "15m"
 
-            # Allow clients to register themselves dynamically (RFC
-            # 7591). Set to false to require every client ID to be
-            # listed in allowed_redirect_uris in advance.
-            allow_dynamic_registration: true
-
-            # Redirect URIs accepted at authorisation time, beyond the
-            # defaults (the Claude.ai callback and loopback callbacks
-            # for local tools). The web client's origin from
-            # allowed_origins above is added automatically.
+            # Redirect URIs accepted at authorisation time. Listing any
+            # URI here replaces the built-in defaults rather than adding
+            # to them, so include any of the three defaults you still
+            # need:
+            #
+            #     https://claude.ai/api/mcp/auth_callback
+            #     http://127.0.0.1/callback
+            #     http://localhost/callback
+            #
+            # The issuer's own callback, and the callback for each origin
+            # in allowed_origins above, are added automatically.
             allowed_redirect_uris:
+                - "https://claude.ai/api/mcp/auth_callback"
+                - "http://127.0.0.1/callback"
+                - "http://localhost/callback"
                 - "https://mcp.example.com/oauth/callback"
 
             # Branding for the login page; every field is optional.
@@ -62,6 +67,8 @@ http:
 
                     Contact support@example.com if you cannot sign in.
                 footer: "(c) Example Corp"
+                # A PNG, JPEG, GIF or WebP image; SVG is refused, since
+                # it is served from the same origin as the login page.
                 # logo_file: "/etc/pgedge/logo.png"
                 primary_colour: "#15AABF"
                 secondary_colour: "#0C8599"

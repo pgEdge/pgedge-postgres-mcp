@@ -53,7 +53,7 @@ specify property values, grouped by section.
 | `http.auth.oauth.authorization_code_lifetime` | N/A | N/A | Authorisation code lifetime, e.g. `10m` (default: 10m) |
 | `http.auth.oauth.device_code_lifetime` | N/A | N/A | Device code lifetime, e.g. `15m` (default: 15m) |
 | `http.auth.oauth.allow_dynamic_registration` | N/A | N/A | Allow clients to register themselves (default: true) |
-| `http.auth.oauth.allowed_redirect_uris` | N/A | N/A | Additional redirect URIs accepted at authorisation time |
+| `http.auth.oauth.allowed_redirect_uris` | N/A | N/A | Redirect URIs accepted at authorisation time; a list here replaces the three defaults rather than adding to them |
 | `http.auth.oauth.login_page.*` | N/A | N/A | Login page branding; see [Authentication - OAuth](auth_oauth.md#branding) |
 | `http.client_ip.source` | N/A | `PGEDGE_HTTP_CLIENT_IP_SOURCE` | Where the client address is read from; `socket` or `header` (default: "socket") |
 | `http.client_ip.header` | N/A | `PGEDGE_HTTP_CLIENT_IP_HEADER` | Forwarding header read when the source is `header` (default: "X-Real-IP") |

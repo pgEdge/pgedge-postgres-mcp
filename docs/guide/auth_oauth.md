@@ -60,6 +60,31 @@ or a loopback address. Refer to
 [Specifying your Configuration Preferences](configuration.md) for the
 complete set of `http.auth.oauth` options and their defaults.
 
+## Redirect URIs
+
+The server accepts three redirect URIs out of the box: the Claude.ai
+callback, and the loopback callbacks local tools use.
+
+```text
+https://claude.ai/api/mcp/auth_callback
+http://127.0.0.1/callback
+http://localhost/callback
+```
+
+Listing anything in `http.auth.oauth.allowed_redirect_uris` replaces
+that list rather than adding to it, so repeat any of the three you
+still need alongside your own. The issuer's own
+`<issuer>/oauth/callback`, and `<origin>/oauth/callback` for each
+origin in `http.allowed_origins`, are accepted automatically and need
+no entry here.
+
+Dynamic client registration is enabled by default, and clients register
+the redirect URI they will use, which must itself be one the server
+accepts. Setting `allow_dynamic_registration: false` will only become
+useful once the server supports configuring clients statically, which a
+later release will add; until then it leaves no way for a client to
+obtain a client ID at all.
+
 ## Method Toggles
 
 Each authentication method can be switched off independently under
@@ -163,9 +188,9 @@ flag select the device authorisation grant:
 ## Web Client Behaviour
 
 The bundled web client discovers OAuth from the server's metadata and,
-when available, offers it as a sign-in option alongside username and
-password. Signing in redirects the browser to the server's login page
-and back to the web client's own origin.
+when the server advertises it, shows a single Sign in button in place
+of the username and password form. Signing in redirects the browser to
+the server's login page and back to the web client's own origin.
 
 The web client's origin must appear in `http.allowed_origins`, because
 the server derives the OAuth redirect URI it accepts,
@@ -177,6 +202,16 @@ http:
     allowed_origins:
         - https://mcp.example.com
 ```
+
+## Device Consent Page
+
+A client with no browser sends the user to `/oauth/device/verify` with
+the code it was given. That page names the client that is asking and
+the scope it asked for, before the user types anything, and offers two
+buttons: Approve, which signs the user in and approves the request, and
+Deny, which refuses it without asking for credentials. A denied request
+makes the waiting client's next poll fail with `access_denied`, so it
+stops polling rather than waiting for a timeout.
 
 ## Branding
 
@@ -196,6 +231,11 @@ Every field is optional and falls back to the default shown below.
 
 The `subtitle` field defaults to
 `Sign in to the pgEdge Postgres MCP Server`.
+
+A custom `logo_file` must be a PNG, JPEG, GIF or WebP image; the server
+refuses any other extension, SVG included, at startup. An SVG can carry
+script, and the logo is served from the same origin as the login page,
+so it is not an acceptable format here.
 
 In the following example, the `login_page` block sets a custom title
 and colour scheme:
@@ -233,9 +273,15 @@ CSRF field:
 
 The template also receives `.Error`, a message to show when a previous
 attempt failed, `.Client`, the requesting client's name where known,
-`.UserCode` and `.IsDeviceFlow` for the device authorisation grant, and
-`.Page`, one of `login`, `device` or `done`, which the template can use
-to vary its layout for each stage of the flow.
+`.Scope`, the scope a device grant asked for, `.UserCode` and
+`.IsDeviceFlow` for the device authorisation grant, `.Message`, the
+wording for the final page, and `.Page`, one of `login`, `device`,
+`done` or `error`, which the template can use to vary its layout for
+each stage of the flow. The `error` variant is rendered when the client
+or its redirect URI cannot be trusted, and must not present a
+credential form, since there is nowhere safe to send the result. The
+device variant's form needs a submit button named `action` with the
+value `deny` alongside its approve button, so the user can refuse.
 
 ## Security Notes
 
@@ -249,12 +295,30 @@ reachable from outside the machine it runs on; the server refuses a
 plain `http` issuer for any host other than `localhost` or a loopback
 address.
 
+The login page is public by design, since a user arriving from a client
+has no credential to present yet. Anyone who can reach the server can
+therefore reach the form and attempt a password. Two consequences are
+worth planning for:
+
+- Where `max_failed_attempts_before_lockout` is set, a locked account
+  stays locked until an administrator enables it again; there is no
+  automatic unlock after a delay, so an attacker who knows a username
+  can lock that account out deliberately.
+- The per-IP rate limiter bounds guessing from any one address, but not
+  from many, so put the server behind whatever network controls the
+  deployment warrants rather than relying on the limiter alone.
+
 ## Troubleshooting
 
 If a client cannot discover OAuth, confirm that
 `/.well-known/oauth-authorization-server` returns a JSON document
 rather than a `404`; a `404` means `oauth.issuer` is unset, the
-`oauth` method is disabled, or authentication itself is disabled.
+`oauth` method is disabled, or authentication itself is disabled. The
+CLI treats any discovery failure the same way in `auto` mode, not just
+a `404`: an error status, an unreadable document, one naming another
+issuer, or a request that never reaches the server all make it fall
+back to the previous authentication. Set `auth_mode` to `oauth` to have
+it report the failure instead.
 
 If sign-in completes but the client never receives its token, check
 that the client's redirect URI appears in

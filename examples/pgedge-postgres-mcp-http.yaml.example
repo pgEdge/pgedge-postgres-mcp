@@ -51,16 +51,15 @@ http:
             #authorization_code_lifetime: "10m"
             #device_code_lifetime: "15m"
 
-            # Allow clients to register themselves dynamically
-            # (RFC 7591). Set to false to require every client ID to
-            # be listed in allowed_redirect_uris in advance.
-            #allow_dynamic_registration: true
-
-            # Redirect URIs accepted at authorisation time, beyond
-            # the defaults (the Claude.ai callback and loopback
-            # callbacks for local tools). The web client's origin
-            # from allowed_origins below is added automatically.
+            # Redirect URIs accepted at authorisation time. Listing
+            # any URI here replaces the defaults below rather than
+            # adding to them, so repeat the ones you still need. The
+            # issuer's own callback, and the callback for each origin
+            # in allowed_origins below, are added automatically.
             #allowed_redirect_uris:
+            #    - "https://claude.ai/api/mcp/auth_callback"
+            #    - "http://127.0.0.1/callback"
+            #    - "http://localhost/callback"
             #    - "https://mcp.example.com/oauth/callback"
 
             # Branding for the login page; every field is optional.
@@ -71,6 +70,7 @@ http:
             #    subtitle: "Sign in to the pgEdge Postgres MCP Server"
             #    message: ""
             #    footer: ""
+            #    # PNG, JPEG, GIF or WebP; SVG is refused.
             #    logo_file: ""
             #    primary_colour: "#15AABF"
             #    secondary_colour: "#0C8599"
