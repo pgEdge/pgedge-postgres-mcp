@@ -257,10 +257,16 @@ func (c *Client) connectToMCP(ctx context.Context) error {
 				if subject := oc.Subject(); subject != "" {
 					c.ui.PrintSystemMessage(fmt.Sprintf("Authenticated via OAuth as %s", subject))
 				}
-			case errors.Is(err, ErrNoOAuth) && c.config.MCP.AuthMode == "auto":
-				// The server does not advertise OAuth: fall back to a
-				// configured token, or interactive username/password
-				// authentication.
+			case c.config.MCP.AuthMode == "auto":
+				// Discovery did not produce a metadata document this
+				// client will act on, whether because the server has no
+				// OAuth, because it answered the well-known path with an
+				// error, or because the request never got there. In auto
+				// mode every one of those means the same thing: use the
+				// authentication that worked before OAuth existed.
+				if !errors.Is(err, ErrNoOAuth) {
+					c.ui.PrintSystemMessage(fmt.Sprintf("OAuth discovery failed (%v); falling back to the configured authentication", err))
+				}
 				ts, err := c.legacyTokenSource(ctx)
 				if err != nil {
 					return err

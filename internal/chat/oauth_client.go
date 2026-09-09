@@ -14,8 +14,8 @@
 // (RFC 7591), the authorisation code grant with PKCE via a loopback
 // redirect (RFC 6749 + RFC 7636), the device authorisation grant for
 // headless or browser-less sessions (RFC 8628), refresh, and revocation
-// (RFC 7009). Tokens are cached on disk, keyed by issuer, so a session
-// need not re-authenticate every run.
+// (RFC 7009). Tokens are cached on disk, keyed by the server's origin,
+// so a session need not re-authenticate every run.
 package chat
 
 import (
@@ -73,8 +73,12 @@ const oauthTokenRequestTimeout = 15 * time.Second
 const oauthRefreshSkew = 60 * time.Second
 
 // ErrNoOAuth is returned by DiscoverOAuth when the server does not
-// advertise an OAuth authorisation server at the well-known metadata
-// path (a 404), which callers use to fall back to a legacy auth mode.
+// advertise a usable OAuth authorisation server at the well-known
+// metadata path: any status other than 200, or a body that is not a
+// metadata document this client is willing to trust. Callers use it to
+// fall back to a legacy auth mode, so it deliberately covers the 401 a
+// server with everything behind authentication returns, as well as the
+// 404 a server without OAuth returns.
 var ErrNoOAuth = errors.New("server does not advertise OAuth")
 
 // errOpenBrowserFailed wraps a failure from OAuthClient.OpenURL, letting
@@ -170,8 +174,9 @@ type OAuthClient struct {
 
 // DiscoverOAuth fetches and parses the RFC 8414 authorisation server
 // metadata document at baseURL's well-known path. It returns ErrNoOAuth
-// when the server responds 404, which is the expected response from a
-// server with OAuth disabled.
+// for any response that does not yield a metadata document naming this
+// same server: a non-200 status, an unparseable body, or a document
+// whose issuer or endpoints point somewhere else.
 func DiscoverOAuth(ctx context.Context, httpc *http.Client, baseURL string) (*oauthMetadata, error) {
 	if httpc == nil {
 		httpc = http.DefaultClient
@@ -187,18 +192,131 @@ func DiscoverOAuth(ctx context.Context, httpc *http.Client, baseURL string) (*oa
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode == http.StatusNotFound {
-		return nil, ErrNoOAuth
-	}
+	// Anything but a 200 means there is no metadata document here to
+	// work from, whatever the reason: a 404 from a server without
+	// OAuth, a 401 from one that authenticates everything, a 500, or a
+	// proxy's error page.
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("oauth metadata: unexpected status %d", resp.StatusCode)
+		return nil, fmt.Errorf("%w: metadata request returned status %d", ErrNoOAuth, resp.StatusCode)
 	}
 
 	var m oauthMetadata
 	if err := json.NewDecoder(resp.Body).Decode(&m); err != nil {
-		return nil, fmt.Errorf("oauth metadata: decode: %w", err)
+		return nil, fmt.Errorf("%w: metadata document could not be parsed: %v", ErrNoOAuth, err)
+	}
+	if err := validateMetadata(&m, baseURL); err != nil {
+		return nil, fmt.Errorf("%w: %v", ErrNoOAuth, err)
 	}
 	return &m, nil
+}
+
+// originOf returns the scheme://host[:port] origin of rawURL, with the
+// scheme and host lower-cased and any default port left as written. It
+// is how both the metadata check and the token cache key agree on what
+// "the same server" means.
+func originOf(rawURL string) (string, error) {
+	u, err := url.Parse(strings.TrimSpace(rawURL))
+	if err != nil {
+		return "", fmt.Errorf("not a valid URL: %q", rawURL)
+	}
+	if u.Scheme == "" || u.Host == "" {
+		return "", fmt.Errorf("not an absolute URL: %q", rawURL)
+	}
+	return strings.ToLower(u.Scheme) + "://" + strings.ToLower(u.Host), nil
+}
+
+// isLoopbackHost reports whether host (which may carry a port) names the
+// local machine, the one case in which a plain http endpoint is
+// acceptable.
+func isLoopbackHost(host string) bool {
+	h := host
+	if parsed, _, err := net.SplitHostPort(host); err == nil {
+		h = parsed
+	}
+	if strings.EqualFold(h, "localhost") {
+		return true
+	}
+	ip := net.ParseIP(h)
+	return ip != nil && ip.IsLoopback()
+}
+
+// validateMetadata checks that a metadata document is one this client is
+// willing to act on: it must name the server the CLI was pointed at as
+// its issuer, and every endpoint it carries must be an absolute URL on
+// that same origin, over https unless the host is loopback. Without
+// this, a server (or anything able to answer for it) could send the
+// CLI's credentials to a host of its choosing.
+func validateMetadata(m *oauthMetadata, baseURL string) error {
+	want, err := originOf(baseURL)
+	if err != nil {
+		return err
+	}
+	issuerOrigin, err := originOf(m.Issuer)
+	if err != nil {
+		return fmt.Errorf("issuer %q is not an absolute URL", m.Issuer)
+	}
+	if issuerOrigin != want {
+		return fmt.Errorf("issuer %q does not match the server %q", m.Issuer, want)
+	}
+
+	endpoints := map[string]string{
+		"authorization_endpoint":        m.AuthorizationEndpoint,
+		"token_endpoint":                m.TokenEndpoint,
+		"registration_endpoint":         m.RegistrationEndpoint,
+		"device_authorization_endpoint": m.DeviceAuthorizationEndpoint,
+		"revocation_endpoint":           m.RevocationEndpoint,
+	}
+	for name, raw := range endpoints {
+		if raw == "" {
+			// Only the authorisation and token endpoints are required;
+			// the rest are optional and checked only when present.
+			if name == "authorization_endpoint" || name == "token_endpoint" {
+				return fmt.Errorf("%s is missing", name)
+			}
+			continue
+		}
+		u, err := url.Parse(raw)
+		if err != nil || u.Scheme == "" || u.Host == "" {
+			return fmt.Errorf("%s %q is not an absolute URL", name, raw)
+		}
+		if u.Scheme != "https" && !(u.Scheme == "http" && isLoopbackHost(u.Host)) {
+			return fmt.Errorf("%s %q must use https unless the host is loopback", name, raw)
+		}
+		origin, err := originOf(raw)
+		if err != nil || origin != issuerOrigin {
+			return fmt.Errorf("%s %q is not on the issuer's origin %q", name, raw, issuerOrigin)
+		}
+	}
+	return nil
+}
+
+// browserSafeURL reports whether rawURL is one the CLI is prepared to
+// hand to the platform's browser opener: an absolute http or https URL,
+// and nothing else. Everything the CLI opens is built from validated
+// metadata, so this is a belt-and-braces check against a scheme such as
+// javascript: or file: ever reaching a browser command line.
+func browserSafeURL(rawURL string) bool {
+	u, err := url.Parse(rawURL)
+	if err != nil || u.Host == "" {
+		return false
+	}
+	return u.Scheme == "http" || u.Scheme == "https"
+}
+
+// sanitiseServerText removes the ASCII control characters, other than
+// newline, from a string the server supplied, so that printing it to a
+// terminal cannot move the cursor, change colours, or otherwise
+// misrepresent what the CLI is saying.
+func sanitiseServerText(s string) string {
+	return strings.Map(func(r rune) rune {
+		if r == '\n' {
+			return r
+		}
+		if r < 0x20 || r == 0x7f {
+			return -1
+		}
+		return r
+	}, s)
 }
 
 // httpClient returns c.HTTP, defaulting to http.DefaultClient.
@@ -314,27 +432,38 @@ func saveOAuthCache(path string, cache map[string]oauthCacheEntry) error {
 	return nil
 }
 
+// cacheKey is the key this server's tokens are cached under: the origin
+// of BaseURL, which is the server the user actually pointed the CLI at,
+// rather than whatever the metadata document calls itself. The two are
+// required to agree by validateMetadata, but keying on the former means
+// a document that later changes its issuer cannot reach another
+// server's cached tokens.
+func (c *OAuthClient) cacheKey() string {
+	if origin, err := originOf(c.BaseURL); err == nil {
+		return origin
+	}
+	return strings.TrimSuffix(c.BaseURL, "/")
+}
+
 // persistLocked writes c.entry into the on-disk cache under the current
-// issuer. The caller must hold c.mu.
+// server. The caller must hold c.mu.
 func (c *OAuthClient) persistLocked() error {
 	cache, err := loadOAuthCache(c.cachePath())
 	if err != nil {
 		return err
 	}
-	cache[c.meta.Issuer] = c.entry
+	cache[c.cacheKey()] = c.entry
 	return saveOAuthCache(c.cachePath(), cache)
 }
 
-// clearCacheLocked removes the current issuer's entry from the on-disk
+// clearCacheLocked removes the current server's entry from the on-disk
 // cache, if present. The caller must hold c.mu.
 func (c *OAuthClient) clearCacheLocked() error {
 	cache, err := loadOAuthCache(c.cachePath())
 	if err != nil {
 		return err
 	}
-	if c.meta != nil {
-		delete(cache, c.meta.Issuer)
-	}
+	delete(cache, c.cacheKey())
 	return saveOAuthCache(c.cachePath(), cache)
 }
 
@@ -354,7 +483,7 @@ func (c *OAuthClient) Login(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	if entry, ok := cache[c.meta.Issuer]; ok {
+	if entry, ok := cache[c.cacheKey()]; ok {
 		c.entry = entry
 	}
 
@@ -367,19 +496,21 @@ func (c *OAuthClient) Login(ctx context.Context) error {
 		}
 		// Refresh failed (revoked, expired beyond the server's own
 		// grace, or the server forgot it): fall through to a fresh
-		// interactive login, keeping only the client id we already
-		// registered.
-		c.entry = oauthCacheEntry{ClientID: c.entry.ClientID}
+		// interactive login.
+		c.entry = oauthCacheEntry{}
 	}
 
-	clientID := c.entry.ClientID
-	if clientID == "" {
-		clientID, err = c.register(ctx)
-		if err != nil {
-			return fmt.Errorf("oauth client registration: %w", err)
-		}
-		c.entry.ClientID = clientID
+	// An interactive login always registers a fresh client. The server
+	// keeps registrations in memory, so a restart, or its own sweep of
+	// idle clients, leaves a cached client id naming a client that no
+	// longer exists; the cached id is worth keeping only for refreshing
+	// and revoking the tokens issued to it, which is what the branch
+	// above has already tried.
+	clientID, err := c.register(ctx)
+	if err != nil {
+		return fmt.Errorf("oauth client registration: %w", err)
 	}
+	c.entry.ClientID = clientID
 
 	if c.NoBrowser || c.shouldUseDeviceFlow() {
 		return c.loginDevice(ctx, clientID)
@@ -432,7 +563,7 @@ func (c *OAuthClient) register(ctx context.Context) (string, error) {
 
 	if resp.StatusCode != http.StatusCreated {
 		respBody, _ := io.ReadAll(resp.Body)
-		return "", fmt.Errorf("registration failed with status %d: %s", resp.StatusCode, string(respBody))
+		return "", fmt.Errorf("registration failed with status %d: %s", resp.StatusCode, sanitiseServerText(string(respBody)))
 	}
 
 	var out struct {
@@ -496,7 +627,8 @@ func (c *OAuthClient) loginLoopback(ctx context.Context, clientID string) error 
 		case q.Get("error") != "":
 			desc := q.Get("error_description")
 			fmt.Fprintf(w, "<html><body>Login failed: %s. You can return to the terminal.</body></html>", htmlEscape(q.Get("error")))
-			res = result{err: fmt.Errorf("authorisation server denied the request: %s %s", q.Get("error"), desc)}
+			res = result{err: fmt.Errorf("authorisation server denied the request: %s %s",
+				sanitiseServerText(q.Get("error")), sanitiseServerText(desc))}
 		case q.Get("state") != state:
 			fmt.Fprint(w, "<html><body>Login failed: invalid state. You can return to the terminal.</body></html>")
 			res = result{err: errors.New("authorisation response carried an unexpected state parameter")}
@@ -522,6 +654,13 @@ func (c *OAuthClient) loginLoopback(ctx context.Context, clientID string) error 
 	defer srv.Close()
 
 	authURL := c.buildAuthorizeURL(clientID, redirectURI, state, challenge)
+
+	// The URL is built from validated metadata, so this can only fail
+	// if that validation is ever loosened; check anyway, since the
+	// value goes on to a browser command line.
+	if !browserSafeURL(authURL) {
+		return fmt.Errorf("refusing to open a non-http(s) authorisation URL")
+	}
 
 	openURL := c.OpenURL
 	if openURL == nil {
@@ -597,7 +736,7 @@ func (c *OAuthClient) loginDevice(ctx context.Context, clientID string) error {
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("device authorisation request failed with status %d: %s", resp.StatusCode, string(body))
+		return fmt.Errorf("device authorisation request failed with status %d: %s", resp.StatusCode, sanitiseServerText(string(body)))
 	}
 
 	var dr struct {
@@ -613,7 +752,10 @@ func (c *OAuthClient) loginDevice(ctx context.Context, clientID string) error {
 	}
 
 	if c.Prompt != nil {
-		c.Prompt(fmt.Sprintf("Open %s in a browser and enter code %s if asked.", dr.VerificationURIComplete, dr.UserCode))
+		// Both values come from the server and go straight to a
+		// terminal, so strip anything that could rewrite the line.
+		c.Prompt(fmt.Sprintf("Open %s in a browser and enter code %s if asked.",
+			sanitiseServerText(dr.VerificationURIComplete), sanitiseServerText(dr.UserCode)))
 	}
 
 	interval := time.Duration(dr.Interval) * time.Second
@@ -702,7 +844,13 @@ func (c *OAuthClient) requestTokenLocked(ctx context.Context, form url.Values, c
 		if oe.Error == "" {
 			oe.Error = "server_error"
 		}
-		return &oauthTokenError{Code: oe.Error, Description: oe.ErrorDescription}
+		// The error and its description are printed to the terminal by
+		// whoever reports the failure, so strip control characters here
+		// rather than at each of those call sites.
+		return &oauthTokenError{
+			Code:        sanitiseServerText(oe.Error),
+			Description: sanitiseServerText(oe.ErrorDescription),
+		}
 	}
 
 	var tr oauthTokenResponse
@@ -739,7 +887,7 @@ func (c *OAuthClient) Token() string {
 	if c.entry.AccessToken == "" && c.entry.RefreshToken == "" {
 		cache, err := loadOAuthCache(c.cachePath())
 		if err == nil {
-			if entry, ok := cache[c.meta.Issuer]; ok {
+			if entry, ok := cache[c.cacheKey()]; ok {
 				c.entry = entry
 			}
 		}
@@ -781,7 +929,7 @@ func (c *OAuthClient) Logout(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	entry, ok := cache[c.meta.Issuer]
+	entry, ok := cache[c.cacheKey()]
 	if ok && entry.RefreshToken != "" && c.meta.RevocationEndpoint != "" {
 		form := url.Values{"token": {entry.RefreshToken}}
 		reqCtx, cancel := context.WithTimeout(ctx, oauthTokenRequestTimeout)
@@ -795,7 +943,7 @@ func (c *OAuthClient) Logout(ctx context.Context) error {
 		cancel()
 	}
 
-	delete(cache, c.meta.Issuer)
+	delete(cache, c.cacheKey())
 	c.entry = oauthCacheEntry{}
 	c.subject = ""
 	return saveOAuthCache(c.cachePath(), cache)
