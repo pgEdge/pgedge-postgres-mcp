@@ -90,13 +90,30 @@ func TestContextWithIdentity(t *testing.T) {
 }
 
 func TestParseBearer(t *testing.T) {
-	if tok, ok := ParseBearer("Bearer abc"); !ok || tok != "abc" {
-		t.Fatal(tok, ok)
+	tests := []struct {
+		name   string
+		header string
+		want   string
+		wantOK bool
+	}{
+		{"canonical", "Bearer abc", "abc", true},
+		{"lowercase scheme", "bearer abc", "abc", true},
+		{"uppercase scheme", "BEARER abc", "abc", true},
+		{"mixed case scheme", "BeArEr abc", "abc", true},
+		{"extra spaces before token", "Bearer  abc", "abc", true},
+		{"token containing spaces", "Bearer abc def", "abc def", true},
+		{"wrong scheme", "Basic abc", "", false},
+		{"scheme only", "Bearer", "", false},
+		{"empty token is left for Validate to reject", "Bearer ", "", true},
+		{"whitespace-only token", "Bearer   ", "", true},
+		{"empty header", "", "", false},
 	}
-	if _, ok := ParseBearer("Basic abc"); ok {
-		t.Fatal("basic accepted")
-	}
-	if _, ok := ParseBearer(""); ok {
-		t.Fatal("empty accepted")
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			tok, ok := ParseBearer(tc.header)
+			if ok != tc.wantOK || tok != tc.want {
+				t.Fatalf("ParseBearer(%q) = %q, %v; want %q, %v", tc.header, tok, ok, tc.want, tc.wantOK)
+			}
+		})
 	}
 }

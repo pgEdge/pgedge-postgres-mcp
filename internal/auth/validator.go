@@ -136,11 +136,15 @@ func (v *Validator) ChallengeHeader() string {
 }
 
 // ParseBearer extracts the token from an Authorization header value of the
-// form "Bearer <token>".
+// form "Bearer <token>". RFC 7235 defines the auth-scheme as
+// case-insensitive, so "bearer" and "BEARER" are accepted too, and any
+// extra whitespace between the scheme and the token is discarded.
 func ParseBearer(header string) (string, bool) {
-	parts := strings.SplitN(header, " ", 2)
-	if len(parts) != 2 || parts[0] != "Bearer" {
+	scheme, token, found := strings.Cut(header, " ")
+	if !found || !strings.EqualFold(scheme, "Bearer") {
 		return "", false
 	}
-	return parts[1], true
+	// An empty token is left for Validate to reject, as it was before
+	// the scheme comparison was relaxed.
+	return strings.TrimLeft(token, " "), true
 }

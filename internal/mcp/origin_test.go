@@ -11,6 +11,7 @@
 package mcp
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -328,12 +329,23 @@ func TestBuildHandler_OriginCheckRunsBeforeAuthentication(t *testing.T) {
 	}
 }
 
+// stubAuthenticator satisfies oauth.Authenticator for tests that never
+// reach the login form; it rejects every credential it is given.
+type stubAuthenticator struct{}
+
+func (stubAuthenticator) Authenticate(_ context.Context, _, _, _ string) (string, error) {
+	return "", oauth.ErrInvalidCredentials
+}
+
 // newTestOAuthServer builds a minimal OAuth server for origin-policy tests:
 // its issuer is the only thing under test here, so the rest of Options is
-// left at defaults.
+// left at defaults beyond the authenticator oauth.New requires.
 func newTestOAuthServer(t *testing.T, issuer string) *oauth.Server {
 	t.Helper()
-	oa, err := oauth.New(oauth.Options{Config: config.OAuthConfig{Issuer: issuer}})
+	oa, err := oauth.New(oauth.Options{
+		Config:        config.OAuthConfig{Issuer: issuer},
+		Authenticator: stubAuthenticator{},
+	})
 	if err != nil {
 		t.Fatalf("oauth.New: %v", err)
 	}

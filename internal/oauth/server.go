@@ -72,6 +72,12 @@ func New(opts Options) (*Server, error) {
 	if opts.Config.Issuer == "" {
 		return nil, errors.New("oauth: issuer must not be empty")
 	}
+	// The login form handler calls Authenticator unconditionally, so a
+	// nil one is a programming error that would otherwise only show up
+	// as a panic on the first sign-in attempt.
+	if opts.Authenticator == nil {
+		return nil, errors.New("oauth: an authenticator must be provided")
+	}
 
 	signer, err := newCSRFSigner()
 	if err != nil {
