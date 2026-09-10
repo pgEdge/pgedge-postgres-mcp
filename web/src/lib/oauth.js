@@ -202,9 +202,19 @@ async function postForm(fetchImpl, path, params) {
 // toSession converts a token endpoint response into the session shape
 // this module persists, computing an absolute expiry from the relative
 // expires_in the server returns.
+//
+// A 200 response carrying no usable access_token is a failure, not a
+// session: persisting one would leave the app apparently signed in with
+// nothing to authenticate with, so it throws here, before any caller
+// gets the chance to save it.
 function toSession(tokenResponse) {
+    const accessToken = tokenResponse && tokenResponse.access_token;
+    if (typeof accessToken !== 'string' || accessToken.length === 0) {
+        throw new Error('OAuth token response did not include an access token');
+    }
+
     return {
-        accessToken: tokenResponse.access_token,
+        accessToken,
         refreshToken: tokenResponse.refresh_token,
         expiresAt: Date.now() + (tokenResponse.expires_in || 0) * 1000,
     };

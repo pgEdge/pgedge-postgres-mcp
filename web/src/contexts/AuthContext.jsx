@@ -53,10 +53,13 @@ export const AuthProvider = ({ children }) => {
     // unbounded refresh loop: at most one attempt is made per token.
     const refreshAttemptedForRef = useRef(null);
 
-    // The in-flight reactive refresh, if any: { token, promise }. Lets a
-    // second 401 for the same token that arrives while a refresh is
-    // already under way await that same refresh, instead of starting a
-    // duplicate request or logging the user out from under the first.
+    // The in-flight refresh, if any: { token, promise }. Every refresh
+    // goes through it, whether started by the proactive timer or by a
+    // 401, so a second caller wanting the same access token renewed
+    // awaits the refresh already under way instead of sending the same
+    // refresh token twice. The server consumes refresh tokens atomically,
+    // so a duplicate request would lose with invalid_grant and could
+    // take the whole token family down with it.
     const refreshInFlightRef = useRef(null);
 
     // Bumped by forceLogout()/logout(); captured before starting any
@@ -226,9 +229,68 @@ export const AuthProvider = ({ children }) => {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
+    // startRefresh renews the given session's access token, and is the
+    // single path every refresh takes: the proactive timer below and the
+    // 401 handler further down both call it, so only one refresh for a
+    // given access token is ever in flight, and a caller arriving whilst
+    // one is under way joins it rather than sending the same refresh
+    // token a second time. Resolves true if the session was renewed and
+    // persisted, and false if the refresh failed (in which case it has
+    // already forced a logout) or if its result arrived too late to be
+    // used. Never rejects, so a caller that does not care about the
+    // outcome can ignore the returned promise.
+    const startRefresh = (session) => {
+        const token = session.accessToken;
+
+        const existing = refreshInFlightRef.current;
+        if (existing && existing.token === token) {
+            return existing.promise;
+        }
+
+        const generation = sessionGenerationRef.current;
+        const entry = { token, promise: null };
+
+        entry.promise = (async () => {
+            // Registered before the first await, so a caller that
+            // arrives whilst ensureClient() is still going to the
+            // network joins this refresh instead of starting another.
+            refreshInFlightRef.current = entry;
+            try {
+                const clientId = await ensureClient(oauth.meta);
+                const next = await refreshOAuthSession(oauth.meta, clientId, session);
+                if (sessionGenerationRef.current !== generation) {
+                    // A logout happened while this refresh was in
+                    // flight; the result is stale and must not
+                    // resurrect a session the user already left.
+                    return false;
+                }
+                saveSession(next);
+                setOauthSession(next);
+                return true;
+            } catch (err) {
+                console.error('Token refresh failed:', err);
+                if (sessionGenerationRef.current === generation) {
+                    forceLogout();
+                }
+                return false;
+            } finally {
+                // Only clear our own entry: a later refresh may already
+                // have replaced it.
+                if (refreshInFlightRef.current === entry) {
+                    refreshInFlightRef.current = null;
+                }
+            }
+        })();
+
+        return entry.promise;
+    };
+
     // Schedule a proactive token refresh shortly before the current
     // access token expires. Cleared on unmount and whenever the
     // scheduling inputs change, so at most one timer is ever pending.
+    // The delay can be zero for an already-expiring token, so the timer
+    // may well fire alongside a 401 for the same token; both go through
+    // startRefresh, which coalesces them into one request.
     useEffect(() => {
         if (!oauth.enabled || !oauth.meta || !oauthSession) {
             return undefined;
@@ -236,26 +298,8 @@ export const AuthProvider = ({ children }) => {
 
         const delay = Math.max(0, oauthSession.expiresAt - Date.now() - REFRESH_MARGIN_MS);
 
-        const generation = sessionGenerationRef.current;
-
-        refreshTimerRef.current = setTimeout(async () => {
-            try {
-                const clientId = await ensureClient(oauth.meta);
-                const next = await refreshOAuthSession(oauth.meta, clientId, oauthSession);
-                if (sessionGenerationRef.current !== generation) {
-                    // A logout happened while this refresh was in
-                    // flight; the result is stale and must not
-                    // resurrect a session the user already left.
-                    return;
-                }
-                saveSession(next);
-                setOauthSession(next);
-            } catch (err) {
-                console.error('Token refresh failed:', err);
-                if (sessionGenerationRef.current === generation) {
-                    forceLogout();
-                }
-            }
+        refreshTimerRef.current = setTimeout(() => {
+            startRefresh(oauthSession);
         }, delay);
 
         return () => {
@@ -381,11 +425,17 @@ export const AuthProvider = ({ children }) => {
     // requests in flight when the token expired) are the common case,
     // not a sign the token is unrecoverable: the second caller shares
     // the first's in-flight refresh instead of starting a duplicate
-    // request or being logged out from under the first.
+    // request or being logged out from under the first. The same applies
+    // to a 401 that races the proactive refresh timer, since both paths
+    // share startRefresh.
     const handleUnauthorized = async () => {
         if (oauth.enabled && oauthSession) {
             const token = oauthSession.accessToken;
 
+            // Joining an in-flight refresh (started by another 401 or
+            // by the proactive timer) is checked before the
+            // single-attempt rule below, so sharing a refresh never
+            // counts as a second attempt for this token.
             if (refreshInFlightRef.current && refreshInFlightRef.current.token === token) {
                 return refreshInFlightRef.current.promise;
             }
@@ -396,33 +446,7 @@ export const AuthProvider = ({ children }) => {
             }
             refreshAttemptedForRef.current = token;
 
-            const generation = sessionGenerationRef.current;
-            const attempt = (async () => {
-                try {
-                    const clientId = await ensureClient(oauth.meta);
-                    const next = await refreshOAuthSession(oauth.meta, clientId, oauthSession);
-                    if (sessionGenerationRef.current !== generation) {
-                        // A logout happened while this refresh was in
-                        // flight; do not resurrect a session the user
-                        // already left.
-                        return false;
-                    }
-                    saveSession(next);
-                    setOauthSession(next);
-                    return true;
-                } catch (err) {
-                    console.error('Token refresh failed:', err);
-                    if (sessionGenerationRef.current === generation) {
-                        forceLogout();
-                    }
-                    return false;
-                } finally {
-                    refreshInFlightRef.current = null;
-                }
-            })();
-
-            refreshInFlightRef.current = { token, promise: attempt };
-            return attempt;
+            return startRefresh(oauthSession);
         }
 
         forceLogout();

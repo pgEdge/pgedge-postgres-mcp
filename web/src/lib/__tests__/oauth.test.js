@@ -161,6 +161,30 @@ describe('oauth helpers', () => {
         expect(session.refreshToken).toBe('refresh-2');
     });
 
+    it('exchangeCode rejects a 200 response with no access token', async () => {
+        const fetchImpl = vi.fn().mockResolvedValue(jsonResponse(200, {
+            token_type: 'Bearer',
+            expires_in: 3600,
+            refresh_token: 'refresh-1',
+        }));
+
+        await expect(
+            exchangeCode(META, 'client-123', 'the-code', 'the-verifier', 'https://app.example.com/oauth/callback', fetchImpl)
+        ).rejects.toThrow(/access token/i);
+    });
+
+    it('refresh rejects a 200 response with an empty access token', async () => {
+        const fetchImpl = vi.fn().mockResolvedValue(jsonResponse(200, {
+            access_token: '',
+            token_type: 'Bearer',
+            expires_in: 1800,
+        }));
+
+        await expect(
+            refresh(META, 'client-123', { refreshToken: 'refresh-1' }, fetchImpl)
+        ).rejects.toThrow(/access token/i);
+    });
+
     it('revoke posts the refresh token', async () => {
         const fetchImpl = vi.fn().mockResolvedValue(jsonResponse(200, {}));
 

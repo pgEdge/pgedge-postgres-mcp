@@ -350,6 +350,69 @@ describe('AuthContext handleUnauthorized', () => {
         expect(refreshCalls).toHaveLength(1);
     });
 
+    it('coalesces the proactive timer and a concurrent 401 into one token request', async () => {
+        seedOAuthSession('access-token-1');
+        const result = await mountAuthenticated();
+
+        vi.useFakeTimers();
+        try {
+            // Renew once into a session that already sits inside the
+            // proactive refresh margin, so the scheduling effect arms
+            // its timer with a zero delay: precisely the case where the
+            // timer can fire at the same moment a 401 arrives for the
+            // same access token.
+            global.fetch.mockResolvedValueOnce({
+                ok: true,
+                status: 200,
+                json: async () => ({
+                    access_token: 'access-token-2',
+                    token_type: 'Bearer',
+                    expires_in: 30,
+                    refresh_token: 'refresh-token-2',
+                }),
+            });
+
+            await act(async () => {
+                await result.current.handleUnauthorized();
+            });
+            expect(result.current.sessionToken).toBe('access-token-2');
+
+            const callsBefore = global.fetch.mock.calls.filter(([url]) => url === '/oauth/token').length;
+
+            // Exactly one token response is queued: a second, duplicate
+            // request would get nothing back from the mock, fail, and
+            // force a logout, which the assertions below would catch.
+            global.fetch.mockResolvedValueOnce({
+                ok: true,
+                status: 200,
+                json: async () => ({
+                    access_token: 'access-token-3',
+                    token_type: 'Bearer',
+                    expires_in: 3600,
+                    refresh_token: 'refresh-token-3',
+                }),
+            });
+
+            let recovered;
+            await act(async () => {
+                // Fire the pending timer and raise a 401 in the same
+                // tick, with no chance for either to complete first.
+                vi.advanceTimersByTime(0);
+                recovered = await result.current.handleUnauthorized();
+            });
+
+            const callsAfter = global.fetch.mock.calls.filter(([url]) => url === '/oauth/token').length;
+            expect(callsAfter - callsBefore).toBe(1);
+
+            expect(recovered).toBe(true);
+            expect(result.current.user).not.toBe(null);
+            expect(result.current.sessionToken).toBe('access-token-3');
+            expect(JSON.parse(localStorage.getItem(STORAGE_SESSION)).accessToken).toBe('access-token-3');
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+
     it('logout clears the session immediately even if revoke never resolves', async () => {
         seedOAuthSession('access-token-1');
         const result = await mountAuthenticated();
