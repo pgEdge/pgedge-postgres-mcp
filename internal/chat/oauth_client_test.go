@@ -55,8 +55,9 @@ type fakeOAuthServer struct {
 	refreshTokens   map[string]bool // refresh token -> still valid
 	revoked         []string
 	clientCounter   int
-	mismatchState   bool // authorize redirects with the wrong state
-	deviceApproveAt int  // number of polls before the device code is approved
+	mismatchState   bool   // authorize redirects with the wrong state
+	authorizeError  string // authorize redirects with this error code
+	deviceApproveAt int    // number of polls before the device code is approved
 	devicePolls     int
 	deviceUserCode  string
 	deviceClientID  string
@@ -128,6 +129,7 @@ func (f *fakeOAuthServer) handleAuthorize(w http.ResponseWriter, r *http.Request
 		subject:     "alice",
 	}
 	mismatch := f.mismatchState
+	authorizeError := f.authorizeError
 	f.mu.Unlock()
 
 	if mismatch {
@@ -140,6 +142,13 @@ func (f *fakeOAuthServer) handleAuthorize(w http.ResponseWriter, r *http.Request
 		return
 	}
 	dq := dest.Query()
+	if authorizeError != "" {
+		dq.Set("error", authorizeError)
+		dq.Set("state", state)
+		dest.RawQuery = dq.Encode()
+		http.Redirect(w, r, dest.String(), http.StatusFound)
+		return
+	}
 	dq.Set("code", code)
 	dq.Set("state", state)
 	dest.RawQuery = dq.Encode()
@@ -430,6 +439,24 @@ func twiceOpenURL(responses *[]recordedResponse) func(string) error {
 	}
 }
 
+// onceRecordingOpenURL is twiceOpenURL for a single request, for tests
+// that need to inspect the page the callback rendered.
+func onceRecordingOpenURL(responses *[]recordedResponse) func(string) error {
+	return func(rawURL string) error {
+		client := &http.Client{
+			CheckRedirect: func(req *http.Request, via []*http.Request) error { return nil },
+		}
+		resp, err := client.Get(rawURL)
+		if err != nil {
+			return err
+		}
+		body, _ := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		*responses = append(*responses, recordedResponse{status: resp.StatusCode, body: string(body)})
+		return nil
+	}
+}
+
 func TestLoopbackSecondCallbackGetsAlreadyHandled(t *testing.T) {
 	f := newFakeOAuthServer(t)
 	cachePath := filepath.Join(t.TempDir(), "oauth-tokens.yaml")
@@ -462,6 +489,39 @@ func TestLoopbackSecondCallbackGetsAlreadyHandled(t *testing.T) {
 	}
 	if second.status != http.StatusOK {
 		t.Errorf("second callback status = %d, want 200", second.status)
+	}
+}
+
+// TestLoopbackErrorPageEscapesServerText checks that an error code from
+// the authorisation server cannot inject markup into the loopback
+// callback page, which is rendered through html/template precisely so
+// that it cannot.
+func TestLoopbackErrorPageEscapesServerText(t *testing.T) {
+	f := newFakeOAuthServer(t)
+	f.authorizeError = `<script>alert(1)</script>`
+	forceLoopbackEnvironment(t)
+
+	var responses []recordedResponse
+	oc := &OAuthClient{
+		BaseURL:   f.srv.URL,
+		CachePath: filepath.Join(t.TempDir(), "oauth-tokens.yaml"),
+		OpenURL:   onceRecordingOpenURL(&responses),
+		Prompt:    func(string) {},
+	}
+
+	if err := oc.Login(context.Background()); err == nil {
+		t.Fatal("expected Login to fail when the server denies the request")
+	}
+
+	if len(responses) != 1 {
+		t.Fatalf("expected 1 response from the loopback listener, got %d", len(responses))
+	}
+	body := responses[0].body
+	if strings.Contains(body, "<script>") {
+		t.Errorf("callback page carries unescaped markup: %q", body)
+	}
+	if !strings.Contains(body, "&lt;script&gt;") {
+		t.Errorf("callback page does not carry the escaped error code: %q", body)
 	}
 }
 

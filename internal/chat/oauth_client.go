@@ -27,6 +27,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"html/template"
 	"io"
 	"net"
 	"net/http"
@@ -617,7 +618,7 @@ func (c *OAuthClient) loginLoopback(ctx context.Context, clientID string) error 
 	mux := http.NewServeMux()
 	mux.HandleFunc(oauthLoopbackRedirectPath, func(w http.ResponseWriter, r *http.Request) {
 		if !delivered.CompareAndSwap(false, true) {
-			fmt.Fprint(w, "<html><body>This login has already been handled. You can close this window and return to the terminal.</body></html>")
+			writeLoopbackPage(w, "This login has already been handled. You can close this window and return to the terminal.")
 			return
 		}
 
@@ -626,17 +627,17 @@ func (c *OAuthClient) loginLoopback(ctx context.Context, clientID string) error 
 		switch {
 		case q.Get("error") != "":
 			desc := q.Get("error_description")
-			fmt.Fprintf(w, "<html><body>Login failed: %s. You can return to the terminal.</body></html>", htmlEscape(q.Get("error")))
+			writeLoopbackPage(w, fmt.Sprintf("Login failed: %s. You can return to the terminal.", q.Get("error")))
 			res = result{err: fmt.Errorf("authorisation server denied the request: %s %s",
 				sanitiseServerText(q.Get("error")), sanitiseServerText(desc))}
 		case q.Get("state") != state:
-			fmt.Fprint(w, "<html><body>Login failed: invalid state. You can return to the terminal.</body></html>")
+			writeLoopbackPage(w, "Login failed: invalid state. You can return to the terminal.")
 			res = result{err: errors.New("authorisation response carried an unexpected state parameter")}
 		case q.Get("code") == "":
-			fmt.Fprint(w, "<html><body>Login failed: no authorisation code received. You can return to the terminal.</body></html>")
+			writeLoopbackPage(w, "Login failed: no authorisation code received. You can return to the terminal.")
 			res = result{err: errors.New("authorisation response carried no code")}
 		default:
-			fmt.Fprint(w, "<html><body>Login complete. You can return to the terminal.</body></html>")
+			writeLoopbackPage(w, "Login complete. You can return to the terminal.")
 			res = result{code: q.Get("code")}
 		}
 
@@ -1021,9 +1022,17 @@ func randomURLSafeString(n int) (string, error) {
 	return base64.RawURLEncoding.EncodeToString(b), nil
 }
 
-// htmlEscape escapes the handful of characters that matter when echoing
-// a server-supplied error code into the loopback callback's HTML page.
-func htmlEscape(s string) string {
-	r := strings.NewReplacer("&", "&amp;", "<", "&lt;", ">", "&gt;", `"`, "&quot;")
-	return r.Replace(s)
+// loopbackPage renders the one-line page shown in the browser after the
+// authorisation server redirects back to the loopback listener. It is an
+// html/template rather than a hand-built string because one of those
+// lines carries the server-supplied error code, and contextual
+// autoescaping is what keeps that from becoming markup.
+var loopbackPage = template.Must(template.New("callback").Parse(
+	"<!DOCTYPE html>\n<html><head><title>pgEdge sign-in</title></head><body>{{.}}</body></html>\n"))
+
+// writeLoopbackPage writes message to w as the loopback callback page.
+func writeLoopbackPage(w http.ResponseWriter, message string) {
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+	_ = loopbackPage.Execute(w, message)
 }
