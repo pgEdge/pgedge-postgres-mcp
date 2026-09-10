@@ -164,8 +164,8 @@ func TestLoginPageSecurityHeaders(t *testing.T) {
 	if rec.Header().Get("X-Content-Type-Options") != "nosniff" {
 		t.Error("missing nosniff")
 	}
-	if rec.Header().Get("Referrer-Policy") != "no-referrer" {
-		t.Error("missing Referrer-Policy")
+	if got := rec.Header().Get("Referrer-Policy"); got != "same-origin" {
+		t.Errorf("Referrer-Policy = %q, want same-origin (no-referrer makes browsers send Origin: null on the form POST)", got)
 	}
 }
 

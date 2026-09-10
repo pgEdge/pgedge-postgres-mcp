@@ -176,7 +176,12 @@ func (p *loginPage) Render(w http.ResponseWriter, status int, data LoginPageData
 	h.Set("Cache-Control", "no-store")
 	h.Set("X-Frame-Options", "DENY")
 	h.Set("X-Content-Type-Options", "nosniff")
-	h.Set("Referrer-Policy", "no-referrer")
+	// same-origin rather than no-referrer: the Fetch specification makes a
+	// browser send "Origin: null" on a POST from a no-referrer document,
+	// which the server's origin check would then reject. same-origin keeps
+	// the referrer out of cross-origin navigations whilst leaving the
+	// Origin header intact on the same-origin form submission.
+	h.Set("Referrer-Policy", "same-origin")
 	// form-action is deliberately absent: Chromium applies it to the
 	// whole redirect chain that follows the form submission, which
 	// would block the redirect back to the client's own callback.
