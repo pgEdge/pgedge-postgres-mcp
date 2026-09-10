@@ -493,7 +493,7 @@ Shows comprehensive help for all slash commands with examples.
 
 ### Log Out of an OAuth Session
 
-```
+```bash
 /logout
 ```
 

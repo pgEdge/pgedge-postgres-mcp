@@ -935,17 +935,28 @@ func buildOAuthRevokePath() M {
 	}
 }
 
+// binaryImageContent describes a binary image response body under each
+// of the given media types, which are the ones internal/config accepts
+// for the file being served.
+func binaryImageContent(mediaTypes ...string) M {
+	content := M{}
+	for _, mt := range mediaTypes {
+		content[mt] = M{"schema": M{"type": "string", "format": "binary"}}
+	}
+	return content
+}
+
 func buildOAuthLogoPath() M {
 	return M{
 		"get": M{
 			"tags":        A{"OAuth"},
 			"summary":     "Get the login page logo",
-			"description": "Returns the logo image displayed on the OAuth sign-in and device verification pages. No authentication is required.",
+			"description": "Returns the logo image displayed on the OAuth sign-in and device verification pages. The media type follows the configured file's format. No authentication is required.",
 			"operationId": "getOAuthLogo",
 			"responses": M{
 				"200": M{
 					"description": "The logo image.",
-					"content":     M{"image/png": M{"schema": M{"type": "string", "format": "binary"}}},
+					"content":     binaryImageContent("image/png", "image/jpeg", "image/gif", "image/webp"),
 				},
 			},
 		},
@@ -957,12 +968,12 @@ func buildOAuthFaviconPath() M {
 		"get": M{
 			"tags":        A{"OAuth"},
 			"summary":     "Get the login page favicon",
-			"description": "Returns the favicon linked from the OAuth sign-in and device verification pages. No authentication is required.",
+			"description": "Returns the favicon linked from the OAuth sign-in and device verification pages. The media type follows the configured file's format. No authentication is required.",
 			"operationId": "getOAuthFavicon",
 			"responses": M{
 				"200": M{
 					"description": "The favicon image.",
-					"content":     M{"image/x-icon": M{"schema": M{"type": "string", "format": "binary"}}},
+					"content":     binaryImageContent("image/x-icon", "image/png"),
 				},
 			},
 		},
