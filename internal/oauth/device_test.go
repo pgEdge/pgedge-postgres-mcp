@@ -93,6 +93,36 @@ func TestDeviceSlowDown(t *testing.T) {
 	}
 }
 
+// TestDeviceSlowDownDoesNotDeferTheNextPoll is the regression test for a
+// rejected poll advancing LastPolled: a client polling at a fixed period
+// shorter than the interval used to be told to slow down for ever,
+// because each rejection pushed the deadline out again.
+func TestDeviceSlowDownDoesNotDeferTheNextPoll(t *testing.T) {
+	ts := newTestServer(t, nil)
+	cid, dr := startDevice(t, ts)
+
+	// The first poll is accepted and sets the deadline.
+	if rec, _ := pollDevice(ts, cid, dr.DeviceCode); !strings.Contains(rec.Body.String(), "authorization_pending") {
+		t.Fatalf("first poll: %s", rec.Body.String())
+	}
+
+	// Two more inside the interval are rejected, and must not move it.
+	for _, offset := range []time.Duration{2 * time.Second, 4 * time.Second} {
+		ts.now = ts.now.Add(2 * time.Second)
+		rec, _ := pollDevice(ts, cid, dr.DeviceCode)
+		if !strings.Contains(rec.Body.String(), "slow_down") {
+			t.Fatalf("poll at +%s: %s", offset, rec.Body.String())
+		}
+	}
+
+	// Just past one interval from the first accepted poll, so accepted.
+	ts.now = ts.now.Add(time.Second + time.Millisecond)
+	rec, _ := pollDevice(ts, cid, dr.DeviceCode)
+	if !strings.Contains(rec.Body.String(), "authorization_pending") {
+		t.Fatalf("poll one interval after the first accepted one: %s", rec.Body.String())
+	}
+}
+
 func TestDeviceExpired(t *testing.T) {
 	ts := newTestServer(t, nil)
 	cid, dr := startDevice(t, ts)

@@ -90,9 +90,13 @@ type rotatedRefresh struct {
 
 // usedCode records the refresh token issued from an authorisation code
 // that has already been redeemed, so a replay of that code can cascade
-// the revocation to every token it produced.
+// the revocation to every token it produced. Family is recorded
+// alongside the hash because the refresh token itself is gone once it
+// has been rotated, whilst its descendants remain valid and are the
+// ones that have to be revoked.
 type usedCode struct {
 	RefreshHash string
+	Family      string
 	Until       time.Time
 }
 
@@ -354,34 +358,34 @@ func (s *Store) TakeCode(hash string) (*AuthCode, bool) {
 }
 
 // MarkCodeUsed records that the authorisation code hashed to codeHash has
-// been redeemed for the refresh token hashed to refreshHash, so that a
-// replay of the same code can be detected and its issued tokens
-// cascade-revoked. The entry is bounded by the same limit as Codes and
-// expires at until, which should be no earlier than the code's original
-// expiry plus the access token lifetime.
-func (s *Store) MarkCodeUsed(codeHash, refreshHash string, until time.Time) {
+// been redeemed for the refresh token hashed to refreshHash, belonging to
+// family, so that a replay of the same code can be detected and its
+// issued tokens cascade-revoked. The entry is bounded by the same limit
+// as Codes and expires at until, which should be no earlier than the
+// code's original expiry plus the access token lifetime.
+func (s *Store) MarkCodeUsed(codeHash, refreshHash, family string, until time.Time) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	if _, exists := s.usedCodes[codeHash]; !exists && len(s.usedCodes) >= s.limits.Codes {
 		return
 	}
-	s.usedCodes[codeHash] = &usedCode{RefreshHash: refreshHash, Until: until}
+	s.usedCodes[codeHash] = &usedCode{RefreshHash: refreshHash, Family: family, Until: until}
 }
 
-// TakeUsedCode returns and removes the refresh token hash recorded for a
-// previously redeemed authorisation code, enforcing single use of the
-// replay record itself.
-func (s *Store) TakeUsedCode(codeHash string) (refreshHash string, ok bool) {
+// TakeUsedCode returns and removes the refresh token hash and token
+// family recorded for a previously redeemed authorisation code,
+// enforcing single use of the replay record itself.
+func (s *Store) TakeUsedCode(codeHash string) (refreshHash, family string, ok bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	u, found := s.usedCodes[codeHash]
 	if !found {
-		return "", false
+		return "", "", false
 	}
 	delete(s.usedCodes, codeHash)
-	return u.RefreshHash, true
+	return u.RefreshHash, u.Family, true
 }
 
 // PutDeviceCode adds a device code, provided the collection has not
@@ -506,9 +510,11 @@ func (s *Store) deleteDeviceLocked(hash string) {
 // LastPolled, the tooSoon comparison against Interval and the write of
 // the new LastPolled all happen under one lock, so two concurrent polls
 // can never both observe the same stale LastPolled and both proceed: at
-// most one of them can see tooSoon == false for a given now. ok is false
-// if hash names no device code, in which case d is nil and tooSoon is
-// meaningless.
+// most one of them can see tooSoon == false for a given now. A poll that
+// arrives too soon is rejected without moving LastPolled, so the next
+// deadline stays a fixed Interval after the last accepted poll. ok is
+// false if hash names no device code, in which case d is nil and tooSoon
+// is meaningless.
 func (s *Store) TouchDevicePoll(hash string, now time.Time) (d *DeviceCode, tooSoon bool, ok bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -518,7 +524,13 @@ func (s *Store) TouchDevicePoll(hash string, now time.Time) (d *DeviceCode, tooS
 		return nil, false, false
 	}
 	tooSoon = now.Sub(dev.LastPolled) < dev.Interval
-	dev.LastPolled = now
+	if !tooSoon {
+		// Only an accepted poll moves the clock on. Advancing it on a
+		// rejected one too would let a client polling at any fixed
+		// period shorter than Interval push the deadline out on every
+		// attempt, so it would be told to slow down for ever.
+		dev.LastPolled = now
+	}
 	return cloneDeviceCode(dev), tooSoon, true
 }
 

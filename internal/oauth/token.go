@@ -144,9 +144,16 @@ func (s *Server) handleAuthorizationCodeGrant(w http.ResponseWriter, r *http.Req
 		// Either unknown, or already redeemed: if it was already
 		// redeemed, this is a replay, so revoke everything issued from
 		// it, per RFC 6749 section 4.1.2.
-		if refreshHash, used := s.store.TakeUsedCode(codeHash); used {
-			s.store.DeleteToken(refreshHash)
-			s.logf("oauth token: client=%q error=replayed_code", clientID)
+		if refreshHash, family, used := s.store.TakeUsedCode(codeHash); used {
+			// The whole family has to go, not just the refresh token
+			// the code originally produced: after a rotation that token
+			// is already gone whilst its descendants are still valid.
+			if family != "" {
+				s.store.DeleteFamily(family)
+			} else {
+				s.store.DeleteToken(refreshHash)
+			}
+			s.logf("oauth token: client=%q family=%q error=replayed_code, revoking the token family", clientID, family)
 		} else {
 			s.logf("oauth token: client=%q error=unknown_code", clientID)
 		}
@@ -167,12 +174,12 @@ func (s *Server) handleAuthorizationCodeGrant(w http.ResponseWriter, r *http.Req
 
 	// A code grant starts a new token family, which every rotation of
 	// the resulting refresh token then carries forward.
-	tr, refreshHash, err := s.issueTokensWithHash(clientID, authCode.Subject, authCode.Scope, "")
+	tr, refreshHash, family, err := s.issueTokensWithHash(clientID, authCode.Subject, authCode.Scope, "")
 	if err != nil {
 		return newError("server_error", "failed to issue tokens", http.StatusServiceUnavailable)
 	}
 
-	s.store.MarkCodeUsed(codeHash, refreshHash, authCode.ExpiresAt.Add(s.opts.Config.AccessTokenLifetime))
+	s.store.MarkCodeUsed(codeHash, refreshHash, family, authCode.ExpiresAt.Add(s.opts.Config.AccessTokenLifetime))
 
 	s.logf("oauth token: client=%q subject=%q grant=authorization_code success", clientID, authCode.Subject)
 	writeJSON(w, http.StatusOK, tr)
@@ -238,25 +245,27 @@ func (s *Server) handleRefreshTokenGrant(w http.ResponseWriter, r *http.Request)
 // used by the authorisation code and refresh token grants, and by the
 // device grant. An empty family starts a new one.
 func (s *Server) issueTokens(clientID, subject, scope, family string) (tokenResponse, error) {
-	tr, _, err := s.issueTokensWithHash(clientID, subject, scope, family)
+	tr, _, _, err := s.issueTokensWithHash(clientID, subject, scope, family)
 	return tr, err
 }
 
 // issueTokensWithHash is issueTokens, additionally returning the hash of
-// the refresh token it stored, so the authorisation code grant can record
-// it against the redeemed code for later replay detection.
-func (s *Server) issueTokensWithHash(clientID, subject, scope, family string) (tokenResponse, string, error) {
+// the refresh token it stored and the family both tokens belong to (the
+// freshly generated one when family was empty), so the authorisation
+// code grant can record them against the redeemed code for later replay
+// detection.
+func (s *Server) issueTokensWithHash(clientID, subject, scope, family string) (tokenResponse, string, string, error) {
 	accessToken, err := randomToken(32)
 	if err != nil {
-		return tokenResponse{}, "", err
+		return tokenResponse{}, "", "", err
 	}
 	refreshToken, err := randomToken(32)
 	if err != nil {
-		return tokenResponse{}, "", err
+		return tokenResponse{}, "", "", err
 	}
 	if family == "" {
 		if family, err = randomToken(16); err != nil {
-			return tokenResponse{}, "", err
+			return tokenResponse{}, "", "", err
 		}
 	}
 
@@ -275,7 +284,7 @@ func (s *Server) issueTokensWithHash(clientID, subject, scope, family string) (t
 		Family:    family,
 	}
 	if err := s.store.PutToken(refresh); err != nil {
-		return tokenResponse{}, "", err
+		return tokenResponse{}, "", "", err
 	}
 
 	access := &Token{
@@ -289,7 +298,7 @@ func (s *Server) issueTokensWithHash(clientID, subject, scope, family string) (t
 	}
 	if err := s.store.PutToken(access); err != nil {
 		s.store.DeleteToken(refreshHash)
-		return tokenResponse{}, "", err
+		return tokenResponse{}, "", "", err
 	}
 
 	return tokenResponse{
@@ -298,7 +307,7 @@ func (s *Server) issueTokensWithHash(clientID, subject, scope, family string) (t
 		ExpiresIn:    int64(s.opts.Config.AccessTokenLifetime.Seconds()),
 		RefreshToken: refreshToken,
 		Scope:        scope,
-	}, refreshHash, nil
+	}, refreshHash, family, nil
 }
 
 // writeJSON writes v to w as a JSON body with the given HTTP status.

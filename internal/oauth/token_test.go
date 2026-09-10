@@ -72,6 +72,39 @@ func TestTokenExchangeCodeSingleUse(t *testing.T) {
 	}
 }
 
+// TestTokenExchangeReplayAfterRotationRevokesTheFamily is the regression
+// test for a code replay only revoking the refresh token the code
+// originally produced: once that token has been rotated away it no
+// longer exists, so the tokens the client is actually holding survived
+// the replay. The whole family must go instead.
+func TestTokenExchangeReplayAfterRotationRevokesTheFamily(t *testing.T) {
+	ts := newTestServer(t, nil)
+	cid, code := obtainCode(t, ts, claudeCB)
+	_, first := exchange(ts, codeForm(cid, code, claudeCB))
+
+	// One rotation, so the refresh token recorded against the code is
+	// gone whilst its descendants are live.
+	rec, second := exchange(ts, url.Values{"grant_type": {"refresh_token"}, "refresh_token": {first.RefreshToken}, "client_id": {cid}})
+	if rec.Code != 200 || second.RefreshToken == "" {
+		t.Fatalf("refresh: %d %s", rec.Code, rec.Body.String())
+	}
+	if _, _, ok := ts.srv.ValidateAccessToken(second.AccessToken); !ok {
+		t.Fatal("the rotated access token should be valid before the replay")
+	}
+
+	// Now replay the authorisation code.
+	if rec, _ := exchange(ts, codeForm(cid, code, claudeCB)); rec.Code != 400 {
+		t.Fatalf("replayed code: %d %s", rec.Code, rec.Body.String())
+	}
+
+	if _, _, ok := ts.srv.ValidateAccessToken(second.AccessToken); ok {
+		t.Fatal("the rotated access token survived a replay of the code it descends from")
+	}
+	if rec, _ := exchange(ts, url.Values{"grant_type": {"refresh_token"}, "refresh_token": {second.RefreshToken}, "client_id": {cid}}); rec.Code != 400 {
+		t.Fatal("the rotated refresh token survived a replay of the code it descends from")
+	}
+}
+
 func TestTokenExchangeWrongVerifier(t *testing.T) {
 	ts := newTestServer(t, nil)
 	cid, code := obtainCode(t, ts, claudeCB)
