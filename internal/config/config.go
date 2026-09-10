@@ -237,6 +237,7 @@ type LoginPageConfig struct {
 	Message         string `yaml:"message"`
 	Footer          string `yaml:"footer"`
 	LogoFile        string `yaml:"logo_file"`
+	FaviconFile     string `yaml:"favicon_file"`
 	PrimaryColour   string `yaml:"primary_colour"`
 	SecondaryColour string `yaml:"secondary_colour"`
 	TemplateFile    string `yaml:"template_file"`
@@ -970,6 +971,9 @@ func mergeConfig(dest, src *Config) {
 	}
 	if src.HTTP.Auth.OAuth.LoginPage.LogoFile != "" {
 		dest.HTTP.Auth.OAuth.LoginPage.LogoFile = src.HTTP.Auth.OAuth.LoginPage.LogoFile
+	}
+	if src.HTTP.Auth.OAuth.LoginPage.FaviconFile != "" {
+		dest.HTTP.Auth.OAuth.LoginPage.FaviconFile = src.HTTP.Auth.OAuth.LoginPage.FaviconFile
 	}
 	if src.HTTP.Auth.OAuth.LoginPage.PrimaryColour != "" {
 		dest.HTTP.Auth.OAuth.LoginPage.PrimaryColour = src.HTTP.Auth.OAuth.LoginPage.PrimaryColour
@@ -1745,6 +1749,12 @@ var allowedLogoExtensions = map[string]bool{
 	".png": true, ".jpg": true, ".jpeg": true, ".gif": true, ".webp": true,
 }
 
+// allowedFaviconExtensions lists the file extensions accepted for the
+// login page favicon, matching the formats internal/oauth will serve.
+var allowedFaviconExtensions = map[string]bool{
+	".ico": true, ".png": true,
+}
+
 // cssHexColour matches a CSS hex colour in 3, 6 or 8 digit form.
 var cssHexColour = regexp.MustCompile(`^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$`)
 
@@ -1797,7 +1807,12 @@ func validateAuthConfig(a *AuthConfig) error {
 	if lp.LogoFile != "" && !allowedLogoExtensions[strings.ToLower(filepath.Ext(lp.LogoFile))] {
 		return fmt.Errorf("http.auth.oauth.login_page.logo_file: %q must be a PNG, JPEG, GIF or WebP image", lp.LogoFile)
 	}
-	for name, p := range map[string]string{"logo_file": lp.LogoFile, "template_file": lp.TemplateFile} {
+	// The favicon is served from the login page's own origin too, so it
+	// is held to the same rule: an ICO or PNG, never an SVG.
+	if lp.FaviconFile != "" && !allowedFaviconExtensions[strings.ToLower(filepath.Ext(lp.FaviconFile))] {
+		return fmt.Errorf("http.auth.oauth.login_page.favicon_file: %q must be an ICO or PNG image", lp.FaviconFile)
+	}
+	for name, p := range map[string]string{"logo_file": lp.LogoFile, "favicon_file": lp.FaviconFile, "template_file": lp.TemplateFile} {
 		if p == "" {
 			continue
 		}

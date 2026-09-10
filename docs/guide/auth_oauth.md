@@ -229,6 +229,7 @@ Every field is optional and falls back to the default shown below.
 | `message` | Notice paragraphs; a blank line starts a new one. | (none) |
 | `footer` | Text below the form. | (none) |
 | `logo_file` | Path to a custom logo, replacing the built-in one. | Built-in logo |
+| `favicon_file` | Path to a custom favicon, replacing the built-in one. | Built-in favicon |
 | `primary_colour` | CSS hex colour for buttons. | `#15AABF` |
 | `secondary_colour` | CSS hex colour paired with the primary one. | `#0C8599` |
 | `template_file` | Path to a custom template, replacing the built-in page. | Built-in page |
@@ -240,6 +241,13 @@ A custom `logo_file` must be a PNG, JPEG, GIF or WebP image; the server
 refuses any other extension, SVG included, at startup. An SVG can carry
 script, and the logo is served from the same origin as the login page,
 so it is not an acceptable format here.
+
+The login page links to a favicon, which stops the browser guessing at
+`/favicon.ico`; the authentication middleware rejects that guess, and
+the browser reports the rejection in its console. The built-in pgEdge
+icon is served unauthenticated from `/oauth/static/favicon`; a custom
+`favicon_file` must be an ICO or PNG image, refused on the same grounds
+as an SVG logo.
 
 In the following example, the `login_page` block sets a custom title
 and colour scheme:
@@ -256,6 +264,7 @@ http:
                     password.
                 footer: "(c) Example Corp"
                 logo_file: "/etc/pgedge/logo.png"
+                favicon_file: "/etc/pgedge/favicon.ico"
                 primary_colour: "#123456"
                 secondary_colour: "#654321"
 ```

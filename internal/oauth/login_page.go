@@ -29,6 +29,9 @@ var defaultTemplate string
 //go:embed templates/logo-light.png
 var defaultLogo []byte
 
+//go:embed templates/favicon.ico
+var defaultFavicon []byte
+
 // Branding holds the values used to render the login page, derived from
 // config.LoginPageConfig.
 type Branding struct {
@@ -37,6 +40,7 @@ type Branding struct {
 	MessageParagraphs []string
 	Footer            string
 	LogoURL           string // "/oauth/static/logo"
+	FaviconURL        string // "/oauth/static/favicon"
 	PrimaryColour     template.CSS
 	SecondaryColour   template.CSS
 }
@@ -68,17 +72,21 @@ type LoginPageData struct {
 	Page         string // "login", "device", "done", "error"
 }
 
-// loginPage renders the branded OAuth login page and serves its logo.
+// loginPage renders the branded OAuth login page and serves its logo
+// and favicon.
 type loginPage struct {
-	tmpl     *template.Template
-	branding Branding
-	logo     []byte
-	logoType string
+	tmpl        *template.Template
+	branding    Branding
+	logo        []byte
+	logoType    string
+	favicon     []byte
+	faviconType string
 }
 
 // newLoginPage builds a loginPage from the given configuration, parsing the
 // embedded template (or a custom TemplateFile, if configured) and loading
-// the logo (embedded by default, or a custom LogoFile).
+// the logo and favicon (embedded by default, or a custom LogoFile and
+// FaviconFile).
 func newLoginPage(cfg config.LoginPageConfig) (*loginPage, error) {
 	var (
 		tmpl *template.Template
@@ -117,6 +125,21 @@ func newLoginPage(cfg config.LoginPageConfig) (*loginPage, error) {
 		logoType = contentType
 	}
 
+	favicon := defaultFavicon
+	faviconType := "image/x-icon"
+	if cfg.FaviconFile != "" {
+		contentType, err := faviconContentType(cfg.FaviconFile)
+		if err != nil {
+			return nil, err
+		}
+		data, err := os.ReadFile(cfg.FaviconFile)
+		if err != nil {
+			return nil, fmt.Errorf("reading login favicon file %q: %w", cfg.FaviconFile, err)
+		}
+		favicon = data
+		faviconType = contentType
+	}
+
 	return &loginPage{
 		tmpl: tmpl,
 		branding: Branding{
@@ -125,11 +148,14 @@ func newLoginPage(cfg config.LoginPageConfig) (*loginPage, error) {
 			MessageParagraphs: splitParagraphs(cfg.Message),
 			Footer:            cfg.Footer,
 			LogoURL:           LogoPath,
+			FaviconURL:        FaviconPath,
 			PrimaryColour:     template.CSS(cfg.PrimaryColour),
 			SecondaryColour:   template.CSS(cfg.SecondaryColour),
 		},
-		logo:     logo,
-		logoType: logoType,
+		logo:        logo,
+		logoType:    logoType,
+		favicon:     favicon,
+		faviconType: faviconType,
 	}, nil
 }
 
@@ -153,6 +179,27 @@ func logoContentType(path string) (string, error) {
 	ct, ok := logoContentTypes[strings.ToLower(filepath.Ext(path))]
 	if !ok {
 		return "", fmt.Errorf("login logo file %q: must be a PNG, JPEG, GIF or WebP image", path)
+	}
+	return ct, nil
+}
+
+// faviconContentTypes maps the accepted favicon file extensions to the
+// MIME type each is served as. SVG is absent for the same reason it is
+// absent from logoContentTypes: it is an active content type, and the
+// favicon is served from the login page's own origin, so a hostile or
+// careless SVG would run script there.
+var faviconContentTypes = map[string]string{
+	".ico": "image/x-icon",
+	".png": "image/png",
+}
+
+// faviconContentType returns the MIME type a favicon file is served as,
+// rejecting any extension not in faviconContentTypes rather than
+// sniffing the content.
+func faviconContentType(path string) (string, error) {
+	ct, ok := faviconContentTypes[strings.ToLower(filepath.Ext(path))]
+	if !ok {
+		return "", fmt.Errorf("login favicon file %q: must be an ICO or PNG image", path)
 	}
 	return ct, nil
 }
@@ -201,6 +248,20 @@ func (p *loginPage) ServeLogo(w http.ResponseWriter, _ *http.Request) {
 	h.Set("Content-Security-Policy", "default-src 'none'; sandbox")
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write(p.logo)
+}
+
+// ServeFavicon writes the configured favicon, embedded by default or a
+// custom FaviconFile if configured, with a cacheable response. The login
+// page links to it explicitly, so the browser stops guessing
+// /favicon.ico and getting an authentication failure for its trouble.
+func (p *loginPage) ServeFavicon(w http.ResponseWriter, _ *http.Request) {
+	h := w.Header()
+	h.Set("Content-Type", p.faviconType)
+	h.Set("Cache-Control", "public, max-age=86400")
+	h.Set("X-Content-Type-Options", "nosniff")
+	h.Set("Content-Security-Policy", "default-src 'none'; sandbox")
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write(p.favicon)
 }
 
 // splitParagraphs splits s on blank lines, trims surrounding whitespace

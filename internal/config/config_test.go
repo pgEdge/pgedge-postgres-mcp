@@ -2504,6 +2504,8 @@ func TestOAuthConfigValidation(t *testing.T) {
 		{"missing logo file", "issuer: \"https://mcp.example.com\"\n      login_page:\n        logo_file: /nonexistent/logo.png", "logo_file"},
 		{"missing template file", "issuer: \"https://mcp.example.com\"\n      login_page:\n        template_file: /nonexistent/login.html", "template_file"},
 		{"svg logo refused", "issuer: \"https://mcp.example.com\"\n      login_page:\n        logo_file: /nonexistent/logo.svg", "PNG, JPEG, GIF or WebP"},
+		{"missing favicon file", "issuer: \"https://mcp.example.com\"\n      login_page:\n        favicon_file: /nonexistent/favicon.ico", "favicon_file"},
+		{"svg favicon refused", "issuer: \"https://mcp.example.com\"\n      login_page:\n        favicon_file: /nonexistent/favicon.svg", "ICO or PNG"},
 		{"relative redirect uri", "issuer: \"https://mcp.example.com\"\n      allowed_redirect_uris:\n        - /oauth/callback", "allowed_redirect_uris"},
 		{"registration disabled is valid", "issuer: \"https://mcp.example.com\"\n      allow_dynamic_registration: false", ""},
 	}

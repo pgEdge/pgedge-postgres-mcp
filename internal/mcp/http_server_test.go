@@ -1555,6 +1555,19 @@ func TestOAuthEndToEndThroughHTTPServer(t *testing.T) {
 		t.Fatalf("metadata: status=%v err=%v", r, err)
 	}
 
+	// 2a. The logo and favicon are public too, so a browser rendering
+	// the login page collects no 401 for either.
+	for _, static := range []string{oauth.LogoPath, oauth.FaviconPath} {
+		r, err := http.Get(ts.URL + static)
+		if err != nil {
+			t.Fatalf("GET %s: %v", static, err)
+		}
+		if r.StatusCode != http.StatusOK {
+			t.Fatalf("GET %s: status = %d, want 200", static, r.StatusCode)
+		}
+		_ = r.Body.Close()
+	}
+
 	// 3. Register a client, log in through the authorisation form, and
 	// exchange the resulting code for tokens.
 	r, err := http.Post(ts.URL+oauth.RegisterPath, "application/json", strings.NewReader(`{"redirect_uris":["http://127.0.0.1/callback"]}`))

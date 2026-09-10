@@ -106,6 +106,7 @@ func (s *Server) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc(DeviceVerifyPath, s.handleDeviceVerify)
 	mux.HandleFunc(RevokePath, s.handleRevoke)
 	mux.HandleFunc(LogoPath, s.page.ServeLogo)
+	mux.HandleFunc(FaviconPath, s.page.ServeFavicon)
 }
 
 // Close stops the background sweeper. It is safe to call more than once.

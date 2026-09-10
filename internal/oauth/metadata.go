@@ -28,6 +28,7 @@ const (
 	DeviceVerifyPath      = "/oauth/device/verify"
 	RevokePath            = "/oauth/revoke"
 	LogoPath              = "/oauth/static/logo"
+	FaviconPath           = "/oauth/static/favicon"
 	ScopeMCP              = "mcp"
 	DeviceGrantType       = "urn:ietf:params:oauth:grant-type:device_code"
 )
@@ -45,6 +46,7 @@ func PublicPaths() []string {
 		DeviceVerifyPath,
 		RevokePath,
 		LogoPath,
+		FaviconPath,
 	}
 }
 

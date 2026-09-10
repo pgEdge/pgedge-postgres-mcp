@@ -234,6 +234,82 @@ func TestEmbeddedLogoServedByDefault(t *testing.T) {
 	}
 }
 
+func TestEmbeddedFaviconServedByDefault(t *testing.T) {
+	p, _ := newLoginPage(config.LoginPageConfig{PrimaryColour: "#000", SecondaryColour: "#000"})
+	rec := httptest.NewRecorder()
+	p.ServeFavicon(rec, httptest.NewRequest("GET", FaviconPath, nil))
+	if rec.Code != 200 || rec.Header().Get("Content-Type") != "image/x-icon" || rec.Body.Len() == 0 {
+		t.Fatalf("code = %d, headers = %v, body = %d bytes", rec.Code, rec.Header(), rec.Body.Len())
+	}
+	if got := rec.Header().Get("Cache-Control"); got != "public, max-age=86400" {
+		t.Errorf("Cache-Control = %q", got)
+	}
+	if rec.Header().Get("X-Content-Type-Options") != "nosniff" {
+		t.Error("missing nosniff")
+	}
+	if got := rec.Header().Get("Content-Security-Policy"); got != "default-src 'none'; sandbox" {
+		t.Errorf("CSP = %q", got)
+	}
+}
+
+func TestCustomFaviconServed(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "icon.png")
+	_ = os.WriteFile(path, []byte("\x89PNGnot really a png"), 0600)
+	p, err := newLoginPage(config.LoginPageConfig{FaviconFile: path, PrimaryColour: "#000", SecondaryColour: "#000"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	rec := httptest.NewRecorder()
+	p.ServeFavicon(rec, httptest.NewRequest("GET", FaviconPath, nil))
+	if rec.Code != 200 || rec.Header().Get("Content-Type") != "image/png" {
+		t.Fatal(rec.Code, rec.Header())
+	}
+	if rec.Body.String() != "\x89PNGnot really a png" {
+		t.Errorf("body = %q, want the custom file's contents", rec.Body.String())
+	}
+}
+
+// TestSVGFaviconRejected covers the favicon being held to the same rule
+// as the logo: an SVG served from the login page's own origin could run
+// script there, so it is refused at startup.
+func TestSVGFaviconRejected(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "icon.svg")
+	_ = os.WriteFile(path, []byte(`<svg xmlns="http://www.w3.org/2000/svg"/>`), 0600)
+	if _, err := newLoginPage(config.LoginPageConfig{FaviconFile: path, PrimaryColour: "#000", SecondaryColour: "#000"}); err == nil {
+		t.Fatal("expected an SVG favicon to be rejected")
+	}
+}
+
+func TestUnknownFaviconExtensionRejected(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "icon.jpg")
+	_ = os.WriteFile(path, []byte("\xff\xd8\xff\xe0"), 0600)
+	if _, err := newLoginPage(config.LoginPageConfig{FaviconFile: path, PrimaryColour: "#000", SecondaryColour: "#000"}); err == nil {
+		t.Fatal("expected an unknown favicon extension to be rejected")
+	}
+}
+
+// TestFaviconPathIsPublic covers the reason the favicon exists at all:
+// the browser's guess at /favicon.ico is authenticated and fails, so
+// the served path must bypass authentication as the logo does.
+func TestFaviconPathIsPublic(t *testing.T) {
+	if !slices.Contains(PublicPaths(), FaviconPath) {
+		t.Errorf("PublicPaths() = %v, missing %q", PublicPaths(), FaviconPath)
+	}
+}
+
+// TestLoginPageLinksFavicon covers the rendered link element, which is
+// what stops the browser guessing at /favicon.ico.
+func TestLoginPageLinksFavicon(t *testing.T) {
+	p, _ := newLoginPage(config.LoginPageConfig{PrimaryColour: "#000", SecondaryColour: "#000"})
+	out := renderToString(t, p, LoginPageData{Page: "login", CSRFToken: "x"})
+	if !strings.Contains(out, `<link rel="icon" href="`+FaviconPath+`">`) {
+		t.Errorf("login page does not link the favicon:\n%s", out)
+	}
+}
+
 func TestSplitParagraphs(t *testing.T) {
 	got := splitParagraphs("a\nb\n\n\n c \n\n")
 	if !slices.Equal(got, []string{"a\nb", "c"}) {

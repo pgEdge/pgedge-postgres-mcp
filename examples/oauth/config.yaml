@@ -70,6 +70,10 @@ http:
                 # A PNG, JPEG, GIF or WebP image; SVG is refused, since
                 # it is served from the same origin as the login page.
                 # logo_file: "/etc/pgedge/logo.png"
+                # An ICO or PNG image, linked from the page so the
+                # browser stops guessing /favicon.ico; SVG is refused
+                # for the same reason as the logo.
+                # favicon_file: "/etc/pgedge/favicon.ico"
                 primary_colour: "#15AABF"
                 secondary_colour: "#0C8599"
                 # template_file: "/etc/pgedge/login.html"

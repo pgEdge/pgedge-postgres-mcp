@@ -29,9 +29,10 @@
     Data available to the template:
 
     - .Branding.Title, .Branding.Subtitle, .Branding.MessageParagraphs,
-      .Branding.Footer, .Branding.LogoURL, .Branding.PrimaryColour and
-      .Branding.SecondaryColour, all sourced from
-      http.auth.oauth.login_page in the server configuration.
+      .Branding.Footer, .Branding.LogoURL, .Branding.FaviconURL,
+      .Branding.PrimaryColour and .Branding.SecondaryColour, all
+      sourced from http.auth.oauth.login_page in the server
+      configuration.
     - .Error, a message to show when a previous attempt failed, and
       the message shown on the "error" page.
     - .CSRFToken, the anti-forgery token to post back in the
@@ -61,6 +62,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="referrer" content="same-origin">
 <title>{{.Branding.Title}}</title>
+<link rel="icon" href="{{.Branding.FaviconURL}}">
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body {

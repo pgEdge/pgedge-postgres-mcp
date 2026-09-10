@@ -72,6 +72,8 @@ http:
             #    footer: ""
             #    # PNG, JPEG, GIF or WebP; SVG is refused.
             #    logo_file: ""
+            #    # ICO or PNG; SVG is refused.
+            #    favicon_file: ""
             #    primary_colour: "#15AABF"
             #    secondary_colour: "#0C8599"
             #    template_file: ""

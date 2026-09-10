@@ -209,6 +209,7 @@ func buildPaths() M {
 		oauth.DeviceVerifyPath:      buildOAuthDeviceVerifyPath(),
 		oauth.RevokePath:            buildOAuthRevokePath(),
 		oauth.LogoPath:              buildOAuthLogoPath(),
+		oauth.FaviconPath:           buildOAuthFaviconPath(),
 	}
 }
 
@@ -945,6 +946,23 @@ func buildOAuthLogoPath() M {
 				"200": M{
 					"description": "The logo image.",
 					"content":     M{"image/png": M{"schema": M{"type": "string", "format": "binary"}}},
+				},
+			},
+		},
+	}
+}
+
+func buildOAuthFaviconPath() M {
+	return M{
+		"get": M{
+			"tags":        A{"OAuth"},
+			"summary":     "Get the login page favicon",
+			"description": "Returns the favicon linked from the OAuth sign-in and device verification pages. No authentication is required.",
+			"operationId": "getOAuthFavicon",
+			"responses": M{
+				"200": M{
+					"description": "The favicon image.",
+					"content":     M{"image/x-icon": M{"schema": M{"type": "string", "format": "binary"}}},
 				},
 			},
 		},

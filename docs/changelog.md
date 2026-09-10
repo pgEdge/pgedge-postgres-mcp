@@ -14,7 +14,9 @@ and this project adheres to
 - OAuth 2.0 authorisation server with authorisation code (PKCE) and
   device grants, so Claude Desktop, the Claude mobile apps, the CLI
   and the web client can sign in through a brandable login page
-  (#287).
+  (#287). The page carries the pgEdge favicon by default, replaceable
+  with `http.auth.oauth.login_page.favicon_file`, alongside the title,
+  subtitle, message, footer, logo and colours.
 - The CLI chat client now authenticates via OAuth automatically when
   the server advertises it, using a loopback browser redirect where
   possible and falling back to the device authorisation flow on
