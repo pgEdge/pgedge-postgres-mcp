@@ -1083,7 +1083,7 @@ func main() {
 
 			// Conversation history endpoints (only if store is available)
 			if convStore != nil && userStore != nil {
-				convHandler := conversations.NewHandler(convStore, userStore)
+				convHandler := conversations.NewHandler(convStore, validator)
 				convHandler.RegisterRoutes(mux, authWrapper)
 				fmt.Fprintf(os.Stderr, "Conversation history: ENABLED\n")
 			}
