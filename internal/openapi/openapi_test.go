@@ -16,6 +16,7 @@ import (
 	"testing"
 
 	"pgedge-postgres-mcp/internal/mcp"
+	"pgedge-postgres-mcp/internal/oauth"
 )
 
 func TestBuildSpec_TopLevel(t *testing.T) {
@@ -73,6 +74,57 @@ func TestBuildSpec_RequiredPaths(t *testing.T) {
 		if _, ok := paths[path]; !ok {
 			t.Errorf("missing required path: %s", path)
 		}
+	}
+}
+
+// TestBuildSpec_OAuthPaths verifies that every path the OAuth
+// authorisation server registers (internal/oauth.PublicPaths) is
+// documented in the spec.
+func TestBuildSpec_OAuthPaths(t *testing.T) {
+	spec := BuildSpec()
+	paths := spec["paths"].(M)
+
+	for _, path := range oauth.PublicPaths() {
+		if _, ok := paths[path]; !ok {
+			t.Errorf("missing OAuth path: %s", path)
+		}
+	}
+}
+
+// TestBuildSpec_OAuthImageMediaTypes checks that the static image
+// endpoints document every media type they can actually serve, which is
+// one per file extension internal/config accepts for each.
+func TestBuildSpec_OAuthImageMediaTypes(t *testing.T) {
+	spec := BuildSpec()
+	paths := spec["paths"].(M)
+
+	tests := []struct {
+		path string
+		want []string
+	}{
+		{oauth.LogoPath, []string{"image/png", "image/jpeg", "image/gif", "image/webp"}},
+		{oauth.FaviconPath, []string{"image/x-icon", "image/png"}},
+	}
+	for _, tc := range tests {
+		t.Run(tc.path, func(t *testing.T) {
+			op, ok := paths[tc.path].(M)
+			if !ok {
+				t.Fatalf("missing path %s", tc.path)
+			}
+			content := op["get"].(M)["responses"].(M)["200"].(M)["content"].(M)
+			if len(content) != len(tc.want) {
+				t.Errorf("content documents %d media types, want %d: %v", len(content), len(tc.want), content)
+			}
+			for _, mt := range tc.want {
+				schema, ok := content[mt].(M)
+				if !ok {
+					t.Fatalf("%s: media type %s is not documented", tc.path, mt)
+				}
+				if schema["schema"].(M)["format"] != "binary" {
+					t.Errorf("%s: %s should be a binary schema", tc.path, mt)
+				}
+			}
+		})
 	}
 }
 

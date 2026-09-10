@@ -58,7 +58,7 @@ const MAX_RETRY_ATTEMPTS = 5;
 const RETRY_DELAY_MS = 500;
 
 const StatusBanner = () => {
-    const { sessionToken, forceLogout } = useAuth();
+    const { sessionToken, forceLogout, handleUnauthorized } = useAuth();
     const { isProcessing } = useLLMProcessing();
     const { hasMessages, onSave, onClear } = useConversationActions();
     const theme = useTheme();
@@ -229,11 +229,13 @@ const StatusBanner = () => {
             console.error('System info fetch error:', err);
             setIsSwitchingDatabase(false);
 
-            // If this is a 401 error (session expired), log out
+            // If this is a 401 error (session expired), try one reactive
+            // refresh before giving up -- goes through the same
+            // refresh-once path a 401 from any other MCP call does.
             if (err.message && (err.message.includes('401') || err.message.includes('Unauthorized'))) {
-                console.log('Session invalidated during system info fetch, logging out...');
+                console.log('Session invalidated during system info fetch, attempting refresh...');
                 setError(err.message || 'Failed to load system information');
-                forceLogout();
+                await handleUnauthorized();
                 return;
             }
 

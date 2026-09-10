@@ -26,6 +26,7 @@ import (
 
 	"pgedge-postgres-mcp/internal/auth"
 	"pgedge-postgres-mcp/internal/httperror"
+	"pgedge-postgres-mcp/internal/oauth"
 	"pgedge-postgres-mcp/internal/tracing"
 )
 
@@ -37,8 +38,8 @@ type HTTPConfig struct {
 	KeyFile        string                         // Path to TLS key file
 	ChainFile      string                         // Optional path to certificate chain file
 	AuthEnabled    bool                           // Enable API token authentication
-	TokenStore     *auth.TokenStore               // Token store for authentication
-	UserStore      *auth.UserStore                // User store for session token authentication
+	Validator      *auth.Validator                // Validates API tokens, session tokens and OAuth access tokens
+	OAuth          *oauth.Server                  // OAuth 2.0 authorisation server; nil when OAuth is inactive
 	ClientIP       *auth.ClientIPResolver         // Resolves the client address; nil means socket only
 	AllowedOrigins []string                       // Origins accepted in the Origin header; empty means loopback only
 	SetupHandlers  func(mux *http.ServeMux) error // Optional callback to add custom handlers before auth middleware
@@ -61,6 +62,13 @@ func (s *Server) buildHandler(config *HTTPConfig) (http.Handler, error) {
 		}
 	}
 
+	// Mount the OAuth authorisation server's endpoints (metadata,
+	// registration, authorisation, token, device and revocation), when
+	// OAuth is active.
+	if config.OAuth != nil {
+		config.OAuth.RegisterRoutes(mux)
+	}
+
 	// Catch-all for any path not matched above. http.ServeMux has no
 	// NotFoundHandler hook, so registering "/" (the least-specific
 	// pattern) is the standard way to intercept unmatched routes; it
@@ -70,14 +78,30 @@ func (s *Server) buildHandler(config *HTTPConfig) (http.Handler, error) {
 	// Wrap with auth middleware if enabled
 	var handler http.Handler = mux
 	if config.AuthEnabled {
-		handler = auth.AuthMiddleware(config.TokenStore, config.UserStore, true)(handler)
+		handler = auth.AuthMiddleware(config.Validator, true)(handler)
 	}
 
 	// Validate the Origin header ahead of authentication, so a request
 	// from an unexpected origin is turned away before any credential is
 	// examined. Wrapping the whole mux rather than the MCP handler alone
 	// covers /health and the LLM proxy routes as well.
-	originPolicy, err := NewOriginPolicy(config.AllowedOrigins)
+	//
+	// The OAuth login form and device verification form both submit
+	// same-origin to their own endpoints (/oauth/authorize,
+	// /oauth/device/verify), so a browser sends Origin: <issuer origin>
+	// on those posts. Origin validation is not exempted for OAuth's own
+	// routes -- they get exactly the same treatment as everything else --
+	// but the issuer's origin is added to the allowed list automatically
+	// when OAuth is active, so an operator does not also have to list it
+	// in http.allowed_origins for login to work.
+	allowedOrigins := config.AllowedOrigins
+	if config.OAuth != nil {
+		if issuerOrigin, ok := originFromIssuer(config.OAuth.Issuer()); ok {
+			allowedOrigins = addOriginIfMissing(allowedOrigins, issuerOrigin)
+			fmt.Fprintf(os.Stderr, "Accepting browser requests from the OAuth issuer origin: %s\n", issuerOrigin)
+		}
+	}
+	originPolicy, err := NewOriginPolicy(allowedOrigins)
 	if err != nil {
 		return nil, fmt.Errorf("invalid allowed origins: %w", err)
 	}

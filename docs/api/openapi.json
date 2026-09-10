@@ -876,6 +876,15 @@
       "UserInfoResponse": {
         "description": "User authentication and identity information.",
         "properties": {
+          "auth_method": {
+            "description": "Which credential kind authenticated the request.",
+            "enum": [
+              "api",
+              "session",
+              "oauth"
+            ],
+            "type": "string"
+          },
           "authenticated": {
             "description": "Whether the user is authenticated.",
             "type": "boolean"
@@ -885,7 +894,7 @@
             "type": "string"
           },
           "username": {
-            "description": "The username of the authenticated user. Absent when not authenticated.",
+            "description": "The username of the authenticated user. Absent when not authenticated, and empty for an API token, which carries no username.",
             "type": "string"
           }
         },
@@ -918,6 +927,50 @@
   },
   "openapi": "3.0.3",
   "paths": {
+    "/.well-known/oauth-authorization-server": {
+      "get": {
+        "description": "Returns the RFC 8414 authorisation server metadata document, advertising the endpoints and capabilities below. No authentication is required.",
+        "operationId": "getOAuthMetadata",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Authorisation server metadata."
+          }
+        },
+        "summary": "OAuth 2.0 authorisation server metadata",
+        "tags": [
+          "OAuth"
+        ]
+      }
+    },
+    "/.well-known/oauth-protected-resource": {
+      "get": {
+        "description": "Returns the RFC 9728 protected resource metadata document, naming this server's own authorisation server. No authentication is required.",
+        "operationId": "getOAuthProtectedResourceMetadata",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Protected resource metadata."
+          }
+        },
+        "summary": "OAuth 2.0 protected resource metadata",
+        "tags": [
+          "OAuth"
+        ]
+      }
+    },
     "/api/chat/compact": {
       "post": {
         "description": "Compacts a conversation's message history by removing or summarizing older messages while preserving important context such as anchors and tool results.",
@@ -1922,6 +1975,504 @@
           "MCP"
         ]
       }
+    },
+    "/oauth/authorize": {
+      "get": {
+        "description": "Renders an HTML sign-in form for the resource owner, per RFC 6749 section 4.1.1. No authentication is required.",
+        "operationId": "getOAuthAuthorize",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "response_type",
+            "required": true,
+            "schema": {
+              "enum": [
+                "code"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "client_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "redirect_uri",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "state",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "scope",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "code_challenge",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "code_challenge_method",
+            "required": true,
+            "schema": {
+              "enum": [
+                "S256"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "The HTML sign-in form."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Invalid or unregistered client, or disallowed redirect URI."
+          }
+        },
+        "summary": "Render the authorisation (login) page",
+        "tags": [
+          "OAuth"
+        ]
+      },
+      "post": {
+        "description": "Authenticates the resource owner's username and password against the same fields listed above plus username, password and csrf_token, then redirects to redirect_uri with an authorisation code (or an error) per RFC 6749 section 4.1.2. No bearer authentication is required.",
+        "operationId": "postOAuthAuthorize",
+        "requestBody": {
+          "content": {
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "302": {
+            "description": "Redirect to redirect_uri, carrying either a code or an error."
+          }
+        },
+        "summary": "Submit the authorisation (login) form",
+        "tags": [
+          "OAuth"
+        ]
+      }
+    },
+    "/oauth/device": {
+      "post": {
+        "description": "Implements the RFC 8628 device authorisation request. No authentication is required.",
+        "operationId": "postOAuthDevice",
+        "requestBody": {
+          "content": {
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "properties": {
+                  "client_id": {
+                    "type": "string"
+                  },
+                  "scope": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "client_id"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "device_code": {
+                      "type": "string"
+                    },
+                    "expires_in": {
+                      "type": "integer"
+                    },
+                    "interval": {
+                      "type": "integer"
+                    },
+                    "user_code": {
+                      "type": "string"
+                    },
+                    "verification_uri": {
+                      "type": "string"
+                    },
+                    "verification_uri_complete": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "The device and user codes, and the verification URI to display to the user."
+          }
+        },
+        "summary": "Start a device authorisation flow",
+        "tags": [
+          "OAuth"
+        ]
+      }
+    },
+    "/oauth/device/verify": {
+      "get": {
+        "description": "Renders an HTML form for the user to enter (or confirm) the user_code shown on the other device, per RFC 8628 section 3.3. No authentication is required.",
+        "operationId": "getOAuthDeviceVerify",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "user_code",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "The HTML verification form."
+          }
+        },
+        "summary": "Render the device verification page",
+        "tags": [
+          "OAuth"
+        ]
+      },
+      "post": {
+        "description": "Confirms or denies the device authorisation request identified by user_code, after authenticating the resource owner. No bearer authentication is required.",
+        "operationId": "postOAuthDeviceVerify",
+        "requestBody": {
+          "content": {
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Confirmation (or denial) result page."
+          }
+        },
+        "summary": "Submit the device verification form",
+        "tags": [
+          "OAuth"
+        ]
+      }
+    },
+    "/oauth/register": {
+      "post": {
+        "description": "Implements RFC 7591 dynamic client registration for public clients (no client secret). Disabled, returning 404, when dynamic registration is switched off in configuration. No authentication is required.",
+        "operationId": "registerOAuthClient",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "redirect_uris": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  }
+                },
+                "required": [
+                  "redirect_uris"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "client_id": {
+                      "type": "string"
+                    },
+                    "redirect_uris": {
+                      "items": {
+                        "type": "string"
+                      },
+                      "type": "array"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "The registered client."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Malformed registration request."
+          }
+        },
+        "summary": "Register an OAuth client",
+        "tags": [
+          "OAuth"
+        ]
+      }
+    },
+    "/oauth/revoke": {
+      "post": {
+        "description": "Implements RFC 7009 token revocation. Always responds 200, whether or not the token existed, so as not to leak which tokens are valid. Revoking a refresh token also revokes the access token issued alongside it. No authentication is required.",
+        "operationId": "postOAuthRevoke",
+        "requestBody": {
+          "content": {
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "properties": {
+                  "token": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "token"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "The token was revoked, or did not exist."
+          }
+        },
+        "summary": "Revoke a token",
+        "tags": [
+          "OAuth"
+        ]
+      }
+    },
+    "/oauth/static/favicon": {
+      "get": {
+        "description": "Returns the favicon linked from the OAuth sign-in and device verification pages. The media type follows the configured file's format. No authentication is required.",
+        "operationId": "getOAuthFavicon",
+        "responses": {
+          "200": {
+            "content": {
+              "image/png": {
+                "schema": {
+                  "format": "binary",
+                  "type": "string"
+                }
+              },
+              "image/x-icon": {
+                "schema": {
+                  "format": "binary",
+                  "type": "string"
+                }
+              }
+            },
+            "description": "The favicon image."
+          }
+        },
+        "summary": "Get the login page favicon",
+        "tags": [
+          "OAuth"
+        ]
+      }
+    },
+    "/oauth/static/logo": {
+      "get": {
+        "description": "Returns the logo image displayed on the OAuth sign-in and device verification pages. The media type follows the configured file's format. No authentication is required.",
+        "operationId": "getOAuthLogo",
+        "responses": {
+          "200": {
+            "content": {
+              "image/gif": {
+                "schema": {
+                  "format": "binary",
+                  "type": "string"
+                }
+              },
+              "image/jpeg": {
+                "schema": {
+                  "format": "binary",
+                  "type": "string"
+                }
+              },
+              "image/png": {
+                "schema": {
+                  "format": "binary",
+                  "type": "string"
+                }
+              },
+              "image/webp": {
+                "schema": {
+                  "format": "binary",
+                  "type": "string"
+                }
+              }
+            },
+            "description": "The logo image."
+          }
+        },
+        "summary": "Get the login page logo",
+        "tags": [
+          "OAuth"
+        ]
+      }
+    },
+    "/oauth/token": {
+      "post": {
+        "description": "Implements the RFC 6749 token endpoint for the authorization_code and refresh_token grants, and the RFC 8628 device_code grant, dispatching on the grant_type form field. No bearer authentication is required.",
+        "operationId": "postOAuthToken",
+        "requestBody": {
+          "content": {
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "properties": {
+                  "client_id": {
+                    "type": "string"
+                  },
+                  "code": {
+                    "type": "string"
+                  },
+                  "code_verifier": {
+                    "type": "string"
+                  },
+                  "device_code": {
+                    "type": "string"
+                  },
+                  "grant_type": {
+                    "enum": [
+                      "authorization_code",
+                      "refresh_token",
+                      "urn:ietf:params:oauth:grant-type:device_code"
+                    ],
+                    "type": "string"
+                  },
+                  "redirect_uri": {
+                    "type": "string"
+                  },
+                  "refresh_token": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "grant_type"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "access_token": {
+                      "type": "string"
+                    },
+                    "expires_in": {
+                      "type": "integer"
+                    },
+                    "refresh_token": {
+                      "type": "string"
+                    },
+                    "token_type": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "The issued access token, and a refresh token where the grant issues one."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Invalid grant, code, or client."
+          }
+        },
+        "summary": "Exchange a grant for tokens",
+        "tags": [
+          "OAuth"
+        ]
+      }
     }
   },
   "tags": [
@@ -1956,6 +2507,10 @@
     {
       "description": "OpenAPI specification endpoint.",
       "name": "OpenAPI"
+    },
+    {
+      "description": "Built-in OAuth 2.0 authorisation server endpoints (RFC 8414, RFC 7591, RFC 6749, RFC 8628, RFC 7009), active only when configured with an issuer.",
+      "name": "OAuth"
     }
   ]
 }

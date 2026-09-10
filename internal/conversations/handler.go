@@ -29,18 +29,22 @@ const maxRequestBodySize = 10 * 1024 * 1024
 // Handler handles conversation API requests
 type Handler struct {
 	store     *Store
-	userStore *auth.UserStore
+	validator *auth.Validator
 }
 
-// NewHandler creates a new conversation handler
-func NewHandler(store *Store, userStore *auth.UserStore) *Handler {
+// NewHandler creates a new conversation handler. The validator decides
+// which bearer credentials identify a user: password-login session
+// tokens and OAuth access tokens both carry a username, whereas an API
+// token does not and so cannot own a conversation history.
+func NewHandler(store *Store, validator *auth.Validator) *Handler {
 	return &Handler{
 		store:     store,
-		userStore: userStore,
+		validator: validator,
 	}
 }
 
-// extractUsername extracts the username from the session token
+// extractUsername resolves the bearer token to the username that owns
+// the conversation history.
 func (h *Handler) extractUsername(r *http.Request) (string, error) {
 	authHeader := r.Header.Get("Authorization")
 	if authHeader == "" {
@@ -52,12 +56,15 @@ func (h *Handler) extractUsername(r *http.Request) (string, error) {
 		return "", fmt.Errorf("invalid Authorization header format")
 	}
 
-	username, err := h.userStore.ValidateSessionToken(token)
+	identity, err := h.validator.Validate(token)
 	if err != nil {
 		return "", fmt.Errorf("invalid or expired session")
 	}
+	if identity.Username == "" {
+		return "", fmt.Errorf("conversation history requires a user login, not an API token")
+	}
 
-	return username, nil
+	return identity.Username, nil
 }
 
 // sendJSON sends a JSON response

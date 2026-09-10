@@ -20,7 +20,7 @@ import {
 // Mock the contexts StatusBanner depends on so we avoid all MCP network
 // machinery. sessionToken is null so the mount effect does not fetch.
 vi.mock('../../contexts/AuthContext', () => ({
-    useAuth: () => ({ sessionToken: null, forceLogout: vi.fn() }),
+    useAuth: () => ({ sessionToken: null, forceLogout: vi.fn(), handleUnauthorized: vi.fn() }),
 }));
 
 vi.mock('../../contexts/LLMProcessingContext', () => ({

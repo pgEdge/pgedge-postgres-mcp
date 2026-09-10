@@ -9,6 +9,44 @@ and this project adheres to
 
 ## [Unreleased]
 
+### Added
+
+- OAuth 2.0 authorisation server with authorisation code (PKCE) and
+  device grants, so Claude Desktop, the Claude mobile apps, the CLI
+  and the web client can sign in through a brandable login page
+  (#287). The page carries the pgEdge favicon by default, replaceable
+  with `http.auth.oauth.login_page.favicon_file`, alongside the title,
+  subtitle, message, footer, logo and colours.
+- The CLI chat client now authenticates via OAuth automatically when
+  the server advertises it, using a loopback browser redirect where
+  possible and falling back to the device authorisation flow on
+  headless sessions or when `--no-browser` is given. Tokens are cached
+  per server and refreshed transparently; `/logout` ends the session.
+  The `mcp-auth-mode` setting gained an `auto` option (the new
+  default), which tries OAuth first and falls back to the previous
+  token or username/password behaviour when the server does not
+  advertise it.
+
+### Changed
+
+- Authentication methods (API tokens, password login, OAuth) can be
+  enabled individually under `http.auth.methods`.
+- Enabling OAuth adds the issuer's own origin to the browser origins
+  the server accepts, so that the login form can post back to it. A
+  server with OAuth enabled and an empty `http.allowed_origins`
+  therefore accepts the issuer origin alongside the loopback default,
+  rather than loopback origins on any port alone; name the origins you
+  intend to serve the web client from explicitly.
+- Listing anything in `http.auth.oauth.allowed_redirect_uris` replaces
+  the three built-in defaults rather than adding to them. Repeat any of
+  `https://claude.ai/api/mcp/auth_callback`,
+  `http://127.0.0.1/callback` or `http://localhost/callback` that you
+  still need.
+- `/api/user/info` now reports an API token as authenticated, with
+  `auth_method: "api"`, rather than the "invalid or expired session"
+  error it previously returned for that credential kind, and now
+  reports `auth_method: "oauth"` for an OAuth-issued token.
+
 ### Fixed
 
 - The release workflow now names its archives after the tag that

@@ -151,6 +151,9 @@ func (c *Client) HandleSlashCommand(ctx context.Context, cmd *SlashCommand) bool
 	case "save":
 		return c.handleSaveConversation(ctx)
 
+	case "logout":
+		return c.handleLogoutCommand(ctx)
+
 	default:
 		// Unknown slash command, let it be sent to LLM
 		return false
@@ -206,6 +209,14 @@ Available Commands:
     /history rename <id> "..."  Rename a saved conversation
     /history delete <id>        Delete a saved conversation
     /history delete-all         Delete all saved conversations
+`
+	}
+
+	// Add /logout only when the current session authenticated via OAuth
+	if c.oauth != nil {
+		help += `
+  Authentication:
+    /logout                     Log out of the current OAuth session
 `
 	}
 
@@ -1265,5 +1276,26 @@ func (c *Client) handleSaveConversation(ctx context.Context) bool {
 
 	c.currentConversationID = conv.ID
 	c.ui.PrintSystemMessage(fmt.Sprintf("Conversation saved: %s (ID: %s)", conv.Title, conv.ID))
+	return true
+}
+
+// handleLogoutCommand handles /logout: it revokes the cached OAuth
+// session and clears its local cache entry, then exits, since the
+// existing MCP and conversations clients still carry the now-revoked
+// token source and reconnecting is the simplest way to force a fresh
+// login on the next run.
+func (c *Client) handleLogoutCommand(ctx context.Context) bool {
+	if c.oauth == nil {
+		c.ui.PrintSystemMessage("Not using OAuth; nothing to log out of.")
+		return true
+	}
+
+	if err := c.oauth.Logout(ctx); err != nil {
+		c.ui.PrintError(fmt.Sprintf("Logout failed: %v", err))
+		return true
+	}
+
+	c.ui.PrintSystemMessage("Logged out")
+	os.Exit(0)
 	return true
 }

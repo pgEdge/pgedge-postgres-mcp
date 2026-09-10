@@ -15,12 +15,18 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
+	"regexp"
 	"strings"
 	"testing"
+	"time"
 
 	"pgedge-postgres-mcp/internal/auth"
+	"pgedge-postgres-mcp/internal/config"
+	"pgedge-postgres-mcp/internal/oauth"
 )
 
 func TestHandleHealthCheck(t *testing.T) {
@@ -1486,4 +1492,211 @@ func TestBuildHandler_ErrAbortHandlerNotRecovered(t *testing.T) {
 	}()
 	handler.ServeHTTP(w, req)
 	t.Error("expected handler.ServeHTTP to panic with http.ErrAbortHandler")
+}
+
+// TestOAuthEndToEndThroughHTTPServer exercises the OAuth authorisation
+// server mounted on the real HTTP handler chain: an unauthenticated MCP
+// call carries the discovery hint, metadata is public, a client can
+// register, log in and exchange a code for tokens, the access token then
+// works against /mcp/v1, and revoking it makes the token stop working.
+func TestOAuthEndToEndThroughHTTPServer(t *testing.T) {
+	users := auth.InitializeUserStore()
+	if err := users.AddUser("alice", "correct horse", ""); err != nil {
+		t.Fatalf("AddUser: %v", err)
+	}
+
+	oa, err := oauth.New(oauth.Options{
+		Config: config.OAuthConfig{
+			Issuer:                    "http://localhost:8080",
+			AccessTokenLifetime:       time.Hour,
+			RefreshTokenLifetime:      time.Hour,
+			AuthorizationCodeLifetime: time.Minute,
+			DeviceCodeLifetime:        time.Minute,
+			AllowedRedirectURIs:       []string{"http://127.0.0.1/callback"},
+			LoginPage: config.LoginPageConfig{
+				PrimaryColour:   "#000",
+				SecondaryColour: "#000",
+			},
+		},
+		Authenticator: &oauth.UserStoreAuthenticator{Users: users},
+	})
+	if err != nil {
+		t.Fatalf("oauth.New: %v", err)
+	}
+	defer oa.Close()
+
+	v := &auth.Validator{
+		Users:            users,
+		OAuth:            oa,
+		Methods:          auth.Methods{APITokens: true, PasswordLogin: true, OAuth: true},
+		ExtraPublicPaths: oauth.PublicPaths(),
+	}
+
+	tools := &mockToolProvider{}
+	server := NewServer(tools)
+	h, err := server.buildHandler(&HTTPConfig{AuthEnabled: true, Validator: v, OAuth: oa})
+	if err != nil {
+		t.Fatalf("buildHandler: %v", err)
+	}
+	ts := httptest.NewServer(h)
+	defer ts.Close()
+
+	// 1. Unauthenticated MCP call carries the discovery hint.
+	resp, err := http.Post(ts.URL+"/mcp/v1", "application/json", strings.NewReader(`{"jsonrpc":"2.0","id":1,"method":"tools/list"}`))
+	if err != nil {
+		t.Fatalf("unauthenticated POST: %v", err)
+	}
+	if resp.StatusCode != http.StatusUnauthorized || !strings.Contains(resp.Header.Get("WWW-Authenticate"), "oauth-protected-resource") {
+		t.Fatalf("status = %d, WWW-Authenticate = %q", resp.StatusCode, resp.Header.Get("WWW-Authenticate"))
+	}
+
+	// 2. Metadata is public.
+	if r, err := http.Get(ts.URL + oauth.MetadataPath); err != nil || r.StatusCode != http.StatusOK {
+		t.Fatalf("metadata: status=%v err=%v", r, err)
+	}
+
+	// 2a. The logo and favicon are public too, so a browser rendering
+	// the login page collects no 401 for either.
+	for _, static := range []string{oauth.LogoPath, oauth.FaviconPath} {
+		r, err := http.Get(ts.URL + static)
+		if err != nil {
+			t.Fatalf("GET %s: %v", static, err)
+		}
+		if r.StatusCode != http.StatusOK {
+			t.Fatalf("GET %s: status = %d, want 200", static, r.StatusCode)
+		}
+		_ = r.Body.Close()
+	}
+
+	// 3. Register a client, log in through the authorisation form, and
+	// exchange the resulting code for tokens.
+	r, err := http.Post(ts.URL+oauth.RegisterPath, "application/json", strings.NewReader(`{"redirect_uris":["http://127.0.0.1/callback"]}`))
+	if err != nil {
+		t.Fatalf("register: %v", err)
+	}
+	var reg struct {
+		ClientID string `json:"client_id"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&reg); err != nil {
+		t.Fatalf("decode register response: %v", err)
+	}
+
+	q := url.Values{
+		"response_type":         {"code"},
+		"client_id":             {reg.ClientID},
+		"redirect_uri":          {"http://127.0.0.1/callback"},
+		"state":                 {"s"},
+		"code_challenge":        {"E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM"},
+		"code_challenge_method": {"S256"},
+		"scope":                 {"mcp"},
+	}
+	page, err := http.Get(ts.URL + oauth.AuthorizePath + "?" + q.Encode())
+	if err != nil {
+		t.Fatalf("authorize GET: %v", err)
+	}
+	body, err := io.ReadAll(page.Body)
+	if err != nil {
+		t.Fatalf("read authorize body: %v", err)
+	}
+	m := regexp.MustCompile(`name="csrf_token" value="([^"]+)"`).FindStringSubmatch(string(body))
+	if m == nil {
+		t.Fatalf("csrf_token not found in authorize page: %s", body)
+	}
+	csrf := m[1]
+
+	q.Set("csrf_token", csrf)
+	q.Set("username", "alice")
+	q.Set("password", "correct horse")
+	noRedirect := &http.Client{CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
+	// The login form submits same-origin, so a real browser sends
+	// Origin: <issuer origin> here; exercise that path rather than the
+	// no-Origin-header case the http.Client would send on its own.
+	authorizePostReq, err := http.NewRequest(http.MethodPost, ts.URL+oauth.AuthorizePath, strings.NewReader(q.Encode()))
+	if err != nil {
+		t.Fatalf("new authorize request: %v", err)
+	}
+	authorizePostReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	authorizePostReq.Header.Set("Origin", "http://localhost:8080")
+	post, err := noRedirect.Do(authorizePostReq)
+	if err != nil {
+		t.Fatalf("authorize POST: %v", err)
+	}
+	loc, err := url.Parse(post.Header.Get("Location"))
+	if err != nil {
+		t.Fatalf("parse redirect location %q: %v", post.Header.Get("Location"), err)
+	}
+	code := loc.Query().Get("code")
+	if code == "" {
+		t.Fatalf("no code in redirect location %q (status %d)", post.Header.Get("Location"), post.StatusCode)
+	}
+
+	tok, err := http.PostForm(ts.URL+oauth.TokenPath, url.Values{
+		"grant_type":    {"authorization_code"},
+		"code":          {code},
+		"client_id":     {reg.ClientID},
+		"redirect_uri":  {"http://127.0.0.1/callback"},
+		"code_verifier": {"dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk"},
+	})
+	if err != nil {
+		t.Fatalf("token: %v", err)
+	}
+	var tr struct {
+		AccessToken  string `json:"access_token"`
+		RefreshToken string `json:"refresh_token"`
+	}
+	if err := json.NewDecoder(tok.Body).Decode(&tr); err != nil {
+		t.Fatalf("decode token response: %v", err)
+	}
+	if tr.AccessToken == "" {
+		t.Fatal("no access token")
+	}
+
+	// 4. The access token works against the MCP endpoint.
+	doMCPCall := func() int {
+		req, err := http.NewRequest(http.MethodPost, ts.URL+"/mcp/v1", strings.NewReader(`{"jsonrpc":"2.0","id":1,"method":"tools/list"}`))
+		if err != nil {
+			t.Fatalf("new request: %v", err)
+		}
+		req.Header.Set("Authorization", "Bearer "+tr.AccessToken)
+		req.Header.Set("Content-Type", "application/json")
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			t.Fatalf("MCP call: %v", err)
+		}
+		return resp.StatusCode
+	}
+	if code := doMCPCall(); code != http.StatusOK {
+		t.Fatalf("MCP call with access token: status = %d", code)
+	}
+
+	// 5. The refresh token exchanges for a fresh pair, and the new
+	// access token works too.
+	refreshed, err := http.PostForm(ts.URL+oauth.TokenPath, url.Values{
+		"grant_type":    {"refresh_token"},
+		"refresh_token": {tr.RefreshToken},
+		"client_id":     {reg.ClientID},
+	})
+	if err != nil {
+		t.Fatalf("refresh: %v", err)
+	}
+	if refreshed.StatusCode != http.StatusOK {
+		t.Fatalf("refresh: status = %d", refreshed.StatusCode)
+	}
+	if err := json.NewDecoder(refreshed.Body).Decode(&tr); err != nil {
+		t.Fatalf("decode refresh response: %v", err)
+	}
+	if tr.AccessToken == "" || tr.RefreshToken == "" {
+		t.Fatal("refresh returned an incomplete token pair")
+	}
+	if code := doMCPCall(); code != http.StatusOK {
+		t.Fatalf("MCP call with refreshed access token: status = %d", code)
+	}
+
+	// 6. Revoking the refresh token invalidates the access token too.
+	if _, err := http.PostForm(ts.URL+oauth.RevokePath, url.Values{"token": {tr.RefreshToken}}); err != nil {
+		t.Fatalf("revoke: %v", err)
+	}
+	if code := doMCPCall(); code != http.StatusUnauthorized {
+		t.Fatalf("expected token to be revoked, got status %d", code)
+	}
 }

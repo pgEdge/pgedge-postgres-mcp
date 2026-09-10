@@ -26,6 +26,22 @@ export default defineConfig({
         target: 'http://localhost:8080',
         changeOrigin: true,
       },
+      '/oauth': {
+        target: 'http://localhost:8080',
+        changeOrigin: true,
+        // /oauth/callback is a client-side route the SPA itself handles
+        // (AuthContext reads its query string on mount), not a server
+        // endpoint, so it must not be proxied like the rest of /oauth.
+        bypass: (req) => {
+          if (req.url.split('?')[0] === '/oauth/callback') {
+            return req.url;
+          }
+        },
+      },
+      '/.well-known': {
+        target: 'http://localhost:8080',
+        changeOrigin: true,
+      },
     },
   },
   build: {

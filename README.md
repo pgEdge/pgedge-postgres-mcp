@@ -33,6 +33,7 @@
 - Authentication and Security
     - [Authentication - Overview](docs/guide/authentication.md)
     - [Authentication - User Management](docs/guide/auth_user.md)
+    - [Authentication - OAuth](docs/guide/auth_oauth.md)
     - [Authentication - Token Management](docs/guide/auth_token.md)
     - [Security Checklist](docs/guide/security.md)
     - [Security Management](docs/guide/security_mgmt.md)

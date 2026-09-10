@@ -25,6 +25,59 @@ http:
         rate_limit_window_minutes: 15
         rate_limit_max_attempts: 10
 
+        # Enable or disable each authentication method independently.
+        # Every method defaults to true, so this block can be omitted
+        # entirely and all three methods stay enabled.
+        methods:
+            api_tokens: true
+            password_login: true
+            oauth: true
+
+        # OAuth 2.0 authorisation server settings. OAuth becomes
+        # active once "enabled" above is true, "methods.oauth" is not
+        # false, and an issuer is set here. Leave "issuer" unset (the
+        # default) to keep OAuth switched off entirely.
+        oauth:
+            # Base URL clients use to discover and reach this server.
+            # Must be https unless the host is localhost or a
+            # loopback address.
+            issuer: ""
+            #issuer: "https://mcp.example.com"
+
+            # Token and code lifetimes; each accepts a Go duration
+            # string. Uncomment to override the defaults shown.
+            #access_token_lifetime: "1h"
+            #refresh_token_lifetime: "24h"
+            #authorization_code_lifetime: "10m"
+            #device_code_lifetime: "15m"
+
+            # Redirect URIs accepted at authorisation time. Listing
+            # any URI here replaces the defaults below rather than
+            # adding to them, so repeat the ones you still need. The
+            # issuer's own callback, and the callback for each origin
+            # in allowed_origins below, are added automatically.
+            #allowed_redirect_uris:
+            #    - "https://claude.ai/api/mcp/auth_callback"
+            #    - "http://127.0.0.1/callback"
+            #    - "http://localhost/callback"
+            #    - "https://mcp.example.com/oauth/callback"
+
+            # Branding for the login page; every field is optional.
+            # See examples/oauth/config.yaml for a complete example
+            # and examples/oauth/login.html for a custom template.
+            #login_page:
+            #    title: "Sign in"
+            #    subtitle: "Sign in to the pgEdge Postgres MCP Server"
+            #    message: ""
+            #    footer: ""
+            #    # PNG, JPEG, GIF or WebP; SVG is refused.
+            #    logo_file: ""
+            #    # ICO or PNG; SVG is refused.
+            #    favicon_file: ""
+            #    primary_colour: "#15AABF"
+            #    secondary_colour: "#0C8599"
+            #    template_file: ""
+
     # How the client address is determined, for rate limiting and logging.
     # "socket" reads it from the connection and ignores forwarding headers.
     # Behind a reverse proxy, set source to "header" and list the proxies

@@ -13,8 +13,11 @@ mcp:
     mode: "http"
     url: "http://127.0.0.1:8080"
 
-    # Authentication mode: "user" or "token"
-    auth_mode: "user"
+    # Authentication mode: "auto", "none", "token", "user", or "oauth"
+    # "auto" (the default) tries OAuth first, when the server
+    # advertises it, and falls back to token or username/password
+    # authentication otherwise.
+    auth_mode: "auto"
 
     # User authentication (will prompt if not set)
     # username: "myuser"
@@ -23,6 +26,12 @@ mcp:
     # Token authentication (alternative to user auth)
     # auth_mode: "token"
     # token: ""  # Or use PGEDGE_MCP_TOKEN environment variable
+
+    # OAuth: opens a browser through a loopback redirect by default.
+    # Set no_browser to true, or pass -no-browser, on a headless
+    # session to use the device authorisation flow instead; the CLI
+    # then prints a URL and a code to enter on another device.
+    no_browser: false
 
     tls: false  # Set to true for HTTPS connections
 

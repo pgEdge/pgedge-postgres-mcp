@@ -29,7 +29,7 @@ func main() {
 	mcpURL := flag.String("mcp-url", "", "MCP server URL (for HTTP mode)")
 	mcpServerPath := flag.String("mcp-server-path", "", "Path to MCP server binary (for stdio mode)")
 	mcpServerConfig := flag.String("mcp-server-config", "", "Path to MCP server config file (for stdio mode)")
-	mcpAuthMode := flag.String("mcp-auth-mode", "", "MCP authentication mode: none, token, or user (default: user)")
+	mcpAuthMode := flag.String("mcp-auth-mode", "", "MCP authentication mode: auto, none, token, user, or oauth (default: auto)")
 	mcpToken := flag.String("mcp-token", "", "MCP server authentication token (for token mode)")
 	mcpUsername := flag.String("mcp-username", "", "MCP server username (for user mode)")
 	mcpPassword := flag.String("mcp-password", "", "MCP server password (for user mode)")
@@ -43,6 +43,7 @@ func main() {
 	geminiAPIKeyFile := flag.String("gemini-api-key-file", "", "Path to a file containing the Google Gemini API key")
 	ollamaURL := flag.String("ollama-url", "", "Ollama server URL (default: http://localhost:11434)")
 	noColor := flag.Bool("no-color", false, "Disable colored output")
+	noBrowser := flag.Bool("no-browser", false, "Use the OAuth device flow instead of opening a browser")
 
 	flag.Parse()
 
@@ -80,6 +81,9 @@ func main() {
 	}
 	if *mcpAuthMode != "" {
 		cfg.MCP.AuthMode = *mcpAuthMode
+	}
+	if *noBrowser {
+		cfg.MCP.NoBrowser = true
 	}
 	if *mcpToken != "" {
 		cfg.MCP.Token = *mcpToken

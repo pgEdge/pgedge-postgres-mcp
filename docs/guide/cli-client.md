@@ -136,10 +136,11 @@ Flags:
   -mcp-url string           MCP server URL (for HTTP mode)
   -mcp-server-path string   Path to MCP server binary (for stdio mode)
   -mcp-server-config string Path to MCP server config file (for stdio mode)
-  -mcp-auth-mode string     MCP authentication mode: none, token, or user
+  -mcp-auth-mode string     MCP authentication mode: auto, none, token, user, or oauth
   -mcp-token string         MCP server authentication token (for token mode)
   -mcp-username string      MCP server username (for user mode)
   -mcp-password string      MCP server password (for user mode)
+  -no-browser               Use the OAuth device flow instead of opening a browser
   -llm-provider string      LLM provider: anthropic, openai, gemini, or ollama
   -llm-model string         LLM model to use
   -anthropic-api-key string API key for Anthropic
@@ -162,6 +163,10 @@ Flags:
 - `PGEDGE_MCP_SERVER_PATH`: Path to MCP server binary (for stdio mode)
 - `PGEDGE_MCP_SERVER_CONFIG_PATH`: Path to MCP server config file (for stdio mode)
 - `PGEDGE_MCP_TOKEN`: Authentication token (for HTTP mode)
+- `PGEDGE_MCP_AUTH_MODE`: Authentication mode (auto, none, token,
+  user, or oauth)
+- `PGEDGE_MCP_NO_BROWSER`: Use the OAuth device flow instead of
+  opening a browser
 - `PGEDGE_LLM_PROVIDER`: LLM provider (anthropic, openai, gemini, or ollama)
 - `PGEDGE_LLM_MODEL`: LLM model name
 - `PGEDGE_ANTHROPIC_API_KEY`: Anthropic API key (falls back to
@@ -346,6 +351,35 @@ export PGEDGE_MCP_TOKEN="your-token-here"
 
 Or, if you don't set the token, the client will prompt you for it.
 
+### Example 3b: HTTP Mode with OAuth
+
+The default `auto` auth mode signs in with OAuth automatically when
+the server advertises it, opening a browser through a loopback
+redirect:
+
+```bash
+export PGEDGE_MCP_URL="https://mcp.example.com"
+./bin/pgedge-nla-cli -mcp-mode http
+```
+
+Add `-no-browser` on a headless session to use the device
+authorisation flow instead; the client prints a URL and a code to
+enter on another device:
+
+```bash
+./bin/pgedge-nla-cli -mcp-mode http -no-browser
+```
+
+The client accepts OAuth only when the issuer the server advertises
+matches the URL it was given, so where a deployment answers on more
+than one hostname, set `PGEDGE_MCP_URL` to the issuer's own public
+URL.
+
+The client caches its OAuth tokens in `oauth-tokens.yaml`, stored
+beside its preferences file, and refreshes them automatically. Run
+`/logout` to end the session and clear the cache. See
+[Authentication - OAuth](auth_oauth.md#cli-behaviour) for details.
+
 ### Example 4: Ollama for Local LLM
 
 Use Ollama for privacy-sensitive applications or offline usage.
@@ -456,6 +490,16 @@ The chat client supports **slash commands** for managing settings and configurat
 ```
 
 Shows comprehensive help for all slash commands with examples.
+
+### Log Out of an OAuth Session
+
+```bash
+/logout
+```
+
+Revokes the current OAuth session and clears its cached tokens. This
+command only appears once the session authenticated via OAuth; see
+[Authentication - OAuth](auth_oauth.md#cli-behaviour) for details.
 
 ### Manage Status Messages
 
