@@ -7,7 +7,7 @@
 #      via GoReleaser; the server embeds web/dist.
 #   2. Create the GitHub release with all tarballs (tag pushes only).
 #   3. Build RPMs (almalinux 9/10, amd64+arm64) and DEBs (jammy / noble /
-#      bullseye / bookworm / trixie, amd64+arm64) via pgedge-builder-action.
+#      bookworm / trixie, amd64+arm64) via pgedge-builder-action.
 #      Package cells stage the server/cli/web tarballs from workflow artifacts
 #      (release-artifacts/), so they run in parallel with the release job and
 #      work under simulate_tag on branches.
@@ -86,7 +86,7 @@ jobs:
                   component_name: pkg
                   archs: '["amd64","arm64"]'
                   rpm_images: '["almalinux:9","almalinux:10"]'
-                  deb_images: '["ubuntu:jammy","ubuntu:noble","ubuntu:resolute","debian:bullseye","debian:bookworm","debian:trixie"]'
+                  deb_images: '["ubuntu:jammy","ubuntu:noble","ubuntu:resolute","debian:bookworm","debian:trixie"]'
 
     # =========================================================================
     # Tag parsing → (repo_type, component-version, component-buildnum).
