@@ -130,7 +130,7 @@ func TestRegisterMethodNotAllowed(t *testing.T) {
 func TestRegisterRateLimitedAfterBadMethodAttempts(t *testing.T) {
 	rl := auth.NewRateLimiter(1, 1)
 	t.Cleanup(rl.Stop)
-	ts := newTestServer(t, func(o *Options) { o.RateLimiter = rl })
+	ts := newTestServer(t, func(o *Options) { o.AnonymousRateLimiter = rl })
 
 	// Two disallowed-method requests, each recording a failed attempt
 	// against the limiter.

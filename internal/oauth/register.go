@@ -61,7 +61,13 @@ func (s *Server) handleRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	ip := s.clientIP(r)
-	if s.opts.RateLimiter != nil && !s.opts.RateLimiter.IsAllowed(ip) {
+	// Registration is metered on the anonymous limiter, which has a
+	// budget of its own: counting registrations against the limiter
+	// that also gates password login, the authenticate_user tool and
+	// /api/user/info would let a handful of anonymous registrations
+	// lock every user out of signing in.
+	limiter := s.opts.AnonymousRateLimiter
+	if limiter != nil && !limiter.IsAllowed(ip) {
 		// Already blocked: don't record another attempt, since doing so
 		// would only extend the block window for a caller who is
 		// getting no further than this check anyway.
@@ -72,11 +78,11 @@ func (s *Server) handleRegister(w http.ResponseWriter, r *http.Request) {
 
 	// Registration is a metered resource, not merely a guarded one: an
 	// unauthenticated caller can register as many clients as it likes,
-	// so every registration counts against the per-IP limiter, whether
-	// or not it succeeded. RecordFailedAttempt is the limiter's only
-	// way of counting; nothing here implies the request failed.
-	if s.opts.RateLimiter != nil {
-		s.opts.RateLimiter.RecordFailedAttempt(ip)
+	// so every registration counts against the registration limiter,
+	// whether or not it succeeded. RecordFailedAttempt is the limiter's
+	// only way of counting; nothing here implies the request failed.
+	if limiter != nil {
+		limiter.RecordFailedAttempt(ip)
 	}
 
 	fail := func(e *Error) {

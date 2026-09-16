@@ -52,6 +52,22 @@ const (
 	tokenCleanupTimeout  = 30 * time.Second // Max time allowed for cleanup operations
 )
 
+// effectiveAllowedOrigins returns the browser origins the server will
+// actually accept: those configured in http.allowed_origins, plus the
+// OAuth issuer's own origin when OAuth is active, since the login and
+// device verification forms post same-origin to the issuer. The same
+// list is used to build the policy that is logged at startup and the
+// one the request path enforces, so the two can never describe
+// different things; before it existed, an empty allowed_origins with
+// OAuth switched on was logged as "loopback origins only" whilst the
+// server was in fact refusing every loopback origin but the issuer's.
+func effectiveAllowedOrigins(cfg *config.Config) []string {
+	if !cfg.HTTP.Auth.OAuthActive() {
+		return cfg.HTTP.AllowedOrigins
+	}
+	return mcp.EffectiveOrigins(cfg.HTTP.AllowedOrigins, cfg.HTTP.Auth.OAuth.Issuer)
+}
+
 func main() {
 	// Get executable path for default config location
 	execPath, err := os.Executable()
@@ -528,10 +544,16 @@ func main() {
 		}
 	}
 
-	// Create rate limiter for authentication if HTTP auth is enabled
-	var rateLimiter *auth.RateLimiter
+	// Create rate limiters for authentication if HTTP auth is enabled.
+	// The second one carries the same limits but a separate budget, and
+	// meters the unauthenticated OAuth endpoints that create entries in
+	// the authorisation server's store: counting those against the
+	// limiter that also gates password login would let anonymous
+	// requests lock every user out of signing in.
+	var rateLimiter, anonymousRateLimiter *auth.RateLimiter
 	if cfg.HTTP.Enabled && cfg.HTTP.Auth.Enabled {
 		rateLimiter = auth.NewRateLimiter(cfg.HTTP.Auth.RateLimitWindowMinutes, cfg.HTTP.Auth.RateLimitMaxAttempts)
+		anonymousRateLimiter = auth.NewRateLimiter(cfg.HTTP.Auth.RateLimitWindowMinutes, cfg.HTTP.Auth.RateLimitMaxAttempts)
 		fmt.Fprintf(os.Stderr, "Rate limiting enabled: %d attempts per %d minutes per IP\n",
 			cfg.HTTP.Auth.RateLimitMaxAttempts, cfg.HTTP.Auth.RateLimitWindowMinutes)
 		if cfg.HTTP.Auth.MaxFailedAttemptsBeforeLockout > 0 {
@@ -559,9 +581,12 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel() // Ensure background goroutines are stopped on exit
 
-	// Ensure rate limiter cleanup goroutine is stopped on exit
+	// Ensure rate limiter cleanup goroutines are stopped on exit
 	if rateLimiter != nil {
 		defer rateLimiter.Stop()
+	}
+	if anonymousRateLimiter != nil {
+		defer anonymousRateLimiter.Stop()
 	}
 
 	// Get the first database configuration (if any)
@@ -842,8 +867,11 @@ func main() {
 		// Fail at startup rather than at the first request if an origin
 		// is malformed, and report the effective policy either way, so an
 		// operator can see whether the bundled web client will be
-		// accepted from wherever it is actually served.
-		originPolicy, originErr := mcp.NewOriginPolicy(cfg.HTTP.AllowedOrigins)
+		// accepted from wherever it is actually served. The list is the
+		// one the server will really enforce, issuer origin included, so
+		// that the log and the running policy cannot disagree.
+		effectiveOrigins := effectiveAllowedOrigins(cfg)
+		originPolicy, originErr := mcp.NewOriginPolicy(effectiveOrigins)
 		if originErr != nil {
 			fmt.Fprintf(os.Stderr, "ERROR: Invalid Origin configuration: %v\n", originErr)
 			os.Exit(1)
@@ -875,16 +903,51 @@ func main() {
 					RateLimiter:       rateLimiter,
 					MaxFailedAttempts: cfg.HTTP.Auth.MaxFailedAttemptsBeforeLockout,
 				},
-				RateLimiter:    rateLimiter,
-				ClientIP:       clientIPResolver,
-				ExtraRedirects: extraRedirects,
-				Logger:         func(f string, a ...any) { fmt.Fprintf(os.Stderr, f+"\n", a...) },
+				RateLimiter:          rateLimiter,
+				AnonymousRateLimiter: anonymousRateLimiter,
+				ClientIP:             clientIPResolver,
+				ExtraRedirects:       extraRedirects,
+				// A token is only as good as the account behind it: a
+				// user that has been disabled, deleted or locked out
+				// must not be able to use an access token or refresh
+				// one, which is how session tokens have always behaved.
+				SubjectActive: func(username string) bool {
+					return userStore != nil && userStore.IsActive(username)
+				},
+				// The MCP session, and so the per-token database
+				// connection pool, is keyed on the access token's hash,
+				// which is exactly what the store reports here. Without
+				// this the pools of expired and revoked OAuth tokens
+				// would accumulate for the life of the process, since
+				// the only other caller of RemoveClients is driven by
+				// the API token store.
+				OnTokensRevoked: func(accessTokenHashes []string) {
+					if clientManager == nil || len(accessTokenHashes) == 0 {
+						return
+					}
+					if err := clientManager.RemoveClients(accessTokenHashes); err != nil {
+						fmt.Fprintf(os.Stderr, "WARNING: Failed to release connections for revoked OAuth tokens: %v\n", err)
+					}
+				},
+				Logger: func(f string, a ...any) { fmt.Fprintf(os.Stderr, f+"\n", a...) },
 			})
 			if oauthErr != nil {
 				fmt.Fprintf(os.Stderr, "ERROR: OAuth: %v\n", oauthErr)
 				os.Exit(1)
 			}
 			defer oauthServer.Close()
+			// Disabling, deleting or locking out a user now revokes its
+			// OAuth tokens outright, rather than leaving them usable
+			// until they expire; the same hook fires when the watched
+			// user file is reloaded with an account removed or
+			// disabled.
+			if userStore != nil {
+				userStore.SetRevocationHook(func(username string) {
+					if revoked := oauthServer.RevokeSubject(username); len(revoked) > 0 {
+						fmt.Fprintf(os.Stderr, "Revoked %d OAuth token(s) for user %q\n", len(revoked), username)
+					}
+				})
+			}
 			validator.OAuth = oauthServer
 			validator.ExtraPublicPaths = oauth.PublicPaths()
 			fmt.Fprintf(os.Stderr, "OAuth authorisation server enabled, issuer %s\n", oauthServer.Issuer())
@@ -904,7 +967,7 @@ func main() {
 			Validator:      validator,
 			OAuth:          oauthServer,
 			ClientIP:       clientIPResolver,
-			AllowedOrigins: cfg.HTTP.AllowedOrigins,
+			AllowedOrigins: effectiveOrigins,
 			Debug:          *debug,
 		}
 
@@ -968,10 +1031,16 @@ func main() {
 
 				token, ok := auth.ParseBearer(r.Header.Get("Authorization"))
 				if !ok {
+					// An absent header simply means "not signed in";
+					// one that is present but malformed is a caller
+					// error worth naming, which is what the documented
+					// error field is for.
+					body := map[string]any{"authenticated": false}
+					if r.Header.Get("Authorization") != "" {
+						body["error"] = "Invalid Authorization header format"
+					}
 					//nolint:errcheck // Encoding a simple map should never fail
-					json.NewEncoder(w).Encode(map[string]any{
-						"authenticated": false,
-					})
+					json.NewEncoder(w).Encode(body)
 					return
 				}
 
@@ -983,6 +1052,7 @@ func main() {
 					//nolint:errcheck // Encoding a simple map should never fail
 					json.NewEncoder(w).Encode(map[string]any{
 						"authenticated": false,
+						"error":         "Invalid or expired token",
 					})
 					return
 				}

@@ -179,7 +179,7 @@ func TestDeviceMethodNotAllowed(t *testing.T) {
 func TestDeviceRateLimited(t *testing.T) {
 	rl := auth.NewRateLimiter(1, 1)
 	t.Cleanup(rl.Stop)
-	ts := newTestServer(t, func(o *Options) { o.RateLimiter = rl })
+	ts := newTestServer(t, func(o *Options) { o.AnonymousRateLimiter = rl })
 	ts.do("GET", DevicePath, "", "")
 	ts.do("GET", DevicePath, "", "")
 	rec := ts.do("POST", DevicePath, "application/x-www-form-urlencoded", "client_id=nope")

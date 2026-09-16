@@ -113,6 +113,26 @@ func originFromIssuer(issuer string) (origin string, ok bool) {
 	return scheme + "://" + parsed.Host, true
 }
 
+// EffectiveOrigins returns the origin list a server will actually
+// enforce: the configured list, plus the OAuth issuer's own origin when
+// OAuth is active, since the login form and the device verification
+// form both submit same-origin to the issuer. issuer may be empty, in
+// which case the configured list is returned unchanged. It is exported
+// so that main can log the policy that is really in force rather than
+// one built from the configured list alone, which with an empty list
+// and OAuth active described a loopback-only policy the server was not
+// applying.
+func EffectiveOrigins(configured []string, issuer string) []string {
+	if issuer == "" {
+		return configured
+	}
+	origin, ok := originFromIssuer(issuer)
+	if !ok {
+		return configured
+	}
+	return addOriginIfMissing(configured, origin)
+}
+
 // addOriginIfMissing appends origin to origins unless an equivalent entry
 // (compared after normalisation) is already present, so the startup log
 // and the configured list do not carry a visible duplicate when an

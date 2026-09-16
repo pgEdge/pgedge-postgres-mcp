@@ -129,9 +129,9 @@ button.secondary:hover { background: #F1F5F9; }
 <h1>{{.Branding.Title}}</h1>
 {{if .Branding.Subtitle}}<p class="subtitle">{{.Branding.Subtitle}}</p>{{end}}
 {{if .IsDeviceFlow}}
-{{if .Client}}<p class="consent">{{.Client}} is asking to sign in with scope {{if .Scope}}{{.Scope}}{{else}}mcp{{end}}.</p>{{end}}
+{{if .Client}}<p class="consent">An application calling itself &ldquo;{{.Client}}&rdquo; is asking to sign in with scope {{if .Scope}}{{.Scope}}{{else}}mcp{{end}}. That name is the application's own claim and has not been verified.</p>{{end}}
 {{else}}
-{{if .Client}}<p class="subtitle">{{.Client}} would like to sign in.</p>{{end}}
+{{if .Client}}<p class="subtitle">An application calling itself &ldquo;{{.Client}}&rdquo;{{if .ClientRedirectHost}}, which will be sent back to {{.ClientRedirectHost}},{{end}} is asking you to sign in. That name is the application's own claim and has not been verified.</p>{{end}}
 {{end}}
 {{if .Branding.MessageParagraphs}}
 <div class="notice">

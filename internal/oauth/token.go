@@ -226,6 +226,17 @@ func (s *Server) handleRefreshTokenGrant(w http.ResponseWriter, r *http.Request)
 		return newError("invalid_grant", genericRefreshInvalidGrant, http.StatusBadRequest)
 	}
 
+	// The subject may have been disabled, deleted or locked out since
+	// the token was issued: refreshing must not mint a fresh access
+	// token for an account that no longer exists or is no longer
+	// allowed in, so the check fails closed and the rest of that
+	// subject's tokens go with it.
+	if !s.subjectActive(t.Subject) {
+		s.logf("oauth token: client=%q subject=%q error=subject_inactive, revoking its tokens", clientID, t.Subject)
+		s.RevokeSubject(t.Subject)
+		return newError("invalid_grant", genericRefreshInvalidGrant, http.StatusBadRequest)
+	}
+
 	tr, err := s.issueTokens(clientID, t.Subject, t.Scope, t.Family)
 	if err != nil {
 		return newError("server_error", "failed to issue tokens", http.StatusServiceUnavailable)

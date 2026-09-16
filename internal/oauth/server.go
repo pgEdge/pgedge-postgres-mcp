@@ -35,6 +35,35 @@ type Options struct {
 	// tests).
 	RateLimiter *auth.RateLimiter
 
+	// AnonymousRateLimiter meters the unauthenticated endpoints that
+	// create entries in the store, namely dynamic client registration
+	// and the device authorisation request. It has the same limits and
+	// client-IP semantics as RateLimiter but a budget of its own,
+	// because these endpoints are metered rather than guarded: every
+	// request counts, successful or not, so sharing RateLimiter's
+	// budget would let a handful of anonymous requests lock every user
+	// out of password login, the authenticate_user tool and
+	// /api/user/info. May be nil, in which case neither endpoint is
+	// throttled (as in most tests).
+	AnonymousRateLimiter *auth.RateLimiter
+
+	// SubjectActive reports whether an authenticated subject (a
+	// username in the user store) is still allowed to hold OAuth
+	// access: it must return false for a user that has been disabled,
+	// deleted or locked out. It is consulted on every access token
+	// validation and on every refresh, so that revoking a user account
+	// takes effect at once rather than when the token happens to
+	// expire. May be nil, in which case no such check is made; main
+	// always sets it when a user store is configured.
+	SubjectActive func(username string) bool
+
+	// OnTokensRevoked, when set, is called with the hashes of access
+	// tokens that have just been expired or revoked, whether by a
+	// sweep, a revocation request, a family revocation or a subject
+	// revocation. main uses it to release the per-token database
+	// connection pools keyed on those hashes.
+	OnTokensRevoked func(accessTokenHashes []string)
+
 	// ClientIP resolves the client IP address from a request, honouring
 	// trusted proxy configuration. May be nil, in which case
 	// auth.ExtractIPAddress is used directly.
@@ -95,6 +124,9 @@ func New(opts Options) (*Server, error) {
 		csrf:  signer,
 		page:  page,
 	}
+	// Installed before the sweeper starts, so that the very first sweep
+	// already reports the tokens it expires.
+	s.store.SetRevocationHook(opts.OnTokensRevoked)
 	s.stopSweep = s.store.StartSweeper(time.Minute)
 	return s, nil
 }
@@ -129,12 +161,41 @@ func (s *Server) Issuer() string {
 
 // ValidateAccessToken reports whether token is a currently valid access
 // token, returning the subject and client identifier it was issued to.
+// A token whose subject is no longer an active user is refused, and the
+// rest of that subject's tokens are revoked with it, so that disabling
+// or deleting an account ends its OAuth access immediately.
 func (s *Server) ValidateAccessToken(token string) (subject, clientID string, ok bool) {
 	t, found := s.store.GetToken(hashToken(token))
 	if !found || t.IsRefresh || !t.ExpiresAt.After(s.now()) {
 		return "", "", false
 	}
+	if !s.subjectActive(t.Subject) {
+		s.logf("oauth: subject=%q is no longer active, revoking its tokens", t.Subject)
+		s.RevokeSubject(t.Subject)
+		return "", "", false
+	}
 	return t.Subject, t.ClientID, true
+}
+
+// subjectActive reports whether subject may still hold OAuth access,
+// consulting Options.SubjectActive when one is configured. With no
+// check configured (as in most tests, and in a deployment with no user
+// store) every subject is treated as active; with one configured, an
+// unknown or disabled subject fails closed.
+func (s *Server) subjectActive(subject string) bool {
+	if s.opts.SubjectActive == nil {
+		return true
+	}
+	return s.opts.SubjectActive(subject)
+}
+
+// RevokeSubject revokes every OAuth token, authorisation code and
+// device code standing in subject's name, returning the hashes of the
+// access tokens revoked. It is called when a user account is disabled,
+// deleted or locked out, and whenever a token is presented by a subject
+// that is no longer active.
+func (s *Server) RevokeSubject(subject string) []string {
+	return s.store.DeleteBySubject(subject)
 }
 
 // now returns the current time, honouring opts.Now when set.

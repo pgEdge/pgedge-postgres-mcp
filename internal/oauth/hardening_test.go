@@ -25,7 +25,7 @@ import (
 func TestRegistrationIsMeteredEvenWhenSuccessful(t *testing.T) {
 	rl := auth.NewRateLimiter(1, 2)
 	t.Cleanup(rl.Stop)
-	ts := newTestServer(t, func(o *Options) { o.RateLimiter = rl })
+	ts := newTestServer(t, func(o *Options) { o.AnonymousRateLimiter = rl })
 
 	body := `{"redirect_uris":["https://claude.ai/api/mcp/auth_callback"]}`
 	for i := 0; i < 2; i++ {

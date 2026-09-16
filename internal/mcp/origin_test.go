@@ -421,3 +421,58 @@ func TestBuildHandler_NoOAuthOriginPolicyUnchanged(t *testing.T) {
 		t.Errorf("status = %d, want %d (with no OAuth server, a non-loopback origin must still be rejected)", w.Code, http.StatusForbidden)
 	}
 }
+
+// TestEffectiveOrigins covers the list both the startup log and the
+// request path are now built from: the configured origins plus the
+// issuer's own, added once and only when OAuth names a usable one.
+func TestEffectiveOrigins(t *testing.T) {
+	tests := []struct {
+		name       string
+		configured []string
+		issuer     string
+		want       []string
+	}{
+		{
+			name:   "issuer added to an empty list",
+			issuer: "http://localhost:8080",
+			want:   []string{"http://localhost:8080"},
+		},
+		{
+			name:       "issuer path dropped",
+			configured: []string{"https://app.example.com"},
+			issuer:     "https://mcp.example.com/base",
+			want:       []string{"https://app.example.com", "https://mcp.example.com"},
+		},
+		{
+			name:       "issuer already listed is not duplicated",
+			configured: []string{"https://mcp.example.com"},
+			issuer:     "https://mcp.example.com",
+			want:       []string{"https://mcp.example.com"},
+		},
+		{
+			name:       "no issuer leaves the list alone",
+			configured: []string{"https://app.example.com"},
+			want:       []string{"https://app.example.com"},
+		},
+		{
+			name:       "unusable issuer leaves the list alone",
+			configured: []string{"https://app.example.com"},
+			issuer:     "not-a-url",
+			want:       []string{"https://app.example.com"},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got := EffectiveOrigins(tc.configured, tc.issuer)
+			if len(got) != len(tc.want) {
+				t.Fatalf("EffectiveOrigins = %v; want %v", got, tc.want)
+			}
+			for i := range got {
+				if got[i] != tc.want[i] {
+					t.Fatalf("EffectiveOrigins = %v; want %v", got, tc.want)
+				}
+			}
+		})
+	}
+}

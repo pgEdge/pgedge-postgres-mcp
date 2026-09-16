@@ -128,6 +128,16 @@ type Store struct {
 	tokens    map[string]*Token
 	usedCodes map[string]*usedCode
 	rotated   map[string]*rotatedRefresh
+
+	// onRevoke, when set, is called with the access token hashes that a
+	// deletion, revocation or sweep has just made unusable, so that the
+	// per-token resources keyed on those hashes (database connection
+	// pools, above all) can be released rather than lingering until the
+	// process exits. It is called after the store's lock has been
+	// released, so the callback may take locks of its own. Set it once,
+	// with SetRevocationHook, before the store is shared with other
+	// goroutines.
+	onRevoke func(accessTokenHashes []string)
 }
 
 // clientIdleGrace is added to a Store's clientRetention before an idle
@@ -150,6 +160,23 @@ func NewStore(limits Limits, clientRetention time.Duration) *Store {
 		usedCodes:       make(map[string]*usedCode),
 		rotated:         make(map[string]*rotatedRefresh),
 	}
+}
+
+// SetRevocationHook installs the callback described on Store.onRevoke.
+// It must be called before the store is shared with other goroutines,
+// which in practice means immediately after NewStore.
+func (s *Store) SetRevocationHook(fn func(accessTokenHashes []string)) {
+	s.onRevoke = fn
+}
+
+// notifyRevoked hands hashes to the revocation hook, if one is
+// installed and there is anything to report. Callers must not hold
+// s.mu.
+func (s *Store) notifyRevoked(hashes []string) {
+	if s.onRevoke == nil || len(hashes) == 0 {
+		return
+	}
+	s.onRevoke(hashes)
 }
 
 // cloneStrings returns a copy of ss so a caller mutating the result
@@ -303,19 +330,63 @@ func (s *Store) RotatedRefreshFamily(hash string) (family string, ok bool) {
 
 // DeleteFamily removes every token belonging to family, which is how a
 // replayed refresh token is answered: the whole chain descended from
-// the original authorisation is revoked.
-func (s *Store) DeleteFamily(family string) {
+// the original authorisation is revoked. It returns the hashes of the
+// access tokens it revoked, and reports them to the revocation hook, so
+// that the resources keyed on those hashes can be released.
+func (s *Store) DeleteFamily(family string) []string {
 	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	if family == "" {
-		return
-	}
-	for hash, t := range s.tokens {
-		if t.Family == family {
+	var revoked []string
+	if family != "" {
+		for hash, t := range s.tokens {
+			if t.Family != family {
+				continue
+			}
+			if !t.IsRefresh {
+				revoked = append(revoked, hash)
+			}
 			delete(s.tokens, hash)
 		}
 	}
+	s.mu.Unlock()
+
+	s.notifyRevoked(revoked)
+	return revoked
+}
+
+// DeleteBySubject removes every token issued to subject, along with any
+// authorisation code or device code standing in its name, and returns
+// the hashes of the access tokens it revoked. It is how the
+// disabling, deletion or automatic lockout of a user account revokes
+// that user's OAuth access outright, rather than leaving already-issued
+// tokens usable until they expire.
+func (s *Store) DeleteBySubject(subject string) []string {
+	s.mu.Lock()
+	var revoked []string
+	if subject != "" {
+		for hash, t := range s.tokens {
+			if t.Subject != subject {
+				continue
+			}
+			if !t.IsRefresh {
+				revoked = append(revoked, hash)
+			}
+			delete(s.tokens, hash)
+		}
+		for hash, c := range s.codes {
+			if c.Subject == subject {
+				delete(s.codes, hash)
+			}
+		}
+		for hash, d := range s.devices {
+			if d.Subject == subject {
+				s.deleteDeviceLocked(hash)
+			}
+		}
+	}
+	s.mu.Unlock()
+
+	s.notifyRevoked(revoked)
+	return revoked
 }
 
 // GetClient returns a copy of the client registered under id, if any.
@@ -582,11 +653,15 @@ func (s *Store) GetToken(hash string) (*Token, bool) {
 // DeleteToken removes the token stored under hash. Deleting a refresh
 // token cascades to every access token it issued; deleting an access
 // token removes its hash from its parent refresh token's Issued list.
-func (s *Store) DeleteToken(hash string) {
+// It returns the hashes of the access tokens removed, and reports them
+// to the revocation hook.
+func (s *Store) DeleteToken(hash string) []string {
 	s.mu.Lock()
-	defer s.mu.Unlock()
+	revoked := s.deleteTokenLocked(hash)
+	s.mu.Unlock()
 
-	s.deleteTokenLocked(hash)
+	s.notifyRevoked(revoked)
+	return revoked
 }
 
 // TakeToken atomically looks up and removes the token stored under hash,
@@ -598,34 +673,44 @@ func (s *Store) DeleteToken(hash string) {
 // being rotated.
 func (s *Store) TakeToken(hash string) (*Token, bool) {
 	s.mu.Lock()
-	defer s.mu.Unlock()
 
 	t, ok := s.tokens[hash]
 	if !ok {
+		s.mu.Unlock()
 		return nil, false
 	}
 	cp := cloneToken(t)
-	s.deleteTokenLocked(hash)
+	revoked := s.deleteTokenLocked(hash)
+	s.mu.Unlock()
+
+	s.notifyRevoked(revoked)
 	return cp, true
 }
 
-// deleteTokenLocked implements DeleteToken; callers must hold s.mu.
-func (s *Store) deleteTokenLocked(hash string) {
+// deleteTokenLocked implements DeleteToken, returning the hashes of the
+// access tokens it removed (the token itself when it is an access
+// token, or every access token cascaded from a refresh token); callers
+// must hold s.mu.
+func (s *Store) deleteTokenLocked(hash string) []string {
 	t, ok := s.tokens[hash]
 	if !ok {
-		return
+		return nil
 	}
 	delete(s.tokens, hash)
 
 	if t.IsRefresh {
+		var revoked []string
 		for _, issued := range t.Issued {
+			if _, present := s.tokens[issued]; present {
+				revoked = append(revoked, issued)
+			}
 			delete(s.tokens, issued)
 		}
-		return
+		return revoked
 	}
 
 	if t.RefreshHash == "" {
-		return
+		return []string{hash}
 	}
 	if parent, ok := s.tokens[t.RefreshHash]; ok {
 		for i, h := range parent.Issued {
@@ -635,15 +720,18 @@ func (s *Store) deleteTokenLocked(hash string) {
 			}
 		}
 	}
+	return []string{hash}
 }
 
 // Sweep removes every client-facing entry whose ExpiresAt is before
 // now, along with the client registrations that have not been used
 // within clientRetention plus clientIdleGrace and hold no live tokens,
-// so that a flood of dynamic registrations drains away by itself.
-func (s *Store) Sweep(now time.Time) {
+// so that a flood of dynamic registrations drains away by itself. It
+// returns the hashes of the access tokens it expired, and reports them
+// to the revocation hook, so that the resources keyed on those hashes
+// are released with them.
+func (s *Store) Sweep(now time.Time) []string {
 	s.mu.Lock()
-	defer s.mu.Unlock()
 
 	for hash, c := range s.codes {
 		if c.ExpiresAt.Before(now) {
@@ -656,9 +744,10 @@ func (s *Store) Sweep(now time.Time) {
 			delete(s.devices, hash)
 		}
 	}
+	var revoked []string
 	for hash, t := range s.tokens {
 		if t.ExpiresAt.Before(now) {
-			s.deleteTokenLocked(hash)
+			revoked = append(revoked, s.deleteTokenLocked(hash)...)
 		}
 	}
 	for hash, u := range s.usedCodes {
@@ -682,6 +771,10 @@ func (s *Store) Sweep(now time.Time) {
 			delete(s.clients, id)
 		}
 	}
+	s.mu.Unlock()
+
+	s.notifyRevoked(revoked)
+	return revoked
 }
 
 // StartSweeper runs Sweep on a ticker of interval in a background
@@ -695,7 +788,7 @@ func (s *Store) StartSweeper(interval time.Duration) (stop func()) {
 		for {
 			select {
 			case <-ticker.C:
-				s.Sweep(time.Now())
+				_ = s.Sweep(time.Now())
 			case <-done:
 				return
 			}

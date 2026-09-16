@@ -98,16 +98,23 @@ func (s *Server) handleDevice(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-store")
 
 	ip := s.clientIP(r)
-	if s.opts.RateLimiter != nil && !s.opts.RateLimiter.IsAllowed(ip) {
+	// The device authorisation request is metered, not merely guarded:
+	// a successful one occupies an entry in the bounded device code
+	// table, so a burst of successes would otherwise fill it and deny
+	// the device grant to everyone whilst recording nothing. It shares
+	// the anonymous limiter with dynamic client registration, so that
+	// this metering cannot spill over into password login.
+	limiter := s.opts.AnonymousRateLimiter
+	if limiter != nil && !limiter.IsAllowed(ip) {
 		w.Header().Set("Retry-After", "60")
 		writeJSONError(w, newError("access_denied", "too many requests", http.StatusTooManyRequests))
 		return
 	}
+	if limiter != nil {
+		limiter.RecordFailedAttempt(ip)
+	}
 
 	fail := func(e *Error) {
-		if s.opts.RateLimiter != nil {
-			s.opts.RateLimiter.RecordFailedAttempt(ip)
-		}
 		writeJSONError(w, e)
 	}
 

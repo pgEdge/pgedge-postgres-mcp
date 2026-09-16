@@ -96,10 +96,7 @@ func (s *Server) buildHandler(config *HTTPConfig) (http.Handler, error) {
 	// in http.allowed_origins for login to work.
 	allowedOrigins := config.AllowedOrigins
 	if config.OAuth != nil {
-		if issuerOrigin, ok := originFromIssuer(config.OAuth.Issuer()); ok {
-			allowedOrigins = addOriginIfMissing(allowedOrigins, issuerOrigin)
-			fmt.Fprintf(os.Stderr, "Accepting browser requests from the OAuth issuer origin: %s\n", issuerOrigin)
-		}
+		allowedOrigins = EffectiveOrigins(allowedOrigins, config.OAuth.Issuer())
 	}
 	originPolicy, err := NewOriginPolicy(allowedOrigins)
 	if err != nil {

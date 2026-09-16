@@ -115,6 +115,18 @@ func clientDisplayName(client *Client) string {
 	return client.ID
 }
 
+// redirectURIHost returns the host, and port where one is given, of
+// rawURI, for display beside the client's self-declared name on the
+// login page. It returns "" when the URI cannot be parsed or names no
+// host, so the page simply omits it.
+func redirectURIHost(rawURI string) string {
+	u, err := url.Parse(rawURI)
+	if err != nil {
+		return ""
+	}
+	return u.Host
+}
+
 // handleAuthorize implements the authorisation endpoint of the
 // authorisation code grant (RFC 6749 section 4.1), rendering a login page
 // on GET and, on POST, verifying the submitted credentials and issuing an
@@ -145,6 +157,10 @@ func (s *Server) handleAuthorize(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	display := clientDisplayName(client)
+	// The redirect URI has already been checked against the client's
+	// registration, so its host is worth showing next to the name the
+	// client chose for itself, which has not been checked at all.
+	redirectHost := redirectURIHost(p.RedirectURI)
 
 	// The client is known and in use, so keep its registration alive.
 	s.store.TouchClient(client.ID, s.now())
@@ -158,10 +174,11 @@ func (s *Server) handleAuthorize(w http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodGet {
 		s.logf("oauth authorize: client=%q ip=%s rendering login form", p.ClientID, ip)
 		_ = s.page.Render(w, http.StatusOK, LoginPageData{
-			CSRFToken: s.csrf.Issue(s.now()),
-			Client:    display,
-			OAuth:     p,
-			Page:      "login",
+			CSRFToken:          s.csrf.Issue(s.now()),
+			Client:             display,
+			ClientRedirectHost: redirectHost,
+			OAuth:              p,
+			Page:               "login",
 		})
 		return
 	}
@@ -171,11 +188,12 @@ func (s *Server) handleAuthorize(w http.ResponseWriter, r *http.Request) {
 	// failure on the next attempt.
 	reRender := func(status int, message string) {
 		_ = s.page.Render(w, status, LoginPageData{
-			Error:     message,
-			CSRFToken: s.csrf.Issue(s.now()),
-			Client:    display,
-			OAuth:     p,
-			Page:      "login",
+			Error:              message,
+			CSRFToken:          s.csrf.Issue(s.now()),
+			Client:             display,
+			ClientRedirectHost: redirectHost,
+			OAuth:              p,
+			Page:               "login",
 		})
 	}
 

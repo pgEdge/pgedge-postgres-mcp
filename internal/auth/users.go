@@ -48,6 +48,57 @@ type UserStore struct {
 	Users   map[string]*User `yaml:"users"` // key is username
 	path    string           // File path for auto-reloading
 	watcher *FileWatcher     // File watcher for auto-reloading
+
+	// onRevoked, when set, is called with the username of a user whose
+	// access has just been withdrawn, whether by being disabled,
+	// deleted, locked out after too many failed attempts, or removed or
+	// disabled in the user file whilst the server was running. main
+	// wires it to the OAuth server, so that credentials issued from
+	// other credential kinds are revoked with the account rather than
+	// remaining usable until they expire. It is always called with no
+	// lock held.
+	onRevoked func(username string)
+}
+
+// SetRevocationHook installs the callback described on
+// UserStore.onRevoked. It takes the store's lock, so it is safe to call
+// after the file watcher has been started, which matters because the
+// OAuth server the hook calls into is built later than the user store.
+func (s *UserStore) SetRevocationHook(fn func(username string)) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	s.onRevoked = fn
+}
+
+// notifyRevoked reports each named user to the revocation hook, if one
+// is installed. Callers must not hold s.mu.
+func (s *UserStore) notifyRevoked(usernames ...string) {
+	if len(usernames) == 0 {
+		return
+	}
+	s.mu.RLock()
+	hook := s.onRevoked
+	s.mu.RUnlock()
+	if hook == nil {
+		return
+	}
+	for _, username := range usernames {
+		if username != "" {
+			hook(username)
+		}
+	}
+}
+
+// IsActive reports whether username names a user that exists and is
+// enabled, which is the condition every credential kind requires before
+// it will honour a token standing in that user's name.
+func (s *UserStore) IsActive(username string) bool {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	user, exists := s.Users[username]
+	return exists && user.Enabled
 }
 
 // BcryptCost is the cost factor used for every password hash this
@@ -64,11 +115,7 @@ const BcryptCost = 12
 // user, which cost nothing and would otherwise answer measurably
 // faster.
 func (s *UserStore) CanVerifyPassword(username string) bool {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-
-	user, exists := s.Users[username]
-	return exists && user.Enabled
+	return s.IsActive(username)
 }
 
 // HashPassword creates a bcrypt hash of the password
@@ -141,9 +188,10 @@ func (s *UserStore) Reload() error {
 	}
 
 	// Update the store with new data (with write lock)
-	// But preserve session tokens from the current in-memory users
+	// But preserve session tokens from the current in-memory users.
+	// The lock is released explicitly at the end, rather than by defer,
+	// because the revocation hook must not run under it.
 	s.mu.Lock()
-	defer s.mu.Unlock()
 
 	// Save current session tokens
 	sessionTokens := make(map[string]struct {
@@ -159,6 +207,19 @@ func (s *UserStore) Reload() error {
 		}
 	}
 
+	// Note which users the reload has withdrawn access from, either by
+	// removing them from the file or by disabling them there, so their
+	// credentials can be revoked once the lock is released.
+	var revoked []string
+	for username, user := range s.Users {
+		if !user.Enabled {
+			continue
+		}
+		if replacement, exists := newStore.Users[username]; !exists || !replacement.Enabled {
+			revoked = append(revoked, username)
+		}
+	}
+
 	// Update users
 	s.Users = newStore.Users
 
@@ -169,7 +230,9 @@ func (s *UserStore) Reload() error {
 			user.SessionExpires = session.expires
 		}
 	}
+	s.mu.Unlock()
 
+	s.notifyRevoked(revoked...)
 	return nil
 }
 
@@ -253,17 +316,23 @@ func (s *UserStore) UpdateUser(username, newPassword, newAnnotation string) erro
 // RemoveUser removes a user from the store
 func (s *UserStore) RemoveUser(username string) error {
 	s.mu.Lock()
-	defer s.mu.Unlock()
 
 	if s.Users == nil {
+		s.mu.Unlock()
 		return fmt.Errorf("user '%s' not found", username)
 	}
 
 	if _, exists := s.Users[username]; !exists {
+		s.mu.Unlock()
 		return fmt.Errorf("user '%s' not found", username)
 	}
 
 	delete(s.Users, username)
+	s.mu.Unlock()
+
+	// A deleted user keeps nothing: any OAuth token standing in its
+	// name is revoked now rather than at its own expiry.
+	s.notifyRevoked(username)
 	return nil
 }
 
@@ -272,14 +341,15 @@ func (s *UserStore) RemoveUser(username string) error {
 // maxFailedAttempts: if > 0, will disable account after N consecutive failed attempts
 func (s *UserStore) AuthenticateUser(username, password string, maxFailedAttempts int) (string, time.Time, error) {
 	s.mu.Lock()
-	defer s.mu.Unlock()
 
 	user, exists := s.Users[username]
 	if !exists {
+		s.mu.Unlock()
 		return "", time.Time{}, fmt.Errorf("invalid username or password")
 	}
 
 	if !user.Enabled {
+		s.mu.Unlock()
 		return "", time.Time{}, fmt.Errorf("user account is disabled")
 	}
 
@@ -289,16 +359,24 @@ func (s *UserStore) AuthenticateUser(username, password string, maxFailedAttempt
 		user.FailedAttempts++
 
 		// Lock account if threshold is reached (only if maxFailedAttempts > 0)
-		if maxFailedAttempts > 0 && user.FailedAttempts >= maxFailedAttempts {
+		lockedOut := maxFailedAttempts > 0 && user.FailedAttempts >= maxFailedAttempts
+		if lockedOut {
 			user.Enabled = false
 		}
+		s.mu.Unlock()
 
+		// An automatic lockout withdraws access just as a manual
+		// disable does, so it revokes the account's tokens too.
+		if lockedOut {
+			s.notifyRevoked(username)
+		}
 		return "", time.Time{}, fmt.Errorf("invalid username or password")
 	}
 
 	// Generate session token
 	token, err := GenerateSessionToken()
 	if err != nil {
+		s.mu.Unlock()
 		return "", time.Time{}, err
 	}
 
@@ -315,6 +393,7 @@ func (s *UserStore) AuthenticateUser(username, password string, maxFailedAttempt
 
 	// Reset failed attempts counter on successful login
 	user.FailedAttempts = 0
+	s.mu.Unlock()
 
 	return token, expiration, nil
 }
@@ -444,13 +523,18 @@ func (s *UserStore) EnableUser(username string) error {
 // DisableUser disables a user account
 func (s *UserStore) DisableUser(username string) error {
 	s.mu.Lock()
-	defer s.mu.Unlock()
 
 	user, exists := s.Users[username]
 	if !exists {
+		s.mu.Unlock()
 		return fmt.Errorf("user '%s' not found", username)
 	}
 	user.Enabled = false
+	s.mu.Unlock()
+
+	// Disabling is meant to take effect at once, so the account's
+	// existing OAuth tokens go with it.
+	s.notifyRevoked(username)
 	return nil
 }
 

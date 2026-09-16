@@ -60,16 +60,24 @@ type AuthorizeParams struct {
 
 // LoginPageData is the data passed to the login page template.
 type LoginPageData struct {
-	Branding     Branding
-	Error        string
-	CSRFToken    string
-	Client       string
-	Scope        string // requested scope, named on the device consent page
-	OAuth        AuthorizeParams
-	UserCode     string
-	IsDeviceFlow bool
-	Message      string // replaces the default wording on the done page
-	Page         string // "login", "device", "done", "error"
+	Branding  Branding
+	Error     string
+	CSRFToken string
+	Client    string
+	// ClientRedirectHost is the host (with port, where the URI carries
+	// one) of the redirect URI the authorisation code would be returned
+	// to. It is shown beside the client's self-declared name, which is
+	// unverified text taken from dynamic registration, so that the
+	// resource owner has one piece of information the server has
+	// actually checked. It is empty for the device flow, which has no
+	// redirect URI.
+	ClientRedirectHost string
+	Scope              string // requested scope, named on the device consent page
+	OAuth              AuthorizeParams
+	UserCode           string
+	IsDeviceFlow       bool
+	Message            string // replaces the default wording on the done page
+	Page               string // "login", "device", "done", "error"
 }
 
 // loginPage renders the branded OAuth login page and serves its logo

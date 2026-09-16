@@ -316,3 +316,51 @@ func TestSplitParagraphs(t *testing.T) {
 		t.Fatalf("%q", got)
 	}
 }
+
+// TestLoginPagePresentsClientNameAsAClaim covers the finding that the
+// login page rendered client_name, which comes from unauthenticated
+// dynamic registration and is therefore attacker-chosen, as though the
+// server vouched for it. The page must present the name as the
+// application's own claim, and show the redirect URI's host, which the
+// server has actually checked against the registration, beside it.
+func TestLoginPagePresentsClientNameAsAClaim(t *testing.T) {
+	ts := newTestServer(t, nil)
+	cid := registerClient(t, ts, claudeCB)
+	rec := ts.do("GET", AuthorizePath+"?"+authorizeQuery(cid, claudeCB).Encode(), "", "")
+
+	body := rec.Body.String()
+	if rec.Code != 200 {
+		t.Fatalf("%d %s", rec.Code, body)
+	}
+	for _, want := range []string{
+		"An application calling itself",
+		"claude.ai",
+		"has not been verified",
+	} {
+		if !strings.Contains(body, want) {
+			t.Fatalf("login page does not contain %q: %s", want, body)
+		}
+	}
+	if strings.Contains(body, "Test would like to sign in") {
+		t.Fatal("login page still presents the client's own name as an established identity")
+	}
+}
+
+// TestRedirectURIHost covers the host shown beside the client's name,
+// including the malformed input that must simply omit it.
+func TestRedirectURIHost(t *testing.T) {
+	tests := []struct {
+		uri  string
+		want string
+	}{
+		{"https://claude.ai/api/mcp/auth_callback", "claude.ai"},
+		{"http://127.0.0.1:53682/oauth/callback", "127.0.0.1:53682"},
+		{"not a url", ""},
+		{"", ""},
+	}
+	for _, tc := range tests {
+		if got := redirectURIHost(tc.uri); got != tc.want {
+			t.Fatalf("redirectURIHost(%q) = %q; want %q", tc.uri, got, tc.want)
+		}
+	}
+}

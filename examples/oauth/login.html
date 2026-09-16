@@ -37,8 +37,17 @@
       the message shown on the "error" page.
     - .CSRFToken, the anti-forgery token to post back in the
       csrf_token hidden field.
-    - .Client, the requesting client's name where known, and .Scope,
-      the scope a device grant asked for.
+    - .Client, the name the requesting client gave for itself when it
+      registered, where known, and .Scope, the scope a device grant
+      asked for. The name is unverified, attacker-choosable text: the
+      built-in page presents it as the application's own claim and
+      names the redirect host alongside it, and a custom page should
+      do the same rather than presenting it as an established
+      identity.
+    - .ClientRedirectHost, the host of the redirect URI the
+      authorisation code would be returned to, which unlike the name
+      is checked against the client's registration. Empty on the
+      device verification page, which has no redirect URI.
     - .OAuth.ResponseType, .OAuth.ClientID, .OAuth.RedirectURI,
       .OAuth.Scope, .OAuth.State, .OAuth.CodeChallenge and
       .OAuth.CodeChallengeMethod, the authorisation request
@@ -185,9 +194,9 @@ button.secondary:hover { background: #F1F5F9; }
 <h1>{{.Branding.Title}}</h1>
 {{if .Branding.Subtitle}}<p class="subtitle">{{.Branding.Subtitle}}</p>{{end}}
 {{if .IsDeviceFlow}}
-{{if .Client}}<p class="consent">{{.Client}} is asking to sign in with scope {{if .Scope}}{{.Scope}}{{else}}mcp{{end}}.</p>{{end}}
+{{if .Client}}<p class="consent">An application calling itself &ldquo;{{.Client}}&rdquo; is asking to sign in with scope {{if .Scope}}{{.Scope}}{{else}}mcp{{end}}. That name is the application's own claim and has not been verified.</p>{{end}}
 {{else}}
-{{if .Client}}<p class="subtitle">{{.Client}} would like to sign in.</p>{{end}}
+{{if .Client}}<p class="subtitle">An application calling itself &ldquo;{{.Client}}&rdquo;{{if .ClientRedirectHost}}, which will be sent back to {{.ClientRedirectHost}},{{end}} is asking you to sign in. That name is the application's own claim and has not been verified.</p>{{end}}
 {{end}}
 {{if .Branding.MessageParagraphs}}
 <div class="notice">
