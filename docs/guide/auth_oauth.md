@@ -284,8 +284,19 @@ CSRF field:
 - `response_type`, `client_id`, `redirect_uri`, `scope`, `state`,
   `code_challenge` and `code_challenge_method`, taken from `.OAuth`.
 
+The template receives the `login_page` configuration under `.Branding`:
+`.Branding.Title`, `.Branding.Subtitle`, `.Branding.MessageParagraphs`
+(the `message` field split into paragraphs), `.Branding.Footer`,
+`.Branding.LogoURL`, `.Branding.FaviconURL`, `.Branding.PrimaryColour`
+and `.Branding.SecondaryColour`. A template that ignores these values
+renders the same page whatever an operator sets in `login_page`, so use
+them for the title, logo, favicon and colours rather than fixed values.
+
 The template also receives `.Error`, a message to show when a previous
 attempt failed, `.Client`, the requesting client's name where known,
+`.ClientRedirectHost`, the host and port of the validated redirect URI
+(empty on the device page), which a template should show beside the
+client name since that name is the client's own unverified claim,
 `.Scope`, the scope a device grant asked for, `.UserCode` and
 `.IsDeviceFlow` for the device authorisation grant, `.Message`, the
 wording for the final page, and `.Page`, one of `login`, `device`,

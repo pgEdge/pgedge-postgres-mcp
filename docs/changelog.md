@@ -32,11 +32,13 @@ and this project adheres to
 - Authentication methods (API tokens, password login, OAuth) can be
   enabled individually under `http.auth.methods`.
 - Enabling OAuth adds the issuer's own origin to the browser origins
-  the server accepts, so that the login form can post back to it. A
-  server with OAuth enabled and an empty `http.allowed_origins`
-  therefore accepts the issuer origin alongside the loopback default,
-  rather than loopback origins on any port alone; name the origins you
-  intend to serve the web client from explicitly.
+  the server accepts, so that the login form can post back to it.
+  Because listing any origin replaces the loopback default rather than
+  adding to it, a server with OAuth enabled and an empty
+  `http.allowed_origins` accepts the issuer origin alone, and no longer
+  accepts loopback origins on other ports; name the origins you intend
+  to serve the web client from explicitly. The startup log now
+  describes the policy actually in effect.
 - Listing anything in `http.auth.oauth.allowed_redirect_uris` replaces
   the three built-in defaults rather than adding to them. Repeat any of
   `https://claude.ai/api/mcp/auth_callback`,
