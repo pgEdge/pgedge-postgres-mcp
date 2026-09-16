@@ -245,7 +245,15 @@ func (c *Client) connectToMCP(ctx context.Context) error {
 		switch c.config.MCP.AuthMode {
 		case "auto", "oauth":
 			origin := strings.TrimSuffix(url, "/mcp/v1")
-			meta, err := DiscoverOAuth(ctx, http.DefaultClient, origin)
+			// Discovery happens before anything has been printed, so a
+			// server that accepts the connection and then never answers
+			// would otherwise hang the CLI at startup with no output
+			// and no way to tell what it was waiting for. The same
+			// deadline bounds it as every other request this client
+			// makes.
+			discoveryCtx, cancelDiscovery := context.WithTimeout(ctx, oauthDiscoveryTimeout)
+			meta, err := DiscoverOAuth(discoveryCtx, http.DefaultClient, origin)
+			cancelDiscovery()
 			switch {
 			case err == nil:
 				oc := c.newOAuthClient(origin, meta)

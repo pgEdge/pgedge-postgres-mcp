@@ -68,6 +68,13 @@ const oauthLoginTimeout = 5 * time.Minute
 // example, a background refresh triggered by Token).
 const oauthTokenRequestTimeout = 15 * time.Second
 
+// oauthDiscoveryTimeout bounds the metadata request the CLI makes
+// before anything has been printed, on the auth_mode "auto" and "oauth"
+// paths. Without it a server that accepts the connection and then never
+// answers hangs the CLI at startup with no output at all. It is a
+// variable rather than a constant only so that tests can shorten it.
+var oauthDiscoveryTimeout = oauthTokenRequestTimeout
+
 // oauthRefreshSkew is how far ahead of the cached expiry time Token
 // refreshes proactively, so a request begun just before expiry does not
 // race the server's own clock.
@@ -869,11 +876,33 @@ func (c *OAuthClient) requestTokenLocked(ctx context.Context, form url.Values, c
 	return c.persistLocked()
 }
 
+// refreshWasRejected reports whether a refresh failure came from the
+// server definitively rejecting the credential, rather than from the
+// request never arriving or never being answered. Only a rejection
+// means the cached refresh token is worthless; a transport error, a
+// timeout or a 5xx says nothing about the token, and discarding it
+// there would turn a momentary network problem into a fresh sign-in.
+func refreshWasRejected(err error) bool {
+	var te *oauthTokenError
+	if !errors.As(err, &te) {
+		return false
+	}
+	switch te.Code {
+	case "invalid_grant", "invalid_client", "unauthorized_client", "invalid_scope", "unsupported_grant_type":
+		return true
+	default:
+		return false
+	}
+}
+
 // Token implements TokenSource: it returns the current access token,
 // transparently refreshing it first when it is within oauthRefreshSkew of
-// expiring. A refresh failure clears the cached entry and returns "" so
-// the caller's request fails with 401, which the chat client reports;
-// Login is retried on the next connection attempt.
+// expiring. A refresh the server rejects clears the cached entry and
+// returns "" so the caller's request fails with 401, which the chat
+// client reports; Login is retried on the next connection attempt. A
+// refresh that merely failed to complete, such as a transport error or
+// a 5xx, leaves the cache alone, since the refresh token is probably
+// still good and the next attempt may well succeed.
 func (c *OAuthClient) Token() string {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -907,8 +936,10 @@ func (c *OAuthClient) Token() string {
 	}
 
 	if err := c.refreshLocked(ctx); err != nil {
-		c.entry = oauthCacheEntry{}
-		_ = c.clearCacheLocked()
+		if refreshWasRejected(err) {
+			c.entry = oauthCacheEntry{}
+			_ = c.clearCacheLocked()
+		}
 		return ""
 	}
 	return c.entry.AccessToken
