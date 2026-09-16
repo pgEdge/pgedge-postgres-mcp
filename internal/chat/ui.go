@@ -90,6 +90,13 @@ func (ui *UI) GetPrompt() string {
 	return ui.colorize(ColorGreen+ColorBold, "You: ")
 }
 
+// GetContinuationPrompt returns the prompt shown for each additional line
+// whilst collecting multi-line input with /paste; it is the same width as
+// the main prompt so that pasted lines stay aligned.
+func (ui *UI) GetContinuationPrompt() string {
+	return ui.colorize(ColorGreen+ColorBold, "...: ")
+}
+
 // PrintUserInput prints the user's input prompt (deprecated, kept for compatibility)
 func (ui *UI) PrintUserInput() {
 	fmt.Print(ui.GetPrompt())

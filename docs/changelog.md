@@ -26,6 +26,15 @@ and this project adheres to
   default), which tries OAuth first and falls back to the previous
   token or username/password behaviour when the server does not
   advertise it.
+- The CLI has a `/paste` command for multi-line input. Pasting a
+  multi-line query at the normal prompt sends each line to the LLM as a
+  separate request, because the terminal delivers every newline as if
+  Enter had been pressed. After `/paste`, the CLI collects lines under a
+  `...:` continuation prompt until Ctrl+D is pressed on an empty line,
+  then sends the whole text as one request; Ctrl+C discards the text and
+  returns to the normal prompt. The collected lines are not added to the
+  command history. This needs nothing from the terminal, so it behaves
+  the same in every terminal emulator and on every platform. Fixes #57.
 
 ### Changed
 
@@ -48,8 +57,21 @@ and this project adheres to
   `auth_method: "api"`, rather than the "invalid or expired session"
   error it previously returned for that credential kind, and now
   reports `auth_method: "oauth"` for an OAuth-issued token.
+- Pressing Ctrl+D at the CLI prompt now echoes `^D` rather than `exit`
+  before the goodbye message, so that the same key reads sensibly when
+  used to finish a `/paste`.
 
 ### Fixed
+
+- The Jinja2 raw block markers that shield three code blocks from the
+  documentation site's macro processing are now separated from their
+  fences by blank lines. Without the separation the closing fence and
+  the marker after it parse as a single paragraph, so a renderer with
+  the `attr_list` markdown extension enabled treats the marker as an
+  attribute list for that paragraph and swallows it, emitting bogus
+  attributes on the wrapping tag instead. The affected pages are
+  `docs/reference/tools.md`, `docs/guide/cli-client.md` and
+  `docs/contributing/ci-cd.md`.
 
 - The release workflow now names its archives after the tag that
   triggered it. GoReleaser was left to work the version out for itself,
