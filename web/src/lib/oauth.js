@@ -32,6 +32,12 @@ export const STORAGE_PKCE = 'mcp-oauth-pkce';
 // request rather than leaving the caller waiting indefinitely.
 const REVOKE_TIMEOUT_MS = 5000;
 
+// How long discover() waits for the metadata document before giving up.
+// Discovery gates the whole login screen, so a hung endpoint must not be
+// allowed to leave the app on its loading spinner: the request is aborted
+// and treated exactly like any other discovery failure.
+const DISCOVER_TIMEOUT_MS = 5000;
+
 // toPath reduces an absolute URL to its same-origin path, so the browser
 // calls the proxied route (/oauth/register, /oauth/token, /oauth/revoke)
 // rather than the issuer's own origin, which may not be reachable directly
@@ -57,14 +63,30 @@ function base64url(buffer) {
 /**
  * discover fetches the server's OAuth metadata document. Returns null if
  * OAuth is not configured (404), or if the request fails for any other
- * reason (network error, non-JSON body) -- both are treated as "OAuth
- * absent" so the caller can fall back to the username/password form.
+ * reason (network error, non-JSON body, or taking longer than
+ * DISCOVER_TIMEOUT_MS) -- all are treated as "OAuth absent" so the caller
+ * can fall back to the username/password form. The timeout matters
+ * because the caller cannot render anything until this resolves: without
+ * it, a hung endpoint leaves the app on its spinner forever.
  * @param {typeof fetch} fetchImpl - fetch implementation (for testing)
  * @returns {Promise<object|null>} - metadata object, or null
  */
 export async function discover(fetchImpl = fetch) {
-    try {
-        const response = await fetchImpl(METADATA_PATH);
+    const controller = new AbortController();
+    let timeoutId;
+
+    // The timeout races the request rather than relying on the abort
+    // alone, so that a fetch implementation which ignores the signal
+    // still cannot hold the caller open indefinitely.
+    const timedOut = new Promise((_, reject) => {
+        timeoutId = setTimeout(() => {
+            controller.abort();
+            reject(new Error('OAuth discovery timed out'));
+        }, DISCOVER_TIMEOUT_MS);
+    });
+
+    const request = (async () => {
+        const response = await fetchImpl(METADATA_PATH, { signal: controller.signal });
         if (!response.ok) {
             return null;
         }
@@ -73,8 +95,18 @@ export async function discover(fetchImpl = fetch) {
             return null;
         }
         return meta;
+    })();
+
+    // If the timeout wins, the request may still reject later (with the
+    // abort); swallow that here so it is not reported as unhandled.
+    request.catch(() => {});
+
+    try {
+        return await Promise.race([request, timedOut]);
     } catch {
         return null;
+    } finally {
+        clearTimeout(timeoutId);
     }
 }
 
@@ -206,16 +238,33 @@ async function postForm(fetchImpl, path, params) {
 // A 200 response carrying no usable access_token is a failure, not a
 // session: persisting one would leave the app apparently signed in with
 // nothing to authenticate with, so it throws here, before any caller
-// gets the chance to save it.
-function toSession(tokenResponse) {
+// gets the chance to save it. The same goes for a missing or malformed
+// refresh_token, which would otherwise be persisted as undefined and
+// only show itself later, as a literal "refresh_token=undefined" on the
+// wire. Renewals are the one exception, since a server is entitled to
+// omit refresh_token to mean "the one you have still stands"; those
+// callers pass allowMissingRefreshToken and supply the existing token
+// themselves.
+function toSession(tokenResponse, { allowMissingRefreshToken = false } = {}) {
     const accessToken = tokenResponse && tokenResponse.access_token;
     if (typeof accessToken !== 'string' || accessToken.length === 0) {
         throw new Error('OAuth token response did not include an access token');
     }
 
+    const refreshToken = tokenResponse.refresh_token;
+    const omitted = refreshToken === undefined || refreshToken === null;
+
+    if (omitted && !allowMissingRefreshToken) {
+        throw new Error('OAuth token response did not include a refresh token');
+    }
+
+    if (!omitted && (typeof refreshToken !== 'string' || refreshToken.length === 0)) {
+        throw new Error('OAuth token response included an invalid refresh token');
+    }
+
     return {
         accessToken,
-        refreshToken: tokenResponse.refresh_token,
+        refreshToken: omitted ? undefined : refreshToken,
         expiresAt: Date.now() + (tokenResponse.expires_in || 0) * 1000,
     };
 }
@@ -258,7 +307,7 @@ export async function refresh(meta, clientId, session, fetchImpl = fetch) {
         client_id: clientId,
     });
 
-    const next = toSession(body);
+    const next = toSession(body, { allowMissingRefreshToken: true });
     // Some servers omit refresh_token on renewal, meaning the existing
     // one stays valid; keep it rather than dropping it.
     if (!next.refreshToken) {

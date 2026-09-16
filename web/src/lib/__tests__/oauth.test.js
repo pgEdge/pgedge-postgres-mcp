@@ -57,7 +57,10 @@ describe('oauth helpers', () => {
         const fetchImpl = vi.fn().mockResolvedValue(jsonResponse(404, { error: 'not_found' }));
         const meta = await discover(fetchImpl);
         expect(meta).toBeNull();
-        expect(fetchImpl).toHaveBeenCalledWith('/.well-known/oauth-authorization-server');
+        expect(fetchImpl).toHaveBeenCalledWith(
+            '/.well-known/oauth-authorization-server',
+            expect.objectContaining({ signal: expect.anything() })
+        );
     });
 
     it('discover returns null when fetch throws', async () => {
@@ -70,6 +73,31 @@ describe('oauth helpers', () => {
         const fetchImpl = vi.fn().mockResolvedValue(jsonResponse(200, META));
         const meta = await discover(fetchImpl);
         expect(meta).toEqual(META);
+    });
+
+    it('discover gives up on a request that never resolves', async () => {
+        vi.useFakeTimers();
+        try {
+            let capturedSignal;
+            // A hung endpoint: the request never settles, and this mock
+            // deliberately ignores the abort signal, so only the timeout
+            // race can rescue the caller.
+            const fetchImpl = vi.fn((url, options) => {
+                capturedSignal = options.signal;
+                return new Promise(() => {});
+            });
+
+            const discoverPromise = discover(fetchImpl);
+
+            await vi.advanceTimersByTimeAsync(5000);
+
+            // Null, not a hang: the caller falls back to the password
+            // form exactly as it would for a 404 or a network error.
+            await expect(discoverPromise).resolves.toBeNull();
+            expect(capturedSignal.aborted).toBe(true);
+        } finally {
+            vi.useRealTimers();
+        }
     });
 
     it('generatePkce yields a 43-char S256 challenge of the verifier', async () => {
@@ -183,6 +211,57 @@ describe('oauth helpers', () => {
         await expect(
             refresh(META, 'client-123', { refreshToken: 'refresh-1' }, fetchImpl)
         ).rejects.toThrow(/access token/i);
+    });
+
+    it('exchangeCode rejects a response with no refresh token', async () => {
+        const fetchImpl = vi.fn().mockResolvedValue(jsonResponse(200, {
+            access_token: 'access-1',
+            token_type: 'Bearer',
+            expires_in: 3600,
+        }));
+
+        await expect(
+            exchangeCode(META, 'client-123', 'the-code', 'the-verifier', 'https://app.example.com/oauth/callback', fetchImpl)
+        ).rejects.toThrow(/refresh token/i);
+    });
+
+    it('exchangeCode rejects a non-string refresh token', async () => {
+        const fetchImpl = vi.fn().mockResolvedValue(jsonResponse(200, {
+            access_token: 'access-1',
+            token_type: 'Bearer',
+            expires_in: 3600,
+            refresh_token: 12345,
+        }));
+
+        await expect(
+            exchangeCode(META, 'client-123', 'the-code', 'the-verifier', 'https://app.example.com/oauth/callback', fetchImpl)
+        ).rejects.toThrow(/refresh token/i);
+    });
+
+    it('refresh keeps the existing refresh token when the server omits it', async () => {
+        const fetchImpl = vi.fn().mockResolvedValue(jsonResponse(200, {
+            access_token: 'access-2',
+            token_type: 'Bearer',
+            expires_in: 1800,
+        }));
+
+        const session = await refresh(META, 'client-123', { refreshToken: 'refresh-1' }, fetchImpl);
+
+        expect(session.accessToken).toBe('access-2');
+        expect(session.refreshToken).toBe('refresh-1');
+    });
+
+    it('refresh rejects a malformed refresh token rather than keeping it', async () => {
+        const fetchImpl = vi.fn().mockResolvedValue(jsonResponse(200, {
+            access_token: 'access-2',
+            token_type: 'Bearer',
+            expires_in: 1800,
+            refresh_token: { token: 'nope' },
+        }));
+
+        await expect(
+            refresh(META, 'client-123', { refreshToken: 'refresh-1' }, fetchImpl)
+        ).rejects.toThrow(/refresh token/i);
     });
 
     it('revoke posts the refresh token', async () => {

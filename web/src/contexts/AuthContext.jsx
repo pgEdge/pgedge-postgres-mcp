@@ -176,21 +176,32 @@ export const AuthProvider = ({ children }) => {
                 // not a session to throw away: renew it before deciding
                 // whether the user is signed in, and only fall through
                 // to clearing it if the renewal itself fails.
+                //
+                // This goes through startRefresh, rather than calling
+                // the helper directly, so the renewal registers in
+                // refreshInFlightRef: the stored refresh token is
+                // one-time and rotating, so a second request carrying it
+                // would lose with invalid_grant and take the whole token
+                // family down. `meta` is passed explicitly because the
+                // oauth state this closure captured is still the initial
+                // one; setOauth() above has not yet been applied here.
                 if (meta && existingOAuthSession
                     && existingOAuthSession.refreshToken
                     && existingOAuthSession.expiresAt <= Date.now()) {
-                    try {
-                        const clientId = await ensureClient(meta);
-                        const next = await refreshOAuthSession(meta, clientId, existingOAuthSession);
-                        if (cancelled) {
-                            return;
-                        }
-                        saveSession(next);
-                        setOauthSession(next);
-                        existingOAuthSession = next;
-                    } catch (err) {
-                        console.error('Stored OAuth session could not be refreshed:', err);
+                    const renewed = await startRefresh(existingOAuthSession, meta);
+                    if (cancelled) {
+                        return;
                     }
+                    if (!renewed) {
+                        // startRefresh has already logged the failure and
+                        // cleared every trace of the session, so there is
+                        // nothing left to validate.
+                        setLoading(false);
+                        return;
+                    }
+                    // startRefresh persisted the renewed session itself;
+                    // read it back rather than repeating its bookkeeping.
+                    existingOAuthSession = loadSession();
                 }
 
                 token = existingOAuthSession ? existingOAuthSession.accessToken : legacyToken;
@@ -239,7 +250,8 @@ export const AuthProvider = ({ children }) => {
     // already forced a logout) or if its result arrived too late to be
     // used. Never rejects, so a caller that does not care about the
     // outcome can ignore the returned promise.
-    const startRefresh = (session) => {
+    const startRefresh = (session, metaOverride = null) => {
+        const meta = metaOverride || oauth.meta;
         const token = session.accessToken;
 
         const existing = refreshInFlightRef.current;
@@ -256,8 +268,8 @@ export const AuthProvider = ({ children }) => {
             // network joins this refresh instead of starting another.
             refreshInFlightRef.current = entry;
             try {
-                const clientId = await ensureClient(oauth.meta);
-                const next = await refreshOAuthSession(oauth.meta, clientId, session);
+                const clientId = await ensureClient(meta);
+                const next = await refreshOAuthSession(meta, clientId, session);
                 if (sessionGenerationRef.current !== generation) {
                     // A logout happened while this refresh was in
                     // flight; the result is stale and must not
@@ -291,8 +303,15 @@ export const AuthProvider = ({ children }) => {
     // The delay can be zero for an already-expiring token, so the timer
     // may well fire alongside a 401 for the same token; both go through
     // startRefresh, which coalesces them into one request.
+    //
+    // Nothing is scheduled whilst the mount effect is still running
+    // (loading): at that point oauthSession is whatever was read out of
+    // localStorage, which may be the expired session the mount effect is
+    // in the middle of renewing, and scheduling off it would arm a
+    // zero-delay timer that races that renewal for the same one-time
+    // refresh token.
     useEffect(() => {
-        if (!oauth.enabled || !oauth.meta || !oauthSession) {
+        if (loading || !oauth.enabled || !oauth.meta || !oauthSession) {
             return undefined;
         }
 
@@ -309,7 +328,7 @@ export const AuthProvider = ({ children }) => {
             }
         };
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [oauth.enabled, oauth.meta, oauthSession]);
+    }, [loading, oauth.enabled, oauth.meta, oauthSession]);
 
     const login = async (username, password) => {
         try {

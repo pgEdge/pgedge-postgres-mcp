@@ -524,3 +524,118 @@ describe('AuthContext handleUnauthorized', () => {
         expect(localStorage.getItem('mcp-session-token')).toBeNull();
     });
 });
+
+describe('AuthContext stored-session restore', () => {
+    const ISSUER = 'http://localhost:8080';
+
+    beforeEach(() => {
+        global.fetch = vi.fn();
+        localStorage.clear();
+        sessionStorage.clear();
+        window.history.pushState({}, '', '/');
+    });
+
+    afterEach(() => {
+        localStorage.clear();
+        sessionStorage.clear();
+        window.history.pushState({}, '', '/');
+    });
+
+    it('renews an expired stored session exactly once, with no logout', async () => {
+        // A session that expired whilst the tab was closed, plus the
+        // cached dynamic client, so mounting goes straight to renewal.
+        localStorage.setItem(STORAGE_SESSION, JSON.stringify({
+            accessToken: 'access-token-stale',
+            refreshToken: 'refresh-token-1',
+            expiresAt: Date.now() - 1000,
+        }));
+        localStorage.setItem(STORAGE_CLIENT, JSON.stringify({ clientId: 'client-abc', issuer: ISSUER }));
+
+        const tokenBodies = [];
+        let releaseToken;
+        const tokenGate = new Promise((resolve) => {
+            releaseToken = resolve;
+        });
+
+        // The refresh token is one-time and rotating, so the second
+        // request carrying it loses: the server answers invalid_grant,
+        // which is what turns a duplicate refresh into a forced logout.
+        // Holding the first response open until the test releases it
+        // gives a racing second refresh every chance to be sent, which a
+        // mock resolving immediately never does.
+        global.fetch.mockImplementation((url, options) => {
+            if (url === '/.well-known/oauth-authorization-server') {
+                return Promise.resolve(mockOAuthMetadata({ issuer: ISSUER }));
+            }
+
+            if (url === '/oauth/token') {
+                const params = new URLSearchParams(options.body);
+                tokenBodies.push(params.get('refresh_token'));
+
+                if (tokenBodies.length > 1) {
+                    return Promise.resolve({
+                        ok: false,
+                        status: 400,
+                        json: async () => ({ error: 'invalid_grant' }),
+                    });
+                }
+
+                return tokenGate.then(() => ({
+                    ok: true,
+                    status: 200,
+                    json: async () => ({
+                        access_token: 'access-token-2',
+                        token_type: 'Bearer',
+                        expires_in: 3600,
+                        refresh_token: 'refresh-token-2',
+                    }),
+                }));
+            }
+
+            if (url === '/api/user/info') {
+                return Promise.resolve(mockUserInfo('alice'));
+            }
+
+            const body = JSON.parse(options.body);
+            if (body.method === 'tools/list') {
+                return Promise.resolve(mockListTools(body.id));
+            }
+            return Promise.resolve(mockDiscover(body.id));
+        });
+
+        const { result } = renderHook(() => useAuth(), {
+            wrapper: AuthProvider,
+        });
+
+        // Wait for the renewal to be sent, then let several macrotasks
+        // pass whilst it is still outstanding: a zero-delay proactive
+        // timer armed off the stale session would fire inside this
+        // window and send a second request with the same token.
+        await waitFor(() => {
+            expect(tokenBodies.length).toBeGreaterThan(0);
+        });
+        await act(async () => {
+            for (let i = 0; i < 5; i++) {
+                await new Promise((resolve) => setTimeout(resolve, 0));
+            }
+        });
+
+        expect(tokenBodies).toEqual(['refresh-token-1']);
+
+        await act(async () => {
+            releaseToken();
+        });
+
+        await waitFor(() => {
+            expect(result.current.loading).toBe(false);
+        });
+
+        expect(tokenBodies).toEqual(['refresh-token-1']);
+        expect(result.current.user).toEqual({ authenticated: true, username: 'alice' });
+        expect(result.current.sessionToken).toBe('access-token-2');
+        expect(JSON.parse(localStorage.getItem(STORAGE_SESSION))).toMatchObject({
+            accessToken: 'access-token-2',
+            refreshToken: 'refresh-token-2',
+        });
+    });
+});
