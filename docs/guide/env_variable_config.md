@@ -119,6 +119,26 @@ limiting and account lockout preferences:
 - **`PGEDGE_AUTH_RATE_LIMIT_MAX_ATTEMPTS`**: Maximum failed
   attempts per IP per window (default: 10)
 
+The following environment variables control which authentication
+methods are available; see [Authentication -
+OAuth](auth_oauth.md#method-toggles) for the corresponding
+configuration file settings:
+
+- **`PGEDGE_AUTH_METHOD_API_TOKENS`**: Enable API token
+  authentication ("true", "1", "yes"; default: enabled)
+- **`PGEDGE_AUTH_METHOD_PASSWORD_LOGIN`**: Enable
+  username/password authentication (default: enabled)
+- **`PGEDGE_AUTH_METHOD_OAUTH`**: Enable the OAuth
+  authentication method (default: enabled)
+
+The following environment variable configures the OAuth
+authorisation server; see [Authentication -
+OAuth](auth_oauth.md) for the full set of `http.auth.oauth`
+options, which have no environment variable equivalents:
+
+- **`PGEDGE_AUTH_OAUTH_ISSUER`**: Issuer URL that switches on
+  the OAuth authorisation server (unset disables it)
+
 ## LLM Proxy Configuration
 
 The following environment variables specify LLM provider

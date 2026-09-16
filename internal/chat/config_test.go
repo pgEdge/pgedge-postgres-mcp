@@ -544,3 +544,51 @@ func TestReadAPIKeyFile(t *testing.T) {
 		t.Errorf("Expected an empty key for a missing file, got '%s'", key)
 	}
 }
+
+func TestAuthModeDefaultsToAuto(t *testing.T) {
+	os.Unsetenv("PGEDGE_MCP_AUTH_MODE")
+
+	cfg, err := LoadConfig("")
+	if err != nil {
+		t.Fatalf("LoadConfig failed: %v", err)
+	}
+	if cfg.MCP.AuthMode != "auto" {
+		t.Errorf("AuthMode = %q, want \"auto\"", cfg.MCP.AuthMode)
+	}
+}
+
+func TestAuthModeAcceptsOAuth(t *testing.T) {
+	cfg := &Config{
+		MCP: MCPConfig{
+			Mode:     "http",
+			URL:      "http://localhost:8080",
+			AuthMode: "oauth",
+		},
+		LLM: LLMConfig{
+			Provider: "ollama",
+			Model:    "llama3",
+		},
+	}
+
+	if err := cfg.Validate(); err != nil {
+		t.Errorf("Validate failed: %v", err)
+	}
+}
+
+func TestAuthModeRejectsUnknown(t *testing.T) {
+	cfg := &Config{
+		MCP: MCPConfig{
+			Mode:     "http",
+			URL:      "http://localhost:8080",
+			AuthMode: "bogus",
+		},
+		LLM: LLMConfig{
+			Provider: "ollama",
+			Model:    "llama3",
+		},
+	}
+
+	if err := cfg.Validate(); err == nil {
+		t.Error("Validate should reject an unknown auth mode")
+	}
+}

@@ -37,6 +37,7 @@ You should instead:
 - Use HTTPS with valid certificates.
 - Set up API token authentication.
 - Configure token expiration.
+- Serve the OAuth issuer over HTTPS if OAuth is enabled.
 - Test in staging environment.
 
 **Production**
@@ -373,3 +374,24 @@ Consider also whether the listen address needs to be as broad as it is:
 the default binds every interface, and a server used only from the
 machine it runs on can bind loopback instead, by setting
 `http.address` to `127.0.0.1:8080`.
+
+## OAuth Authorisation Server
+
+Enabling OAuth adds a second way for a client to obtain a token,
+alongside API tokens and username/password login; it shares the same
+user accounts and the same per-IP rate limiting on failed attempts.
+See [Authentication - OAuth](auth_oauth.md) for how the flow works and
+how to configure it.
+
+Serve the issuer over `https` in any deployment reachable from outside
+the machine it runs on. The server refuses a plain `http` issuer
+unless the host is `localhost` or a loopback address, and warns at
+startup if TLS is not enabled locally whilst the issuer claims `https`,
+since that combination usually means a reverse proxy is expected to
+terminate TLS in front of it.
+
+A custom login page template, set via `login_page.template_file`, runs
+with the same trust as the server process and can render arbitrary
+HTML. Treat a custom template file with the same care as any other
+server configuration file, and keep it out of a web-writable
+directory.

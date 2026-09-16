@@ -96,6 +96,62 @@ func NewOriginPolicy(configured []string) (*OriginPolicy, error) {
 	return policy, nil
 }
 
+// originFromIssuer derives the scheme://host[:port] origin of an OAuth
+// issuer URL, for automatic inclusion in the allowed-origins policy: the
+// login form and device verification form both submit same-origin to
+// their own server, so a browser sends this as the request's Origin
+// header. ok is false when issuer is not an absolute http(s) URL.
+func originFromIssuer(issuer string) (origin string, ok bool) {
+	parsed, err := url.Parse(issuer)
+	if err != nil {
+		return "", false
+	}
+	scheme := strings.ToLower(parsed.Scheme)
+	if (scheme != "http" && scheme != "https") || parsed.Host == "" {
+		return "", false
+	}
+	return scheme + "://" + parsed.Host, true
+}
+
+// EffectiveOrigins returns the origin list a server will actually
+// enforce: the configured list, plus the OAuth issuer's own origin when
+// OAuth is active, since the login form and the device verification
+// form both submit same-origin to the issuer. issuer may be empty, in
+// which case the configured list is returned unchanged. It is exported
+// so that main can log the policy that is really in force rather than
+// one built from the configured list alone, which with an empty list
+// and OAuth active described a loopback-only policy the server was not
+// applying.
+func EffectiveOrigins(configured []string, issuer string) []string {
+	if issuer == "" {
+		return configured
+	}
+	origin, ok := originFromIssuer(issuer)
+	if !ok {
+		return configured
+	}
+	return addOriginIfMissing(configured, origin)
+}
+
+// addOriginIfMissing appends origin to origins unless an equivalent entry
+// (compared after normalisation) is already present, so the startup log
+// and the configured list do not carry a visible duplicate when an
+// operator has already listed the issuer explicitly.
+func addOriginIfMissing(origins []string, origin string) []string {
+	normalised, err := normaliseOrigin(origin)
+	if err != nil {
+		return origins
+	}
+	for _, existing := range origins {
+		if existingNormalised, err := normaliseOrigin(existing); err == nil && existingNormalised == normalised {
+			return origins
+		}
+	}
+	extended := make([]string, len(origins), len(origins)+1)
+	copy(extended, origins)
+	return append(extended, origin)
+}
+
 // normaliseOrigin parses an origin and renders it as scheme://host:port
 // with the default port for the scheme filled in. Comparing normalised
 // forms means a configured "https://example.com" also matches a browser

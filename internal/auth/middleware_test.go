@@ -26,7 +26,7 @@ func TestAuthMiddleware_Disabled(t *testing.T) {
 		Tokens: make(map[string]*Token),
 	}
 
-	middleware := AuthMiddleware(tokenStore, nil, false)
+	middleware := AuthMiddleware(&Validator{Tokens: tokenStore, Methods: Methods{APITokens: true, PasswordLogin: true}}, false)
 
 	handler := middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
@@ -53,7 +53,7 @@ func TestAuthMiddleware_HealthCheck(t *testing.T) {
 		Tokens: make(map[string]*Token),
 	}
 
-	middleware := AuthMiddleware(tokenStore, nil, true)
+	middleware := AuthMiddleware(&Validator{Tokens: tokenStore, Methods: Methods{APITokens: true, PasswordLogin: true}}, true)
 
 	handler := middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
@@ -80,7 +80,7 @@ func TestAuthMiddleware_OpenAPIBypass(t *testing.T) {
 		Tokens: make(map[string]*Token),
 	}
 
-	middleware := AuthMiddleware(tokenStore, nil, true)
+	middleware := AuthMiddleware(&Validator{Tokens: tokenStore, Methods: Methods{APITokens: true, PasswordLogin: true}}, true)
 
 	handler := middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
@@ -107,7 +107,7 @@ func TestAuthMiddleware_MissingAuthHeader(t *testing.T) {
 		Tokens: make(map[string]*Token),
 	}
 
-	middleware := AuthMiddleware(tokenStore, nil, true)
+	middleware := AuthMiddleware(&Validator{Tokens: tokenStore, Methods: Methods{APITokens: true, PasswordLogin: true}}, true)
 
 	handler := middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		t.Error("Handler should not be called for missing auth header")
@@ -148,7 +148,7 @@ func TestAuthMiddleware_MalformedAuthHeader(t *testing.T) {
 				Tokens: make(map[string]*Token),
 			}
 
-			middleware := AuthMiddleware(tokenStore, nil, true)
+			middleware := AuthMiddleware(&Validator{Tokens: tokenStore, Methods: Methods{APITokens: true, PasswordLogin: true}}, true)
 
 			handler := middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				t.Error("Handler should not be called for malformed auth header")
@@ -181,7 +181,7 @@ func TestAuthMiddleware_InvalidToken(t *testing.T) {
 		Tokens: make(map[string]*Token),
 	}
 
-	middleware := AuthMiddleware(tokenStore, nil, true)
+	middleware := AuthMiddleware(&Validator{Tokens: tokenStore, Methods: Methods{APITokens: true, PasswordLogin: true}}, true)
 
 	handler := middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		t.Error("Handler should not be called for invalid token")
@@ -226,7 +226,7 @@ func TestAuthMiddleware_ValidToken(t *testing.T) {
 		},
 	}
 
-	middleware := AuthMiddleware(tokenStore, nil, true)
+	middleware := AuthMiddleware(&Validator{Tokens: tokenStore, Methods: Methods{APITokens: true, PasswordLogin: true}}, true)
 
 	var capturedContext context.Context
 	handler := middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -287,7 +287,7 @@ func TestAuthMiddleware_ExpiredToken(t *testing.T) {
 	// Wait for token to expire
 	time.Sleep(10 * time.Millisecond)
 
-	middleware := AuthMiddleware(tokenStore, nil, true)
+	middleware := AuthMiddleware(&Validator{Tokens: tokenStore, Methods: Methods{APITokens: true, PasswordLogin: true}}, true)
 
 	handler := middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		t.Error("Handler should not be called for expired token")
@@ -364,7 +364,7 @@ func TestAuthMiddleware_NoInfoLeak(t *testing.T) {
 		},
 	}
 
-	middleware := AuthMiddleware(tokenStore, nil, true)
+	middleware := AuthMiddleware(&Validator{Tokens: tokenStore, Methods: Methods{APITokens: true, PasswordLogin: true}}, true)
 
 	handler := middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		t.Error("Handler should not be called for token validation error")
@@ -394,5 +394,68 @@ func TestAuthMiddleware_NoInfoLeak(t *testing.T) {
 	// Verify no stack traces, hash details, or other internals
 	if strings.Contains(errResp.Error, "hash") || strings.Contains(errResp.Error, "corrupt") || strings.Contains(errResp.Error, "format") {
 		t.Errorf("Internal error details leaked: %q", errResp.Error)
+	}
+}
+
+// TestMiddlewareOAuthTokenAccepted tests that a valid OAuth access token is
+// accepted and the OAuth subject is available as the session username.
+func TestMiddlewareOAuthTokenAccepted(t *testing.T) {
+	v, _, _ := newValidator(t)
+	var gotUser string
+	h := AuthMiddleware(v, true)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { gotUser = GetUsernameFromContext(r.Context()) }))
+	req := httptest.NewRequest("POST", "/mcp/v1", strings.NewReader(`{}`))
+	req.Header.Set("Authorization", "Bearer oa1")
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+	if rec.Code != 200 || gotUser != "bob" {
+		t.Fatal(rec.Code, gotUser)
+	}
+}
+
+// TestMiddleware401CarriesResourceMetadataWhenOAuthOn tests that a 401
+// response advertises the OAuth protected resource metadata endpoint only
+// when OAuth is enabled.
+func TestMiddleware401CarriesResourceMetadataWhenOAuthOn(t *testing.T) {
+	v, _, _ := newValidator(t)
+	h := AuthMiddleware(v, true)(http.NotFoundHandler())
+	req := httptest.NewRequest("POST", "/mcp/v1", strings.NewReader(`{}`))
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+	want := `Bearer resource_metadata="https://mcp.example.com/.well-known/oauth-protected-resource"`
+	if rec.Code != 401 || rec.Header().Get("WWW-Authenticate") != want {
+		t.Fatal(rec.Code, rec.Header().Get("WWW-Authenticate"))
+	}
+	v.Methods.OAuth = false
+	rec = httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+	if rec.Header().Get("WWW-Authenticate") != "" {
+		t.Fatal("hint should be absent when OAuth is off")
+	}
+}
+
+// TestMiddlewareExtraPublicPaths tests that paths registered by main.go via
+// ExtraPublicPaths bypass authentication.
+func TestMiddlewareExtraPublicPaths(t *testing.T) {
+	v, _, _ := newValidator(t)
+	v.ExtraPublicPaths = []string{"/oauth/token"}
+	h := AuthMiddleware(v, true)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(204) }))
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, httptest.NewRequest("POST", "/oauth/token", nil))
+	if rec.Code != 204 {
+		t.Fatal(rec.Code)
+	}
+}
+
+// TestMiddlewareAuthenticateUserBypassFollowsToggle tests that the
+// authenticate_user bypass only applies when password login is enabled.
+func TestMiddlewareAuthenticateUserBypassFollowsToggle(t *testing.T) {
+	v, _, _ := newValidator(t)
+	v.Methods.PasswordLogin = false
+	h := AuthMiddleware(v, true)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(204) }))
+	req := httptest.NewRequest("POST", "/mcp/v1", strings.NewReader(`{"jsonrpc":"2.0","method":"tools/call","params":{"name":"authenticate_user"}}`))
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+	if rec.Code != 401 {
+		t.Fatal("authenticate_user should not bypass auth when password login is disabled")
 	}
 }

@@ -379,21 +379,29 @@ func (c *stdioClient) sendRequest(ctx context.Context, method string, params int
 
 // httpClient implements MCPClient for HTTP communication
 type httpClient struct {
-	url        string
-	token      string
-	client     *http.Client
-	requestID  int
-	mu         sync.Mutex
-	serverInfo mcp.Implementation
+	url         string
+	tokenSource TokenSource
+	client      *http.Client
+	requestID   int
+	mu          sync.Mutex
+	serverInfo  mcp.Implementation
 }
 
-// NewHTTPClient creates a new HTTP-based MCP client
+// NewHTTPClient creates a new HTTP-based MCP client that presents a fixed
+// bearer token on every request.
 func NewHTTPClient(url, token string) MCPClient {
+	return NewHTTPClientWithSource(url, func() string { return token })
+}
+
+// NewHTTPClientWithSource creates a new HTTP-based MCP client that
+// consults src for the bearer token on every request, so a source such as
+// OAuthClient.Token can transparently refresh it.
+func NewHTTPClientWithSource(url string, src TokenSource) MCPClient {
 	return &httpClient{
-		url:       url,
-		token:     token,
-		client:    &http.Client{},
-		requestID: 0,
+		url:         url,
+		tokenSource: src,
+		client:      &http.Client{},
+		requestID:   0,
 	}
 }
 
@@ -528,8 +536,12 @@ func (c *httpClient) sendRequest(ctx context.Context, method string, params inte
 	if methodsRequiringMcpName[method] {
 		httpReq.Header.Set("Mcp-Name", encodeHeaderValue(nameOrURIFor(params)))
 	}
-	if c.token != "" {
-		httpReq.Header.Set("Authorization", "Bearer "+c.token)
+	token := ""
+	if c.tokenSource != nil {
+		token = c.tokenSource()
+	}
+	if token != "" {
+		httpReq.Header.Set("Authorization", "Bearer "+token)
 	}
 
 	resp, err := c.client.Do(httpReq)

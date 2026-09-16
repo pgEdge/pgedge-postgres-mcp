@@ -11,11 +11,15 @@
 package mcp
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"pgedge-postgres-mcp/internal/config"
+	"pgedge-postgres-mcp/internal/oauth"
 )
 
 func TestNewOriginPolicy_RejectsMalformedEntries(t *testing.T) {
@@ -322,5 +326,153 @@ func TestBuildHandler_OriginCheckRunsBeforeAuthentication(t *testing.T) {
 
 	if w.Code != http.StatusForbidden {
 		t.Errorf("status = %d, want %d (the origin check must precede auth)", w.Code, http.StatusForbidden)
+	}
+}
+
+// stubAuthenticator satisfies oauth.Authenticator for tests that never
+// reach the login form; it rejects every credential it is given.
+type stubAuthenticator struct{}
+
+func (stubAuthenticator) Authenticate(_ context.Context, _, _, _ string) (string, error) {
+	return "", oauth.ErrInvalidCredentials
+}
+
+// newTestOAuthServer builds a minimal OAuth server for origin-policy tests:
+// its issuer is the only thing under test here, so the rest of Options is
+// left at defaults beyond the authenticator oauth.New requires.
+func newTestOAuthServer(t *testing.T, issuer string) *oauth.Server {
+	t.Helper()
+	oa, err := oauth.New(oauth.Options{
+		Config:        config.OAuthConfig{Issuer: issuer},
+		Authenticator: stubAuthenticator{},
+	})
+	if err != nil {
+		t.Fatalf("oauth.New: %v", err)
+	}
+	t.Cleanup(oa.Close)
+	return oa
+}
+
+// TestBuildHandler_OAuthIssuerOriginAccepted is the regression test for the
+// login form submitting same-origin to /oauth/authorize: browsers send
+// Origin: <issuer origin> on that POST, so the issuer's own origin must be
+// accepted even when the operator never listed it in allowed_origins.
+func TestBuildHandler_OAuthIssuerOriginAccepted(t *testing.T) {
+	oa := newTestOAuthServer(t, "https://mcp.example.com")
+
+	server := NewServer(&mockToolProvider{})
+	handler, err := server.buildHandler(&HTTPConfig{OAuth: oa})
+	if err != nil {
+		t.Fatalf("buildHandler failed: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodPost, oauth.AuthorizePath, strings.NewReader(""))
+	req.Header.Set("Origin", "https://mcp.example.com")
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	w := httptest.NewRecorder()
+
+	handler.ServeHTTP(w, req)
+
+	if w.Code == http.StatusForbidden {
+		t.Fatalf("status = %d, want the request to reach the OAuth handler (a 400 for missing form fields is fine, 403 is the origin check wrongly rejecting it)", w.Code)
+	}
+}
+
+// TestBuildHandler_OAuthIssuerOriginDoesNotWidenPolicy verifies that adding
+// the issuer's origin to the policy does not also open the door to an
+// unrelated origin.
+func TestBuildHandler_OAuthIssuerOriginDoesNotWidenPolicy(t *testing.T) {
+	oa := newTestOAuthServer(t, "https://mcp.example.com")
+
+	server := NewServer(&mockToolProvider{})
+	handler, err := server.buildHandler(&HTTPConfig{OAuth: oa})
+	if err != nil {
+		t.Fatalf("buildHandler failed: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodPost, oauth.AuthorizePath, strings.NewReader(""))
+	req.Header.Set("Origin", "https://evil.example.com")
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	w := httptest.NewRecorder()
+
+	handler.ServeHTTP(w, req)
+
+	if w.Code != http.StatusForbidden {
+		t.Errorf("status = %d, want %d (an unrelated origin must still be rejected)", w.Code, http.StatusForbidden)
+	}
+}
+
+// TestBuildHandler_NoOAuthOriginPolicyUnchanged confirms that origin
+// handling is untouched when OAuth is not configured.
+func TestBuildHandler_NoOAuthOriginPolicyUnchanged(t *testing.T) {
+	server := NewServer(&mockToolProvider{})
+	handler, err := server.buildHandler(&HTTPConfig{})
+	if err != nil {
+		t.Fatalf("buildHandler failed: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/health", nil)
+	req.Header.Set("Origin", "https://mcp.example.com")
+	w := httptest.NewRecorder()
+
+	handler.ServeHTTP(w, req)
+
+	if w.Code != http.StatusForbidden {
+		t.Errorf("status = %d, want %d (with no OAuth server, a non-loopback origin must still be rejected)", w.Code, http.StatusForbidden)
+	}
+}
+
+// TestEffectiveOrigins covers the list both the startup log and the
+// request path are now built from: the configured origins plus the
+// issuer's own, added once and only when OAuth names a usable one.
+func TestEffectiveOrigins(t *testing.T) {
+	tests := []struct {
+		name       string
+		configured []string
+		issuer     string
+		want       []string
+	}{
+		{
+			name:   "issuer added to an empty list",
+			issuer: "http://localhost:8080",
+			want:   []string{"http://localhost:8080"},
+		},
+		{
+			name:       "issuer path dropped",
+			configured: []string{"https://app.example.com"},
+			issuer:     "https://mcp.example.com/base",
+			want:       []string{"https://app.example.com", "https://mcp.example.com"},
+		},
+		{
+			name:       "issuer already listed is not duplicated",
+			configured: []string{"https://mcp.example.com"},
+			issuer:     "https://mcp.example.com",
+			want:       []string{"https://mcp.example.com"},
+		},
+		{
+			name:       "no issuer leaves the list alone",
+			configured: []string{"https://app.example.com"},
+			want:       []string{"https://app.example.com"},
+		},
+		{
+			name:       "unusable issuer leaves the list alone",
+			configured: []string{"https://app.example.com"},
+			issuer:     "not-a-url",
+			want:       []string{"https://app.example.com"},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got := EffectiveOrigins(tc.configured, tc.issuer)
+			if len(got) != len(tc.want) {
+				t.Fatalf("EffectiveOrigins = %v; want %v", got, tc.want)
+			}
+			for i := range got {
+				if got[i] != tc.want[i] {
+					t.Fatalf("EffectiveOrigins = %v; want %v", got, tc.want)
+				}
+			}
+		})
 	}
 }
