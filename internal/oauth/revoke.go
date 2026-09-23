@@ -24,36 +24,40 @@ const maxRevokeBodyBytes = 64 * 1024
 func (s *Server) handleRevoke(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-store")
 
+	// Revocation is unauthenticated, and its failures (a wrong method, a
+	// malformed body, a missing token) are not credential guesses, so it
+	// meters on the anonymous limiter rather than the one that gates
+	// password login: counting them there would let a handful of empty
+	// POSTs lock every user at an address out of signing in.
 	ip := s.clientIP(r)
-	if s.opts.RateLimiter != nil && !s.opts.RateLimiter.IsAllowed(ip) {
+	limiter := s.opts.AnonymousRateLimiter
+	if limiter != nil && !limiter.IsAllowed(ip) {
 		w.Header().Set("Retry-After", "60")
 		writeJSONError(w, newError("access_denied", "too many requests", http.StatusTooManyRequests))
 		return
 	}
 
-	if r.Method != http.MethodPost {
-		if s.opts.RateLimiter != nil {
-			s.opts.RateLimiter.RecordFailedAttempt(ip)
+	fail := func(e *Error) {
+		if limiter != nil {
+			limiter.RecordFailedAttempt(ip)
 		}
-		writeJSONError(w, newError("invalid_request", "method not allowed", http.StatusMethodNotAllowed))
+		writeJSONError(w, e)
+	}
+
+	if r.Method != http.MethodPost {
+		fail(newError("invalid_request", "method not allowed", http.StatusMethodNotAllowed))
 		return
 	}
 
 	r.Body = http.MaxBytesReader(w, r.Body, maxRevokeBodyBytes)
 	if err := r.ParseForm(); err != nil {
-		if s.opts.RateLimiter != nil {
-			s.opts.RateLimiter.RecordFailedAttempt(ip)
-		}
-		writeJSONError(w, newError("invalid_request", "malformed request", http.StatusBadRequest))
+		fail(newError("invalid_request", "malformed request", http.StatusBadRequest))
 		return
 	}
 
 	token := r.PostFormValue("token")
 	if token == "" {
-		if s.opts.RateLimiter != nil {
-			s.opts.RateLimiter.RecordFailedAttempt(ip)
-		}
-		writeJSONError(w, newError("invalid_request", "token is required", http.StatusBadRequest))
+		fail(newError("invalid_request", "token is required", http.StatusBadRequest))
 		return
 	}
 

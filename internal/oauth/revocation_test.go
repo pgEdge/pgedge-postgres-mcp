@@ -284,6 +284,45 @@ func TestRegistrationDoesNotSpendTheLoginBudget(t *testing.T) {
 	}
 }
 
+// TestRevokeFailuresDoNotSpendTheLoginBudget covers the finding that
+// /oauth/revoke still recorded its failures on the login limiter after
+// registration and the device request had moved off it, so ten empty
+// POSTs to it locked password login out for the sending address.
+func TestRevokeFailuresDoNotSpendTheLoginBudget(t *testing.T) {
+	login := auth.NewRateLimiter(1, 3)
+	t.Cleanup(login.Stop)
+	// Four: the registration below, then the three revocation failures.
+	anonymous := auth.NewRateLimiter(1, 4)
+	t.Cleanup(anonymous.Stop)
+
+	ts := newTestServer(t, func(o *Options) {
+		o.RateLimiter = login
+		o.AnonymousRateLimiter = anonymous
+	})
+	cid := registerClient(t, ts, claudeCB)
+
+	// One of each failure the endpoint records: wrong method, malformed
+	// body, missing token.
+	ts.do("GET", RevokePath, "", "")
+	ts.do("POST", RevokePath, "application/x-www-form-urlencoded", "%zz")
+	ts.do("POST", RevokePath, "application/x-www-form-urlencoded", "")
+
+	if !login.IsAllowed("192.0.2.1") {
+		t.Fatal("revocation failures exhausted the login budget")
+	}
+	rec := ts.do("POST", RevokePath, "application/x-www-form-urlencoded", "token=nothing")
+	if rec.Code != 429 {
+		t.Fatalf("revoke after exhausting the anonymous budget: %d %s", rec.Code, rec.Body)
+	}
+	if got := rec.Header().Get("Retry-After"); got != "60" {
+		t.Fatalf("Retry-After = %q", got)
+	}
+
+	if rec := loginForm(t, ts, cid, claudeCB, "alice", "correct horse"); rec.Code != 302 {
+		t.Fatalf("login after revocation failures: %d %s", rec.Code, rec.Body)
+	}
+}
+
 // TestDeviceRequestsAreMeteredWhenTheySucceed covers the device
 // endpoint's half of the same finding: it recorded only failures, so a
 // burst of successful requests could fill the bounded device code table
