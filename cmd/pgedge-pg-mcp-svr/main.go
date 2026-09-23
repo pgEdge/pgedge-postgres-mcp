@@ -920,14 +920,20 @@ func main() {
 				// this the pools of expired and revoked OAuth tokens
 				// would accumulate for the life of the process, since
 				// the only other caller of RemoveClients is driven by
-				// the API token store.
+				// the API token store. The hook fires from the sweeper,
+				// from every refresh and from the revocation endpoint,
+				// and closing a pool waits for its checked-out
+				// connections to come back, so the release runs in the
+				// background rather than holding up the caller.
 				OnTokensRevoked: func(accessTokenHashes []string) {
 					if clientManager == nil || len(accessTokenHashes) == 0 {
 						return
 					}
-					if err := clientManager.RemoveClients(accessTokenHashes); err != nil {
-						fmt.Fprintf(os.Stderr, "WARNING: Failed to release connections for revoked OAuth tokens: %v\n", err)
-					}
+					go func() {
+						if err := clientManager.RemoveClients(accessTokenHashes); err != nil {
+							fmt.Fprintf(os.Stderr, "WARNING: Failed to release connections for revoked OAuth tokens: %v\n", err)
+						}
+					}()
 				},
 				Logger: func(f string, a ...any) { fmt.Fprintf(os.Stderr, f+"\n", a...) },
 			})
