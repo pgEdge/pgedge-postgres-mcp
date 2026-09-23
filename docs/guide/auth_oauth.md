@@ -332,6 +332,14 @@ worth planning for:
   from many, so put the server behind whatever network controls the
   deployment warrants rather than relying on the limiter alone.
 
+Disabling, deleting or locking out a user revokes that user's OAuth
+tokens at once. Changing a password with `-update-user` does not; the
+existing refresh token stays valid until it expires. To end those
+sessions as well, run `-disable-user` and then `-enable-user` for the
+account after changing the password. Pause for a second or two between
+the commands; the server must reload the user file whilst the account
+is disabled for the revocation to take effect.
+
 ## Troubleshooting
 
 If a client cannot discover OAuth, confirm that

@@ -96,6 +96,45 @@ func TestRegisterPublicClient(t *testing.T) {
 	}
 }
 
+// TestRegisterResponseTypes covers the finding that registration echoed
+// any response_types it was sent, and claimed code for a device-only
+// client that cannot use it.
+func TestRegisterResponseTypes(t *testing.T) {
+	const uris = `"redirect_uris":["https://claude.ai/api/mcp/auth_callback"]`
+	for _, tc := range []struct {
+		name   string
+		extra  string
+		status int
+		want   string
+	}{
+		{"default", ``, 201, `["code"]`},
+		{"explicit code", `,"response_types":["code"]`, 201, `["code"]`},
+		{"device only", `,"grant_types":["` + DeviceGrantType + `"]`, 201, `[]`},
+		{"implicit token", `,"response_types":["token"]`, 400, ``},
+		{"code without its grant", `,"grant_types":["` + DeviceGrantType + `"],"response_types":["code"]`, 400, ``},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			ts := newTestServer(t, nil)
+			rec := ts.do("POST", RegisterPath, "application/json", "{"+uris+tc.extra+"}")
+			if rec.Code != tc.status {
+				t.Fatalf("status %d: %s", rec.Code, rec.Body)
+			}
+			if tc.status != 201 {
+				return
+			}
+			var resp struct {
+				ResponseTypes json.RawMessage `json:"response_types"`
+			}
+			if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+				t.Fatal(err)
+			}
+			if got := string(resp.ResponseTypes); got != tc.want {
+				t.Fatalf("response_types = %s, want %s", got, tc.want)
+			}
+		})
+	}
+}
+
 func TestRegisterRejectsDisallowedRedirect(t *testing.T) {
 	ts := newTestServer(t, nil)
 	rec := ts.do("POST", RegisterPath, "application/json", `{"redirect_uris":["https://evil.example.com/cb"]}`)

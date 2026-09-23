@@ -130,9 +130,26 @@ func (s *Server) handleRegister(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// The only response type this server implements is code, which
+	// belongs to the authorization_code grant (RFC 7591 section 2.1);
+	// a device-only client uses no response type at all.
+	usesCode := slices.Contains(grantTypes, "authorization_code")
 	responseTypes := req.ResponseTypes
+	for _, rt := range responseTypes {
+		if rt != "code" {
+			fail(newError("invalid_request", "unsupported response type: "+rt, http.StatusBadRequest))
+			return
+		}
+	}
+	if len(responseTypes) > 0 && !usesCode {
+		fail(newError("invalid_request", "response type code requires the authorization_code grant", http.StatusBadRequest))
+		return
+	}
 	if len(responseTypes) == 0 {
-		responseTypes = []string{"code"}
+		responseTypes = []string{}
+		if usesCode {
+			responseTypes = []string{"code"}
+		}
 	}
 
 	clientName := truncateRunes(req.ClientName, maxClientNameRunes)
