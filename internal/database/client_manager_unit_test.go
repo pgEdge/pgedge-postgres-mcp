@@ -12,6 +12,7 @@ package database
 
 import (
 	"testing"
+	"time"
 
 	"pgedge-postgres-mcp/internal/config"
 )
@@ -705,4 +706,102 @@ func TestClientManager_SkipsClosedClient(t *testing.T) {
 	if err == nil {
 		t.Error("GetOrCreateClient with autoConnect=false should fail for closed client")
 	}
+}
+
+// TestClientManager_ClosesOutsideTheLock covers issue #292: every path
+// that retires a client closed it whilst holding the manager's lock, and
+// closing a pool blocks until its checked-out connections come back, so
+// one long query stalled every other session's tool calls. Holding the
+// client's own mutex makes Close block the same way.
+func TestClientManager_ClosesOutsideTheLock(t *testing.T) {
+	configs := func() []config.NamedDatabaseConfig {
+		return []config.NamedDatabaseConfig{
+			{Name: "db1", Host: "host1", Port: 5432, Database: "test1"},
+			{Name: "db2", Host: "host2", Port: 5433, Database: "test2"},
+		}
+	}
+	for _, tc := range []struct {
+		name   string
+		retire func(cm *ClientManager) error
+	}{
+		{"SetCurrentDatabaseAndCloseOthers", func(cm *ClientManager) error {
+			return cm.SetCurrentDatabaseAndCloseOthers("token", "db2")
+		}},
+		{"UpdateDatabaseConfigs/removed", func(cm *ClientManager) error {
+			cm.UpdateDatabaseConfigs(configs()[1:])
+			return nil
+		}},
+		{"UpdateDatabaseConfigs/changed", func(cm *ClientManager) error {
+			changed := configs()
+			changed[0].Host = "host1-updated"
+			cm.UpdateDatabaseConfigs(changed)
+			return nil
+		}},
+		{"SetClientForDatabase", func(cm *ClientManager) error {
+			return cm.SetClientForDatabase("token", "db1", NewClient(nil))
+		}},
+		{"SetClient", func(cm *ClientManager) error {
+			return cm.SetClient("token", NewClient(nil))
+		}},
+		{"CloseAll", func(cm *ClientManager) error { return cm.CloseAll() }},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			cm := NewClientManager(configs())
+			client := NewClient(nil)
+			// db1 is the default database, which SetClient replaces.
+			if err := cm.SetClientForDatabase("token", "db1", client); err != nil {
+				t.Fatal(err)
+			}
+
+			client.mu.Lock()
+			retired := make(chan error, 1)
+			go func() { retired <- tc.retire(cm) }()
+
+			// The client leaves the manager straight away, and the lock
+			// is free for everyone else whilst its Close is still stuck.
+			// The probe takes the lock, so it runs in a goroutine of its
+			// own and the wait is bounded.
+			free := make(chan struct{})
+			go func() {
+				for cm.stillHolds(client) {
+					time.Sleep(time.Millisecond)
+				}
+				close(free)
+			}()
+			select {
+			case <-free:
+			case <-time.After(2 * time.Second):
+				client.mu.Unlock()
+				t.Fatal("manager lock held, or client still present, whilst Close blocked")
+			}
+			select {
+			case <-retired:
+				t.Fatal("call returned before Close could run")
+			default:
+			}
+
+			client.mu.Unlock()
+			if err := <-retired; err != nil {
+				t.Fatal(err)
+			}
+			if !client.IsClosed() {
+				t.Fatal("client was not closed")
+			}
+		})
+	}
+}
+
+// stillHolds reports whether the manager still stores client under any
+// token and database, taking the read lock to look.
+func (cm *ClientManager) stillHolds(client *Client) bool {
+	cm.mu.RLock()
+	defer cm.mu.RUnlock()
+	for _, tokenClients := range cm.clients {
+		for _, c := range tokenClients {
+			if c == client {
+				return true
+			}
+		}
+	}
+	return false
 }

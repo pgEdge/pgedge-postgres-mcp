@@ -29,6 +29,14 @@ and this project adheres to
 
 ### Fixed
 
+- Switching database, reloading the database configuration, replacing
+  a client and shutting down no longer close connection pools whilst
+  holding the lock that every tool call takes. Closing a pool waits for
+  its checked-out connections to be returned, so one session's
+  long-running query previously stalled every other session until it
+  finished; for example, selecting another database mid-query stalled
+  other users for as long as the query ran. Fixes #292.
+
 - The Jinja2 raw block markers that shield three code blocks from the
   documentation site's macro processing are now separated from their
   fences by blank lines. Without the separation the closing fence and
