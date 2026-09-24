@@ -455,7 +455,7 @@ const compactMessages = async (messages, sessionToken, maxTokens = 100000, recen
 };
 
 const ChatInterface = ({ conversations }) => {
-    const { sessionToken, forceLogout } = useAuth();
+    const { sessionToken, handleUnauthorized } = useAuth();
     const { setIsProcessing } = useLLMProcessing();
     const { registerActions } = useConversationActions();
     const theme = useTheme();
@@ -835,14 +835,27 @@ const ChatInterface = ({ conversations }) => {
                         throw streamErr;
                     }
 
-                    // Session expired.
+                    // Session expired: try one reactive refresh before
+                    // giving up. A silent retry of the in-flight request
+                    // is not attempted here, since the agentic loop above
+                    // already holds the stale token in its closure; the
+                    // user is asked to resend instead, which picks up the
+                    // refreshed token from context on the next call.
                     if (streamErr.status === 401) {
-                        console.log('Session invalidated, logging out...');
+                        const recovered = await handleUnauthorized();
                         setMessages(prev => {
                             const newMessages = [...prev];
                             if (newMessages.length > 0 && newMessages[newMessages.length - 1].isThinking) {
                                 const thinkingMsg = newMessages[newMessages.length - 1];
-                                newMessages[newMessages.length - 1] = {
+                                newMessages[newMessages.length - 1] = recovered ? {
+                                    role: 'assistant',
+                                    content: 'Your session was refreshed. Please send your message again.',
+                                    timestamp: new Date().toISOString(),
+                                    provider: thinkingMsg.provider,
+                                    model: thinkingMsg.model,
+                                    activity: thinkingMsg.activity || [],
+                                    isError: true
+                                } : {
                                     role: 'assistant',
                                     content: 'Error: Your session has expired. Please log in again.',
                                     timestamp: new Date().toISOString(),
@@ -854,7 +867,6 @@ const ChatInterface = ({ conversations }) => {
                             }
                             return newMessages;
                         });
-                        forceLogout();
                         return;
                     }
 
@@ -1209,7 +1221,7 @@ const ChatInterface = ({ conversations }) => {
             setLoading(false);
             abortControllerRef.current = null;
         }
-    }, [input, loading, mcpClient, messages, sessionToken, tools, llmProviders.selectedProvider, llmProviders.selectedModel, llmProviders.loadingModels, queryHistory, forceLogout, refreshTools, fetchDatabases, isWriteAccessEnabled, requestWriteConfirmation]);
+    }, [input, loading, mcpClient, messages, sessionToken, tools, llmProviders.selectedProvider, llmProviders.selectedModel, llmProviders.loadingModels, queryHistory, handleUnauthorized, refreshTools, fetchDatabases, isWriteAccessEnabled, requestWriteConfirmation]);
 
     // Handle request cancellation
     const handleCancel = useCallback(() => {
@@ -1458,8 +1470,14 @@ const ChatInterface = ({ conversations }) => {
                     }
 
                     if (streamErr.status === 401) {
-                        forceLogout();
-                        throw new Error('Session expired. Please login again.');
+                        // Try one reactive refresh before giving up; the
+                        // stale token is already bound in this closure's
+                        // request, so ask the user to rerun the prompt
+                        // rather than silently retrying it.
+                        const recovered = await handleUnauthorized();
+                        throw new Error(recovered
+                            ? 'Your session was refreshed. Please run the prompt again.'
+                            : 'Session expired. Please login again.');
                     }
 
                     const errorText = streamErr.body || streamErr.message || '';
@@ -1793,7 +1811,7 @@ const ChatInterface = ({ conversations }) => {
             setLoading(false);
             abortControllerRef.current = null;
         }
-    }, [mcpClient, loading, messages, sessionToken, tools, llmProviders.selectedProvider, llmProviders.selectedModel, llmProviders.loadingModels, forceLogout, refreshTools, fetchDatabases, isWriteAccessEnabled, requestWriteConfirmation]);
+    }, [mcpClient, loading, messages, sessionToken, tools, llmProviders.selectedProvider, llmProviders.selectedModel, llmProviders.loadingModels, handleUnauthorized, refreshTools, fetchDatabases, isWriteAccessEnabled, requestWriteConfirmation]);
 
     return (
         <Box

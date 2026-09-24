@@ -218,8 +218,10 @@ func NewContextAwareProvider(clientManager *database.ClientManager, resourceReg 
 	provider.registerStatelessTools(provider.baseRegistry)
 	provider.registerDatabaseTools(provider.baseRegistry, nil) // nil client for base registry
 
-	// Register hidden tools (not advertised to LLM but available for execution)
-	if userStore != nil {
+	// Register hidden tools (not advertised to LLM but available for execution).
+	// authenticate_user is only useful, and only registered, when username/
+	// password login is an active authentication method.
+	if userStore != nil && cfg.HTTP.Auth.Methods.PasswordLoginEnabled() {
 		provider.hiddenRegistry.Register("authenticate_user", AuthenticateUserTool(userStore, rateLimiter, maxFailedAttempts))
 	}
 

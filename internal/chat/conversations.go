@@ -213,23 +213,40 @@ func coerceToolResultText(raw json.RawMessage) string {
 
 // ConversationsClient manages conversation history via the REST API
 type ConversationsClient struct {
-	baseURL string
-	token   string
-	client  *http.Client
+	baseURL     string
+	tokenSource TokenSource
+	client      *http.Client
 }
 
-// NewConversationsClient creates a new conversations client
+// NewConversationsClient creates a new conversations client that presents
+// a fixed bearer token on every request.
 func NewConversationsClient(baseURL, token string) *ConversationsClient {
+	return NewConversationsClientWithSource(baseURL, func() string { return token })
+}
+
+// NewConversationsClientWithSource creates a new conversations client
+// that consults src for the bearer token on every request, so a source
+// such as OAuthClient.Token can transparently refresh it.
+func NewConversationsClientWithSource(baseURL string, src TokenSource) *ConversationsClient {
 	// Remove /mcp/v1 suffix if present to get base URL
 	apiURL := baseURL
 	if len(apiURL) > 7 && apiURL[len(apiURL)-7:] == "/mcp/v1" {
 		apiURL = apiURL[:len(apiURL)-7]
 	}
 	return &ConversationsClient{
-		baseURL: apiURL + "/api/conversations",
-		token:   token,
-		client:  &http.Client{Timeout: 30 * time.Second},
+		baseURL:     apiURL + "/api/conversations",
+		tokenSource: src,
+		client:      &http.Client{Timeout: 30 * time.Second},
 	}
+}
+
+// token returns the current bearer token from tokenSource, or "" if none
+// is set.
+func (c *ConversationsClient) token() string {
+	if c.tokenSource == nil {
+		return ""
+	}
+	return c.tokenSource()
 }
 
 // ListResponse represents the response from list endpoint
@@ -244,7 +261,7 @@ func (c *ConversationsClient) List(ctx context.Context) ([]ConversationSummary, 
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
 
-	req.Header.Set("Authorization", "Bearer "+c.token)
+	req.Header.Set("Authorization", "Bearer "+c.token())
 
 	resp, err := c.client.Do(req)
 	if err != nil {
@@ -272,7 +289,7 @@ func (c *ConversationsClient) Get(ctx context.Context, id string) (*Conversation
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
 
-	req.Header.Set("Authorization", "Bearer "+c.token)
+	req.Header.Set("Authorization", "Bearer "+c.token())
 
 	resp, err := c.client.Do(req)
 	if err != nil {
@@ -324,7 +341,7 @@ func (c *ConversationsClient) Create(ctx context.Context, provider, model, conne
 	}
 
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+c.token)
+	req.Header.Set("Authorization", "Bearer "+c.token())
 
 	resp, err := c.client.Do(req)
 	if err != nil {
@@ -365,7 +382,7 @@ func (c *ConversationsClient) Update(ctx context.Context, id, provider, model, c
 	}
 
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+c.token)
+	req.Header.Set("Authorization", "Bearer "+c.token())
 
 	resp, err := c.client.Do(req)
 	if err != nil {
@@ -409,7 +426,7 @@ func (c *ConversationsClient) Rename(ctx context.Context, id, title string) erro
 	}
 
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+c.token)
+	req.Header.Set("Authorization", "Bearer "+c.token())
 
 	resp, err := c.client.Do(req)
 	if err != nil {
@@ -435,7 +452,7 @@ func (c *ConversationsClient) Delete(ctx context.Context, id string) error {
 		return fmt.Errorf("failed to create request: %w", err)
 	}
 
-	req.Header.Set("Authorization", "Bearer "+c.token)
+	req.Header.Set("Authorization", "Bearer "+c.token())
 
 	resp, err := c.client.Do(req)
 	if err != nil {
@@ -461,7 +478,7 @@ func (c *ConversationsClient) DeleteAll(ctx context.Context) (int64, error) {
 		return 0, fmt.Errorf("failed to create request: %w", err)
 	}
 
-	req.Header.Set("Authorization", "Bearer "+c.token)
+	req.Header.Set("Authorization", "Bearer "+c.token())
 
 	resp, err := c.client.Do(req)
 	if err != nil {

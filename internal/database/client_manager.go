@@ -356,22 +356,23 @@ func databaseConfigChanged(oldCfg, newCfg *config.NamedDatabaseConfig) bool {
 // This should be called when a token is removed or expires
 func (cm *ClientManager) RemoveClient(tokenHash string) error {
 	cm.mu.Lock()
-	defer cm.mu.Unlock()
-
 	tokenClients, exists := cm.clients[tokenHash]
 	if !exists {
+		cm.mu.Unlock()
 		return nil // Already removed
-	}
-
-	// Close all connections for this token
-	for dbName, client := range tokenClients {
-		client.Close()
-		fmt.Fprintf(os.Stderr, "Closed connection to '%s' for removed token\n", dbName)
 	}
 
 	// Remove from maps
 	delete(cm.clients, tokenHash)
 	delete(cm.currentDB, tokenHash)
+	cm.mu.Unlock()
+
+	// Close all connections for this token outside the lock; see
+	// RemoveClients for why.
+	for dbName, client := range tokenClients {
+		client.Close()
+		fmt.Fprintf(os.Stderr, "Closed connection to '%s' for removed token\n", dbName)
+	}
 
 	// Log with truncated hash for security
 	hashPreview := tokenHash
@@ -385,21 +386,30 @@ func (cm *ClientManager) RemoveClient(tokenHash string) error {
 
 // RemoveClients removes and closes database clients for multiple token hashes
 // This is useful for bulk cleanup when multiple tokens expire
+//
+// The clients are detached from the manager under its lock but closed only
+// after the lock is released: closing a pool blocks until every connection
+// checked out of it is returned, so a long-running query on a revoked token
+// would otherwise hold up every other session's tool calls, all of which
+// take the same lock.
 func (cm *ClientManager) RemoveClients(tokenHashes []string) error {
-	cm.mu.Lock()
-	defer cm.mu.Unlock()
-
+	var detached []*Client
 	removedCount := 0
+	cm.mu.Lock()
 	for _, tokenHash := range tokenHashes {
 		if tokenClients, exists := cm.clients[tokenHash]; exists {
-			// Close all connections for this token
 			for _, client := range tokenClients {
-				client.Close()
+				detached = append(detached, client)
 			}
 			delete(cm.clients, tokenHash)
 			delete(cm.currentDB, tokenHash)
 			removedCount++
 		}
+	}
+	cm.mu.Unlock()
+
+	for _, client := range detached {
+		client.Close()
 	}
 
 	if removedCount > 0 {

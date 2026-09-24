@@ -63,6 +63,40 @@ export function createHTTPError(status, text) {
 }
 
 /**
+ * Mock the OAuth discovery request
+ * (GET /.well-known/oauth-authorization-server) as absent: a 404, as the
+ * server returns when OAuth is not configured. AuthContext calls this
+ * unconditionally on mount, ahead of any legacy MCP calls, so tests that
+ * queue a fixed sequence of fetch responses need this mocked first.
+ * @returns {object} - Mock fetch response
+ */
+export function mockOAuthAbsent() {
+    return createHTTPError(404, 'not found');
+}
+
+/**
+ * Mock the OAuth discovery request as present, returning a metadata
+ * document shaped like GET /.well-known/oauth-authorization-server.
+ * @param {object} overrides - Fields to override on the default metadata
+ * @returns {object} - Mock fetch response
+ */
+export function mockOAuthMetadata(overrides = {}) {
+    return {
+        ok: true,
+        status: 200,
+        json: async () => ({
+            issuer: 'http://localhost:8080',
+            authorization_endpoint: 'http://localhost:8080/oauth/authorize',
+            token_endpoint: 'http://localhost:8080/oauth/token',
+            registration_endpoint: 'http://localhost:8080/oauth/register',
+            revocation_endpoint: 'http://localhost:8080/oauth/revoke',
+            device_authorization_endpoint: 'http://localhost:8080/oauth/device',
+            ...overrides
+        })
+    };
+}
+
+/**
  * Create a mock for the server/discover method (the modern,
  * 2026-07-28 replacement for the legacy initialize handshake). Mirrors
  * the real DiscoverResult shape built by handleDiscoverHTTP in

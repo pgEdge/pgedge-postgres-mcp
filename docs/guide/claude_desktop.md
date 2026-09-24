@@ -92,6 +92,26 @@ your actual database credentials.
 After modifying the configuration file, restart Claude
 Desktop to apply the changes.
 
+## Connecting as a Remote Connector
+
+Claude Desktop can also reach the MCP server as a remote
+connector over HTTP, instead of launching it locally over
+`stdio`. Use this route for a server deployed on another
+machine, or where OAuth sign-in is preferred over managing a
+local process.
+
+Open Settings, choose Connectors, then select Add custom
+connector. Enter the server's URL, for example
+`https://mcp.example.com`. Claude Desktop opens the server's
+login page in a browser; sign in there to complete the
+connection. See [Authentication -
+OAuth](auth_oauth.md#claude-desktop-and-claude-mobile) for
+what happens during sign-in.
+
+The Claude mobile apps share the same connector list as
+Claude Desktop, so a connector added on the desktop appears
+on mobile without repeating these steps.
+
 ## Configuration File Structure
 
 The Claude Desktop configuration file uses three

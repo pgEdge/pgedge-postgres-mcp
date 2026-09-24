@@ -54,7 +54,7 @@ func setupTestHandler(t *testing.T) (*Handler, func(), string) {
 		t.Fatalf("Failed to authenticate user: %v", err)
 	}
 
-	handler := NewHandler(store, userStore)
+	handler := NewHandler(store, newTestValidator(userStore, nil))
 
 	cleanup := func() {
 		store.Close()
@@ -74,8 +74,8 @@ func TestNewHandler(t *testing.T) {
 	if handler.store == nil {
 		t.Error("Expected non-nil store")
 	}
-	if handler.userStore == nil {
-		t.Error("Expected non-nil userStore")
+	if handler.validator == nil {
+		t.Error("Expected non-nil validator")
 	}
 }
 
@@ -115,6 +115,99 @@ func TestHandleList(t *testing.T) {
 
 	if len(response.Conversations) != 1 {
 		t.Errorf("Expected 1 conversation, got %d", len(response.Conversations))
+	}
+}
+
+// fakeOAuth stands in for the OAuth server: it accepts exactly one
+// access token and maps it to one subject.
+type fakeOAuth struct {
+	token   string
+	subject string
+}
+
+func (f *fakeOAuth) ValidateAccessToken(token string) (string, string, bool) {
+	if token == f.token {
+		return f.subject, "client", true
+	}
+	return "", "", false
+}
+
+func (f *fakeOAuth) Issuer() string { return "http://localhost" }
+
+// newTestValidator builds a Validator with every method enabled, backed
+// by the given user store and optional OAuth stand-in.
+func newTestValidator(userStore *auth.UserStore, oauthServer auth.OAuthValidator) *auth.Validator {
+	return &auth.Validator{
+		Tokens:  auth.InitializeTokenStore(),
+		Users:   userStore,
+		OAuth:   oauthServer,
+		Methods: auth.Methods{APITokens: true, PasswordLogin: true, OAuth: true},
+	}
+}
+
+// TestHandleList_OAuthToken checks that an OAuth access token identifies
+// the user for conversation history, which the handler previously
+// refused because it consulted the session store alone.
+func TestHandleList_OAuthToken(t *testing.T) {
+	tempDir, err := os.MkdirTemp("", "conversations_test")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	store, err := NewStore(tempDir)
+	if err != nil {
+		t.Fatalf("Failed to create store: %v", err)
+	}
+	defer store.Close()
+
+	userStore := auth.InitializeUserStore()
+	handler := NewHandler(store, newTestValidator(userStore, &fakeOAuth{token: "oauth-access-token", subject: "oauthuser"}))
+
+	req := httptest.NewRequest("GET", "/api/conversations", nil)
+	req.Header.Set("Authorization", "Bearer oauth-access-token")
+	rr := httptest.NewRecorder()
+
+	handler.HandleList(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("Expected status %d for an OAuth access token, got %d: %s", http.StatusOK, rr.Code, rr.Body.String())
+	}
+}
+
+// TestHandleList_APITokenRejected checks that an API token, which names
+// no user, cannot read anybody's conversation history.
+func TestHandleList_APITokenRejected(t *testing.T) {
+	tempDir, err := os.MkdirTemp("", "conversations_test")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	store, err := NewStore(tempDir)
+	if err != nil {
+		t.Fatalf("Failed to create store: %v", err)
+	}
+	defer store.Close()
+
+	validator := newTestValidator(auth.InitializeUserStore(), nil)
+	apiToken, err := auth.GenerateToken()
+	if err != nil {
+		t.Fatalf("Failed to generate API token: %v", err)
+	}
+	if err := validator.Tokens.AddToken("test-token", auth.HashToken(apiToken), "test api token", nil, ""); err != nil {
+		t.Fatalf("Failed to add API token: %v", err)
+	}
+	handler := NewHandler(store, validator)
+
+	req := httptest.NewRequest("GET", "/api/conversations", nil)
+	req.Header.Set("Authorization", "Bearer "+apiToken)
+	rr := httptest.NewRecorder()
+
+	handler.HandleList(rr, req)
+
+	if rr.Code != http.StatusUnauthorized {
+		t.Fatalf("Expected status %d for an API token, got %d", http.StatusUnauthorized, rr.Code)
 	}
 }
 

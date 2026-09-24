@@ -16,7 +16,6 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
-	"strings"
 )
 
 // contextKey is a custom type for context keys to avoid collisions
@@ -43,6 +42,17 @@ const (
 
 	// OpenAPIPath is the path for the OpenAPI specification endpoint (public for API discoverability)
 	OpenAPIPath = "/api/openapi.json"
+
+	// OAuthMetadataPath and OAuthProtectedResourcePath are the two
+	// RFC 8414 and RFC 9728 discovery documents. They bypass
+	// authentication whether or not OAuth is switched on, so that a
+	// client discovering the server is told plainly that there is no
+	// authorisation server here (a 404 from the mux) rather than being
+	// challenged for a credential it is trying to work out how to
+	// obtain. The strings are repeated from internal/oauth rather than
+	// imported, since internal/oauth imports this package.
+	OAuthMetadataPath          = "/.well-known/oauth-authorization-server"
+	OAuthProtectedResourcePath = "/.well-known/oauth-protected-resource"
 )
 
 // GetTokenHashFromContext retrieves the token hash from the request context
@@ -107,8 +117,10 @@ func ExtractIPAddress(r *http.Request) string {
 	return (*ClientIPResolver)(nil).Resolve(r)
 }
 
-// AuthMiddleware creates an HTTP middleware that validates API tokens and session tokens
-func AuthMiddleware(tokenStore *TokenStore, userStore *UserStore, enabled bool) func(http.Handler) http.Handler {
+// AuthMiddleware creates an HTTP middleware that validates API tokens,
+// session tokens and OAuth access tokens through v, subject to the
+// credential kinds v.Methods enables.
+func AuthMiddleware(v *Validator, enabled bool) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			// Skip authentication if disabled
@@ -118,63 +130,49 @@ func AuthMiddleware(tokenStore *TokenStore, userStore *UserStore, enabled bool) 
 			}
 
 			// Skip authentication for public endpoints (needed before login)
-			switch r.URL.Path {
-			case HealthCheckPath, UserInfoPath, OpenAPIPath:
-				next.ServeHTTP(w, r)
-				return
-			}
-
-			// Check if this is an authenticate_user tool call (which should bypass auth)
-			if isAuthenticateUserCall(r) {
-				next.ServeHTTP(w, r)
-				return
-			}
-
-			// Get token from Authorization header
-			authHeader := r.Header.Get("Authorization")
-			if authHeader == "" {
-				writeJSONError(w, "Missing Authorization header", http.StatusUnauthorized)
-				return
-			}
-
-			// Parse Bearer token
-			parts := strings.SplitN(authHeader, " ", 2)
-			if len(parts) != 2 || parts[0] != "Bearer" {
-				writeJSONError(w, "Invalid Authorization header format. Expected: Bearer <token>", http.StatusUnauthorized)
-				return
-			}
-
-			token := parts[1]
-
-			// Try to validate as API token first
-			validAPIToken, err := tokenStore.ValidateToken(token)
-			if err == nil && validAPIToken {
-				// Valid API token - use token hash for connection isolation
-				tokenHash := HashToken(token)
-				ctx := context.WithValue(r.Context(), TokenHashContextKey, tokenHash)
-				ctx = context.WithValue(ctx, IsAPITokenContextKey, true)
-				r = r.WithContext(ctx)
-				next.ServeHTTP(w, r)
-				return
-			}
-
-			// Try to validate as session token if userStore is available
-			if userStore != nil {
-				username, err := userStore.ValidateSessionToken(token)
-				if err == nil && username != "" {
-					// Valid session token - use token hash for connection isolation
-					tokenHash := HashToken(token)
-					ctx := context.WithValue(r.Context(), TokenHashContextKey, tokenHash)
-					ctx = context.WithValue(ctx, UsernameContextKey, username)
-					ctx = context.WithValue(ctx, IsAPITokenContextKey, false)
-					r = r.WithContext(ctx)
+			for _, p := range v.PublicPaths() {
+				if r.URL.Path == p {
 					next.ServeHTTP(w, r)
 					return
 				}
 			}
 
-			// Neither API token nor session token is valid
-			writeJSONError(w, "Invalid or unknown token", http.StatusUnauthorized)
+			// Check if this is an authenticate_user tool call (which should
+			// bypass auth, but only when password login is enabled)
+			if v.Methods.PasswordLogin && isAuthenticateUserCall(r) {
+				next.ServeHTTP(w, r)
+				return
+			}
+
+			unauthorized := func(message string) {
+				if v.OAuthEnabled() {
+					w.Header().Set("WWW-Authenticate", v.ChallengeHeader())
+				}
+				writeJSONError(w, message, http.StatusUnauthorized)
+			}
+
+			// Get token from Authorization header
+			authHeader := r.Header.Get("Authorization")
+			if authHeader == "" {
+				unauthorized("Missing Authorization header")
+				return
+			}
+
+			// Parse Bearer token
+			token, ok := ParseBearer(authHeader)
+			if !ok {
+				unauthorized("Invalid Authorization header format. Expected: Bearer <token>")
+				return
+			}
+
+			id, err := v.Validate(token)
+			if err != nil {
+				unauthorized("Invalid or unknown token")
+				return
+			}
+
+			r = r.WithContext(v.ContextWithIdentity(r.Context(), id))
+			next.ServeHTTP(w, r)
 		})
 	}
 }

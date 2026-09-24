@@ -12,6 +12,7 @@ package database
 
 import (
 	"testing"
+	"time"
 
 	"pgedge-postgres-mcp/internal/config"
 )
@@ -634,6 +635,64 @@ func TestClientManager_RemoveClients_Empty(t *testing.T) {
 	err := cm.RemoveClients([]string{"a", "b", "c"})
 	if err != nil {
 		t.Errorf("expected no error, got: %v", err)
+	}
+}
+
+// TestClientManager_RemoveClientsDoesNotHoldLockWhilstClosing covers the
+// finding that RemoveClients closed each pool under the manager's lock:
+// closing a pool blocks until its checked-out connections come back, so
+// one long query on a revoked token stalled every other session's tool
+// calls. Holding the client's own mutex makes Close block the same way.
+func TestClientManager_RemoveClientsDoesNotHoldLockWhilstClosing(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		remove func(cm *ClientManager) error
+	}{
+		{"RemoveClients", func(cm *ClientManager) error { return cm.RemoveClients([]string{"revoked"}) }},
+		{"RemoveClient", func(cm *ClientManager) error { return cm.RemoveClient("revoked") }},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			cm := NewClientManager([]config.NamedDatabaseConfig{})
+			client := NewClient(nil)
+			if err := cm.SetClient("revoked", client); err != nil {
+				t.Fatal(err)
+			}
+
+			client.mu.Lock()
+			removed := make(chan error, 1)
+			go func() { removed <- tc.remove(cm) }()
+
+			// The client leaves the manager straight away, and the lock
+			// is free for everyone else whilst its Close is still stuck.
+			// GetClientCount takes the lock, so it runs in a goroutine
+			// of its own and the wait is bounded.
+			emptied := make(chan struct{})
+			go func() {
+				for cm.GetClientCount() != 0 {
+					time.Sleep(time.Millisecond)
+				}
+				close(emptied)
+			}()
+			select {
+			case <-emptied:
+			case <-time.After(2 * time.Second):
+				client.mu.Unlock()
+				t.Fatal("manager lock held, or client still present, whilst Close blocked")
+			}
+			select {
+			case <-removed:
+				t.Fatal("removal returned before Close could run")
+			default:
+			}
+
+			client.mu.Unlock()
+			if err := <-removed; err != nil {
+				t.Fatal(err)
+			}
+			if !client.IsClosed() {
+				t.Fatal("client was not closed")
+			}
+		})
 	}
 }
 

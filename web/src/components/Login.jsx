@@ -66,7 +66,7 @@ const Login = () => {
     const [loading, setLoading] = useState(false);
     const [usernameAutofilled, setUsernameAutofilled] = useState(false);
     const [passwordAutofilled, setPasswordAutofilled] = useState(false);
-    const { login } = useAuth();
+    const { login, oauthEnabled, startOAuthLogin, authError } = useAuth();
 
     // Browser autofill bypasses onChange, so detect it via MUI's mui-auto-fill animation instead.
     const handleAutofillDetect = (setAutofilled) => (e) => {
@@ -97,6 +97,19 @@ const Login = () => {
         } catch (err) {
             setError(err.message || 'Failed to login');
         } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleOAuthSignIn = async () => {
+        setError('');
+        setWarning('');
+        setLoading(true);
+        try {
+            await startOAuthLogin();
+        } finally {
+            // startOAuthLogin navigates away on success; on failure it
+            // sets authError itself, so only loading needs resetting here.
             setLoading(false);
         }
     };
@@ -336,7 +349,7 @@ const Login = () => {
                             </Alert>
                         )}
 
-                        {error && (
+                        {(error || authError) && (
                             <Alert
                                 severity="error"
                                 sx={{
@@ -344,10 +357,40 @@ const Login = () => {
                                     borderRadius: 1,
                                 }}
                             >
-                                {error}
+                                {error || authError}
                             </Alert>
                         )}
 
+                        {oauthEnabled ? (
+                            <Button
+                                fullWidth
+                                type="button"
+                                variant="contained"
+                                size="large"
+                                disabled={loading}
+                                onClick={handleOAuthSignIn}
+                                sx={{
+                                    mt: 1,
+                                    py: 1.5,
+                                    borderRadius: 1,
+                                    fontWeight: 600,
+                                    fontSize: '1rem',
+                                    textTransform: 'none',
+                                    background: '#15AABF',
+                                    boxShadow: '0 4px 14px 0 rgba(14, 165, 233, 0.39)',
+                                    '&:hover': {
+                                        background: '#0C8599',
+                                        boxShadow: '0 6px 20px 0 rgba(14, 165, 233, 0.5)',
+                                    },
+                                    '&.Mui-disabled': {
+                                        background: '#E5E7EB',
+                                        color: '#9CA3AF',
+                                    },
+                                }}
+                            >
+                                {loading ? 'Signing in...' : 'Sign In'}
+                            </Button>
+                        ) : (
                         <form onSubmit={handleSubmit} noValidate>
                             <TextField
                                 fullWidth
@@ -451,12 +494,15 @@ const Login = () => {
                                 {loading ? 'Signing in...' : 'Sign In'}
                             </Button>
                         </form>
+                        )}
 
+                        {!oauthEnabled && (
                         <Box sx={{ mt: 3, textAlign: 'center' }}>
                             <Typography variant="caption" sx={{ color: '#9CA3AF' }}>
                                 Contact your administrator to create an account
                             </Typography>
                         </Box>
+                        )}
                     </CardContent>
                 </Card>
 

@@ -11,7 +11,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, waitFor } from '@testing-library/react';
 import { AuthProvider, useAuth } from '../AuthContext';
-import { mockDiscover, mockListTools, mockUserInfo, mockAuthenticateSuccess, mockAuthenticateFailure } from '../../test-utils/mcp-mocks';
+import { mockDiscover, mockListTools, mockUserInfo, mockAuthenticateSuccess, mockAuthenticateFailure, mockOAuthAbsent } from '../../test-utils/mcp-mocks';
 
 describe('AuthContext', () => {
   beforeEach(() => {
@@ -24,7 +24,11 @@ describe('AuthContext', () => {
   });
 
   it('provides initial unauthenticated state', async () => {
-    // No token in localStorage, so checkAuth returns early without fetch
+    // No legacy token in localStorage, so only the OAuth discovery call
+    // is made (unconditionally, on every mount); checkAuth itself returns
+    // early without a fetch.
+    global.fetch.mockResolvedValueOnce(mockOAuthAbsent());
+
     const { result } = renderHook(() => useAuth(), {
       wrapper: AuthProvider,
     });
@@ -35,7 +39,7 @@ describe('AuthContext', () => {
     });
 
     expect(result.current.user).toBe(null);
-    expect(global.fetch).not.toHaveBeenCalled();
+    expect(global.fetch).toHaveBeenCalledTimes(1);
   });
 
   it('checks authentication status on mount', async () => {
@@ -43,11 +47,13 @@ describe('AuthContext', () => {
     localStorage.setItem('mcp-session-token', 'test-token');
 
     // Mock the sequence of calls that checkAuth makes:
-    // 1. server/discover
+    // 1. OAuth discovery (absent)
+    global.fetch.mockResolvedValueOnce(mockOAuthAbsent());
+    // 2. server/discover
     global.fetch.mockResolvedValueOnce(mockDiscover(1));
-    // 2. listTools
+    // 3. listTools
     global.fetch.mockResolvedValueOnce(mockListTools(2));
-    // 3. /api/user/info
+    // 4. /api/user/info
     global.fetch.mockResolvedValueOnce(mockUserInfo('testuser'));
 
     const { result } = renderHook(() => useAuth(), {
@@ -62,7 +68,7 @@ describe('AuthContext', () => {
       authenticated: true,
       username: 'testuser'
     });
-    expect(global.fetch).toHaveBeenCalledTimes(3);
+    expect(global.fetch).toHaveBeenCalledTimes(4);
   });
 
   it('handles login successfully', async () => {
@@ -114,6 +120,7 @@ describe('AuthContext', () => {
     localStorage.setItem('mcp-session-token', 'test-token');
 
     // Mock the sequence of calls that checkAuth makes:
+    global.fetch.mockResolvedValueOnce(mockOAuthAbsent());
     global.fetch.mockResolvedValueOnce(mockDiscover(1));
     global.fetch.mockResolvedValueOnce(mockListTools(2));
     global.fetch.mockResolvedValueOnce(mockUserInfo('testuser'));
@@ -129,8 +136,8 @@ describe('AuthContext', () => {
       });
     });
 
-    // Logout is local only, no fetch call
-    result.current.logout();
+    // Logout with no OAuth session in play is local only, no fetch call
+    await result.current.logout();
 
     await waitFor(() => {
       expect(result.current.user).toBe(null);

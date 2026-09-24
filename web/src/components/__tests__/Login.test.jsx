@@ -13,7 +13,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import Login from '../Login';
 import { AuthProvider } from '../../contexts/AuthContext';
-import { mockAuthenticateSuccess, mockAuthenticateFailure } from '../../test-utils/mcp-mocks';
+import { mockAuthenticateSuccess, mockAuthenticateFailure, mockOAuthMetadata } from '../../test-utils/mcp-mocks';
 
 describe('Login Component', () => {
     beforeEach(() => {
@@ -142,8 +142,10 @@ describe('Login Component', () => {
             })
         );
 
-        // Verify the request body contains authenticate_user tool call
-        const fetchCall = global.fetch.mock.calls[0];
+        // Verify the request body contains authenticate_user tool call.
+        // Found by URL rather than assumed index, since AuthProvider's
+        // mount-time OAuth discovery call also goes through global.fetch.
+        const fetchCall = global.fetch.mock.calls.find(([url]) => url === '/mcp/v1');
         const requestBody = JSON.parse(fetchCall[1].body);
         expect(requestBody.params.name).toBe('authenticate_user');
         expect(requestBody.params.arguments).toEqual({
@@ -234,6 +236,75 @@ describe('Login Component', () => {
         // Wait for submission and verify error is cleared
         await waitFor(() => {
             expect(screen.queryByText(/invalid username or password/i)).not.toBeInTheDocument();
+        });
+    });
+});
+
+describe('Login Component (OAuth enabled)', () => {
+    beforeEach(() => {
+        global.fetch = vi.fn();
+        sessionStorage.clear();
+        localStorage.clear();
+    });
+
+    it('renders a single Sign in button and no password field', async () => {
+        global.fetch.mockResolvedValueOnce(mockOAuthMetadata());
+
+        render(
+            <AuthProvider>
+                <Login />
+            </AuthProvider>
+        );
+
+        await waitFor(() => {
+            expect(screen.getByRole('button', { name: /sign in/i })).toBeInTheDocument();
+        });
+
+        expect(screen.queryByLabelText(/username/i)).not.toBeInTheDocument();
+        expect(screen.queryByLabelText(/password/i)).not.toBeInTheDocument();
+    });
+
+    it('starts the OAuth flow when Sign in is clicked', async () => {
+        global.fetch.mockResolvedValueOnce(mockOAuthMetadata());
+        global.fetch.mockResolvedValueOnce({
+            ok: true,
+            status: 201,
+            json: async () => ({ client_id: 'client-abc' })
+        });
+
+        const assignMock = vi.fn();
+        const originalLocation = window.location;
+        Object.defineProperty(window, 'location', {
+            configurable: true,
+            value: { ...originalLocation, assign: assignMock },
+        });
+
+        render(
+            <AuthProvider>
+                <Login />
+            </AuthProvider>
+        );
+
+        // Wait for the OAuth-only card to render (the password form has a
+        // same-named "Sign In" button, so wait for it to disappear first).
+        await waitFor(() => {
+            expect(screen.queryByLabelText(/password/i)).not.toBeInTheDocument();
+        });
+        const button = screen.getByRole('button', { name: /sign in/i });
+        await userEvent.click(button);
+
+        await waitFor(() => {
+            expect(assignMock).toHaveBeenCalled();
+        });
+
+        const redirectedTo = new URL(assignMock.mock.calls[0][0]);
+        expect(redirectedTo.origin + redirectedTo.pathname).toBe('http://localhost:8080/oauth/authorize');
+        expect(redirectedTo.searchParams.get('client_id')).toBe('client-abc');
+        expect(redirectedTo.searchParams.get('code_challenge_method')).toBe('S256');
+
+        Object.defineProperty(window, 'location', {
+            configurable: true,
+            value: originalLocation,
         });
     });
 });

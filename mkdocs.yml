@@ -95,6 +95,7 @@ nav:
       - Authentication:
           - Authentication - Overview: guide/authentication.md
           - Authentication - User Management: guide/auth_user.md
+          - Authentication - OAuth: guide/auth_oauth.md
           - Authentication - Token Management: guide/auth_token.md
       - Security:
           - Security Checklist: guide/security.md

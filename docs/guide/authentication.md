@@ -1,8 +1,9 @@
 # Authentication Guide
 
-The MCP server includes built-in authentication with two
-methods: API tokens for machine-to-machine communication and
-user accounts for interactive authentication.
+The MCP server includes built-in authentication with three
+methods: API tokens for machine-to-machine communication, user
+accounts for interactive password authentication, and OAuth for
+clients that sign in through a browser.
 
 - Use an [*API Token*](auth_token.md) for direct
   machine-to-machine access. Tokens are long-lived and
@@ -10,9 +11,18 @@ user accounts for interactive authentication.
 - Use a [*User Account*](auth_user.md) for interactive
   applications; an account is session-based, and users can
   manage own password access.
+- Use [*OAuth*](auth_oauth.md) for Claude Desktop, the Claude
+  mobile apps, and other clients that can open a browser to
+  sign in.
+
+Each method can be enabled or disabled independently under
+`http.auth.methods`; see
+[Authentication - OAuth](auth_oauth.md#method-toggles) for the
+setting.
 
 - **API Tokens**: For machine-to-machine communication (direct HTTP/HTTPS access)
 - **User Accounts**: For interactive authentication with session tokens
+- **OAuth**: For clients that sign in through a browser-based login page
 - **Enabled by default** in HTTP/HTTPS mode
 - **SHA256/Bcrypt hashing** for secure credential storage
 - **Token expiration** with automatic cleanup

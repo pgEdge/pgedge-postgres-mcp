@@ -4,6 +4,8 @@ User accounts provide interactive authentication with session-based access. User
 
 - Use an [*API Token*](auth_token.md) for direct machine-to-machine access.  Tokens are long-lived and easily managed by administrators.
 - Use a [*User Account*](auth_user.md) for interactive applications; an account is session-based, and users can manage own password access.
+- Use [*OAuth*](auth_oauth.md) so a client can sign this account in
+  without ever handling the password itself.
 
 ## Default File Locations
 

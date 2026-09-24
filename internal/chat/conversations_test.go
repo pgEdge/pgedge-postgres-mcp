@@ -57,8 +57,8 @@ func TestNewConversationsClient(t *testing.T) {
 			if client.baseURL != tt.expectedBaseURL {
 				t.Errorf("baseURL = %q, want %q", client.baseURL, tt.expectedBaseURL)
 			}
-			if client.token != tt.token {
-				t.Errorf("token = %q, want %q", client.token, tt.token)
+			if got := client.token(); got != tt.token {
+				t.Errorf("token = %q, want %q", got, tt.token)
 			}
 		})
 	}

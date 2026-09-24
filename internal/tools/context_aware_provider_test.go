@@ -494,3 +494,32 @@ func TestContextAwareProvider_StaleRegistryCleanup(t *testing.T) {
 		t.Error("Expected stale registry entry to be deleted")
 	}
 }
+
+// TestNewContextAwareProvider_AuthenticateUserToggle verifies that the
+// hidden authenticate_user tool is only registered when a user store is
+// present and password login is enabled in configuration.
+func TestNewContextAwareProvider_AuthenticateUserToggle(t *testing.T) {
+	clientManager := database.NewClientManagerWithConfig(nil)
+	fallbackClient := database.NewClient(nil)
+	userStore := auth.InitializeUserStore()
+	disabled := false
+
+	t.Run("registered when password login enabled", func(t *testing.T) {
+		cfg := &config.Config{}
+		reg := resources.NewContextAwareRegistry(clientManager, true, nil, cfg)
+		provider := NewContextAwareProvider(clientManager, reg, true, fallbackClient, cfg, userStore, "", nil, 0, nil)
+		if _, exists := provider.hiddenRegistry.Get("authenticate_user"); !exists {
+			t.Error("Expected authenticate_user to be registered when password login is enabled")
+		}
+	})
+
+	t.Run("not registered when password login disabled", func(t *testing.T) {
+		cfg := &config.Config{}
+		cfg.HTTP.Auth.Methods.PasswordLogin = &disabled
+		reg := resources.NewContextAwareRegistry(clientManager, true, nil, cfg)
+		provider := NewContextAwareProvider(clientManager, reg, true, fallbackClient, cfg, userStore, "", nil, 0, nil)
+		if _, exists := provider.hiddenRegistry.Get("authenticate_user"); exists {
+			t.Error("Expected authenticate_user not to be registered when password login is disabled")
+		}
+	})
+}
