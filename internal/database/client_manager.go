@@ -177,6 +177,8 @@ func (cm *ClientManager) SetCurrentDatabaseAndCloseOthers(tokenHash, dbName stri
 		return fmt.Errorf("token hash is required")
 	}
 
+	var detached []*Client
+	defer closeDetached(&detached)
 	cm.mu.Lock()
 	defer cm.mu.Unlock()
 
@@ -189,7 +191,7 @@ func (cm *ClientManager) SetCurrentDatabaseAndCloseOthers(tokenHash, dbName stri
 	if tokenClients, exists := cm.clients[tokenHash]; exists {
 		for otherDB, client := range tokenClients {
 			if otherDB != dbName {
-				client.Close()
+				detached = append(detached, client)
 				delete(tokenClients, otherDB)
 			}
 		}
@@ -265,6 +267,8 @@ func (cm *ClientManager) GetDatabaseConfigs() []config.NamedDatabaseConfig {
 // database is removed or when connection-relevant settings have changed;
 // they will be lazily recreated with the new config on the next request.
 func (cm *ClientManager) UpdateDatabaseConfigs(databases []config.NamedDatabaseConfig) {
+	var detached []*Client
+	defer closeDetached(&detached)
 	cm.mu.Lock()
 	defer cm.mu.Unlock()
 
@@ -285,7 +289,7 @@ func (cm *ClientManager) UpdateDatabaseConfigs(databases []config.NamedDatabaseC
 			// Database removed - close all connections to it
 			for tokenHash, tokenClients := range cm.clients {
 				if client, exists := tokenClients[name]; exists {
-					client.Close()
+					detached = append(detached, client)
 					delete(tokenClients, name)
 					fmt.Fprintf(os.Stderr, "Closed connection to removed database '%s' for token\n", name)
 				}
@@ -308,7 +312,7 @@ func (cm *ClientManager) UpdateDatabaseConfigs(databases []config.NamedDatabaseC
 		if databaseConfigChanged(oldCfg, newCfg) {
 			for _, tokenClients := range cm.clients {
 				if client, exists := tokenClients[name]; exists {
-					client.Close()
+					detached = append(detached, client)
 					delete(tokenClients, name)
 				}
 			}
@@ -320,6 +324,17 @@ func (cm *ClientManager) UpdateDatabaseConfigs(databases []config.NamedDatabaseC
 	cm.defaultDBName = newDefaultName
 
 	fmt.Fprintf(os.Stderr, "Updated database configurations: %d database(s)\n", len(databases))
+}
+
+// closeDetached closes clients that have already been removed from the
+// manager's maps. Callers defer it before taking cm.mu, so that it runs
+// after the deferred unlock: closing a pool blocks until every connection
+// checked out of it is returned, and every session's tool calls take the
+// same lock, so closing under it lets one long query stall them all.
+func closeDetached(clients *[]*Client) {
+	for _, client := range *clients {
+		client.Close()
+	}
 }
 
 // databaseConfigChanged returns true when connection-relevant fields differ
@@ -412,12 +427,14 @@ func (cm *ClientManager) RemoveClients(tokenHashes []string) error {
 // CloseAll closes all managed database clients
 // This should be called on server shutdown
 func (cm *ClientManager) CloseAll() error {
+	var detached []*Client
+	defer closeDetached(&detached)
 	cm.mu.Lock()
 	defer cm.mu.Unlock()
 
 	for _, tokenClients := range cm.clients {
 		for _, client := range tokenClients {
-			client.Close()
+			detached = append(detached, client)
 		}
 	}
 
@@ -462,13 +479,15 @@ func (cm *ClientManager) SetClientForDatabase(key, dbName string, client *Client
 		return fmt.Errorf("client cannot be nil")
 	}
 
+	var detached []*Client
+	defer closeDetached(&detached)
 	cm.mu.Lock()
 	defer cm.mu.Unlock()
 
 	// Close existing client if it exists
 	if tokenClients, exists := cm.clients[key]; exists {
 		if existingClient, exists := tokenClients[dbName]; exists {
-			existingClient.Close()
+			detached = append(detached, existingClient)
 		}
 	} else {
 		cm.clients[key] = make(map[string]*Client)
@@ -489,6 +508,8 @@ func (cm *ClientManager) SetClient(key string, client *Client) error {
 		return fmt.Errorf("client cannot be nil")
 	}
 
+	var detached []*Client
+	defer closeDetached(&detached)
 	cm.mu.Lock()
 	defer cm.mu.Unlock()
 
@@ -500,7 +521,7 @@ func (cm *ClientManager) SetClient(key string, client *Client) error {
 	// Close existing client if it exists
 	if tokenClients, exists := cm.clients[key]; exists {
 		if existingClient, exists := tokenClients[dbName]; exists {
-			existingClient.Close()
+			detached = append(detached, existingClient)
 		}
 	} else {
 		cm.clients[key] = make(map[string]*Client)
