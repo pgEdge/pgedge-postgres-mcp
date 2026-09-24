@@ -29,16 +29,22 @@ func (s *Server) handleRevoke(w http.ResponseWriter, r *http.Request) {
 	// meters on the anonymous limiter rather than the one that gates
 	// password login: counting them there would let a handful of empty
 	// POSTs lock every user at an address out of signing in.
+	//
+	// Only those failures are checked against the limiter. A request that
+	// carries a token is never refused, because the anonymous budget is
+	// also spent by successful registrations and device requests, and
+	// both clients clear their local session whatever the response: a 429
+	// there would tell the user they had signed out whilst leaving the
+	// refresh token working on the server.
 	ip := s.clientIP(r)
 	limiter := s.opts.AnonymousRateLimiter
-	if limiter != nil && !limiter.IsAllowed(ip) {
-		w.Header().Set("Retry-After", "60")
-		writeJSONError(w, newError("access_denied", "too many requests", http.StatusTooManyRequests))
-		return
-	}
-
 	fail := func(e *Error) {
 		if limiter != nil {
+			if !limiter.IsAllowed(ip) {
+				w.Header().Set("Retry-After", "60")
+				writeJSONError(w, newError("access_denied", "too many requests", http.StatusTooManyRequests))
+				return
+			}
 			limiter.RecordFailedAttempt(ip)
 		}
 		writeJSONError(w, e)

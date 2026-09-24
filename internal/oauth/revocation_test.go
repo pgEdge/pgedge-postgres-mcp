@@ -310,9 +310,9 @@ func TestRevokeFailuresDoNotSpendTheLoginBudget(t *testing.T) {
 	if !login.IsAllowed("192.0.2.1") {
 		t.Fatal("revocation failures exhausted the login budget")
 	}
-	rec := ts.do("POST", RevokePath, "application/x-www-form-urlencoded", "token=nothing")
+	rec := ts.do("POST", RevokePath, "application/x-www-form-urlencoded", "")
 	if rec.Code != 429 {
-		t.Fatalf("revoke after exhausting the anonymous budget: %d %s", rec.Code, rec.Body)
+		t.Fatalf("malformed revoke after exhausting the anonymous budget: %d %s", rec.Code, rec.Body)
 	}
 	if got := rec.Header().Get("Retry-After"); got != "60" {
 		t.Fatalf("Retry-After = %q", got)
@@ -343,5 +343,36 @@ func TestDeviceRequestsAreMeteredWhenTheySucceed(t *testing.T) {
 	}
 	if rec := ts.do("POST", DevicePath, "application/x-www-form-urlencoded", form); rec.Code != 429 {
 		t.Fatalf("third device request: %d %s", rec.Code, rec.Body)
+	}
+}
+
+// TestRevokeWithTokenIgnoresTheAnonymousBudget covers the finding that
+// gating every revocation on the anonymous limiter refused real sign-outs
+// once registrations from one address had spent its budget. Both clients
+// clear their local session whatever the response, so the 429 left the
+// refresh token working on the server whilst the user believed they had
+// signed out.
+func TestRevokeWithTokenIgnoresTheAnonymousBudget(t *testing.T) {
+	// Exactly enough for the registration issueTokenPair performs.
+	anonymous := auth.NewRateLimiter(1, 1)
+	t.Cleanup(anonymous.Stop)
+	ts := newTestServer(t, func(o *Options) { o.AnonymousRateLimiter = anonymous })
+
+	cid, tr := issueTokenPair(t, ts)
+	if anonymous.IsAllowed("192.0.2.1") {
+		t.Fatal("the anonymous budget should be spent by now")
+	}
+
+	rec := ts.do("POST", RevokePath, "application/x-www-form-urlencoded",
+		url.Values{"token": {tr.RefreshToken}}.Encode())
+	if rec.Code != 200 {
+		t.Fatalf("revoke with a token after exhausting the anonymous budget: %d %s", rec.Code, rec.Body)
+	}
+	if rec, _ := exchange(ts, url.Values{
+		"grant_type":    {"refresh_token"},
+		"refresh_token": {tr.RefreshToken},
+		"client_id":     {cid},
+	}); rec.Code != 400 {
+		t.Fatalf("refresh after revocation: %d %s", rec.Code, rec.Body)
 	}
 }
