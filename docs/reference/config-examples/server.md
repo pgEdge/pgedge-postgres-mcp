@@ -64,7 +64,7 @@ http:
     # Authentication
     # -------------------------
     auth:
-        # Enable API token authentication (requires http.enabled: true)
+        # Enable HTTP authentication (requires http.enabled: true)
         # Default: true (authentication is enabled by default)
         # Environment variable: PGEDGE_AUTH_ENABLED
         # Command line flag: -no-auth (to disable)

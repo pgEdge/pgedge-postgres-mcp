@@ -132,7 +132,7 @@ func (v *Validator) OAuthEnabled() bool {
 // OAuth protected resource metadata endpoint, for use on 401 responses when
 // OAuthEnabled returns true.
 func (v *Validator) ChallengeHeader() string {
-	return fmt.Sprintf("Bearer resource_metadata=%q", v.OAuth.Issuer()+"/.well-known/oauth-protected-resource")
+	return fmt.Sprintf("Bearer resource_metadata=%q", v.OAuth.Issuer()+OAuthProtectedResourcePath)
 }
 
 // ParseBearer extracts the token from an Authorization header value of the

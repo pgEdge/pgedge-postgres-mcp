@@ -37,7 +37,7 @@ type HTTPConfig struct {
 	CertFile       string                         // Path to TLS certificate file
 	KeyFile        string                         // Path to TLS key file
 	ChainFile      string                         // Optional path to certificate chain file
-	AuthEnabled    bool                           // Enable API token authentication
+	AuthEnabled    bool                           // Enable HTTP authentication
 	Validator      *auth.Validator                // Validates API tokens, session tokens and OAuth access tokens
 	OAuth          *oauth.Server                  // OAuth 2.0 authorisation server; nil when OAuth is inactive
 	ClientIP       *auth.ClientIPResolver         // Resolves the client address; nil means socket only

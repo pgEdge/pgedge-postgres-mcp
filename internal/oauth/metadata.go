@@ -13,14 +13,19 @@ package oauth
 import (
 	"encoding/json"
 	"net/http"
+
+	"pgedge-postgres-mcp/internal/auth"
 )
 
 // Well-known paths served by the authorisation server, and the OAuth
 // constants shared between the metadata, authorisation and token
 // handlers.
 const (
-	MetadataPath          = "/.well-known/oauth-authorization-server"
-	ProtectedResourcePath = "/.well-known/oauth-protected-resource"
+	// The two discovery paths are defined in internal/auth, which must
+	// exempt them from authentication and cannot import this package, so
+	// they are taken from there rather than repeated.
+	MetadataPath          = auth.OAuthMetadataPath
+	ProtectedResourcePath = auth.OAuthProtectedResourcePath
 	RegisterPath          = "/oauth/register"
 	AuthorizePath         = "/oauth/authorize"
 	TokenPath             = "/oauth/token"

@@ -135,6 +135,24 @@ func TestRegisterResponseTypes(t *testing.T) {
 	}
 }
 
+// TestRegisterCapsRedirectURIs covers the finding that a single
+// registration could store thousands of copies of an allowed redirect
+// URI, each of which every later authorisation request would parse.
+func TestRegisterCapsRedirectURIs(t *testing.T) {
+	ts := newTestServer(t, nil)
+	uri := `"https://claude.ai/api/mcp/auth_callback"`
+	body := func(n int) string {
+		return `{"redirect_uris":[` + strings.TrimSuffix(strings.Repeat(uri+",", n), ",") + `]}`
+	}
+	if rec := ts.do("POST", RegisterPath, "application/json", body(maxRedirectURIs)); rec.Code != 201 {
+		t.Fatalf("at the cap: status %d: %s", rec.Code, rec.Body)
+	}
+	rec := ts.do("POST", RegisterPath, "application/json", body(maxRedirectURIs+1))
+	if rec.Code != 400 || !strings.Contains(rec.Body.String(), "invalid_redirect_uri") {
+		t.Fatalf("over the cap: status %d: %s", rec.Code, rec.Body)
+	}
+}
+
 func TestRegisterRejectsDisallowedRedirect(t *testing.T) {
 	ts := newTestServer(t, nil)
 	rec := ts.do("POST", RegisterPath, "application/json", `{"redirect_uris":["https://evil.example.com/cb"]}`)

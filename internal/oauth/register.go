@@ -23,6 +23,10 @@ import (
 // memory with an oversized payload.
 const maxRegistrationBodyBytes = 64 * 1024
 
+// maxRedirectURIs bounds the number of redirect targets a single client
+// may register, since every authorisation request walks the whole list.
+const maxRedirectURIs = 10
+
 // maxClientNameRunes bounds the length of a client's display name, as
 // stored and echoed back in the registration response.
 const maxClientNameRunes = 100
@@ -103,6 +107,10 @@ func (s *Server) handleRegister(w http.ResponseWriter, r *http.Request) {
 
 	if len(req.RedirectURIs) == 0 {
 		fail(newError("invalid_redirect_uri", "redirect_uris is required", http.StatusBadRequest))
+		return
+	}
+	if len(req.RedirectURIs) > maxRedirectURIs {
+		fail(newError("invalid_redirect_uri", "too many redirect_uris", http.StatusBadRequest))
 		return
 	}
 	allowed := append(append([]string(nil), s.opts.Config.AllowedRedirectURIs...), s.opts.ExtraRedirects...)

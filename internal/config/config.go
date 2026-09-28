@@ -1766,8 +1766,8 @@ func validateAuthConfig(a *AuthConfig) error {
 	if !a.Enabled {
 		return nil
 	}
-	if !a.Methods.APITokensEnabled() && !a.Methods.PasswordLoginEnabled() && !a.Methods.OAuthEnabled() {
-		return fmt.Errorf("http.auth.methods: at least one authentication method must be enabled")
+	if !a.Methods.APITokensEnabled() && !a.Methods.PasswordLoginEnabled() && !a.OAuthActive() {
+		return fmt.Errorf("http.auth.methods: at least one authentication method must be enabled (oauth also needs http.auth.oauth.issuer)")
 	}
 	if !a.OAuthActive() {
 		return nil

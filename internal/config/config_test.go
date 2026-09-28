@@ -2522,6 +2522,25 @@ func TestOAuthConfigValidation(t *testing.T) {
 	}
 }
 
+// TestOAuthWithoutIssuerIsNotAUsableMethod covers the finding that OAuth
+// counted as the one usable method even with no issuer set, although the
+// server never mounts it then and so would refuse every request.
+func TestOAuthWithoutIssuerIsNotAUsableMethod(t *testing.T) {
+	_, err := loadConfigFromYAMLErr(t, `
+http:
+  enabled: true
+  auth:
+    enabled: true
+    methods:
+      api_tokens: false
+      password_login: false
+      oauth: true
+`)
+	if err == nil || !strings.Contains(err.Error(), "at least one authentication method") {
+		t.Fatalf("want the no-usable-method error, got %v", err)
+	}
+}
+
 func TestAllMethodsDisabledRejected(t *testing.T) {
 	_, err := loadConfigFromYAMLErr(t, `
 http:

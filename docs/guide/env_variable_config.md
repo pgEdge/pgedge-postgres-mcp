@@ -105,7 +105,7 @@ The following environment variables specify TLS/HTTPS preferences:
 
 The following environment variables specify authentication preferences:
 
-- **`PGEDGE_AUTH_ENABLED`**: Enable API token authentication ("true", "1", "yes" to enable)
+- **`PGEDGE_AUTH_ENABLED`**: Enable HTTP authentication by any method ("true", "1", "yes" to enable)
 - **`PGEDGE_AUTH_TOKEN_FILE`**: Path to API token file
 - **`PGEDGE_AUTH_USER_FILE`**: Path to user authentication file
 
