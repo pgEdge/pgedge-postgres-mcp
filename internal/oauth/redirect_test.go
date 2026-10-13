@@ -26,6 +26,11 @@ func TestRedirectURIAllowed(t *testing.T) {
 		"http://attacker@127.0.0.1:9999/callback":        false,
 		"HTTPS://Claude.AI/api/mcp/auth_callback":        true,
 		"https://claude.ai/API/mcp/auth_callback":        false,
+		"http://localhost:@192.0.2.1:5555/callback":      false,
+		"https://claude.ai/api%2Fmcp/auth_callback":      false,
+		"http://127.0.0.1:53211/call%62ack":              false,
+		"https://claude.ai/api/mcp/auth_callback#":       false,
+		"http://localhost:8000/callback#frag":            false,
 	}
 	for uri, want := range cases {
 		if got := redirectURIAllowed(uri, allowed); got != want {
