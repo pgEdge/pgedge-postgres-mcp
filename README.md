@@ -137,7 +137,7 @@ For a guided demo with sample data, see the
 
 ### Prerequisites
 
-- Go 1.21 or higher
+- Go 1.26.10 or higher
 - PostgreSQL 14 or higher (for testing)
 - golangci-lint v1.x (for linting)
 
