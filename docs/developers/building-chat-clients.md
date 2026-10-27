@@ -32,7 +32,7 @@ We provide three complete chatbot examples demonstrating different approaches:
 A full-featured native Go implementation with support for both stdio and HTTP modes, and multiple LLM providers including Anthropic Claude, OpenAI, and Ollama.
 
 - **Best for**: Production use, flexible deployments, native performance
-- **Requires**: Go 1.23+ to build, or use pre-built binary
+- **Requires**: Go 1.26.10+ to build, or use pre-built binary
 - **Connection**: Supports both stdio and HTTP
 - **LLM Support**: Anthropic Claude, OpenAI (GPT-4o, GPT-5, etc.), and Ollama
 
@@ -79,7 +79,7 @@ A simple Python example that connects to the MCP server via HTTP and uses Ollama
 
 **Example-specific requirements:**
 
-- **Go Chat Client**: Go 1.23+ (to build), or use pre-built binary
+- **Go Chat Client**: Go 1.26.10+ (to build), or use pre-built binary
 - **Stdio + Anthropic (Python)**: Python 3.10+, Anthropic API key
 - **HTTP + Ollama (Python)**: Python 3.10+, Ollama installed with a model pulled
 

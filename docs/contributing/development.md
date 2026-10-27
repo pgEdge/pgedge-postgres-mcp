@@ -4,7 +4,7 @@ This guide covers building, testing, and developing the pgEdge Natural Language 
 
 ## Prerequisites
 
-- **Go 1.21 or later** - [Download](https://go.dev/dl/)
+- **Go 1.26.10 or later** - [Download](https://go.dev/dl/)
 - **Make** - Build automation (optional but recommended)
 - **golangci-lint** - Code linting (optional)
 
