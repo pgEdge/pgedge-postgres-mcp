@@ -294,7 +294,15 @@ configure_pgedge_apt_repo(){
   local REPO_PATH="repodeb"
 
   # downloads.pgedge.com, not apt.pgedge.com -- see configure_pgedge_dnf_repo.
-  curl -sSL https://downloads.pgedge.com/${REPO_PATH}/pgedge-release_latest_all.deb -o /tmp/pgedge-release.deb && sudo dpkg -i /tmp/pgedge-release.deb && rm -f /tmp/pgedge-release.deb || true
+  #
+  # apt-get, not dpkg -i: the package depends on lsb-release, and dpkg leaves it
+  # unpacked-but-unconfigured when that is missing -- no sources file and no
+  # pgedge-subscription-manager. The trailing "|| true" used to hide that, and
+  # the sed below then failed on a file that was never written. Fail here, where
+  # the cause is visible, as the dnf path does.
+  curl -sSL https://downloads.pgedge.com/${REPO_PATH}/pgedge-release_latest_all.deb -o /tmp/pgedge-release.deb
+  sudo apt-get install -y /tmp/pgedge-release.deb
+  rm -f /tmp/pgedge-release.deb
   sed -i "s|release|$REPO_TYPE|g" /etc/apt/sources.list.d/pgedge.sources
   sed -i "s|^Enabled: no$|Enabled: yes|" /etc/apt/sources.list.d/pgedge.sources
   apt-get update

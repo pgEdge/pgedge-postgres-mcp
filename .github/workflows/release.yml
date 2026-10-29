@@ -456,13 +456,11 @@ jobs:
               run: |
                   set -euo pipefail
                   mkdir -p .github/actions
-                  # Pinned to gated-release: it carries repo_client_crt/repo_client_key.
-                  # REVERT to the default branch once that is merged to main.
-                  # Pinned to an immutable commit of pgedge-builder-action's gated-release
-                  # branch, which carries repo_client_crt/repo_client_key. A branch ref can be
-                  # retargeted, and this checkout runs with the repo client certificate and key.
-                  # REVERT to a reviewed commit on main once gated-release is merged there.
-                  builder_action_sha=23ee5f525497ed7ea8c963eff83a275781476e89
+                  # Pinned to an immutable commit on pgedge-builder-action's main,
+                  # the merge of gated-release that carries repo_client_crt and
+                  # repo_client_key. A branch ref can be retargeted, and this checkout
+                  # runs with the repo client certificate and key.
+                  builder_action_sha=49063b7b0202a3e39a571eed551c16f27d9f9754
                   git init -q .github/actions/pgedge-builder-action
                   git -C .github/actions/pgedge-builder-action remote add origin \
                       "https://x-access-token:${TOKEN}@github.com/pgEdge/pgedge-builder-action.git"
@@ -661,13 +659,11 @@ jobs:
               run: |
                   set -euo pipefail
                   mkdir -p .github/actions
-                  # Pinned to gated-release: it carries repo_client_crt/repo_client_key.
-                  # REVERT to the default branch once that is merged to main.
-                  # Pinned to an immutable commit of pgedge-builder-action's gated-release
-                  # branch, which carries repo_client_crt/repo_client_key. A branch ref can be
-                  # retargeted, and this checkout runs with the repo client certificate and key.
-                  # REVERT to a reviewed commit on main once gated-release is merged there.
-                  builder_action_sha=23ee5f525497ed7ea8c963eff83a275781476e89
+                  # Pinned to an immutable commit on pgedge-builder-action's main,
+                  # the merge of gated-release that carries repo_client_crt and
+                  # repo_client_key. A branch ref can be retargeted, and this checkout
+                  # runs with the repo client certificate and key.
+                  builder_action_sha=49063b7b0202a3e39a571eed551c16f27d9f9754
                   git init -q .github/actions/pgedge-builder-action
                   git -C .github/actions/pgedge-builder-action remote add origin \
                       "https://x-access-token:${TOKEN}@github.com/pgEdge/pgedge-builder-action.git"
