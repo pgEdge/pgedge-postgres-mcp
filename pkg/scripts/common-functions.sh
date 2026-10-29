@@ -110,7 +110,7 @@ install_repo_client_cert() {
       n == 1 { print > leaf }
       n == 2 { print > issuer }
     ' "$crt_src"
-    if ! openssl verify -partial_chain -no_check_time -no-CApath -no-CAfile \
+    if ! openssl verify -partial_chain -no_check_time -no-CApath -no-CAfile -no-CAstore \
          -CAfile "$issuer_pem" "$leaf_pem" >/dev/null 2>&1; then
       rm -f "$leaf_pem" "$issuer_pem"
       echo "Error: the second certificate in the file did not issue the first." >&2
@@ -124,7 +124,7 @@ install_repo_client_cert() {
     # issuer as well as the leaf: an expired intermediate under a leaf that is
     # still in date would otherwise pass, then fail at the first authenticated
     # request with nothing pointing at the cause.
-    if ! openssl verify -partial_chain -no-CApath -no-CAfile \
+    if ! openssl verify -partial_chain -no-CApath -no-CAfile -no-CAstore \
          -CAfile "$issuer_pem" "$leaf_pem" >/dev/null 2>&1; then
       rm -f "$leaf_pem" "$issuer_pem"
       echo "Error: the client certificate or its issuer is expired or not yet valid." >&2
@@ -300,9 +300,23 @@ configure_pgedge_apt_repo(){
   # pgedge-subscription-manager. The trailing "|| true" used to hide that, and
   # the sed below then failed on a file that was never written. Fail here, where
   # the cause is visible, as the dnf path does.
-  curl -sSL https://downloads.pgedge.com/${REPO_PATH}/pgedge-release_latest_all.deb -o /tmp/pgedge-release.deb
-  sudo apt-get install -y /tmp/pgedge-release.deb
-  rm -f /tmp/pgedge-release.deb
+  # -f so an HTTP error is a failure here rather than an error page saved under
+  # a .deb name and rejected confusingly by apt-get. Downloaded into a private
+  # directory, removed either way, and the failure returned to the caller.
+  local deb_dir deb_file
+  deb_dir=$(mktemp -d)
+  deb_file="$deb_dir/pgedge-release.deb"
+  if ! curl -fsSL "https://downloads.pgedge.com/${REPO_PATH}/pgedge-release_latest_all.deb" -o "$deb_file"; then
+    rm -rf "$deb_dir"
+    echo "Error: could not download the pgEdge repository package." >&2
+    return 1
+  fi
+  if ! sudo apt-get install -y "$deb_file"; then
+    rm -rf "$deb_dir"
+    echo "Error: could not install the pgEdge repository package." >&2
+    return 1
+  fi
+  rm -rf "$deb_dir"
   sed -i "s|release|$REPO_TYPE|g" /etc/apt/sources.list.d/pgedge.sources
   sed -i "s|^Enabled: no$|Enabled: yes|" /etc/apt/sources.list.d/pgedge.sources
   apt-get update
