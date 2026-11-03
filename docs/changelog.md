@@ -76,8 +76,7 @@ and this project adheres to
   provisioned in a UBI build stage, but only `kb.db` is copied out of
   it. The web client image is based on
   `nginxinc/nginx-unprivileged:stable-alpine-slim` and runs nginx as
-  UID 101 rather than 1001. The CLI image is based on
-  `gcr.io/distroless/static-debian13`, so it no longer contains a shell.
+  UID 101 rather than 1001. The CLI image is also based on Alpine.
   The web client health check in `docker-compose.yml` now uses `wget`,
   since the new image does not include `curl`.
 - Updated `golang.org/x/net` to v0.62.0 and `golang.org/x/crypto` to
