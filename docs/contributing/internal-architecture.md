@@ -171,7 +171,7 @@ COPY . .
 RUN CGO_ENABLED=0 go build -o pgedge-postgres-mcp ./cmd/pgedge-pg-mcp-svr
 
 # Stage 2: Minimal runtime
-FROM ubi9/ubi-minimal:latest
+FROM alpine:3
 COPY --from=builder /workspace/pgedge-postgres-mcp /app/
 COPY docker/init-server.sh /app/
 CMD ["/app/init-server.sh"]

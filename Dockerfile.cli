@@ -18,7 +18,10 @@ COPY . .
 RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o pgedge-nla-cli ./cmd/pgedge-pg-mcp-cli
 
 # Stage 2: Create minimal runtime image
-FROM registry.access.redhat.com/ubi9/ubi-micro:latest
+# distroless/static holds only CA certificates, time zone data and a
+# passwd file: no shell or package manager. The CLI is a static Go binary
+# and needs nothing else at runtime.
+FROM gcr.io/distroless/static-debian13
 
 # Add labels for container metadata
 LABEL name="pgedge-nla-cli" \
