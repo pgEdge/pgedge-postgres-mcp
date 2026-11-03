@@ -17,49 +17,23 @@ COPY . .
 # Build the server binary (pure Go, no CGO required)
 RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o pgedge-postgres-mcp ./cmd/pgedge-pg-mcp-svr
 
-# Stage 2: Create minimal runtime image
-# Note: Using ubi9-minimal instead of ubi9-micro to get shadow-utils for user switching
-FROM registry.access.redhat.com/ubi9/ubi-minimal:latest
+# Stage 2: Provision the optional knowledgebase. This runs in a UBI 9
+# stage because the "package" source installs an RPM from the pgEdge dnf
+# repo; only the resulting kb.db is copied into the runtime image, so none
+# of this stage's packages ship.
+FROM registry.access.redhat.com/ubi9/ubi-minimal:latest AS kb
 
 # Build argument for knowledgebase source
-# Can be empty (no KB), a local path, or a URL (http:// or https://)
+# Can be empty (no KB), "package", or a URL (http:// or https://)
 ARG KB_SOURCE=""
 
-# Add labels for container metadata
-LABEL name="pgedge-postgres-mcp" \
-      vendor="pgEdge" \
-      version="1.0" \
-      summary="The pgEdge MCP Server" \
-      description="Model Context Protocol server for PostgreSQL database interaction" \
-      io.modelcontextprotocol.server.name="io.github.pgEdge/postgres-mcp"
-
-# Install util-linux for runuser command (needed for user switching in init script)
-# Install curl if KB_SOURCE is a URL (for downloading KB database)
-# Cache-bust: CACHE_DATE forces re-execution of microdnf update on each CI build
-ARG CACHE_DATE
-RUN microdnf update -y && \
-    microdnf install -y util-linux && \
+# Install curl only when KB_SOURCE is a URL (for downloading the KB database)
+RUN mkdir -p /usr/share/pgedge/nla-kb && \
     if echo "${KB_SOURCE}" | grep -qE '^https?://'; then \
-        microdnf install -y curl; \
-    fi && \
-    microdnf clean all
+        microdnf install -y curl && microdnf clean all; \
+    fi
 
-# Create user 1001 for running the server
-RUN useradd -u 1001 -r -s /bin/sh -d /app -c "MCP Server User" mcp
-
-# Set working directory
-WORKDIR /app
-
-# Copy the binary from builder
-COPY --from=builder --chown=1001:1001 /workspace/pgedge-postgres-mcp /app/pgedge-postgres-mcp
-
-# Copy initialization script (must be executable and owned by root to create directories)
-COPY --chmod=755 docker/init-server.sh /app/init-server.sh
-
-# Create knowledgebase directory
-RUN mkdir -p /usr/share/pgedge/nla-kb && chown 1001:1001 /usr/share/pgedge/nla-kb
-
-# Provision the knowledgebase (must run after the directory is created):
+# Provision the knowledgebase:
 #   * KB_SOURCE=package          -> install the pgedge-ai-kb package from the
 #                                   pgEdge dnf repo (ships kb.db at
 #                                   /usr/share/pgedge/pgedge-ai-kb/kb.db) and
@@ -71,18 +45,54 @@ RUN if [ "${KB_SOURCE}" = "package" ]; then \
         printf '[pgedge-noarch]\nname=pgEdge RPM Repository (noarch)\nbaseurl=https://dnf.pgedge.com/release/9/RPMS/noarch/\nenabled=1\ngpgcheck=1\npriority=1\ngpgkey=https://dnf.pgedge.com/keys/pgedge-rsa.pub\n' > /etc/yum.repos.d/pgedge.repo && \
         microdnf install -y pgedge-ai-kb && \
         mv /usr/share/pgedge/pgedge-ai-kb/kb.db /usr/share/pgedge/nla-kb/kb.db && \
-        chown 1001:1001 /usr/share/pgedge/nla-kb/kb.db && \
-        microdnf clean all && \
         echo "Knowledgebase installed from pgedge-ai-kb package"; \
     elif [ -n "${KB_SOURCE}" ] && echo "${KB_SOURCE}" | grep -qE '^https?://'; then \
         echo "Downloading knowledgebase from ${KB_SOURCE}..." && \
         curl -fsSL -o /usr/share/pgedge/nla-kb/kb.db "${KB_SOURCE}" && \
-        chown 1001:1001 /usr/share/pgedge/nla-kb/kb.db && \
         echo "Knowledgebase downloaded successfully"; \
     elif [ -n "${KB_SOURCE}" ]; then \
         echo "ERROR: unsupported KB_SOURCE '${KB_SOURCE}' (expected 'package' or an http(s):// URL)" >&2; \
         exit 1; \
     fi
+
+# Stage 3: Create minimal runtime image
+# Alpine rather than UBI: the image only needs a shell and a few utilities
+# for docker/init-server.sh, CA certificates for outbound TLS, and su-exec
+# to drop from root to user 1001. UBI minimal carried a large backlog of
+# CVEs with no fix available in packages the server never uses.
+FROM alpine:3
+
+# Add labels for container metadata
+LABEL name="pgedge-postgres-mcp" \
+      vendor="pgEdge" \
+      version="1.0" \
+      summary="The pgEdge MCP Server" \
+      description="Model Context Protocol server for PostgreSQL database interaction" \
+      io.modelcontextprotocol.server.name="io.github.pgEdge/postgres-mcp"
+
+# bash runs the init script, su-exec switches to user 1001 before exec'ing
+# the server, and ca-certificates/tzdata support outbound TLS and time zone
+# handling. Everything else the init script uses comes from busybox.
+# Cache-bust: CACHE_DATE forces re-execution of apk upgrade on each CI build
+ARG CACHE_DATE
+RUN apk upgrade --no-cache && \
+    apk add --no-cache bash ca-certificates su-exec tzdata
+
+# Create user and group 1001 for running the server
+RUN addgroup -S -g 1001 mcp && \
+    adduser -S -D -H -u 1001 -G mcp -h /app -s /bin/sh -g "MCP Server User" mcp
+
+# Set working directory
+WORKDIR /app
+
+# Copy the binary from builder
+COPY --from=builder --chown=1001:1001 /workspace/pgedge-postgres-mcp /app/pgedge-postgres-mcp
+
+# Copy initialization script (must be executable and owned by root to create directories)
+COPY --chmod=755 docker/init-server.sh /app/init-server.sh
+
+# Copy the knowledgebase directory (empty unless KB_SOURCE was set)
+COPY --from=kb --chown=1001:1001 /usr/share/pgedge/nla-kb/ /usr/share/pgedge/nla-kb/
 
 # Copy local knowledgebase file if it exists (glob pattern allows missing file)
 # Place your kb.db file at ./kb/kb.db before building

@@ -60,6 +60,22 @@ and this project adheres to
 - Pressing Ctrl+D at the CLI prompt now echoes `^D` rather than `exit`
   before the goodbye message, so that the same key reads sensibly when
   used to finish a `/paste`.
+- The container images now use smaller runtime bases, which clears the
+  operating system CVEs that Red Hat UBI carried with no fix available.
+  The server image is based on Alpine, and switches to user 1001 with
+  `su-exec` rather than `runuser`; the optional knowledgebase is still
+  provisioned in a UBI build stage, but only `kb.db` is copied out of
+  it. The web client image is based on
+  `nginxinc/nginx-unprivileged:stable-alpine-slim` and runs nginx as
+  UID 101 rather than 1001. The CLI image is based on
+  `gcr.io/distroless/static-debian13`, so it no longer contains a shell.
+  The web client health check in `docker-compose.yml` now uses `wget`,
+  since the new image does not include `curl`.
+- Updated `golang.org/x/net` to v0.62.0 and `golang.org/x/crypto` to
+  v0.58.0, along with the `golang.org/x` modules they depend on, the
+  documentation build's `urllib3` to 2.8.0, and the minimum `mcp`
+  version for the Anthropic chatbot example to 1.30.0, to pick up
+  security fixes.
 
 ### Fixed
 
