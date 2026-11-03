@@ -18,10 +18,9 @@ COPY . .
 RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o pgedge-nla-cli ./cmd/pgedge-pg-mcp-cli
 
 # Stage 2: Create minimal runtime image
-# distroless/static holds only CA certificates, time zone data and a
-# passwd file: no shell or package manager. The CLI is a static Go binary
-# and needs nothing else at runtime.
-FROM gcr.io/distroless/static-debian13
+# Alpine, like the server image, keeps a shell for debugging. The CLI is a
+# static Go binary, so it needs only CA certificates and time zone data.
+FROM alpine:3
 
 # Add labels for container metadata
 LABEL name="pgedge-nla-cli" \
@@ -31,7 +30,12 @@ LABEL name="pgedge-nla-cli" \
       description="Command-line chat interface for pgEdge Natural Language Agent" \
       io.naturallanguageagent.cli.name="io.github.pgEdge/nla-cli"
 
-# Create non-root user
+# Cache-bust: CACHE_DATE forces re-execution of apk upgrade on each CI build
+ARG CACHE_DATE
+RUN apk upgrade --no-cache && \
+    apk add --no-cache ca-certificates tzdata
+
+# Run as user 1001
 USER 1001
 
 # Set working directory
