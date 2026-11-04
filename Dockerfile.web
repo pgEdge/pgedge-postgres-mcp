@@ -48,8 +48,9 @@ COPY --chmod=644 docker/nginx.conf /etc/nginx/nginx.conf
 # Expose HTTP port
 EXPOSE 8081
 
-# The base image declares the unprivileged "nginx" user (UID 101)
-USER nginx
+# Run as the base image's unprivileged "nginx" user. The UID is given
+# numerically so Kubernetes can verify runAsNonRoot without a runAsUser.
+USER 101
 
 # Start nginx
 CMD ["nginx", "-g", "daemon off;"]

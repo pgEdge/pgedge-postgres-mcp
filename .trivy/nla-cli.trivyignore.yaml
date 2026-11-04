@@ -1,4 +1,15 @@
 # Trivy risk-acceptance entries for the nla-cli image. The runtime base no
-# longer carries OS packages with unfixed CVEs, so nothing is currently
-# accepted; add entries here with an expired_at date and a statement.
-vulnerabilities: []
+# longer carries OS packages with unfixed CVEs. Add entries here with an
+# expired_at date and a statement.
+vulnerabilities:
+  # golang.org/x/crypto - Go module compiled into the CLI binary.
+  - id: GO-2026-5932
+    purls:
+      - "pkg:golang/golang.org/x/crypto@v0.58.0"
+    expired_at: 2027-02-04T00:00:00Z
+    statement: >-
+      golang.org/x/crypto/openpgp is flagged unmaintained and unsafe by
+      design; there is no fix version, as the advisory is against the
+      package's continued use rather than a specific bug. Only
+      golang.org/x/crypto/bcrypt is imported in this codebase, and
+      openpgp is never imported or called.
