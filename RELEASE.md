@@ -5,7 +5,7 @@ Language Agent using GoReleaser.
 
 ## Prerequisites
 
-- Go 1.24 or higher
+- Go 1.26.10 or higher
 - Node.js 20 or higher
 - GoReleaser installed (`go install github.com/goreleaser/goreleaser@latest`)
 - GitHub token with repo write permissions (for creating releases)

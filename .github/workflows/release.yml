@@ -220,7 +220,7 @@ jobs:
             - name: Set up Go
               uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
               with:
-                  go-version: '1.26'
+                  go-version: '1.26.10'
                   # Only cache on real tag builds — a workflow_dispatch test
                   # run on an arbitrary branch shouldn't write to the shared
                   # dependency cache.
@@ -282,7 +282,7 @@ jobs:
             - name: Set up Go
               uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
               with:
-                  go-version: '1.26'
+                  go-version: '1.26.10'
                   # Only cache on real tag builds — a workflow_dispatch test
                   # run on an arbitrary branch shouldn't write to the shared
                   # dependency cache.

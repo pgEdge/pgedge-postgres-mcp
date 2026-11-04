@@ -41,7 +41,7 @@ problems, Docker networking, and certificate validation.
 
 ### Checking Go Version Requirements
 
-The project requires Go version 1.21 or higher. If you're building from
+The project requires Go version 1.26.10 or higher. If you're building from
 source, you can check your Go version using the following command:
 
 ```bash

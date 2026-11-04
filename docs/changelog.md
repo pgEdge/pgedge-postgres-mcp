@@ -85,6 +85,12 @@ and this project adheres to
   archives have been renamed in place, so only somebody who downloaded
   them in the first hours after release saw the wrong names.
 
+### Security
+
+- Raised the minimum Go version to 1.26.10, which adds eight
+  compromised eMudhra intermediate CAs to the `crypto/x509` denylist
+  (CVE-2026-111943).
+
 ## [1.1.0] - 2026-09-03
 
 ### Security

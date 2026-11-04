@@ -10,7 +10,7 @@ pgEdge Natural Language Agent. The project produces four separate packages:
 
 ## Prerequisites for Building
 
-- Go 1.23 or higher
+- Go 1.26.10 or higher
 - Node.js 18 or higher (for Web UI)
 - make
 - git

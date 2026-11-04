@@ -16,7 +16,7 @@ build steps.
 
 Ensure the following software is installed on your system:
 
-- [Go 1.21](https://go.dev/doc/install) or higher is
+- [Go 1.26.10](https://go.dev/doc/install) or higher is
   required to build the server.
 - [PostgreSQL 14](https://www.postgresql.org/download/) or
   higher must be running and accessible.

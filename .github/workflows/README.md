@@ -57,7 +57,7 @@ deployment to ensure all services work together correctly.
 
 - Docker and Docker Compose installed
 - PostgreSQL 17 running locally (for server tests)
-- Go 1.23+ (for server/CLI tests)
+- Go 1.26.10+ (for server/CLI tests)
 - Node.js 18+ (for web client tests)
 
 ### Testing Docker Compose Locally
