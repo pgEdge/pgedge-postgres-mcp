@@ -19,15 +19,17 @@ import (
 // redirectURIAllowed reports whether uri is permitted for use as an OAuth
 // redirect target, given the configured allowed list. Matching is exact
 // (scheme and host compared case-insensitively; everything else,
-// including the path, byte-for-byte), except that a loopback host
-// (127.0.0.1, [::1] or localhost) may use any port so long as its scheme,
-// host and path match an allowed entry with the same host. A URI carrying
+// including the path in its percent-encoded form, byte-for-byte), except
+// that a loopback host (127.0.0.1, [::1] or localhost) may use any port
+// so long as its scheme, host and path match an allowed entry with the
+// same host. A URI carrying
 // userinfo (e.g. "http://attacker@127.0.0.1/callback") is always rejected,
 // since a browser silently drops it and it exists only to mislead a
-// reviewer of the URI.
+// reviewer of the URI. So is one containing "#", even with an empty
+// fragment, since RFC 6749 section 3.1.2 forbids fragments outright.
 func redirectURIAllowed(uri string, allowed []string) bool {
 	u, err := url.Parse(uri)
-	if err != nil || u.Scheme == "" || u.Host == "" || u.Fragment != "" || u.User != nil {
+	if err != nil || u.Scheme == "" || u.Host == "" || u.User != nil || strings.Contains(uri, "#") {
 		return false
 	}
 
@@ -37,11 +39,11 @@ func redirectURIAllowed(uri string, allowed []string) bool {
 			continue
 		}
 		if strings.EqualFold(u.Scheme, au.Scheme) && strings.EqualFold(u.Host, au.Host) &&
-			u.Path == au.Path && u.RawQuery == au.RawQuery {
+			u.EscapedPath() == au.EscapedPath() && u.RawQuery == au.RawQuery {
 			return true
 		}
 		if isLoopbackHostname(u.Hostname()) && strings.EqualFold(u.Hostname(), au.Hostname()) &&
-			strings.EqualFold(u.Scheme, au.Scheme) && u.Path == au.Path && u.RawQuery == "" && au.RawQuery == "" {
+			strings.EqualFold(u.Scheme, au.Scheme) && u.EscapedPath() == au.EscapedPath() && u.RawQuery == "" && au.RawQuery == "" {
 			return true
 		}
 	}
