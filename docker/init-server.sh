@@ -401,5 +401,5 @@ echo "Starting MCP server"
 # protocol runs over stdin/stdout; in HTTP mode this is harmless.
 exec 1>&3 3>&-
 
-# Switch to mcp user and exec the server (use runuser which is available in ubi9-minimal)
-exec runuser mcp /bin/sh -c "exec /app/pgedge-postgres-mcp $ARGS"
+# Switch to the mcp user (UID 1001) and exec the server
+exec su-exec mcp /bin/sh -c "exec /app/pgedge-postgres-mcp $ARGS"
