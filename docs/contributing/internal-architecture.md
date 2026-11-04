@@ -172,6 +172,7 @@ RUN CGO_ENABLED=0 go build -o pgedge-postgres-mcp ./cmd/pgedge-pg-mcp-svr
 
 # Stage 2: Minimal runtime
 FROM alpine:3
+RUN apk add --no-cache bash ca-certificates su-exec tzdata
 COPY --from=builder /workspace/pgedge-postgres-mcp /app/
 COPY docker/init-server.sh /app/
 CMD ["/app/init-server.sh"]
@@ -274,8 +275,9 @@ func RegisterTools(registry *Registry, db *database.Client, llm *llm.Client) {
 
 ### Docker Security
 
-- Run containers as non-root user (UID 1001)
-- Use minimal base images (UBI Micro)
+- Run containers as non-root users (UID 1001 for the server and CLI,
+  UID 101 for the web client)
+- Use minimal Alpine-based runtime images
 - Scan images for vulnerabilities
 - Use secrets management for production (not `.env` file)
 

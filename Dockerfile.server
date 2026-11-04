@@ -27,11 +27,9 @@ FROM registry.access.redhat.com/ubi9/ubi-minimal:latest AS kb
 # Can be empty (no KB), "package", or a URL (http:// or https://)
 ARG KB_SOURCE=""
 
-# Install curl only when KB_SOURCE is a URL (for downloading the KB database)
-RUN mkdir -p /usr/share/pgedge/nla-kb && \
-    if echo "${KB_SOURCE}" | grep -qE '^https?://'; then \
-        microdnf install -y curl && microdnf clean all; \
-    fi
+# The base image's curl-minimal handles the http(s) download below, and
+# installing the full curl package would conflict with it.
+RUN mkdir -p /usr/share/pgedge/nla-kb
 
 # Provision the knowledgebase:
 #   * KB_SOURCE=package          -> install the pgedge-ai-kb package from the
