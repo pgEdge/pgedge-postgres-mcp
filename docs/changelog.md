@@ -102,7 +102,8 @@ and this project adheres to
   HTTP/2 denial of service and response smuggling issues and two
   `x/net/html` issues reached through the CLI's Markdown renderer.
 - Updated `urllib3` in the documentation build to 2.8.0, and raised
-  the `mcp` floor in the Anthropic chatbot example to 1.30.0.
+  the `mcp` floor in the Anthropic chatbot example to 1.30.0, capping
+  it below 2.0, whose renamed `Tool.input_schema` breaks the example.
 
 ## [1.1.0] - 2026-09-03
 
