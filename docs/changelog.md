@@ -98,6 +98,11 @@ and this project adheres to
 - Raised the minimum Go version to 1.26.10, which adds eight
   compromised eMudhra intermediate CAs to the `crypto/x509` denylist
   (CVE-2026-111943).
+- Updated `golang.org/x/net` from v0.58.0 to v0.62.0, fixing several
+  HTTP/2 denial of service and response smuggling issues and two
+  `x/net/html` issues reached through the CLI's Markdown renderer.
+- Updated `urllib3` in the documentation build to 2.8.0, and raised
+  the `mcp` floor in the Anthropic chatbot example to 1.30.0.
 
 ## [1.1.0] - 2026-09-03
 
