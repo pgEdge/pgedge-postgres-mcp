@@ -65,6 +65,15 @@ type UserStore struct {
 	// again cannot bring them back. Guarded by mu.
 	unrevokedSessions map[string]struct{}
 
+	// unsavedRevocations maps each user whose OAuth revocation is under
+	// way, or failed to save, to the mark it was last given; marks come
+	// from revocationMark and never repeat. No fingerprint is recorded
+	// for these users, so a restart before the revocation is saved still
+	// treats their OAuth state as stale, and the session sweeper retries
+	// the revocation. Guarded by mu.
+	unsavedRevocations map[string]uint64
+	revocationMark     uint64
+
 	// sessions holds password-login sessions. It is a memory store,
 	// created on first use, unless SetSessionStore installed another.
 	// Guarded by mu.
@@ -150,6 +159,7 @@ func (s *UserStore) StartSessionSweeper(interval time.Duration) (stop func()) {
 	ss := s.sessionStore()
 	sweep := func(now time.Time) {
 		s.retryUnrevokedSessions()
+		s.retryUnsavedRevocations()
 
 		// Take the list of enabled users under the lock, then release
 		// it before the database call.
@@ -198,32 +208,96 @@ func (s *UserStore) SetRevocationHook(fn func(username string) error) {
 	s.onRevoked = fn
 }
 
-// notifyRevoked reports each named user to the revocation hook, if one
-// is installed, and returns those whose revocation the hook could not
-// save. Callers must not hold s.mu.
-func (s *UserStore) notifyRevoked(usernames ...string) (unsaved []string) {
+// notifyRevoked ends the password-login sessions of each named user and
+// revokes their OAuth access through RevokeOAuth. Callers must not hold
+// s.mu.
+func (s *UserStore) notifyRevoked(usernames ...string) {
 	if len(usernames) == 0 {
-		return nil
+		return
 	}
 	// Password-login sessions go first, so that they are gone before any
 	// external hook runs.
 	s.deleteSessions(usernames...)
-	s.mu.RLock()
-	hook := s.onRevoked
-	s.mu.RUnlock()
-	if hook == nil {
-		return nil
-	}
+	s.RevokeOAuth(usernames...)
+}
+
+// markRevocationLocked gives each named user a new mark in
+// unsavedRevocations. Callers must hold s.mu for writing, and mark a
+// user in the same critical section that changes the user's password,
+// so that no fingerprint write can see the new password unmarked.
+func (s *UserStore) markRevocationLocked(usernames ...string) {
 	for _, username := range usernames {
 		if username == "" {
 			continue
 		}
-		if err := hook(username); err != nil {
-			log.Printf("[AUTH] Failed to save the revocation of OAuth access for %q: %v", username, err)
-			unsaved = append(unsaved, username)
+		if s.unsavedRevocations == nil {
+			s.unsavedRevocations = make(map[string]uint64)
 		}
+		s.revocationMark++
+		s.unsavedRevocations[username] = s.revocationMark
+	}
+}
+
+// RevokeOAuth passes each named user to the revocation hook, and returns
+// those whose revocation the hook could not save. Each user stays in
+// unsavedRevocations until a revocation begun after the user's latest
+// mark has been saved, and the session sweeper retries the rest. With
+// no hook installed there is nothing to revoke. Callers must not hold
+// s.mu.
+func (s *UserStore) RevokeOAuth(usernames ...string) (unsaved []string) {
+	type pending struct {
+		name string
+		mark uint64
+	}
+	s.mu.Lock()
+	hook := s.onRevoked
+	todo := make([]pending, 0, len(usernames))
+	for _, username := range usernames {
+		if username == "" {
+			continue
+		}
+		mark, ok := s.unsavedRevocations[username]
+		if !ok {
+			s.markRevocationLocked(username)
+			mark = s.unsavedRevocations[username]
+		}
+		todo = append(todo, pending{username, mark})
+	}
+	s.mu.Unlock()
+
+	for _, p := range todo {
+		if hook != nil {
+			if err := hook(p.name); err != nil {
+				log.Printf("[AUTH] Failed to save the revocation of OAuth access for %q: %v", p.name, err)
+				unsaved = append(unsaved, p.name)
+				continue
+			}
+		}
+		s.mu.Lock()
+		if s.unsavedRevocations[p.name] == p.mark {
+			delete(s.unsavedRevocations, p.name)
+		}
+		s.mu.Unlock()
 	}
 	return unsaved
+}
+
+// retryUnsavedRevocations retries the OAuth revocation of every user in
+// unsavedRevocations, then records fingerprints for those now saved.
+// Callers must not hold s.mu.
+func (s *UserStore) retryUnsavedRevocations() {
+	s.mu.RLock()
+	pending := make([]string, 0, len(s.unsavedRevocations))
+	for name := range s.unsavedRevocations {
+		pending = append(pending, name)
+	}
+	s.mu.RUnlock()
+	if len(pending) == 0 {
+		return
+	}
+	if len(s.RevokeOAuth(pending...)) < len(pending) {
+		s.recordFingerprints()
+	}
 }
 
 // IsActive reports whether username names a user that exists and is
@@ -351,9 +425,11 @@ func (s *UserStore) Reload() error {
 	}
 
 	s.Users = newStore.Users
+	s.markRevocationLocked(revoked...)
 	s.mu.Unlock()
 
-	s.recordFingerprints(s.notifyRevoked(revoked...)...)
+	s.notifyRevoked(revoked...)
+	s.recordFingerprints()
 	return nil
 }
 
@@ -428,6 +504,7 @@ func (s *UserStore) UpdateUser(username, newPassword, newAnnotation string) erro
 			return err
 		}
 		user.PasswordHash = passwordHash
+		s.markRevocationLocked(username)
 	}
 
 	if newAnnotation != "" {
@@ -436,7 +513,8 @@ func (s *UserStore) UpdateUser(username, newPassword, newAnnotation string) erro
 	s.mu.Unlock()
 
 	if newPassword != "" {
-		s.recordFingerprints(s.notifyRevoked(username)...)
+		s.notifyRevoked(username)
+		s.recordFingerprints()
 	}
 	return nil
 }
@@ -456,11 +534,13 @@ func (s *UserStore) RemoveUser(username string) error {
 	}
 
 	delete(s.Users, username)
+	s.markRevocationLocked(username)
 	s.mu.Unlock()
 
 	// A deleted user keeps nothing: any OAuth token standing in its
 	// name is revoked now rather than at its own expiry.
-	s.recordFingerprints(s.notifyRevoked(username)...)
+	s.notifyRevoked(username)
+	s.recordFingerprints()
 	return nil
 }
 

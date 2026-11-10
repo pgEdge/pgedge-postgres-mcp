@@ -104,14 +104,14 @@ func (s *UserStore) currentFingerprints() map[string]string {
 }
 
 // RecordFingerprints records the current fingerprint of every user,
-// dropping the records of users no longer present and of the users
-// named in unrevoked. It does nothing when no fingerprint store is
-// installed. Callers must not hold s.mu, and must have revoked any user
-// whose fingerprint changed first, so that a crash between the two
-// cannot leave a change recorded but unrevoked. A user whose revocation
-// failed to save goes in unrevoked: with no record, the next start
-// treats that user's OAuth state as stale and revokes it again.
-func (s *UserStore) RecordFingerprints(unrevoked ...string) error {
+// dropping the records of users no longer present and of users whose
+// OAuth revocation is under way or unsaved (see unsavedRevocations):
+// with no record, the next start treats that user's OAuth state as
+// stale and revokes it again, so a crash before the revocation is saved
+// cannot leave a new password recorded but its old grants restored. It
+// does nothing when no fingerprint store is installed. Callers must not
+// hold s.mu.
+func (s *UserStore) RecordFingerprints() error {
 	// fpMu orders snapshot-and-write pairs, so an older snapshot is never
 	// written over a newer one.
 	s.fpMu.Lock()
@@ -120,10 +120,10 @@ func (s *UserStore) RecordFingerprints(unrevoked ...string) error {
 	s.mu.RLock()
 	fs := s.fingerprints
 	current := s.currentFingerprints()
-	s.mu.RUnlock()
-	for _, name := range unrevoked {
+	for name := range s.unsavedRevocations {
 		delete(current, name)
 	}
+	s.mu.RUnlock()
 
 	if fs == nil {
 		return nil
@@ -135,8 +135,8 @@ func (s *UserStore) RecordFingerprints(unrevoked ...string) error {
 // change a password or remove a user, which log a failure rather than
 // return it. A failed write is safe: the next start sees a mismatch and
 // revokes the user's OAuth state again.
-func (s *UserStore) recordFingerprints(unrevoked ...string) {
-	if err := s.RecordFingerprints(unrevoked...); err != nil {
+func (s *UserStore) recordFingerprints() {
+	if err := s.RecordFingerprints(); err != nil {
 		log.Printf("[AUTH] Failed to record password fingerprints: %v", err)
 	}
 }

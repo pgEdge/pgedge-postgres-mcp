@@ -1031,18 +1031,17 @@ func main() {
 				// restored OAuth state once now, then record the
 				// passwords it was checked against. With no user store
 				// this block is skipped, leaving the state alone.
-				var unrevoked []string
-				for _, subject := range userStore.StaleSubjects(oauthServer.Subjects(), recorded) {
-					revoked, err := oauthServer.RevokeSubject(subject)
-					if err != nil {
-						fmt.Fprintf(os.Stderr, "WARNING: Failed to save the revocation of OAuth access for user %q in auth database %s: %v\n", subject, authDBPath, err)
-						unrevoked = append(unrevoked, subject)
-					}
-					if len(revoked) > 0 {
-						fmt.Fprintf(os.Stderr, "Revoked %d OAuth token(s) for user %q at start-up (inactive, or password changed whilst stopped)\n", len(revoked), subject)
-					}
+				// RevokeOAuth goes through the hook above, and leaves any
+				// user whose revocation fails unrecorded and queued for
+				// the session sweeper to retry.
+				stale := userStore.StaleSubjects(oauthServer.Subjects(), recorded)
+				if len(stale) > 0 {
+					fmt.Fprintf(os.Stderr, "Revoking OAuth access at start-up for %d user(s) inactive, or given a new password, whilst stopped\n", len(stale))
 				}
-				if err := userStore.RecordFingerprints(unrevoked...); err != nil {
+				for _, subject := range userStore.RevokeOAuth(stale...) {
+					fmt.Fprintf(os.Stderr, "WARNING: Failed to save the revocation of OAuth access for user %q in auth database %s; it will be retried\n", subject, authDBPath)
+				}
+				if err := userStore.RecordFingerprints(); err != nil {
 					fmt.Fprintf(os.Stderr, "WARNING: Failed to record password fingerprints in auth database %s: %v\n", authDBPath, err)
 				}
 			}

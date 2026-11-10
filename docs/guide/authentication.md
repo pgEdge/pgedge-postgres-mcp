@@ -708,8 +708,13 @@ is disabled, the two `/.well-known/` paths answer `404 Not Found` rather
 than `401 Unauthorized`.
 
 When OAuth is enabled, the authorisation server endpoints also skip
-bearer authentication; each one checks its own client credentials,
-codes or tokens instead. The following paths belong to that group:
+bearer authentication. Most of them check their own client
+credentials, codes or tokens instead; the two static paths serve
+branding images to anyone. When dynamic registration is enabled,
+`/oauth/register` accepts a request with no credentials at all; the
+server limits registrations per client IP address using the
+`rate_limit_window_minutes` and `rate_limit_max_attempts` settings.
+The following paths skip bearer authentication:
 
 - `/oauth/register`
 - `/oauth/authorize`
