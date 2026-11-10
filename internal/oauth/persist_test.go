@@ -48,6 +48,29 @@ func reopen(t *testing.T, dir string, db *sql.DB) (*Store, *sql.DB) {
 	return s, ndb
 }
 
+// TestPersist_CorruptRowIsLoadError checks that a row that cannot be
+// decoded fails the load with ErrStoreLoad, which main uses to name the
+// auth.db file in its start-up error.
+func TestPersist_CorruptRowIsLoadError(t *testing.T) {
+	db, _, err := authdb.Open(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = db.Close() })
+	if _, err := db.Exec(`INSERT INTO oauth_clients (id, redirect_uris, last_used)
+        VALUES ('fake-client', 'not json', ?)`, time.Now().UnixNano()); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err = NewPersistentStore(db, DefaultLimits, time.Hour, nil)
+	if !errors.Is(err, ErrStoreLoad) {
+		t.Fatalf("NewPersistentStore = %v, want an ErrStoreLoad", err)
+	}
+	if !strings.Contains(err.Error(), "oauth_clients") {
+		t.Fatalf("error %q does not name the table", err)
+	}
+}
+
 func TestPersist_ClientRoundTrip(t *testing.T) {
 	dir := t.TempDir()
 	s, db := openPersistent(t, dir, DefaultLimits)

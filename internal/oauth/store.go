@@ -175,6 +175,11 @@ func NewStore(limits Limits, clientRetention time.Duration) *Store {
 	return newStore(limits, clientRetention, nopPersister{}, nil)
 }
 
+// ErrStoreLoad marks an error from NewPersistentStore reading the state
+// already in auth.db, such as a row that cannot be decoded, as opposed to
+// a configuration error; main uses it to name the file in its message.
+var ErrStoreLoad = errors.New("oauth store")
+
 // NewPersistentStore creates a Store that writes every change through to
 // db (an auth.db opened with authdb.Open) and starts from the rows
 // already in it. Rows expired at load are deleted, and a table holding
@@ -187,7 +192,7 @@ func NewPersistentStore(db *sql.DB, limits Limits, clientRetention time.Duration
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if err := p.load(s, time.Now()); err != nil {
-		return nil, fmt.Errorf("oauth store: %w", err)
+		return nil, fmt.Errorf("%w: %w", ErrStoreLoad, err)
 	}
 	return s, nil
 }

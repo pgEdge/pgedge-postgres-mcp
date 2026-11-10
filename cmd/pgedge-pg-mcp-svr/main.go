@@ -14,6 +14,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"net/http"
@@ -986,7 +987,11 @@ func main() {
 				Logger: func(f string, a ...any) { fmt.Fprintf(os.Stderr, f+"\n", a...) },
 			})
 			if oauthErr != nil {
-				fmt.Fprintf(os.Stderr, "ERROR: OAuth: %v\n", oauthErr)
+				if errors.Is(oauthErr, oauth.ErrStoreLoad) {
+					fmt.Fprintf(os.Stderr, "ERROR: OAuth state in auth database %s could not be loaded: %v (delete the file whilst the server is stopped to reset it)\n", authDBPath, oauthErr)
+				} else {
+					fmt.Fprintf(os.Stderr, "ERROR: OAuth: %v\n", oauthErr)
+				}
 				os.Exit(1)
 			}
 			defer oauthServer.Close()
