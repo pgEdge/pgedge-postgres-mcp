@@ -23,7 +23,7 @@ import (
 
 var expectedTables = []string{
 	"oauth_clients", "oauth_codes", "oauth_used_codes", "oauth_devices",
-	"oauth_tokens", "oauth_rotated", "sessions",
+	"oauth_tokens", "oauth_rotated", "sessions", "user_fingerprints",
 }
 
 func mode(t *testing.T, path string) os.FileMode {

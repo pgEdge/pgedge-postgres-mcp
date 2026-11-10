@@ -501,6 +501,8 @@ func main() {
 		dataDir = filepath.Join(filepath.Dir(execPath), "data")
 	}
 	var authDB *sql.DB
+	// The full path of auth.db, for error messages about its contents.
+	authDBPath := filepath.Join(dataDir, authdb.FileName)
 
 	if cfg.HTTP.Enabled && cfg.HTTP.Auth.Enabled {
 		if _, err := os.Stat(cfg.HTTP.Auth.TokenFile); os.IsNotExist(err) {
@@ -570,6 +572,7 @@ func main() {
 				os.Exit(1)
 			}
 			authDB = db
+			authDBPath = dbPath
 			defer authDB.Close()
 			fmt.Fprintf(os.Stderr, "Auth database: %s\n", dbPath)
 		}
@@ -987,29 +990,43 @@ func main() {
 				os.Exit(1)
 			}
 			defer oauthServer.Close()
-			// Disabling, deleting or locking out a user now revokes its
-			// OAuth tokens outright, rather than leaving them usable
-			// until they expire; the same hook fires when the watched
-			// user file is reloaded with an account removed or
-			// disabled.
+			// Disabling, deleting or locking out a user, or changing its
+			// password, revokes its OAuth tokens outright, rather than
+			// leaving them usable until they expire; the same hook fires
+			// when the watched user file is reloaded with an account
+			// removed, disabled or given a new password.
 			if userStore != nil {
-				// A user disabled or deleted in the users file whilst the
-				// server was stopped never triggered the hook below, so
-				// sweep the restored OAuth state once now. With no user
-				// store this block is skipped, leaving the state alone.
-				for _, subject := range oauthServer.Subjects() {
-					if userStore.IsActive(subject) {
-						continue
-					}
-					if revoked := oauthServer.RevokeSubject(subject); len(revoked) > 0 {
-						fmt.Fprintf(os.Stderr, "Revoked %d OAuth token(s) for inactive user %q at start-up\n", len(revoked), subject)
-					}
-				}
+				// The hook and the fingerprint store go in before the
+				// start-up sweep, so a reload racing with the sweep is
+				// revoked and recorded by the hook rather than missed.
 				userStore.SetRevocationHook(func(username string) {
 					if revoked := oauthServer.RevokeSubject(username); len(revoked) > 0 {
 						fmt.Fprintf(os.Stderr, "Revoked %d OAuth token(s) for user %q\n", len(revoked), username)
 					}
 				})
+				if authDB != nil {
+					userStore.SetFingerprintStore(auth.NewSQLiteFingerprintStore(authDB))
+				}
+
+				// A user disabled, deleted, given a new password, or
+				// deleted and re-added in the users file whilst the server
+				// was stopped never triggered the hook, so sweep the
+				// restored OAuth state once now, then record the
+				// passwords it was checked against. With no user store
+				// this block is skipped, leaving the state alone.
+				recorded, fpErr := userStore.RecordedFingerprints()
+				if fpErr != nil {
+					fmt.Fprintf(os.Stderr, "ERROR: Failed to read password fingerprints from auth database %s: %v\n", authDBPath, fpErr)
+					os.Exit(1)
+				}
+				for _, subject := range userStore.StaleSubjects(oauthServer.Subjects(), recorded) {
+					if revoked := oauthServer.RevokeSubject(subject); len(revoked) > 0 {
+						fmt.Fprintf(os.Stderr, "Revoked %d OAuth token(s) for user %q at start-up (inactive, or password changed whilst stopped)\n", len(revoked), subject)
+					}
+				}
+				if err := userStore.RecordFingerprints(); err != nil {
+					fmt.Fprintf(os.Stderr, "WARNING: Failed to record password fingerprints in auth database %s: %v\n", authDBPath, err)
+				}
 			}
 			validator.OAuth = oauthServer
 			validator.ExtraPublicPaths = oauth.PublicPaths()

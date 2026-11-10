@@ -81,5 +81,13 @@ var migrations = [][]string{
             expires_at           INTEGER NOT NULL
         )`,
 		`CREATE INDEX sessions_username ON sessions(username)`,
+		// The fingerprint of each user's password hash as last seen
+		// by a server running OAuth, so that a password changed, or a
+		// user deleted and re-added, whilst it was stopped still ends
+		// that user's OAuth grants at the next start.
+		`CREATE TABLE user_fingerprints (
+            username             TEXT PRIMARY KEY,
+            password_fingerprint TEXT NOT NULL
+        )`,
 	},
 }

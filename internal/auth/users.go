@@ -62,6 +62,12 @@ type UserStore struct {
 	// created on first use, unless SetSessionStore installed another.
 	// Guarded by mu.
 	sessions SessionStore
+
+	// fingerprints, when set, records each user's password fingerprint
+	// for the start-up check on OAuth state; see FingerprintStore.
+	// Guarded by mu. fpMu serialises RecordFingerprints.
+	fingerprints FingerprintStore
+	fpMu         sync.Mutex
 }
 
 // SetSessionStore installs the store password-login sessions live in.
@@ -283,15 +289,19 @@ func (s *UserStore) Reload() error {
 	// store and are checked against the new users at validation.
 	s.mu.Lock()
 
-	// Note which users the reload has withdrawn access from, either by
-	// removing them from the file or by disabling them there, so their
-	// credentials can be revoked once the lock is released.
+	// Note which users the reload has withdrawn access from, by removing
+	// them from the file or disabling them there, and which it has given
+	// a new password, so their credentials can be revoked once the lock
+	// is released. A password change ends OAuth grants as well as
+	// sessions, as it does across a restart.
 	var revoked []string
 	for username, user := range s.Users {
-		if !user.Enabled {
-			continue
-		}
-		if replacement, exists := newStore.Users[username]; !exists || !replacement.Enabled {
+		replacement, exists := newStore.Users[username]
+		switch {
+		case exists && replacement.PasswordHash != user.PasswordHash:
+			revoked = append(revoked, username)
+		case !user.Enabled:
+		case !exists || !replacement.Enabled:
 			revoked = append(revoked, username)
 		}
 	}
@@ -300,6 +310,7 @@ func (s *UserStore) Reload() error {
 	s.mu.Unlock()
 
 	s.notifyRevoked(revoked...)
+	s.recordFingerprints()
 	return nil
 }
 
@@ -356,7 +367,8 @@ func (s *UserStore) AddUser(username, password, annotation string) error {
 }
 
 // UpdateUser updates an existing user's password and/or annotation. A
-// changed password ends the user's password-login sessions.
+// changed password ends the user's password-login sessions and OAuth
+// grants.
 func (s *UserStore) UpdateUser(username, newPassword, newAnnotation string) error {
 	s.mu.Lock()
 
@@ -381,7 +393,8 @@ func (s *UserStore) UpdateUser(username, newPassword, newAnnotation string) erro
 	s.mu.Unlock()
 
 	if newPassword != "" {
-		s.deleteSessions(username)
+		s.notifyRevoked(username)
+		s.recordFingerprints()
 	}
 	return nil
 }
@@ -406,6 +419,7 @@ func (s *UserStore) RemoveUser(username string) error {
 	// A deleted user keeps nothing: any OAuth token standing in its
 	// name is revoked now rather than at its own expiry.
 	s.notifyRevoked(username)
+	s.recordFingerprints()
 	return nil
 }
 
