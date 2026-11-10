@@ -208,6 +208,42 @@ func TestOpen_ConcurrentOpenSameFile(t *testing.T) {
 	for err := range errs {
 		t.Error(err)
 	}
+
+	// Only the database and its WAL files may remain; the temporary
+	// files each opener built the database in must all be removed.
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, e := range entries {
+		if !strings.HasPrefix(e.Name(), FileName) {
+			t.Errorf("left behind %s", e.Name())
+		}
+	}
+}
+
+func TestOpen_NewFileIsInWALMode(t *testing.T) {
+	dir := t.TempDir()
+	db, path, err := Open(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	db.Close()
+
+	// Bytes 18 and 19 of the header are the write and read format
+	// versions, which SQLite sets to 2 for WAL mode.
+	f, err := os.Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer f.Close()
+	hdr := make([]byte, 20)
+	if _, err := f.ReadAt(hdr, 0); err != nil {
+		t.Fatal(err)
+	}
+	if hdr[18] != 2 || hdr[19] != 2 {
+		t.Errorf("format versions = %d/%d, want 2/2 (WAL)", hdr[18], hdr[19])
+	}
 }
 
 func TestOpen_TwoHandlesWriteConcurrently(t *testing.T) {

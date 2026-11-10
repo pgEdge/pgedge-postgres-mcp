@@ -15,7 +15,9 @@ package authdb
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
+	"io/fs"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -40,18 +42,28 @@ func Open(dataDir string) (*sql.DB, string, error) {
 		return fail(err)
 	}
 
-	// Create the file ourselves so its mode does not depend on the umask.
-	f, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE, 0600)
-	if err != nil {
-		return fail(err)
-	}
-	if err := f.Close(); err != nil {
+	if err := createIfMissing(dataDir, path); err != nil {
 		return fail(err)
 	}
 	if err := os.Chmod(path, 0600); err != nil {
 		return fail(err)
 	}
 
+	db, err := sql.Open("sqlite", dsn(path))
+	if err != nil {
+		return fail(err)
+	}
+
+	if err := migrate(db); err != nil {
+		_ = db.Close()
+		return fail(err)
+	}
+	return db, path, nil
+}
+
+// dsn returns the connection string for the database at path, which
+// applies the connection pragmas to every pooled connection.
+func dsn(path string) string {
 	// busy_timeout comes first so the later pragmas wait on a locked
 	// file rather than failing when several servers open it at once.
 	q := url.Values{}
@@ -63,16 +75,74 @@ func Open(dataDir string) (*sql.DB, string, error) {
 	} {
 		q.Add("_pragma", p)
 	}
-	db, err := sql.Open("sqlite", path+"?"+q.Encode())
-	if err != nil {
-		return fail(err)
+	return path + "?" + q.Encode()
+}
+
+// createIfMissing creates the database at path, already in WAL mode and
+// migrated, if no file exists there yet.
+//
+// Switching a file from the rollback journal to WAL takes an exclusive
+// lock from inside the shared lock the pragma already holds. When two
+// connections do that at once, SQLite returns SQLITE_BUSY to one of
+// them at once, without consulting busy_timeout, because waiting could
+// deadlock. Concurrent first opens of a new file therefore failed at
+// random. Building the file under a temporary name and hard-linking it
+// into place, which fails if the name already exists, means every opener
+// of path finds a file that is already in WAL mode, where the pragma
+// needs no lock upgrade. The file is created by us, rather than SQLite,
+// so its mode does not depend on the umask.
+func createIfMissing(dataDir, path string) error {
+	if _, err := os.Lstat(path); err == nil {
+		return nil
+	} else if !errors.Is(err, fs.ErrNotExist) {
+		return err
 	}
 
+	tmp, err := os.CreateTemp(dataDir, "."+FileName+".new-*")
+	if err != nil {
+		return err
+	}
+	tmpPath := tmp.Name()
+	defer func() {
+		for _, p := range []string{tmpPath, tmpPath + "-wal", tmpPath + "-shm"} {
+			_ = os.Remove(p)
+		}
+	}()
+	if err := tmp.Close(); err != nil {
+		return err
+	}
+	if err := os.Chmod(tmpPath, 0600); err != nil {
+		return err
+	}
+
+	// Closing the only connection checkpoints the WAL into the file,
+	// which keeps WAL mode recorded in its header.
+	db, err := sql.Open("sqlite", dsn(tmpPath))
+	if err != nil {
+		return err
+	}
 	if err := migrate(db); err != nil {
 		_ = db.Close()
-		return fail(err)
+		return err
 	}
-	return db, path, nil
+	if err := db.Close(); err != nil {
+		return err
+	}
+
+	err = os.Link(tmpPath, path)
+	switch {
+	case err == nil, errors.Is(err, fs.ErrExist):
+		// Ours is in place, or another opener's got there first.
+		return nil
+	default:
+		// A filesystem without hard links: create the file in place,
+		// as before, accepting the race on a first concurrent open.
+		f, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE, 0600)
+		if err != nil {
+			return err
+		}
+		return f.Close()
+	}
 }
 
 // migrate applies every migration above the stored schema version in a
