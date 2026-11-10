@@ -11,7 +11,9 @@
 package oauth
 
 import (
+	"database/sql"
 	"errors"
+	"fmt"
 	"sync"
 	"time"
 )
@@ -138,6 +140,17 @@ type Store struct {
 	// with SetRevocationHook, before the store is shared with other
 	// goroutines.
 	onRevoke func(accessTokenHashes []string)
+
+	// p receives every row-level change; it is a nopPersister for a
+	// Store built with NewStore. Write-through rule: it is called under
+	// s.mu, before the in-memory change; a method returning an error
+	// returns the persister's error and leaves memory unchanged, whilst
+	// one without an error return changes memory regardless and logs
+	// the failure, so a database fault can never keep a credential alive.
+	p persister
+
+	// logf reports persistence failures; never nil.
+	logf func(format string, args ...any)
 }
 
 // clientIdleGrace is added to a Store's clientRetention before an idle
@@ -149,7 +162,34 @@ const clientIdleGrace = time.Hour
 // unused client registration for clientRetention (plus an hour's
 // grace) after it was last seen.
 func NewStore(limits Limits, clientRetention time.Duration) *Store {
+	return newStore(limits, clientRetention, nopPersister{}, nil)
+}
+
+// NewPersistentStore creates a Store that writes every change through to
+// db (an auth.db opened with authdb.Open) and starts from the rows
+// already in it. Rows expired at load are deleted, and a table holding
+// more than its limit is cut back to its newest rows. logf, which may be
+// nil, receives persistence failures and the load-time trimming.
+func NewPersistentStore(db *sql.DB, limits Limits, clientRetention time.Duration,
+	logf func(string, ...any)) (*Store, error) {
+	p := newSQLitePersister(db)
+	s := newStore(limits, clientRetention, p, logf)
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if err := p.load(s, time.Now()); err != nil {
+		return nil, fmt.Errorf("oauth store: %w", err)
+	}
+	return s, nil
+}
+
+func newStore(limits Limits, clientRetention time.Duration, p persister,
+	logf func(string, ...any)) *Store {
+	if logf == nil {
+		logf = func(string, ...any) {}
+	}
 	return &Store{
+		p:               p,
+		logf:            logf,
 		limits:          limits,
 		clientRetention: clientRetention,
 		clients:         make(map[string]*Client),
@@ -160,6 +200,11 @@ func NewStore(limits Limits, clientRetention time.Duration) *Store {
 		usedCodes:       make(map[string]*usedCode),
 		rotated:         make(map[string]*rotatedRefresh),
 	}
+}
+
+// logError reports a persistence failure through s.logf.
+func (s *Store) logError(format string, args ...any) {
+	s.logf(format, args...)
 }
 
 // SetRevocationHook installs the callback described on Store.onRevoke.
@@ -225,11 +270,25 @@ func (s *Store) PutClient(c *Client) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
+	victim := ""
 	if _, exists := s.clients[c.ID]; !exists && len(s.clients) >= s.limits.Clients {
-		victim, found := s.lruEvictableClientLocked(c.LastUsed)
+		id, found := s.lruEvictableClientLocked(c.LastUsed)
 		if !found {
 			return ErrStoreFull
 		}
+		victim = id
+	}
+	if err := s.p.tx(func(p persister) error {
+		if victim != "" {
+			if err := p.deleteClient(victim); err != nil {
+				return err
+			}
+		}
+		return p.putClient(c)
+	}); err != nil {
+		return err
+	}
+	if victim != "" {
 		delete(s.clients, victim)
 	}
 	s.clients[c.ID] = cloneClient(c)
@@ -276,6 +335,11 @@ func (s *Store) TouchClient(id string, now time.Time) {
 
 	if c, ok := s.clients[id]; ok {
 		c.LastUsed = now
+		// A failed write only costs the persisted idle time, so log it
+		// and carry on.
+		if err := s.p.putClient(c); err != nil {
+			s.logError("oauth: persist client last-used: %v", err)
+		}
 	}
 }
 
@@ -410,6 +474,9 @@ func (s *Store) PutCode(c *AuthCode) error {
 	if _, exists := s.codes[c.Hash]; !exists && len(s.codes) >= s.limits.Codes {
 		return ErrStoreFull
 	}
+	if err := s.p.putCode(c); err != nil {
+		return err
+	}
 	s.codes[c.Hash] = cloneAuthCode(c)
 	return nil
 }
@@ -423,6 +490,9 @@ func (s *Store) TakeCode(hash string) (*AuthCode, bool) {
 	c, ok := s.codes[hash]
 	if !ok {
 		return nil, false
+	}
+	if err := s.p.deleteCode(hash); err != nil {
+		s.logError("oauth: delete authorisation code: %v", err)
 	}
 	delete(s.codes, hash)
 	return cloneAuthCode(c), true
@@ -441,7 +511,13 @@ func (s *Store) MarkCodeUsed(codeHash, refreshHash, family string, until time.Ti
 	if _, exists := s.usedCodes[codeHash]; !exists && len(s.usedCodes) >= s.limits.Codes {
 		return
 	}
-	s.usedCodes[codeHash] = &usedCode{RefreshHash: refreshHash, Family: family, Until: until}
+	u := usedCode{RefreshHash: refreshHash, Family: family, Until: until}
+	// A replay record guards against code reuse, so it applies in memory
+	// even when it cannot be written.
+	if err := s.p.putUsedCode(codeHash, u); err != nil {
+		s.logError("oauth: persist used authorisation code: %v", err)
+	}
+	s.usedCodes[codeHash] = &u
 }
 
 // TakeUsedCode returns and removes the refresh token hash and token
@@ -454,6 +530,9 @@ func (s *Store) TakeUsedCode(codeHash string) (refreshHash, family string, ok bo
 	u, found := s.usedCodes[codeHash]
 	if !found {
 		return "", "", false
+	}
+	if err := s.p.deleteUsedCode(codeHash); err != nil {
+		s.logError("oauth: delete used authorisation code: %v", err)
 	}
 	delete(s.usedCodes, codeHash)
 	return u.RefreshHash, u.Family, true
@@ -735,6 +814,9 @@ func (s *Store) Sweep(now time.Time) []string {
 
 	for hash, c := range s.codes {
 		if c.ExpiresAt.Before(now) {
+			if err := s.p.deleteCode(hash); err != nil {
+				s.logError("oauth: sweep authorisation code: %v", err)
+			}
 			delete(s.codes, hash)
 		}
 	}
@@ -752,6 +834,9 @@ func (s *Store) Sweep(now time.Time) []string {
 	}
 	for hash, u := range s.usedCodes {
 		if u.Until.Before(now) {
+			if err := s.p.deleteUsedCode(hash); err != nil {
+				s.logError("oauth: sweep used authorisation code: %v", err)
+			}
 			delete(s.usedCodes, hash)
 		}
 	}
@@ -768,6 +853,9 @@ func (s *Store) Sweep(now time.Time) []string {
 	live := s.clientsWithLiveTokensLocked(now)
 	for id, c := range s.clients {
 		if c.LastUsed.Before(cutoff) && !live[id] {
+			if err := s.p.deleteClient(id); err != nil {
+				s.logError("oauth: sweep client: %v", err)
+			}
 			delete(s.clients, id)
 		}
 	}
