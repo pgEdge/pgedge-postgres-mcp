@@ -188,9 +188,10 @@ than the server. Their status is as follows:
   metadata whose issuer does not have the origin of the server it was
   pointed at, and keys its cached client ID and tokens by that
   origin, so its credentials cannot follow a changed issuer to another
-  server; see `validateMetadata` and `cacheKey` in
-  `internal/chat/oauth_client.go`. The web client only partly meets
-  this: it caches its registered client ID with the issuer it came
+  origin; see `validateMetadata` and `cacheKey` in
+  `internal/chat/oauth_client.go`. The key omits the issuer's path,
+  though, so the CLI meets this only in part. The web client also meets
+  it only in part: it caches its registered client ID with the issuer it came
   from, and registers again when the issuer changes (see `ensureClient`
   in `web/src/lib/oauth.js`), but it keeps its tokens under one fixed
   key with no issuer. See "Known gaps" below.
@@ -240,9 +241,16 @@ here so nobody has to re-derive them:
 * **Web client tokens not keyed by issuer.** SEP-2352 requires a
   client to keep persisted credentials per authorisation server. The
   web client keys only its client ID by issuer; its token session sits
-  under a single fixed `localStorage` key. Because its token traffic
-  only ever goes to same-origin paths, the tokens cannot be presented
-  to a different authorisation server today.
+  under a single fixed `localStorage` key. Its token traffic only goes
+  to same-origin paths, but a proxy or deployment change behind that
+  origin could put a different authorisation server there, and the
+  stored refresh token would then be sent to it without any issuer
+  comparison.
+* **CLI credentials keyed by origin, not issuer.** `validateMetadata`
+  compares origins only, and `cacheKey` omits the issuer's path. If
+  the issuer moves from one path to another on the same origin, the
+  CLI reuses its cached client ID and sends its refresh token to the
+  new token endpoint, where SEP-2352 asks for fresh credentials.
 * **Optional additions in the newer legacy revisions.** Negotiating
   `2025-03-26`, `2025-06-18` or `2025-11-25` does not mean the server
   implements every optional feature those revisions add; for example,

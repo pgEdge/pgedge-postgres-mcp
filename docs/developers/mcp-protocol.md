@@ -12,13 +12,17 @@ the same time.
 
 A request whose `params._meta` carries
 `io.modelcontextprotocol/protocolVersion` is served under the modern,
-`2026-07-28` model: see [MCP Specification
+`2026-07-28` model. Over HTTP, so is a request whose
+`MCP-Protocol-Version` header names anything other than a supported
+legacy revision, such as `2026-07-28`; without usable body `_meta`,
+such a request fails with `-32602 Invalid params` rather than falling
+back to legacy behavior. See [MCP Specification
 Compliance](mcp-spec-compliance.md) for the full negotiation rules,
 required Streamable HTTP headers, and what was deliberately not adopted
 from that revision.
 
-Every other request, including every `initialize` handshake, is served
-under the legacy behavior: the server
+Every other request, including an `initialize` handshake without such
+a header, is served under the legacy behavior: the server
 negotiates the version during the handshake and never simply echoes the
 version a client requests. A client that asks for a revision the server
 does not implement receives the newest supported revision older than
