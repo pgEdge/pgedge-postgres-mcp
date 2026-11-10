@@ -111,7 +111,7 @@ func buildParameters() M {
 			"name":        "MCP-Protocol-Version",
 			"in":          "header",
 			"required":    false,
-			"description": "Required on a modern (2026-07-28) request; omit entirely for a legacy request. Must equal the request body's _meta.io.modelcontextprotocol/protocolVersion field, or the request is rejected with 400 and a HeaderMismatch (-32020) JSON-RPC error.",
+			"description": "Required on a modern (2026-07-28) request. A legacy request may omit it or send the revision negotiated by initialize (2024-11-05, 2025-03-26, 2025-06-18 or 2025-11-25); any other value marks the request as modern. On a modern request it must equal the request body's _meta.io.modelcontextprotocol/protocolVersion field, or the request is rejected with 400 and a HeaderMismatch (-32020) JSON-RPC error.",
 			"schema": M{
 				"type":    "string",
 				"example": "2026-07-28",
@@ -239,7 +239,7 @@ func buildMCPPath() M {
 		"post": M{
 			"tags":        A{"MCP"},
 			"summary":     "Send an MCP JSON-RPC 2.0 request",
-			"description": "Accepts a JSON-RPC 2.0 request implementing the Model Context Protocol. Supported methods are initialize, server/discover, ping, tools/list, tools/call, resources/list, resources/read, prompts/list, prompts/get, pgedge/listDatabases, and pgedge/selectDatabase. Bearer token authentication is required when auth is enabled. Two protocol revisions are served on this same endpoint: a request whose body carries _meta.io.modelcontextprotocol/protocolVersion (or, on HTTP, a present MCP-Protocol-Version header) is served under the current, stateless revision (2026-07-28), which requires the MCP-Protocol-Version, Mcp-Method, and (for tools/call, resources/read, prompts/get) Mcp-Name headers described below, and which also expects a conforming client to offer both application/json and text/event-stream in Accept; any other request is served under the original, handshake-based revision (2024-11-05), which sends none of those headers and negotiates via initialize instead. initialize itself exists only under that original revision: it is not a method the current revision recognizes.",
+			"description": "Accepts a JSON-RPC 2.0 request implementing the Model Context Protocol. Supported methods are initialize, server/discover, ping, tools/list, tools/call, resources/list, resources/read, prompts/list, prompts/get, pgedge/listDatabases, and pgedge/selectDatabase. Bearer token authentication is required when auth is enabled. Two protocol eras are served on this same endpoint: a request whose body carries _meta.io.modelcontextprotocol/protocolVersion, or whose MCP-Protocol-Version header names anything other than a supported legacy revision, is served under the current, stateless revision (2026-07-28), which requires the MCP-Protocol-Version, Mcp-Method, and (for tools/call, resources/read, prompts/get) Mcp-Name headers described below, and which also expects a conforming client to offer both application/json and text/event-stream in Accept; any other request is served under the handshake-based legacy revisions (2024-11-05, 2025-03-26, 2025-06-18 and 2025-11-25), which need none of those headers and negotiate a revision via initialize instead. initialize itself exists only under the legacy revisions: it is not a method the current revision recognizes.",
 			"operationId": "postMCP",
 			"security":    bearerSecurity(),
 			"parameters": A{
@@ -263,7 +263,7 @@ func buildMCPPath() M {
 					"content":     jsonContent(ref("JSONRPCResponse")),
 				},
 				"404": M{
-					"description": "The request identified itself as the current (2026-07-28) revision and named a method that revision does not recognize (-32601, Method not found). This includes initialize, which exists only under the original (2024-11-05) revision.",
+					"description": "The request identified itself as the current (2026-07-28) revision and named a method that revision does not recognize (-32601, Method not found). This includes initialize, which exists only under the handshake-based legacy revisions.",
 					"content":     jsonContent(ref("JSONRPCResponse")),
 				},
 			}),
