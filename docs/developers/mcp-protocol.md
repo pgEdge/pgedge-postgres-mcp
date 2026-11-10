@@ -4,7 +4,8 @@ This document describes how the Natural Language Agent implements the Model Cont
 
 ## Protocol Version
 
-This server is **dual-era**: it implements both `2024-11-05` (a
+This server is **dual-era**: it implements the handshake-based
+revisions `2024-11-05`, `2025-03-26`, `2025-06-18` and `2025-11-25` (a
 connection-scoped `initialize` handshake) and the current revision,
 `2026-07-28` (stateless, per-request negotiation), on both transports at
 the same time.
@@ -17,12 +18,14 @@ required Streamable HTTP headers, and what was deliberately not adopted
 from that revision.
 
 Every other request, including every `initialize` handshake, is served
-under this server's original, legacy behavior, unchanged: the server
+under the legacy behavior: the server
 negotiates the version during the handshake and never simply echoes the
 version a client requests. A client that asks for a revision the server
-does not implement receives `2024-11-05` in the `initialize` response,
-and it should then decide whether to continue or disconnect. A client
-that omits `protocolVersion` also receives `2024-11-05`. An `initialize`
+does not implement receives the newest supported revision older than
+the one it asked for, or `2024-11-05` if it asked for something older
+than every supported revision, and it should then decide whether to
+continue or disconnect. A client that omits `protocolVersion` receives
+`2025-11-25`, the server's newest handshake-based revision. An `initialize`
 request whose parameters are malformed, such as a `protocolVersion` that
 is not a string, fails with a `-32602 Invalid params` error on both
 transports.
