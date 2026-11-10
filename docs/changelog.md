@@ -40,7 +40,7 @@ and this project adheres to
   stores them in `auth.db` in the data directory, and refuses to start
   if it cannot open that file. A session ends when its user is disabled,
   deleted, locked out or given a new password. Logging out of the web
-  client now ends the session on the server at once. When HTTP
+  client now also asks the server to end the session. When HTTP
   authentication is enabled, the server needs a writable data directory,
   even if you use only API tokens. Fixes #289.
 

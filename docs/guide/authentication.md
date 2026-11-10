@@ -691,8 +691,8 @@ The following responses may occur as a result of authentication errors:
 
 ## Endpoints That Skip Authentication
 
-Four endpoints are **always accessible** without a token, even when
-authentication is enabled:
+The following endpoints skip authentication, even when authentication
+is enabled:
 
 | Endpoint | Why it skips authentication |
 |----------|------------------------------|
@@ -700,8 +700,15 @@ authentication is enabled:
 | `/api/user/info` | The web client calls this to discover whether authentication is enabled at all, which it must do before it can know to ask for a token. |
 | `/api/user/logout` | A client ending its session may hold a token that has already expired, and the endpoint reveals nothing about the token it receives. |
 | `/api/openapi.json` | The API specification is published for discoverability, so that a client can be written against it before credentials are issued. |
+| `/.well-known/oauth-authorization-server` | An OAuth client reads the authorisation server metadata before it holds a token. |
+| `/.well-known/oauth-protected-resource` | An OAuth client reads the protected resource metadata to find the authorisation server. |
 
-In the following example, each endpoint responds without a token.
+Skipping authentication does not make an endpoint available. When OAuth
+is disabled, the two `/.well-known/` paths answer `404 Not Found` rather
+than `401 Unauthorized`.
+
+In the following example, each of the first four endpoints responds
+without a token.
 
 ```bash
 # No token required
@@ -715,10 +722,12 @@ The logout endpoint ends only the password-login session named by the
 bearer token in the `Authorization` header. It answers `204 No Content`
 whether or not the token was a live session, and `405 Method Not Allowed`
 for any method other than `POST`. It leaves API tokens and OAuth tokens
-alone. The web client calls it on logout, so the session ends on the
-server at once rather than lasting up to 24 hours.
+alone. The web client calls it on logout as a best effort. The client
+clears its local token whether or not the request completes; if the
+request fails, the session stays valid on the server until it expires,
+which takes up to 24 hours.
 
-None of the four exposes database contents or accepts a query, so the
+None of these endpoints exposes database contents or accepts a query, so the
 data they return is limited to the server's own status, whether
 authentication is switched on, and the shape of the API. Treat the
 specification as public information when deciding what network to

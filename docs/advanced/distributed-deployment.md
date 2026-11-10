@@ -288,11 +288,14 @@ which lives in the data directory. The Helm chart mounts a `data` volume at
 that volume is a PersistentVolumeClaim; otherwise, it is an `emptyDir`
 volume that Kubernetes deletes when the pod is replaced.
 
-The current chart does not place the data directory on that volume. The
-server uses the `data` directory beside its binary instead, so `auth.db`
-does not survive pod replacement, even with persistence enabled. Every pod
-replacement therefore signs all users out and forces OAuth clients to
-register again.
+The current chart does not place the data directory on that volume. With
+the chart defaults, the image entrypoint cannot create `/app/data` on the
+read-only root filesystem, so the server does not start.
+
+If a pod runs with a writable `/app/data` outside the data volume, then
+`auth.db` does not survive pod replacement, even with persistence enabled.
+Every pod replacement then signs all users out and forces dynamically
+registered OAuth clients to register again.
 
 Do not point several replicas at one shared data directory. Each replica
 needs its own `auth.db`, because sharing the file is unsupported.
