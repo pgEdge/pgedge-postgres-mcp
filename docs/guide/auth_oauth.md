@@ -161,7 +161,8 @@ The following points describe how OAuth uses `auth.db`:
 - The short-lived user code shown during device sign-in is the exception.
 - The server creates the file on first start, with mode `0600`.
 - The server refuses to start if it cannot open or create the file.
-- Deleting the file whilst the server is stopped signs every client out.
+- Deleting the file, with its `auth.db-wal` and `auth.db-shm` files, whilst
+  the server is stopped signs every client out.
 - After the file is deleted, each client must register again.
 - Two servers must never share one data directory; this is unsupported.
 - With HTTP authentication enabled, the data directory must be writable.
@@ -172,17 +173,19 @@ load the stored OAuth state, it exits with the following error, which
 names the file.
 
 ```text
-ERROR: OAuth state in auth database <path> could not be loaded: <reason> (delete the file whilst the server is stopped to reset it)
+ERROR: OAuth state in auth database <path> could not be loaded: <reason> (stop the server and delete auth.db, auth.db-wal and auth.db-shm to reset it)
 ```
 
 At start-up, the server deletes the OAuth tokens and codes of every user
 who is not present and enabled in the users file. This covers users that
 an administrator disabled or deleted whilst the server was stopped. The
 same applies to a user who was deleted and re-added, or whose password
-changed, whilst the server was stopped. The log reports each such user
-with a line beginning `Revoked`. If the users file is missing at
-start-up, or emptied whilst the server runs, even temporarily, every
-OAuth client is signed out. For the full behaviour and the data directory settings, see
+changed, whilst the server was stopped. The log may report such a user
+with a line beginning `Revoked`, but only when the user still held a live
+access token. If the users file is missing at start-up, or emptied whilst
+the server runs, even temporarily, every OAuth client is signed out.
+
+For the full behaviour and the data directory settings, see
 [Persistent Sessions and the auth.db File](authentication.md#persistent-sessions-and-the-authdb-file).
 
 ## Claude Desktop and Claude Mobile

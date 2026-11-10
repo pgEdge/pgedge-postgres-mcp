@@ -209,8 +209,7 @@ func TestOpen_ConcurrentOpenSameFile(t *testing.T) {
 		t.Error(err)
 	}
 
-	// Only the database and its WAL files may remain; the temporary
-	// files each opener built the database in must all be removed.
+	// Only the database and its WAL files may remain.
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		t.Fatal(err)
@@ -289,5 +288,66 @@ func TestOpen_TwoHandlesWriteConcurrently(t *testing.T) {
 	}
 	if n != 2*perHandle {
 		t.Errorf("row count = %d, want %d", n, 2*perHandle)
+	}
+}
+
+// Deleting auth.db alone after an unclean stop, which leaves auth.db-wal
+// behind, must not bring the old rows back.
+func TestOpen_DeletingDBAloneDiscardsStaleWAL(t *testing.T) {
+	dir := t.TempDir()
+	db, path, err := Open(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Keep the rows in the WAL, as they would be after a crash.
+	if _, err := db.Exec("PRAGMA wal_autocheckpoint(0)"); err != nil {
+		t.Fatal(err)
+	}
+	conn, err := db.Conn(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := conn.ExecContext(context.Background(),
+		"PRAGMA wal_autocheckpoint(0)"); err != nil {
+		t.Fatal(err)
+	}
+	for i := 0; i < 50; i++ {
+		if _, err := conn.ExecContext(context.Background(),
+			`INSERT INTO sessions (token_hash, username,
+			     password_fingerprint, created_at, expires_at)
+			 VALUES (?, 'test-user', 'fp', 1, 4102444800)`,
+			fmt.Sprintf("hash-%d", i)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	// Copy the WAL whilst the connection is open: an unclean stop.
+	wal, err := os.ReadFile(path + "-wal")
+	if err != nil || len(wal) == 0 {
+		t.Fatalf("expected a non-empty WAL, got %d bytes, err %v", len(wal), err)
+	}
+	conn.Close()
+	db.Close()
+
+	for _, suffix := range []string{"", "-wal", "-shm"} {
+		if err := os.Remove(path + suffix); err != nil && !os.IsNotExist(err) {
+			t.Fatal(err)
+		}
+	}
+	// Only auth.db is deleted by the operator; the WAL is still there.
+	if err := os.WriteFile(path+"-wal", wal, 0600); err != nil {
+		t.Fatal(err)
+	}
+
+	db, _, err = Open(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	var n int
+	if err := db.QueryRow("SELECT COUNT(*) FROM sessions").Scan(&n); err != nil {
+		t.Fatal(err)
+	}
+	if n != 0 {
+		t.Errorf("%d sessions came back from a stale WAL, want 0", n)
 	}
 }

@@ -121,6 +121,8 @@ func (s *UserStore) RecordedFingerprints() (map[string]string, error) {
 // no fingerprint store is installed. Callers must not hold s.mu, and
 // must have revoked any user whose fingerprint changed first, so that a
 // crash between the two cannot leave a change recorded but unrevoked.
+// That ordering does not help when the revocation itself fails to
+// commit: the stored grants can then outlive a recorded password change.
 func (s *UserStore) RecordFingerprints() error {
 	// fpMu orders snapshot-and-write pairs, so an older snapshot is never
 	// written over a newer one.

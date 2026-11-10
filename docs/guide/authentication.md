@@ -329,7 +329,8 @@ The following points describe how the server manages `auth.db`:
 - The file holds only the hashes of session tokens, never the tokens.
 - The server opens the file when HTTP and authentication are both enabled.
 - The server refuses to start if it cannot open or create the file.
-- Deleting the file whilst the server is stopped signs every user out.
+- Deleting the file, with its `auth.db-wal` and `auth.db-shm` files, whilst
+  the server is stopped signs every user out.
 - Two servers must never share one data directory; this is unsupported.
 
 To reset the file, stop the server, and then delete `auth.db` along with

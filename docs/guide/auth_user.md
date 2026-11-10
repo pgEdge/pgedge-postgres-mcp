@@ -45,7 +45,8 @@ When configuring user authentication, you should keep the following best practic
 - Store session tokens securely (not in localStorage for web apps)
 - Users should re-authenticate before a token expires.
 - Implement proper logout processing, with client-side token deletion.
-- The server limits each user to 10 concurrent sessions, ending the oldest first.
+- The server limits each user to 10 concurrent sessions, ending the oldest
+  session first.
 
 **Account Security**
 

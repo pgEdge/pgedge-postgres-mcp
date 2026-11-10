@@ -988,7 +988,7 @@ func main() {
 			})
 			if oauthErr != nil {
 				if errors.Is(oauthErr, oauth.ErrStoreLoad) {
-					fmt.Fprintf(os.Stderr, "ERROR: OAuth state in auth database %s could not be loaded: %v (delete the file whilst the server is stopped to reset it)\n", authDBPath, oauthErr)
+					fmt.Fprintf(os.Stderr, "ERROR: OAuth state in auth database %s could not be loaded: %v (stop the server and delete auth.db, auth.db-wal and auth.db-shm to reset it)\n", authDBPath, oauthErr)
 				} else {
 					fmt.Fprintf(os.Stderr, "ERROR: OAuth: %v\n", oauthErr)
 				}
@@ -1009,8 +1009,18 @@ func main() {
 						fmt.Fprintf(os.Stderr, "Revoked %d OAuth token(s) for user %q\n", len(revoked), username)
 					}
 				})
+				// Read the recorded fingerprints before installing the
+				// store, so a reload in this window cannot record a new
+				// password before the sweep compares against the old one.
+				recorded := map[string]string{}
 				if authDB != nil {
-					userStore.SetFingerprintStore(auth.NewSQLiteFingerprintStore(authDB))
+					fps := auth.NewSQLiteFingerprintStore(authDB)
+					var fpErr error
+					if recorded, fpErr = fps.All(); fpErr != nil {
+						fmt.Fprintf(os.Stderr, "ERROR: Failed to read password fingerprints from auth database %s: %v\n", authDBPath, fpErr)
+						os.Exit(1)
+					}
+					userStore.SetFingerprintStore(fps)
 				}
 
 				// A user disabled, deleted, given a new password, or
@@ -1019,11 +1029,6 @@ func main() {
 				// restored OAuth state once now, then record the
 				// passwords it was checked against. With no user store
 				// this block is skipped, leaving the state alone.
-				recorded, fpErr := userStore.RecordedFingerprints()
-				if fpErr != nil {
-					fmt.Fprintf(os.Stderr, "ERROR: Failed to read password fingerprints from auth database %s: %v\n", authDBPath, fpErr)
-					os.Exit(1)
-				}
 				for _, subject := range userStore.StaleSubjects(oauthServer.Subjects(), recorded) {
 					if revoked := oauthServer.RevokeSubject(subject); len(revoked) > 0 {
 						fmt.Fprintf(os.Stderr, "Revoked %d OAuth token(s) for user %q at start-up (inactive, or password changed whilst stopped)\n", len(revoked), subject)
