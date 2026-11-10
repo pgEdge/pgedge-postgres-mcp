@@ -164,12 +164,8 @@ func TestPersist_CodeExpiredAtLoad(t *testing.T) {
 	if _, _, ok := s2.TakeUsedCode("old-used"); ok {
 		t.Fatal("expired replay record usable after load")
 	}
-	var n int
-	for _, tbl := range []string{"oauth_codes", "oauth_used_codes"} {
-		if err := db2.QueryRow("SELECT COUNT(*) FROM " + tbl).Scan(&n); err != nil || n != 0 {
-			t.Fatalf("%s rows after load: %d err=%v", tbl, n, err)
-		}
-	}
+	requireRows(t, db2, "oauth_codes", "oauth_codes after load", 0)
+	requireRows(t, db2, "oauth_used_codes", "oauth_used_codes after load", 0)
 }
 
 func TestPersist_LimitAtLoadKeepsNewest(t *testing.T) {
@@ -221,29 +217,14 @@ func TestPersist_IdleClientSweptFromDisk(t *testing.T) {
 }
 
 func TestPersist_DeleteFailsClosed(t *testing.T) {
-	dir := t.TempDir()
 	var logged int
-	db, _, err := authdb.Open(dir)
-	if err != nil {
-		t.Fatal(err)
-	}
-	s, err := NewPersistentStore(db, DefaultLimits, time.Hour,
-		func(string, ...any) { logged++ })
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := s.PutCode(&AuthCode{Hash: "h", ClientID: "c", ExpiresAt: time.Now().Add(time.Minute)}); err != nil {
-		t.Fatal(err)
-	}
+	s, db := openLoggingStore(t, &logged)
+	mustPutCode(t, s, &AuthCode{Hash: "h", ClientID: "c", ExpiresAt: time.Now().Add(time.Minute)})
 	s.MarkCodeUsed("u", "r", "f", time.Now().Add(time.Hour))
 	_ = db.Close()
 
-	if _, ok := s.TakeCode("h"); !ok {
-		t.Fatal("first TakeCode should still return the code")
-	}
-	if _, ok := s.TakeCode("h"); ok {
-		t.Fatal("code still in memory after failed delete")
-	}
+	requireTakeCode(t, s, "h", true, "first TakeCode should still return the code")
+	requireTakeCode(t, s, "h", false, "code still in memory after failed delete")
 	if _, _, ok := s.TakeUsedCode("u"); !ok {
 		t.Fatal("used code lost")
 	}
@@ -254,12 +235,9 @@ func TestPersist_DeleteFailsClosed(t *testing.T) {
 		t.Fatal("write failures not logged")
 	}
 	// Writes that return errors fail and leave memory unchanged.
-	if err := s.PutCode(&AuthCode{Hash: "n", ClientID: "c"}); err == nil {
-		t.Fatal("PutCode should fail on closed database")
-	}
-	if _, ok := s.TakeCode("n"); ok {
-		t.Fatal("failed PutCode left the code in memory")
-	}
+	requireFails(t, s.PutCode(&AuthCode{Hash: "n", ClientID: "c"}),
+		"PutCode should fail on closed database")
+	requireTakeCode(t, s, "n", false, "failed PutCode left the code in memory")
 }
 
 func TestPersist_PlaintextNeverOnDisk(t *testing.T) {
@@ -303,22 +281,15 @@ func TestPersist_DeviceRoundTrip(t *testing.T) {
 	dir := t.TempDir()
 	s, db := openPersistent(t, dir, DefaultLimits)
 	exp := time.Now().Add(10 * time.Minute).UTC()
-	if err := s.PutDeviceCode(newTestDevice("dh1", "ABCD-EFGH", exp)); err != nil {
-		t.Fatal(err)
-	}
+	noErr(t, s.PutDeviceCode(newTestDevice("dh1", "ABCD-EFGH", exp)))
 
 	s2, _ := reopen(t, dir, db)
-	d, ok := s2.GetDeviceByHash("dh1")
-	if !ok {
-		t.Fatal("device not found by hash after reopen")
-	}
+	d := mustGetDevice(t, s2, "dh1", "device not found by hash after reopen")
 	if d.UserCode != "ABCD-EFGH" || d.ClientID != "client-a" || d.Scope != "mcp" ||
 		!d.ExpiresAt.Equal(exp) || d.Interval != 5*time.Second {
 		t.Fatalf("device changed across reopen: %+v", d)
 	}
-	if _, ok := s2.GetDeviceByUserCode("ABCD-EFGH"); !ok {
-		t.Fatal("device not found by user code after reopen")
-	}
+	requireDeviceUserCode(t, s2, "ABCD-EFGH", true, "device not found by user code after reopen")
 }
 
 func TestPersist_DeviceApprovalSurvivesReopen(t *testing.T) {
@@ -397,9 +368,7 @@ func TestPersist_DeviceUpdateAndPollPersist(t *testing.T) {
 	_ = s.PutDeviceCode(newTestDevice("dh1", "ABCD-EFGH", exp))
 	upd := newTestDevice("dh1", "WXYZ-WXYZ", exp)
 	upd.Approved, upd.Subject = true, "alice"
-	if err := s.UpdateDevice(upd); err != nil {
-		t.Fatal(err)
-	}
+	noErr(t, s.UpdateDevice(upd))
 	polled := time.Now().Add(time.Hour).UTC()
 	if _, tooSoon, ok := s.TouchDevicePoll("dh1", polled); !ok || tooSoon {
 		t.Fatal("poll rejected")
@@ -410,9 +379,7 @@ func TestPersist_DeviceUpdateAndPollPersist(t *testing.T) {
 	if !ok || d.UserCode != "WXYZ-WXYZ" || d.Subject != "alice" || !d.LastPolled.Equal(polled) {
 		t.Fatalf("update or poll lost: %+v ok=%v", d, ok)
 	}
-	if _, ok := s2.GetDeviceByUserCode("ABCD-EFGH"); ok {
-		t.Fatal("stale user code survived")
-	}
+	requireDeviceUserCode(t, s2, "ABCD-EFGH", false, "stale user code survived")
 }
 
 func TestPersist_DeviceSweepAndDeleteFromDisk(t *testing.T) {
@@ -423,39 +390,23 @@ func TestPersist_DeviceSweepAndDeleteFromDisk(t *testing.T) {
 	s.Sweep(time.Now())
 	s.DeleteDevice("gone")
 
-	var n int
-	if err := db.QueryRow(`SELECT COUNT(*) FROM oauth_devices`).Scan(&n); err != nil || n != 0 {
-		t.Fatalf("device rows left on disk: n=%d err=%v", n, err)
-	}
+	requireRows(t, db, "oauth_devices", "device (left on disk)", 0)
 }
 
 func TestPersist_DeviceWriteFailures(t *testing.T) {
-	dir := t.TempDir()
 	var logged int
-	db, _, err := authdb.Open(dir)
-	if err != nil {
-		t.Fatal(err)
-	}
-	s, err := NewPersistentStore(db, DefaultLimits, time.Hour,
-		func(string, ...any) { logged++ })
-	if err != nil {
-		t.Fatal(err)
-	}
+	s, db := openLoggingStore(t, &logged)
 	exp := time.Now().Add(time.Hour)
 	_ = s.PutDeviceCode(newTestDevice("a", "AAAA-AAAA", exp))
 	_ = s.PutDeviceCode(newTestDevice("b", "BBBB-BBBB", exp))
 	_ = s.PutDeviceCode(newTestDevice("c", "CCCC-CCCC", exp))
 	_ = db.Close()
 
-	if err := s.PutDeviceCode(newTestDevice("n", "NNNN-NNNN", exp)); err == nil {
-		t.Fatal("PutDeviceCode should fail on closed database")
-	}
-	if _, ok := s.GetDeviceByHash("n"); ok {
-		t.Fatal("failed PutDeviceCode left the device in memory")
-	}
-	if err := s.UpdateDevice(newTestDevice("a", "ZZZZ-ZZZZ", exp)); err == nil {
-		t.Fatal("UpdateDevice should fail on closed database")
-	}
+	requireFails(t, s.PutDeviceCode(newTestDevice("n", "NNNN-NNNN", exp)),
+		"PutDeviceCode should fail on closed database")
+	requireDevice(t, s, "n", false, "failed PutDeviceCode left the device in memory")
+	requireFails(t, s.UpdateDevice(newTestDevice("a", "ZZZZ-ZZZZ", exp)),
+		"UpdateDevice should fail on closed database")
 	if d, _ := s.GetDeviceByHash("a"); d.UserCode != "AAAA-AAAA" {
 		t.Fatal("failed UpdateDevice changed memory")
 	}
@@ -465,16 +416,10 @@ func TestPersist_DeviceWriteFailures(t *testing.T) {
 	if !s.DenyDevice("b") {
 		t.Fatal("deny must apply in memory despite write failure")
 	}
-	if _, ok := s.TakeDeviceIfApproved("a"); !ok {
-		t.Fatal("take should still succeed")
-	}
-	if _, ok := s.GetDeviceByHash("a"); ok {
-		t.Fatal("taken device still in memory after failed delete")
-	}
+	requireTakeDevice(t, s, "a", true, "take should still succeed")
+	requireDevice(t, s, "a", false, "taken device still in memory after failed delete")
 	s.DeleteDevice("b")
-	if _, ok := s.GetDeviceByUserCode("BBBB-BBBB"); ok {
-		t.Fatal("deleted device still in memory after failed delete")
-	}
+	requireDeviceUserCode(t, s, "BBBB-BBBB", false, "deleted device still in memory after failed delete")
 	before := logged
 	if _, _, ok := s.TouchDevicePoll("c", time.Now().Add(time.Hour)); !ok {
 		t.Fatal("poll failed")

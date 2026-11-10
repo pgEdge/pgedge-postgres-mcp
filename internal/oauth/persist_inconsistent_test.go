@@ -27,76 +27,45 @@ func TestPersist_RotatedTokenNotLiveAfterReopen(t *testing.T) {
 	putFamily(t, s, "fam-1", "c", exp)
 	putFamily(t, s, "fam-2", "c", exp)
 	// A live descendant of fam-1, as a later rotation would have issued.
-	if err := s.PutToken(&Token{Hash: "a-desc", ClientID: "c", Subject: "alice",
-		ExpiresAt: exp, Family: "fam-1"}); err != nil {
-		t.Fatal(err)
-	}
+	mustPutToken(t, s, &Token{Hash: "a-desc", ClientID: "c", Subject: "alice",
+		ExpiresAt: exp, Family: "fam-1"})
 	// Simulate the failed delete: only the rotation record is written.
-	if _, err := db.Exec(`INSERT INTO oauth_rotated (hash, family, until) VALUES (?, ?, ?)`,
-		"r-fam-1", "fam-1", exp.UnixNano()); err != nil {
-		t.Fatal(err)
-	}
+	mustExec(t, db, `INSERT INTO oauth_rotated (hash, family, until) VALUES (?, ?, ?)`,
+		"r-fam-1", "fam-1", exp.UnixNano())
 
 	s2, db2 := reopen(t, dir, db)
-	if _, ok := s2.TakeToken("r-fam-1"); ok {
-		t.Fatal("rotated refresh token loaded as live")
-	}
-	fam, ok := s2.RotatedRefreshFamily("r-fam-1")
-	if !ok || fam != "fam-1" {
-		t.Fatalf("rotation record lost: %q %v", fam, ok)
-	}
+	requireTakeToken(t, s2, "r-fam-1", false, "rotated refresh token loaded as live")
+	requireRotated(t, s2, "r-fam-1", "fam-1")
 	// The access token it issued went with it, as the cascade at runtime.
-	if _, ok := s2.GetToken("a-fam-1"); ok {
-		t.Fatal("access token of a rotated refresh token loaded as live")
-	}
+	requireToken(t, s2, "a-fam-1", false, "access token of a rotated refresh token loaded as live")
 	// Acting on the reuse revokes the family's live descendant.
-	if revoked := s2.DeleteFamily(fam); len(revoked) != 1 || revoked[0] != "a-desc" {
-		t.Fatalf("family not revoked: %v", revoked)
-	}
-	if _, ok := s2.GetToken("r-fam-2"); !ok {
-		t.Fatal("unrelated family lost")
-	}
-	if n := countRows(t, db2, "oauth_rotated"); n != 1 {
-		t.Fatalf("rotation rows = %d, want 1", n)
-	}
+	requireRevoked(t, s2.DeleteFamily("fam-1"), "a-desc")
+	requireToken(t, s2, "r-fam-2", true, "unrelated family lost")
+	requireRows(t, db2, "oauth_rotated", "rotation", 1)
 	// The stale row is gone from disk, not just from memory.
-	var n int
-	if err := db2.QueryRow(`SELECT COUNT(*) FROM oauth_tokens WHERE hash = 'r-fam-1'`).Scan(&n); err != nil || n != 0 {
-		t.Fatalf("stale token row on disk: n=%d err=%v", n, err)
-	}
+	requireNoRows(t, db2, `SELECT COUNT(*) FROM oauth_tokens WHERE hash = 'r-fam-1'`,
+		"stale token row on disk")
 }
 
 func TestPersist_UsedCodeNotLiveAfterReopen(t *testing.T) {
 	dir := t.TempDir()
 	s, db := openPersistent(t, dir, DefaultLimits)
 	exp := time.Now().Add(time.Hour)
-	if err := s.PutCode(&AuthCode{Hash: "code-h", ClientID: "c", Subject: "alice", ExpiresAt: exp}); err != nil {
-		t.Fatal(err)
-	}
-	if err := s.PutCode(&AuthCode{Hash: "other-h", ClientID: "c", Subject: "alice", ExpiresAt: exp}); err != nil {
-		t.Fatal(err)
-	}
+	mustPutCode(t, s, &AuthCode{Hash: "code-h", ClientID: "c", Subject: "alice", ExpiresAt: exp})
+	mustPutCode(t, s, &AuthCode{Hash: "other-h", ClientID: "c", Subject: "alice", ExpiresAt: exp})
 	// Simulate the failed delete after redemption.
-	if _, err := db.Exec(`INSERT INTO oauth_used_codes (code_hash, refresh_hash, family, until)
-        VALUES ('code-h', 'refresh-h', 'fam-1', ?)`, exp.UnixNano()); err != nil {
-		t.Fatal(err)
-	}
+	mustExec(t, db, `INSERT INTO oauth_used_codes (code_hash, refresh_hash, family, until)
+        VALUES ('code-h', 'refresh-h', 'fam-1', ?)`, exp.UnixNano())
 
 	s2, db2 := reopen(t, dir, db)
-	if _, ok := s2.TakeCode("code-h"); ok {
-		t.Fatal("redeemed code loaded as live")
-	}
+	requireTakeCode(t, s2, "code-h", false, "redeemed code loaded as live")
 	rh, fam, ok := s2.TakeUsedCode("code-h")
 	if !ok || rh != "refresh-h" || fam != "fam-1" {
 		t.Fatalf("replay record lost: %q %q %v", rh, fam, ok)
 	}
-	if _, ok := s2.TakeCode("other-h"); !ok {
-		t.Fatal("unrelated code lost")
-	}
-	var n int
-	if err := db2.QueryRow(`SELECT COUNT(*) FROM oauth_codes WHERE hash = 'code-h'`).Scan(&n); err != nil || n != 0 {
-		t.Fatalf("stale code row on disk: n=%d err=%v", n, err)
-	}
+	requireTakeCode(t, s2, "other-h", true, "unrelated code lost")
+	requireNoRows(t, db2, `SELECT COUNT(*) FROM oauth_codes WHERE hash = 'code-h'`,
+		"stale code row on disk")
 }
 
 // Evicting the soonest-expiring rotation record to stay within the

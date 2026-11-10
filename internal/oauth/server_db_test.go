@@ -11,27 +11,15 @@
 package oauth
 
 import (
-	"database/sql"
 	"net/url"
 	"testing"
-	"time"
 
 	"pgedge-postgres-mcp/internal/authdb"
 )
 
 func TestNew_WithDBSurvivesRestart(t *testing.T) {
 	dir := t.TempDir()
-	db, _, err := authdb.Open(dir)
-	if err != nil {
-		t.Fatal(err)
-	}
-	withDB := func(db *sql.DB) func(*Options) {
-		return func(o *Options) {
-			o.DB = db
-			// Persisted expiry is checked against the real clock at load.
-			o.Now = time.Now
-		}
-	}
+	db := mustOpenDB(t, dir)
 	ts := newTestServer(t, withDB(db))
 	cid, code := obtainCode(t, ts, claudeCB)
 	rec, tr := exchange(ts, codeForm(cid, code, claudeCB))
@@ -43,14 +31,9 @@ func TestNew_WithDBSurvivesRestart(t *testing.T) {
 	if err := db.Ping(); err != nil {
 		t.Fatalf("Server.Close closed the database: %v", err)
 	}
-	if err := db.Close(); err != nil {
-		t.Fatal(err)
-	}
+	noErr(t, db.Close())
 
-	db2, _, err := authdb.Open(dir)
-	if err != nil {
-		t.Fatal(err)
-	}
+	db2 := mustOpenDB(t, dir)
 	defer db2.Close()
 	ts2 := newTestServer(t, withDB(db2))
 	sub, gotCID, ok := ts2.srv.ValidateAccessToken(tr.AccessToken)

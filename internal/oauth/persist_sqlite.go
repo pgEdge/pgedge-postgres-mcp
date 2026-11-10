@@ -422,6 +422,22 @@ func (p *sqlitePersister) dropOverLimit(table, col string, keys []string, s *Sto
 // to disk in one transaction. The revocation hook is deliberately not
 // called: nothing was usable before the store existed.
 func (p *sqlitePersister) loadTokens(s *Store, now time.Time) error {
+	if err := p.readTokens(s); err != nil {
+		return err
+	}
+
+	w := &pendingWrites{}
+	for hash, t := range s.tokens {
+		if t.ExpiresAt.Before(now) || s.trimmedClients[t.ClientID] {
+			s.deleteTokenLocked(hash, w)
+		}
+	}
+	s.trimTokensToLimit(w)
+	return p.applyWrites(w)
+}
+
+// readTokens loads every row of oauth_tokens into s.tokens.
+func (p *sqlitePersister) readTokens(s *Store) error {
 	rows, err := p.x.QueryContext(context.Background(),
 		`SELECT hash, client_id, subject, scope, expires_at, refresh_hash,
                 is_refresh, issued, family FROM oauth_tokens`)
@@ -431,65 +447,77 @@ func (p *sqlitePersister) loadTokens(s *Store, now time.Time) error {
 	defer rows.Close()
 
 	for rows.Next() {
-		var (
-			t         Token
-			expires   int64
-			isRefresh int
-			issued    string
-		)
-		if err := rows.Scan(&t.Hash, &t.ClientID, &t.Subject, &t.Scope, &expires,
-			&t.RefreshHash, &isRefresh, &issued, &t.Family); err != nil {
+		t, err := scanToken(rows)
+		if err != nil {
 			return err
 		}
-		if err := json.Unmarshal([]byte(issued), &t.Issued); err != nil {
-			return fmt.Errorf("token issued: %w", err)
-		}
-		if len(t.Issued) == 0 {
-			t.Issued = nil
-		}
-		t.ExpiresAt, t.IsRefresh = fromNanos(expires), isRefresh != 0
-		s.tokens[t.Hash] = &t
+		s.tokens[t.Hash] = t
 	}
 	if err := rows.Err(); err != nil {
 		return err
 	}
 	_ = rows.Close()
-
-	w := &pendingWrites{}
-	for hash, t := range s.tokens {
-		if t.ExpiresAt.Before(now) || s.trimmedClients[t.ClientID] {
-			s.deleteTokenLocked(hash, w)
-		}
-	}
-	if over := len(s.tokens) - s.limits.Tokens; over > 0 {
-		keep := make([]*Token, 0, len(s.tokens))
-		for _, t := range s.tokens {
-			keep = append(keep, t)
-		}
-		sort.Slice(keep, func(i, j int) bool {
-			if !keep[i].ExpiresAt.Equal(keep[j].ExpiresAt) {
-				return keep[i].ExpiresAt.After(keep[j].ExpiresAt)
-			}
-			return keep[i].Hash < keep[j].Hash
-		})
-		for _, t := range keep[s.limits.Tokens:] {
-			s.deleteTokenLocked(t.Hash, w)
-		}
-		s.logError("oauth: oauth_tokens held more rows than its limit; dropped the %d oldest", over)
-	}
-	if len(w.fns) > 0 {
-		if err := p.tx(func(tp persister) error {
-			for _, fn := range w.fns {
-				if err := fn(tp); err != nil {
-					return err
-				}
-			}
-			return nil
-		}); err != nil {
-			return err
-		}
-	}
 	return nil
+}
+
+// scanToken reads one oauth_tokens row from rows.
+func scanToken(rows *sql.Rows) (*Token, error) {
+	var (
+		t         Token
+		expires   int64
+		isRefresh int
+		issued    string
+	)
+	if err := rows.Scan(&t.Hash, &t.ClientID, &t.Subject, &t.Scope, &expires,
+		&t.RefreshHash, &isRefresh, &issued, &t.Family); err != nil {
+		return nil, err
+	}
+	if err := json.Unmarshal([]byte(issued), &t.Issued); err != nil {
+		return nil, fmt.Errorf("token issued: %w", err)
+	}
+	if len(t.Issued) == 0 {
+		t.Issued = nil
+	}
+	t.ExpiresAt, t.IsRefresh = fromNanos(expires), isRefresh != 0
+	return &t, nil
+}
+
+// trimTokensToLimit drops the tokens beyond the Tokens limit, keeping
+// those that expire last, and queues the row deletions on w.
+func (s *Store) trimTokensToLimit(w *pendingWrites) {
+	over := len(s.tokens) - s.limits.Tokens
+	if over <= 0 {
+		return
+	}
+	keep := make([]*Token, 0, len(s.tokens))
+	for _, t := range s.tokens {
+		keep = append(keep, t)
+	}
+	sort.Slice(keep, func(i, j int) bool {
+		if !keep[i].ExpiresAt.Equal(keep[j].ExpiresAt) {
+			return keep[i].ExpiresAt.After(keep[j].ExpiresAt)
+		}
+		return keep[i].Hash < keep[j].Hash
+	})
+	for _, t := range keep[s.limits.Tokens:] {
+		s.deleteTokenLocked(t.Hash, w)
+	}
+	s.logError("oauth: oauth_tokens held more rows than its limit; dropped the %d oldest", over)
+}
+
+// applyWrites runs the queued writes in w as one transaction.
+func (p *sqlitePersister) applyWrites(w *pendingWrites) error {
+	if len(w.fns) == 0 {
+		return nil
+	}
+	return p.tx(func(tp persister) error {
+		for _, fn := range w.fns {
+			if err := fn(tp); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
 }
 
 func (p *sqlitePersister) loadRotated(s *Store, now time.Time) error {

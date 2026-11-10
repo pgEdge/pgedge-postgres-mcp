@@ -146,6 +146,28 @@ func TestOpen_ErrorNamesPath(t *testing.T) {
 	}
 }
 
+// scanPragma runs a single-value query on c and scans the result into dest.
+func scanPragma(t *testing.T, c *sql.Conn, query string, dest any) {
+	t.Helper()
+	if err := c.QueryRowContext(context.Background(), query).Scan(dest); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// holdConns checks out n connections at once so the pool opens that many.
+func holdConns(t *testing.T, db *sql.DB, n int) []*sql.Conn {
+	t.Helper()
+	var conns []*sql.Conn
+	for i := 0; i < n; i++ {
+		c, err := db.Conn(context.Background())
+		if err != nil {
+			t.Fatal(err)
+		}
+		conns = append(conns, c)
+	}
+	return conns
+}
+
 func TestOpen_PragmasApplied(t *testing.T) {
 	db, _, err := Open(t.TempDir())
 	if err != nil {
@@ -153,17 +175,8 @@ func TestOpen_PragmasApplied(t *testing.T) {
 	}
 	defer db.Close()
 
-	ctx := context.Background()
-
 	// Hold several connections at once so the pool opens more than one.
-	var conns []*sql.Conn
-	for i := 0; i < 3; i++ {
-		c, err := db.Conn(ctx)
-		if err != nil {
-			t.Fatal(err)
-		}
-		conns = append(conns, c)
-	}
+	conns := holdConns(t, db, 3)
 	defer func() {
 		for _, c := range conns {
 			c.Close()
@@ -172,15 +185,9 @@ func TestOpen_PragmasApplied(t *testing.T) {
 	for i, c := range conns {
 		var jm string
 		var bt, fk int
-		if err := c.QueryRowContext(ctx, "PRAGMA journal_mode").Scan(&jm); err != nil {
-			t.Fatal(err)
-		}
-		if err := c.QueryRowContext(ctx, "PRAGMA busy_timeout").Scan(&bt); err != nil {
-			t.Fatal(err)
-		}
-		if err := c.QueryRowContext(ctx, "PRAGMA foreign_keys").Scan(&fk); err != nil {
-			t.Fatal(err)
-		}
+		scanPragma(t, c, "PRAGMA journal_mode", &jm)
+		scanPragma(t, c, "PRAGMA busy_timeout", &bt)
+		scanPragma(t, c, "PRAGMA foreign_keys", &fk)
 		if jm != "wal" || bt != 5000 || fk != 1 {
 			t.Errorf("conn %d: journal_mode=%s busy_timeout=%d foreign_keys=%d", i, jm, bt, fk)
 		}
@@ -245,6 +252,32 @@ func TestOpen_NewFileIsInWALMode(t *testing.T) {
 	}
 }
 
+// insertSessionSQL adds one session row; the arguments are the token hash
+// and the expiry.
+const insertSessionSQL = `INSERT INTO sessions (token_hash, username,
+    password_fingerprint, created_at, expires_at)
+    VALUES (?, 'test-user', 'fp', 1, ?)`
+
+// insertSessions writes n session rows through db, sending failures to errs.
+func insertSessions(db *sql.DB, name string, n int, errs chan<- error) {
+	for i := 0; i < n; i++ {
+		hash := fmt.Sprintf("%s-%d", name, i)
+		if _, err := db.Exec(insertSessionSQL, hash, 2); err != nil {
+			errs <- err
+		}
+	}
+}
+
+// countSessions returns the number of rows in the sessions table.
+func countSessions(t *testing.T, db *sql.DB) int {
+	t.Helper()
+	var n int
+	if err := db.QueryRow("SELECT COUNT(*) FROM sessions").Scan(&n); err != nil {
+		t.Fatal(err)
+	}
+	return n
+}
+
 func TestOpen_TwoHandlesWriteConcurrently(t *testing.T) {
 	dir := t.TempDir()
 	a, _, err := Open(dir)
@@ -265,15 +298,7 @@ func TestOpen_TwoHandlesWriteConcurrently(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			for i := 0; i < perHandle; i++ {
-				_, err := db.Exec(
-					`INSERT INTO sessions (token_hash, username, password_fingerprint, created_at, expires_at)
-					 VALUES (?, 'test-user', 'fp', 1, 2)`,
-					fmt.Sprintf("%s-%d", name, i))
-				if err != nil {
-					errs <- err
-				}
-			}
+			insertSessions(db, name, perHandle, errs)
 		}()
 	}
 	wg.Wait()
@@ -282,51 +307,54 @@ func TestOpen_TwoHandlesWriteConcurrently(t *testing.T) {
 		t.Errorf("insert failed: %v", err)
 	}
 
-	var n int
-	if err := a.QueryRow("SELECT COUNT(*) FROM sessions").Scan(&n); err != nil {
-		t.Fatal(err)
-	}
-	if n != 2*perHandle {
+	if n := countSessions(t, a); n != 2*perHandle {
 		t.Errorf("row count = %d, want %d", n, 2*perHandle)
 	}
 }
 
-// Deleting auth.db alone after an unclean stop, which leaves auth.db-wal
-// behind, must not bring the old rows back.
-func TestOpen_DeletingDBAloneDiscardsStaleWAL(t *testing.T) {
-	dir := t.TempDir()
+// execOnConn runs a statement on conn, failing the test on error.
+func execOnConn(t *testing.T, conn *sql.Conn, query string, args ...any) {
+	t.Helper()
+	if _, err := conn.ExecContext(context.Background(), query, args...); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// writeUnflushedSessions opens auth.db in dir, writes 50 sessions that stay
+// in the WAL, as they would be after a crash, and returns the path of the
+// database and a copy of its WAL taken whilst the connection was open.
+func writeUnflushedSessions(t *testing.T, dir string) (string, []byte) {
+	t.Helper()
 	db, path, err := Open(dir)
 	if err != nil {
 		t.Fatal(err)
 	}
-	// Keep the rows in the WAL, as they would be after a crash.
-	if _, err := db.Exec("PRAGMA wal_autocheckpoint(0)"); err != nil {
-		t.Fatal(err)
-	}
+	defer db.Close()
 	conn, err := db.Conn(context.Background())
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := conn.ExecContext(context.Background(),
-		"PRAGMA wal_autocheckpoint(0)"); err != nil {
+	defer conn.Close()
+	if _, err := db.Exec("PRAGMA wal_autocheckpoint(0)"); err != nil {
 		t.Fatal(err)
 	}
+	execOnConn(t, conn, "PRAGMA wal_autocheckpoint(0)")
 	for i := 0; i < 50; i++ {
-		if _, err := conn.ExecContext(context.Background(),
-			`INSERT INTO sessions (token_hash, username,
-			     password_fingerprint, created_at, expires_at)
-			 VALUES (?, 'test-user', 'fp', 1, 4102444800)`,
-			fmt.Sprintf("hash-%d", i)); err != nil {
-			t.Fatal(err)
-		}
+		execOnConn(t, conn, insertSessionSQL, fmt.Sprintf("hash-%d", i), 4102444800)
 	}
 	// Copy the WAL whilst the connection is open: an unclean stop.
 	wal, err := os.ReadFile(path + "-wal")
 	if err != nil || len(wal) == 0 {
 		t.Fatalf("expected a non-empty WAL, got %d bytes, err %v", len(wal), err)
 	}
-	conn.Close()
-	db.Close()
+	return path, wal
+}
+
+// Deleting auth.db alone after an unclean stop, which leaves auth.db-wal
+// behind, must not bring the old rows back.
+func TestOpen_DeletingDBAloneDiscardsStaleWAL(t *testing.T) {
+	dir := t.TempDir()
+	path, wal := writeUnflushedSessions(t, dir)
 
 	for _, suffix := range []string{"", "-wal", "-shm"} {
 		if err := os.Remove(path + suffix); err != nil && !os.IsNotExist(err) {
@@ -338,16 +366,12 @@ func TestOpen_DeletingDBAloneDiscardsStaleWAL(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	db, _, err = Open(dir)
+	db, _, err := Open(dir)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer db.Close()
-	var n int
-	if err := db.QueryRow("SELECT COUNT(*) FROM sessions").Scan(&n); err != nil {
-		t.Fatal(err)
-	}
-	if n != 0 {
+	if n := countSessions(t, db); n != 0 {
 		t.Errorf("%d sessions came back from a stale WAL, want 0", n)
 	}
 }

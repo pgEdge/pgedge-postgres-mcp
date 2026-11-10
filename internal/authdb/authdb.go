@@ -144,23 +144,54 @@ func migrate(db *sql.DB) error {
 		}
 	}()
 
+	if err := applyMigrations(ctx, conn); err != nil {
+		return err
+	}
+	if _, err := conn.ExecContext(ctx, "COMMIT"); err != nil {
+		return err
+	}
+	committed = true
+	return nil
+}
+
+// applyMigrations brings the schema up to SchemaVersion on conn, which
+// must already be inside a write transaction.
+func applyMigrations(ctx context.Context, conn *sql.Conn) error {
 	if _, err := conn.ExecContext(ctx,
 		`CREATE TABLE IF NOT EXISTS schema_version (version INTEGER NOT NULL)`); err != nil {
 		return err
 	}
 
-	current := 0
-	err = conn.QueryRowContext(ctx, "SELECT version FROM schema_version").Scan(&current)
-	hasRow := err == nil
-	if err != nil && err != sql.ErrNoRows {
+	current, hasRow, err := storedVersion(ctx, conn)
+	if err != nil {
 		return err
 	}
-
 	if current > SchemaVersion {
 		return fmt.Errorf("schema version %d is newer than the %d this server supports",
 			current, SchemaVersion)
 	}
+	if err := runMigrations(ctx, conn, current); err != nil {
+		return err
+	}
+	if current == SchemaVersion {
+		return nil
+	}
+	return recordVersion(ctx, conn, hasRow)
+}
 
+// storedVersion reads the schema version, which is 0 when the table holds
+// no row yet; hasRow reports whether there is one to update.
+func storedVersion(ctx context.Context, conn *sql.Conn) (current int, hasRow bool, err error) {
+	err = conn.QueryRowContext(ctx, "SELECT version FROM schema_version").Scan(&current)
+	if err != nil && err != sql.ErrNoRows {
+		return 0, false, err
+	}
+	return current, err == nil, nil
+}
+
+// runMigrations runs every migration from version current up to
+// SchemaVersion.
+func runMigrations(ctx context.Context, conn *sql.Conn, current int) error {
 	for v := current; v < SchemaVersion; v++ {
 		for _, stmt := range migrations[v] {
 			if _, err := conn.ExecContext(ctx, stmt); err != nil {
@@ -168,22 +199,16 @@ func migrate(db *sql.DB) error {
 			}
 		}
 	}
-
-	if current != SchemaVersion {
-		var stmt string
-		if hasRow {
-			stmt = "UPDATE schema_version SET version = ?"
-		} else {
-			stmt = "INSERT INTO schema_version (version) VALUES (?)"
-		}
-		if _, err := conn.ExecContext(ctx, stmt, SchemaVersion); err != nil {
-			return err
-		}
-	}
-
-	if _, err := conn.ExecContext(ctx, "COMMIT"); err != nil {
-		return err
-	}
-	committed = true
 	return nil
+}
+
+// recordVersion stores SchemaVersion, updating the existing row when
+// hasRow and inserting one otherwise.
+func recordVersion(ctx context.Context, conn *sql.Conn, hasRow bool) error {
+	stmt := "INSERT INTO schema_version (version) VALUES (?)"
+	if hasRow {
+		stmt = "UPDATE schema_version SET version = ?"
+	}
+	_, err := conn.ExecContext(ctx, stmt, SchemaVersion)
+	return err
 }

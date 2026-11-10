@@ -11,7 +11,6 @@
 package oauth
 
 import (
-	"database/sql"
 	"errors"
 	"testing"
 	"time"
@@ -35,15 +34,6 @@ func putFamily(t *testing.T, s *Store, fam, client string, exp time.Time) (refre
 	return refresh, access
 }
 
-func countRows(t *testing.T, db *sql.DB, table string) int {
-	t.Helper()
-	var n int
-	if err := db.QueryRow(`SELECT COUNT(*) FROM ` + table).Scan(&n); err != nil {
-		t.Fatal(err)
-	}
-	return n
-}
-
 func TestPersist_TokenRoundTrip(t *testing.T) {
 	dir := t.TempDir()
 	s, db := openPersistent(t, dir, DefaultLimits)
@@ -51,16 +41,18 @@ func TestPersist_TokenRoundTrip(t *testing.T) {
 	refresh, access := putFamily(t, s, "fam-1", "client-1", exp)
 
 	s2, _ := reopen(t, dir, db)
-	r, ok := s2.GetToken(refresh)
-	if !ok || !r.IsRefresh || r.Family != "fam-1" || r.Subject != "alice" ||
-		r.ClientID != "client-1" || r.Scope != "mcp" || !r.ExpiresAt.Equal(exp) ||
-		len(r.Issued) != 1 || r.Issued[0] != access {
-		t.Fatalf("refresh token mismatch: %+v ok=%v", r, ok)
-	}
-	a, ok := s2.GetToken(access)
-	if !ok || a.IsRefresh || a.RefreshHash != refresh || a.Family != "fam-1" {
-		t.Fatalf("access token mismatch: %+v ok=%v", a, ok)
-	}
+	r := mustGetToken(t, s2, refresh, "refresh token lost across reopen")
+	requireEq(t, "refresh IsRefresh", r.IsRefresh, true)
+	requireEq(t, "refresh family", r.Family, "fam-1")
+	requireEq(t, "refresh subject", r.Subject, "alice")
+	requireEq(t, "refresh client", r.ClientID, "client-1")
+	requireEq(t, "refresh scope", r.Scope, "mcp")
+	requireEq(t, "refresh expiry matches", r.ExpiresAt.Equal(exp), true)
+	requireRevoked(t, r.Issued, access)
+	a := mustGetToken(t, s2, access, "access token lost across reopen")
+	requireEq(t, "access IsRefresh", a.IsRefresh, false)
+	requireEq(t, "access refresh hash", a.RefreshHash, refresh)
+	requireEq(t, "access family", a.Family, "fam-1")
 }
 
 func TestPersist_DeleteTokenCascadePersists(t *testing.T) {
@@ -97,39 +89,22 @@ func TestPersist_RotatedRefreshReplayAfterReopen(t *testing.T) {
 	exp := time.Now().Add(time.Hour)
 	putFamily(t, s, "fam-1", "c", exp)
 	putFamily(t, s, "fam-2", "c", exp)
-	if _, ok := s.TakeToken("r-fam-1"); !ok {
-		t.Fatal("take")
-	}
+	requireTakeToken(t, s, "r-fam-1", true, "take")
 	s.MarkRefreshRotated("r-fam-1", "fam-1", exp)
 	// A descendant of the same family, still live. It has its own hash:
 	// a hash on the rotation list is never live, and load drops it.
-	if err := s.PutToken(&Token{Hash: "a-fam-1", ClientID: "c", Subject: "alice",
-		ExpiresAt: exp, Family: "fam-1"}); err != nil {
-		t.Fatal(err)
-	}
+	mustPutToken(t, s, &Token{Hash: "a-fam-1", ClientID: "c", Subject: "alice",
+		ExpiresAt: exp, Family: "fam-1"})
 
 	s2, db2 := reopen(t, dir, db)
-	fam, ok := s2.RotatedRefreshFamily("r-fam-1")
-	if !ok || fam != "fam-1" {
-		t.Fatalf("rotated record lost: %q %v", fam, ok)
-	}
-	revoked := s2.DeleteFamily(fam)
-	if len(revoked) != 1 || revoked[0] != "a-fam-1" {
-		t.Fatalf("revoked = %v", revoked)
-	}
-	if _, ok := s2.GetToken("a-fam-2"); !ok {
-		t.Fatal("DeleteFamily touched another family")
-	}
+	requireRotated(t, s2, "r-fam-1", "fam-1")
+	requireRevoked(t, s2.DeleteFamily("fam-1"), "a-fam-1")
+	requireToken(t, s2, "a-fam-2", true, "DeleteFamily touched another family")
 
 	s3, _ := reopen(t, dir, db2)
-	for _, h := range []string{"r-fam-1", "a-fam-1"} {
-		if _, ok := s3.GetToken(h); ok {
-			t.Fatalf("family token %s remained after reopen", h)
-		}
-	}
-	if _, ok := s3.GetToken("r-fam-2"); !ok {
-		t.Fatal("other family lost")
-	}
+	requireToken(t, s3, "r-fam-1", false, "family token r-fam-1 remained after reopen")
+	requireToken(t, s3, "a-fam-1", false, "family token a-fam-1 remained after reopen")
+	requireToken(t, s3, "r-fam-2", true, "other family lost")
 }
 
 func TestPersist_DeleteBySubjectPersists(t *testing.T) {
@@ -137,9 +112,7 @@ func TestPersist_DeleteBySubjectPersists(t *testing.T) {
 	s, db := openPersistent(t, dir, DefaultLimits)
 	exp := time.Now().Add(time.Hour)
 	putFamily(t, s, "f", "c", exp)
-	if err := s.PutToken(&Token{Hash: "bob-t", Subject: "bob", ExpiresAt: exp}); err != nil {
-		t.Fatal(err)
-	}
+	mustPutToken(t, s, &Token{Hash: "bob-t", Subject: "bob", ExpiresAt: exp})
 	_ = s.PutCode(&AuthCode{Hash: "alice-code", Subject: "alice", ExpiresAt: exp})
 	_ = s.PutCode(&AuthCode{Hash: "bob-code", Subject: "bob", ExpiresAt: exp})
 	d := newTestDevice("alice-dev", "AAAA-AAAA", exp)
@@ -147,31 +120,15 @@ func TestPersist_DeleteBySubjectPersists(t *testing.T) {
 	_ = s.PutDeviceCode(d)
 	_ = s.PutDeviceCode(newTestDevice("anon-dev", "BBBB-BBBB", exp))
 
-	if revoked := s.DeleteBySubject("alice"); len(revoked) != 1 {
-		t.Fatalf("revoked = %v", revoked)
-	}
+	requireEq(t, "revoked count", len(s.DeleteBySubject("alice")), 1)
 	s2, db2 := reopen(t, dir, db)
-	if _, ok := s2.GetToken("r-f"); ok {
-		t.Fatal("alice token survived")
-	}
-	if _, ok := s2.GetToken("bob-t"); !ok {
-		t.Fatal("bob token lost")
-	}
-	if _, ok := s2.TakeCode("alice-code"); ok {
-		t.Fatal("alice code survived")
-	}
-	if _, ok := s2.TakeCode("bob-code"); !ok {
-		t.Fatal("bob code lost")
-	}
-	if _, ok := s2.GetDeviceByHash("alice-dev"); ok {
-		t.Fatal("alice device survived")
-	}
-	if _, ok := s2.GetDeviceByHash("anon-dev"); !ok {
-		t.Fatal("unrelated device lost")
-	}
-	if n := countRows(t, db2, "oauth_tokens"); n != 1 {
-		t.Fatalf("token rows = %d, want 1", n)
-	}
+	requireToken(t, s2, "r-f", false, "alice token survived")
+	requireToken(t, s2, "bob-t", true, "bob token lost")
+	requireTakeCode(t, s2, "alice-code", false, "alice code survived")
+	requireTakeCode(t, s2, "bob-code", true, "bob code lost")
+	requireDevice(t, s2, "alice-dev", false, "alice device survived")
+	requireDevice(t, s2, "anon-dev", true, "unrelated device lost")
+	requireRows(t, db2, "oauth_tokens", "token", 1)
 }
 
 func TestPersist_SweepPersists(t *testing.T) {
@@ -239,41 +196,20 @@ func TestPersist_LimitsOnLoad(t *testing.T) {
 	s, db := openPersistent(t, dir, DefaultLimits)
 	exp := time.Now().Add(time.Hour)
 	for i, h := range []string{"t1", "t2", "t3", "t4", "t5"} {
-		if err := s.PutToken(&Token{Hash: h, ClientID: "c", ExpiresAt: exp.Add(time.Duration(i) * time.Minute)}); err != nil {
-			t.Fatal(err)
-		}
+		mustPutToken(t, s, &Token{Hash: h, ClientID: "c", ExpiresAt: exp.Add(time.Duration(i) * time.Minute)})
 		s.MarkRefreshRotated("rot-"+h, "f", exp.Add(time.Duration(i)*time.Minute))
 	}
 	_ = db.Close()
 
-	ndb, _, err := authdb.Open(dir)
-	if err != nil {
-		t.Fatal(err)
-	}
+	ndb := mustOpenDB(t, dir)
 	defer ndb.Close()
-	s2, err := NewPersistentStore(ndb, Limits{Clients: 10, Codes: 10, DeviceCodes: 10, Tokens: 3},
-		time.Hour, nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if n := len(s2.tokens); n != 3 {
-		t.Fatalf("tokens in memory = %d, want 3", n)
-	}
-	if n := countRows(t, ndb, "oauth_tokens"); n != 3 {
-		t.Fatalf("token rows = %d, want 3", n)
-	}
-	if _, ok := s2.GetToken("t1"); ok {
-		t.Fatal("soonest-expiring token kept over limit")
-	}
-	if _, ok := s2.GetToken("t5"); !ok {
-		t.Fatal("latest-expiring token dropped")
-	}
-	if n := len(s2.rotated); n != 3 {
-		t.Fatalf("rotated in memory = %d, want 3", n)
-	}
-	if n := countRows(t, ndb, "oauth_rotated"); n != 3 {
-		t.Fatalf("rotated rows = %d, want 3", n)
-	}
+	s2 := mustPersistentStore(t, ndb, Limits{Clients: 10, Codes: 10, DeviceCodes: 10, Tokens: 3})
+	requireEq(t, "tokens in memory", len(s2.tokens), 3)
+	requireRows(t, ndb, "oauth_tokens", "token", 3)
+	requireToken(t, s2, "t1", false, "soonest-expiring token kept over limit")
+	requireToken(t, s2, "t5", true, "latest-expiring token dropped")
+	requireEq(t, "rotated in memory", len(s2.rotated), 3)
+	requireRows(t, ndb, "oauth_rotated", "rotated", 3)
 }
 
 // A client with a live token must outlast one without when the client
@@ -281,69 +217,57 @@ func TestPersist_LimitsOnLoad(t *testing.T) {
 // had to go anyway.
 func TestPersist_ClientTrimKeepsLiveTokenClients(t *testing.T) {
 	dir := t.TempDir()
-	s, db := openPersistent(t, dir, DefaultLimits)
-	now := time.Now()
-	// "busy" is the least recently used but holds a live token.
-	for id, used := range map[string]time.Time{
-		"busy": now.Add(-3 * time.Minute), "idle1": now.Add(-time.Minute), "idle2": now,
-	} {
-		if err := s.PutClient(&Client{ID: id, CreatedAt: now, LastUsed: used}); err != nil {
-			t.Fatal(err)
-		}
-	}
-	if err := s.PutToken(&Token{Hash: "busy-t", ClientID: "busy", ExpiresAt: now.Add(time.Hour)}); err != nil {
-		t.Fatal(err)
-	}
-	_ = db.Close()
+	now := seedBusyClient(t, dir)
 
 	one := Limits{Clients: 1, Codes: 10, DeviceCodes: 10, Tokens: 10}
-	ndb, _, err := authdb.Open(dir)
-	if err != nil {
-		t.Fatal(err)
-	}
-	s2, err := NewPersistentStore(ndb, one, time.Hour, nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, ok := s2.GetClient("busy"); !ok {
-		t.Fatal("client with a live token was trimmed")
-	}
-	if _, ok := s2.GetToken("busy-t"); !ok {
-		t.Fatal("token lost")
-	}
+	ndb := mustOpenDB(t, dir)
+	s2 := mustPersistentStore(t, ndb, one)
+	requireClient(t, s2, "busy", true, "client with a live token was trimmed")
+	requireToken(t, s2, "busy-t", true, "token lost")
 	_ = ndb.Close()
 
 	// With room for only one of two token holders, the loser's token
 	// goes with its client.
-	ndb, _, err = authdb.Open(dir)
-	if err != nil {
-		t.Fatal(err)
-	}
+	ndb = mustOpenDB(t, dir)
 	defer ndb.Close()
-	if _, err := ndb.Exec(`INSERT INTO oauth_clients (id, name, redirect_uris, created_at, last_used)
-        VALUES ('busy2', '', '[]', 0, ?)`, now.UnixNano()); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := ndb.Exec(`INSERT INTO oauth_tokens (hash, client_id, expires_at)
-        VALUES ('busy2-t', 'busy2', ?)`, now.Add(time.Hour).UnixNano()); err != nil {
-		t.Fatal(err)
-	}
-	s3, err := NewPersistentStore(ndb, one, time.Hour, nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	for _, id := range []string{"busy", "busy2"} {
-		_, hasClient := s3.GetClient(id)
-		_, hasToken := s3.GetToken(id + "-t")
-		if hasClient != hasToken {
-			t.Fatalf("%s: client present=%v but token present=%v", id, hasClient, hasToken)
-		}
-	}
+	mustExec(t, ndb, `INSERT INTO oauth_clients (id, name, redirect_uris, created_at, last_used)
+        VALUES ('busy2', '', '[]', 0, ?)`, now.UnixNano())
+	mustExec(t, ndb, `INSERT INTO oauth_tokens (hash, client_id, expires_at)
+        VALUES ('busy2-t', 'busy2', ?)`, now.Add(time.Hour).UnixNano())
+	s3 := mustPersistentStore(t, ndb, one)
+	requireClientTokenAgree(t, s3, "busy")
+	requireClientTokenAgree(t, s3, "busy2")
 	if len(s3.clients) != 1 || len(s3.tokens) != 1 {
 		t.Fatalf("clients=%d tokens=%d, want 1 and 1", len(s3.clients), len(s3.tokens))
 	}
-	if n := countRows(t, ndb, "oauth_tokens"); n != 1 {
-		t.Fatalf("token rows = %d, want 1", n)
+	requireRows(t, ndb, "oauth_tokens", "token", 1)
+}
+
+// seedBusyClient stores three clients in a fresh auth.db in dir, of which
+// "busy" is the least recently used but holds a live token, then closes
+// the database. It returns the time it used as the present.
+func seedBusyClient(t *testing.T, dir string) time.Time {
+	t.Helper()
+	s, db := openPersistent(t, dir, DefaultLimits)
+	now := time.Now()
+	for id, used := range map[string]time.Time{
+		"busy": now.Add(-3 * time.Minute), "idle1": now.Add(-time.Minute), "idle2": now,
+	} {
+		mustPutClient(t, s, &Client{ID: id, CreatedAt: now, LastUsed: used})
+	}
+	mustPutToken(t, s, &Token{Hash: "busy-t", ClientID: "busy", ExpiresAt: now.Add(time.Hour)})
+	_ = db.Close()
+	return now
+}
+
+// requireClientTokenAgree fails unless client id and its token id+"-t" are
+// either both present in s or both absent.
+func requireClientTokenAgree(t *testing.T, s *Store, id string) {
+	t.Helper()
+	_, hasClient := s.GetClient(id)
+	_, hasToken := s.GetToken(id + "-t")
+	if hasClient != hasToken {
+		t.Fatalf("%s: client present=%v but token present=%v", id, hasClient, hasToken)
 	}
 }
 
@@ -398,33 +322,19 @@ func TestPersist_NoRevocationHookOnLoad(t *testing.T) {
 }
 
 func TestPersist_TokenWriteFailures(t *testing.T) {
-	dir := t.TempDir()
 	var logged int
-	db, _, err := authdb.Open(dir)
-	if err != nil {
-		t.Fatal(err)
-	}
-	s, err := NewPersistentStore(db, DefaultLimits, time.Hour,
-		func(string, ...any) { logged++ })
-	if err != nil {
-		t.Fatal(err)
-	}
+	s, db := openLoggingStore(t, &logged)
 	exp := time.Now().Add(time.Hour)
 	for _, f := range []string{"f1", "f2", "f3", "f4"} {
 		putFamily(t, s, f, "c", exp)
 	}
 	_ = db.Close()
 
-	if err := s.PutToken(&Token{Hash: "n", ExpiresAt: exp}); err == nil {
-		t.Fatal("PutToken should fail on closed database")
-	}
-	if _, ok := s.GetToken("n"); ok {
-		t.Fatal("failed PutToken left the token in memory")
-	}
+	requireFails(t, s.PutToken(&Token{Hash: "n", ExpiresAt: exp}),
+		"PutToken should fail on closed database")
+	requireToken(t, s, "n", false, "failed PutToken left the token in memory")
 	s.MarkRefreshRotated("rot", "f1", exp)
-	if _, ok := s.RotatedRefreshFamily("rot"); !ok {
-		t.Fatal("rotation record must apply in memory despite write failure")
-	}
+	requireRotatedIs(t, s, "rot", true, "rotation record must apply in memory despite write failure")
 	if logged == 0 {
 		t.Fatal("write failure not logged")
 	}

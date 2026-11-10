@@ -887,30 +887,44 @@ func (s *Store) deleteTokenLocked(hash string, w *pendingWrites) []string {
 	s.removeTokenLocked(hash, w)
 
 	if t.IsRefresh {
-		var revoked []string
-		for _, issued := range t.Issued {
-			if _, present := s.tokens[issued]; present {
-				revoked = append(revoked, issued)
-				s.removeTokenLocked(issued, w)
-			}
-		}
-		return revoked
+		return s.removeIssuedLocked(t, w)
 	}
-
-	if t.RefreshHash == "" {
-		return []string{hash}
-	}
-	if parent, ok := s.tokens[t.RefreshHash]; ok {
-		for i, h := range parent.Issued {
-			if h == hash {
-				parent.Issued = append(parent.Issued[:i], parent.Issued[i+1:]...)
-				snapshot := cloneToken(parent)
-				w.add(func(p persister) error { return p.putToken(snapshot) })
-				break
-			}
-		}
+	if t.RefreshHash != "" {
+		s.detachFromParentLocked(t, w)
 	}
 	return []string{hash}
+}
+
+// removeIssuedLocked removes the access tokens still present that were
+// issued from refresh token t, returning their hashes. Callers must hold
+// s.mu.
+func (s *Store) removeIssuedLocked(t *Token, w *pendingWrites) []string {
+	var revoked []string
+	for _, issued := range t.Issued {
+		if _, present := s.tokens[issued]; present {
+			revoked = append(revoked, issued)
+			s.removeTokenLocked(issued, w)
+		}
+	}
+	return revoked
+}
+
+// detachFromParentLocked removes access token t from the Issued list of
+// its refresh token, if that is still present, and queues the update of
+// the parent's row. Callers must hold s.mu.
+func (s *Store) detachFromParentLocked(t *Token, w *pendingWrites) {
+	parent, ok := s.tokens[t.RefreshHash]
+	if !ok {
+		return
+	}
+	for i, h := range parent.Issued {
+		if h == t.Hash {
+			parent.Issued = append(parent.Issued[:i], parent.Issued[i+1:]...)
+			snapshot := cloneToken(parent)
+			w.add(func(p persister) error { return p.putToken(snapshot) })
+			return
+		}
+	}
 }
 
 // Sweep removes every client-facing entry whose ExpiresAt is before

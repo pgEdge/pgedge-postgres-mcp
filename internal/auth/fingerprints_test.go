@@ -11,6 +11,7 @@
 package auth
 
 import (
+	"database/sql"
 	"path/filepath"
 	"reflect"
 	"sort"
@@ -93,18 +94,34 @@ func TestUpdateUser_PasswordChangeRevokes(t *testing.T) {
 	}
 }
 
-func TestFingerprints_RecordedAndUpdated(t *testing.T) {
-	db, _, err := authdb.Open(t.TempDir())
+// noErr fails the test at once when err is not nil.
+func noErr(t *testing.T, err error) {
+	t.Helper()
 	if err != nil {
 		t.Fatal(err)
 	}
+}
+
+// requireRecorded fails unless the fingerprints stored in db, read through
+// a fresh store, equal those of the named users in us. It returns them.
+func requireRecorded(t *testing.T, db *sql.DB, us *UserStore, label string, names ...string) map[string]string {
+	t.Helper()
+	recorded, err := NewSQLiteFingerprintStore(db).All()
+	noErr(t, err)
+	if want := fingerprintsOf(t, us, names...); !reflect.DeepEqual(recorded, want) {
+		t.Fatalf("%s = %v, want %v", label, recorded, want)
+	}
+	return recorded
+}
+
+func TestFingerprints_RecordedAndUpdated(t *testing.T) {
+	db, _, err := authdb.Open(t.TempDir())
+	noErr(t, err)
 	t.Cleanup(func() { _ = db.Close() })
 
 	path, offline := savedUsers(t, "alice", "bob")
 	us, err := LoadUserStore(path)
-	if err != nil {
-		t.Fatal(err)
-	}
+	noErr(t, err)
 
 	// No store installed: recording does nothing, and is not an error.
 	if err := us.RecordFingerprints(); err != nil {
@@ -112,42 +129,20 @@ func TestFingerprints_RecordedAndUpdated(t *testing.T) {
 	}
 
 	us.SetFingerprintStore(NewSQLiteFingerprintStore(db))
-	if err := us.RecordFingerprints(); err != nil {
-		t.Fatal(err)
-	}
-	got, err := NewSQLiteFingerprintStore(db).All()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if want := fingerprintsOf(t, us, "alice", "bob"); !reflect.DeepEqual(got, want) {
-		t.Fatalf("recorded = %v, want %v", got, want)
-	}
+	noErr(t, us.RecordFingerprints())
+	recorded := requireRecorded(t, db, us, "recorded", "alice", "bob")
 
 	// A reload that changes alice's password and removes bob updates
 	// alice's row and drops bob's.
-	before := got["alice"]
-	if err := offline.UpdateUser("alice", "another-fake-password", ""); err != nil {
-		t.Fatal(err)
-	}
-	if err := offline.RemoveUser("bob"); err != nil {
-		t.Fatal(err)
-	}
-	if err := SaveUserStore(path, offline); err != nil {
-		t.Fatal(err)
-	}
-	if err := us.Reload(); err != nil {
-		t.Fatal(err)
-	}
+	before := recorded["alice"]
+	noErr(t, offline.UpdateUser("alice", "another-fake-password", ""))
+	noErr(t, offline.RemoveUser("bob"))
+	noErr(t, SaveUserStore(path, offline))
+	noErr(t, us.Reload())
 
 	// Read through a fresh store on the same file, as a restart would.
-	got, err = NewSQLiteFingerprintStore(db).All()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if want := fingerprintsOf(t, us, "alice"); !reflect.DeepEqual(got, want) {
-		t.Fatalf("after reload recorded = %v, want %v", got, want)
-	}
-	if got["alice"] == before {
+	recorded = requireRecorded(t, db, us, "after reload recorded", "alice")
+	if recorded["alice"] == before {
 		t.Fatal("alice's fingerprint was not updated")
 	}
 }
