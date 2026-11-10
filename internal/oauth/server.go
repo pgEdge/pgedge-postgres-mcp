@@ -189,7 +189,7 @@ func (s *Server) ValidateAccessToken(token string) (subject, clientID string, ok
 	}
 	if !s.subjectActive(t.Subject) {
 		s.logf("oauth: subject=%q is no longer active, revoking its tokens", t.Subject)
-		s.RevokeSubject(t.Subject)
+		_, _ = s.RevokeSubject(t.Subject)
 		return "", "", false
 	}
 	return t.Subject, t.ClientID, true
@@ -211,8 +211,9 @@ func (s *Server) subjectActive(subject string) bool {
 // device code standing in subject's name, returning the hashes of the
 // access tokens revoked. It is called when a user account is disabled,
 // deleted or locked out, and whenever a token is presented by a subject
-// that is no longer active.
-func (s *Server) RevokeSubject(subject string) []string {
+// that is no longer active. The error reports that the revocation is not
+// yet saved, so a restart before a retry succeeds would restore it.
+func (s *Server) RevokeSubject(subject string) ([]string, error) {
 	return s.store.DeleteBySubject(subject)
 }
 

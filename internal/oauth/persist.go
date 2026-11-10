@@ -10,6 +10,13 @@
 
 package oauth
 
+import "errors"
+
+// errDeletesUnsaved reports that row deletions kept from an earlier
+// failure are still not written, so a restart would restore what they
+// remove.
+var errDeletesUnsaved = errors.New("deletions kept from an earlier failure are still not saved")
+
 // persister writes each row-level change the Store makes to durable
 // storage. The Store calls it under its own lock, before (or, for
 // deletions without an error return, alongside) the in-memory change.
@@ -107,6 +114,21 @@ func (s *Store) commitLocked(w *pendingWrites, what string) error {
 		s.queueRetryLocked(w.deletes)
 	}
 	return err
+}
+
+// commitDeletesLocked is commitLocked for a revocation, which is durable
+// only once every deletion it depends on is written. It also fails while
+// deletions kept from an earlier failure remain unwritten, since one of
+// them may be this revocation's own row from an earlier attempt.
+// Callers must hold s.mu.
+func (s *Store) commitDeletesLocked(w *pendingWrites, what string) error {
+	if err := s.commitLocked(w, what); err != nil {
+		return err
+	}
+	if len(s.retryDeletes) > 0 {
+		return errDeletesUnsaved
+	}
+	return nil
 }
 
 // deleteNowLocked runs one row deletion outside a transaction, logging

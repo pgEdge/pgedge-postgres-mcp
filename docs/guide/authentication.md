@@ -707,6 +707,24 @@ Skipping authentication does not make an endpoint available. When OAuth
 is disabled, the two `/.well-known/` paths answer `404 Not Found` rather
 than `401 Unauthorized`.
 
+When OAuth is enabled, the authorisation server endpoints also skip
+bearer authentication; each one checks its own client credentials,
+codes or tokens instead. The following paths belong to that group:
+
+- `/oauth/register`
+- `/oauth/authorize`
+- `/oauth/token`
+- `/oauth/device`
+- `/oauth/device/verify`
+- `/oauth/revoke`
+- `/oauth/static/logo`
+- `/oauth/static/favicon`
+
+When password login is enabled, an `authenticate_user` tool call to
+`/mcp/v1` also skips bearer authentication, since that call is how a
+client obtains a session token. Every other request to `/mcp/v1` still
+requires a token.
+
 In the following example, each of the first four endpoints responds
 without a token.
 
@@ -727,10 +745,10 @@ clears its local token whether or not the request completes; if the
 request fails, the session stays valid on the server until it expires,
 which takes up to 24 hours.
 
-None of these endpoints exposes database contents or accepts a query, so the
-data they return is limited to the server's own status, whether
-authentication is switched on, and the shape of the API. Treat the
-specification as public information when deciding what network to
+None of the endpoints in the table exposes database contents or accepts
+a query, so the data they return is limited to the server's own status,
+whether authentication is switched on, and the shape of the API. Treat
+the specification as public information when deciding what network to
 expose a server to; if that is not acceptable for your deployment,
 restrict these paths at the reverse proxy rather than in the server.
 

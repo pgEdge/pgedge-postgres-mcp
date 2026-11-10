@@ -233,7 +233,7 @@ func (s *Server) handleRefreshTokenGrant(w http.ResponseWriter, r *http.Request)
 	// subject's tokens go with it.
 	if !s.subjectActive(t.Subject) {
 		s.logf("oauth token: client=%q subject=%q error=subject_inactive, revoking its tokens", clientID, t.Subject)
-		s.RevokeSubject(t.Subject)
+		_, _ = s.RevokeSubject(t.Subject)
 		return newError("invalid_grant", genericRefreshInvalidGrant, http.StatusBadRequest)
 	}
 

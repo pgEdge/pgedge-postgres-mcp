@@ -479,8 +479,10 @@ func (s *Store) Subjects() []string {
 // the hashes of the access tokens it revoked. It is how the
 // disabling, deletion or automatic lockout of a user account revokes
 // that user's OAuth access outright, rather than leaving already-issued
-// tokens usable until they expire.
-func (s *Store) DeleteBySubject(subject string) []string {
+// tokens usable until they expire. The error reports that the
+// deletions are not yet saved; memory is changed either way, and the
+// deletions are kept for retry.
+func (s *Store) DeleteBySubject(subject string) ([]string, error) {
 	s.mu.Lock()
 	var revoked []string
 	w := &pendingWrites{}
@@ -507,11 +509,11 @@ func (s *Store) DeleteBySubject(subject string) []string {
 			}
 		}
 	}
-	_ = s.commitLocked(w, "delete tokens, codes and devices of subject")
+	err := s.commitDeletesLocked(w, "delete tokens, codes and devices of subject")
 	s.mu.Unlock()
 
 	s.notifyRevoked(revoked)
-	return revoked
+	return revoked, err
 }
 
 // GetClient returns a copy of the client registered under id, if any.
@@ -840,14 +842,14 @@ func (s *Store) DeleteToken(hash string) []string {
 	return revoked
 }
 
-// deleteToken is DeleteToken, also returning the error from writing the
-// deletion. The token is gone from memory either way, and a failed
-// deletion is kept for retry.
+// deleteToken is DeleteToken, also returning an error when the deletion,
+// or one kept from an earlier failure, is not yet saved. The token is
+// gone from memory either way, and a failed deletion is kept for retry.
 func (s *Store) deleteToken(hash string) ([]string, error) {
 	s.mu.Lock()
 	w := &pendingWrites{}
 	revoked := s.deleteTokenLocked(hash, w)
-	err := s.commitLocked(w, "delete token")
+	err := s.commitDeletesLocked(w, "delete token")
 	s.mu.Unlock()
 
 	s.notifyRevoked(revoked)

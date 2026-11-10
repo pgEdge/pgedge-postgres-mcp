@@ -104,13 +104,14 @@ func (s *UserStore) currentFingerprints() map[string]string {
 }
 
 // RecordFingerprints records the current fingerprint of every user,
-// dropping the records of users no longer present. It does nothing when
-// no fingerprint store is installed. Callers must not hold s.mu, and
-// must have revoked any user whose fingerprint changed first, so that a
-// crash between the two cannot leave a change recorded but unrevoked.
-// That ordering does not help when the revocation itself fails to
-// commit: the stored grants can then outlive a recorded password change.
-func (s *UserStore) RecordFingerprints() error {
+// dropping the records of users no longer present and of the users
+// named in unrevoked. It does nothing when no fingerprint store is
+// installed. Callers must not hold s.mu, and must have revoked any user
+// whose fingerprint changed first, so that a crash between the two
+// cannot leave a change recorded but unrevoked. A user whose revocation
+// failed to save goes in unrevoked: with no record, the next start
+// treats that user's OAuth state as stale and revokes it again.
+func (s *UserStore) RecordFingerprints(unrevoked ...string) error {
 	// fpMu orders snapshot-and-write pairs, so an older snapshot is never
 	// written over a newer one.
 	s.fpMu.Lock()
@@ -120,6 +121,9 @@ func (s *UserStore) RecordFingerprints() error {
 	fs := s.fingerprints
 	current := s.currentFingerprints()
 	s.mu.RUnlock()
+	for _, name := range unrevoked {
+		delete(current, name)
+	}
 
 	if fs == nil {
 		return nil
@@ -131,8 +135,8 @@ func (s *UserStore) RecordFingerprints() error {
 // change a password or remove a user, which log a failure rather than
 // return it. A failed write is safe: the next start sees a mismatch and
 // revokes the user's OAuth state again.
-func (s *UserStore) recordFingerprints() {
-	if err := s.RecordFingerprints(); err != nil {
+func (s *UserStore) recordFingerprints(unrevoked ...string) {
+	if err := s.RecordFingerprints(unrevoked...); err != nil {
 		log.Printf("[AUTH] Failed to record password fingerprints: %v", err)
 	}
 }

@@ -120,7 +120,11 @@ func TestPersist_DeleteBySubjectPersists(t *testing.T) {
 	_ = s.PutDeviceCode(d)
 	_ = s.PutDeviceCode(newTestDevice("anon-dev", "BBBB-BBBB", exp))
 
-	requireEq(t, "revoked count", len(s.DeleteBySubject("alice")), 1)
+	revoked, err := s.DeleteBySubject("alice")
+	if err != nil {
+		t.Fatal(err)
+	}
+	requireEq(t, "revoked count", len(revoked), 1)
 	s2, db2 := reopen(t, dir, db)
 	requireToken(t, s2, "r-f", false, "alice token survived")
 	requireToken(t, s2, "bob-t", true, "bob token lost")
@@ -341,7 +345,7 @@ func TestPersist_TokenWriteFailures(t *testing.T) {
 	s.DeleteToken("a-f1")
 	s.TakeToken("r-f2")
 	s.DeleteFamily("f3")
-	s.DeleteBySubject("alice")
+	_, _ = s.DeleteBySubject("alice")
 	s.Sweep(exp.Add(time.Hour))
 	if len(s.tokens) != 0 {
 		t.Fatalf("%d tokens left in memory after failed deletes", len(s.tokens))

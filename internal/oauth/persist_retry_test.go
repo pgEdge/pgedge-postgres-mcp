@@ -161,3 +161,45 @@ func TestRevoke_FailedDeleteIs503(t *testing.T) {
 		t.Fatal("access token still valid in process after revocation")
 	}
 }
+
+func TestRevoke_RepeatWhilstUnsavedIs503(t *testing.T) {
+	ts := newTestServer(t, nil)
+	cid, code := obtainCode(t, ts, claudeCB)
+	_, tr := exchange(ts, codeForm(cid, code, claudeCB))
+
+	f := &flakyPersister{failing: true}
+	ts.store.mu.Lock()
+	ts.store.p = f
+	ts.store.mu.Unlock()
+
+	body := url.Values{"token": {tr.RefreshToken}}.Encode()
+	for i := 0; i < 2; i++ {
+		rec := ts.do("POST", RevokePath, "application/x-www-form-urlencoded", body)
+		if rec.Code != 503 {
+			t.Fatalf("attempt %d: status = %d, want 503", i+1, rec.Code)
+		}
+	}
+
+	f.setFailing(false)
+	rec := ts.do("POST", RevokePath, "application/x-www-form-urlencoded", body)
+	if rec.Code != 200 {
+		t.Fatalf("after recovery: status = %d, want 200", rec.Code)
+	}
+}
+
+func TestStore_DeleteBySubjectReportsUnsaved(t *testing.T) {
+	s, f := newFlakyStore(t)
+	mustPutToken(t, s, &Token{Hash: "a", Subject: "alice", ExpiresAt: time.Now().Add(time.Hour)})
+
+	f.setFailing(true)
+	if _, err := s.DeleteBySubject("alice"); err == nil {
+		t.Fatal("DeleteBySubject reported success for a failed write")
+	}
+	if _, err := s.DeleteBySubject("alice"); err == nil {
+		t.Fatal("repeat DeleteBySubject reported success whilst the first is unsaved")
+	}
+	f.setFailing(false)
+	if _, err := s.DeleteBySubject("alice"); err != nil {
+		t.Fatalf("DeleteBySubject after recovery: %v", err)
+	}
+}

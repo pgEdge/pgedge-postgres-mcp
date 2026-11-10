@@ -151,7 +151,7 @@ func TestRevokeSubjectClearsEverythingInItsName(t *testing.T) {
 	ts := newTestServer(t, nil)
 	_, tr := issueTokenPair(t, ts)
 
-	revoked := ts.srv.RevokeSubject("alice")
+	revoked, _ := ts.srv.RevokeSubject("alice")
 
 	if len(revoked) != 1 || revoked[0] != hashToken(tr.AccessToken) {
 		t.Fatalf("revoked = %v; want the access token hash %s", revoked, hashToken(tr.AccessToken))

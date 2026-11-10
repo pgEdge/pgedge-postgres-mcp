@@ -54,9 +54,16 @@ type UserStore struct {
 	// disabled in the user file whilst the server was running. main
 	// wires it to the OAuth server, so that credentials issued from
 	// other credential kinds are revoked with the account rather than
-	// remaining usable until they expire. It is always called with no
-	// lock held.
-	onRevoked func(username string)
+	// remaining usable until they expire. It returns an error when the
+	// revocation is not yet saved. It is always called with no lock
+	// held.
+	onRevoked func(username string) error
+
+	// unrevokedSessions holds users whose sessions failed to delete when
+	// their access was withdrawn. Their sessions are refused, and the
+	// session sweeper retries the deletion, so that enabling the user
+	// again cannot bring them back. Guarded by mu.
+	unrevokedSessions map[string]struct{}
 
 	// sessions holds password-login sessions. It is a memory store,
 	// created on first use, unless SetSessionStore installed another.
@@ -94,17 +101,42 @@ func (s *UserStore) sessionStore() SessionStore {
 
 // deleteSessions removes every session of the named users. Failures are
 // logged rather than returned, since the callers are revocation paths
-// that must carry on. Callers must not hold s.mu.
+// that must carry on, and the user is kept in unrevokedSessions until a
+// retry succeeds. Callers must not hold s.mu.
 func (s *UserStore) deleteSessions(usernames ...string) {
 	ss := s.sessionStore()
 	for _, username := range usernames {
 		if username == "" {
 			continue
 		}
-		if err := ss.DeleteUser(username); err != nil {
+		err := ss.DeleteUser(username)
+		if err != nil {
 			log.Printf("[AUTH] Failed to delete sessions for %q: %v", username, err)
 		}
+		s.mu.Lock()
+		if err != nil {
+			if s.unrevokedSessions == nil {
+				s.unrevokedSessions = make(map[string]struct{})
+			}
+			s.unrevokedSessions[username] = struct{}{}
+		} else {
+			delete(s.unrevokedSessions, username)
+		}
+		s.mu.Unlock()
 	}
+}
+
+// retryUnrevokedSessions retries deleting the sessions of users in
+// unrevokedSessions. Callers must not hold s.mu.
+func (s *UserStore) retryUnrevokedSessions() {
+	s.mu.RLock()
+	pending := make([]string, 0, len(s.unrevokedSessions))
+	for name := range s.unrevokedSessions {
+		pending = append(pending, name)
+	}
+	s.mu.RUnlock()
+
+	s.deleteSessions(pending...)
 }
 
 // StartSessionSweeper removes expired sessions every interval until the
@@ -117,6 +149,8 @@ func (s *UserStore) StartSessionSweeper(interval time.Duration) (stop func()) {
 	var once sync.Once
 	ss := s.sessionStore()
 	sweep := func(now time.Time) {
+		s.retryUnrevokedSessions()
+
 		// Take the list of enabled users under the lock, then release
 		// it before the database call.
 		s.mu.RLock()
@@ -157,7 +191,7 @@ func (s *UserStore) StartSessionSweeper(interval time.Duration) (stop func()) {
 // UserStore.onRevoked. It takes the store's lock, so it is safe to call
 // after the file watcher has been started, which matters because the
 // OAuth server the hook calls into is built later than the user store.
-func (s *UserStore) SetRevocationHook(fn func(username string)) {
+func (s *UserStore) SetRevocationHook(fn func(username string) error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -165,10 +199,11 @@ func (s *UserStore) SetRevocationHook(fn func(username string)) {
 }
 
 // notifyRevoked reports each named user to the revocation hook, if one
-// is installed. Callers must not hold s.mu.
-func (s *UserStore) notifyRevoked(usernames ...string) {
+// is installed, and returns those whose revocation the hook could not
+// save. Callers must not hold s.mu.
+func (s *UserStore) notifyRevoked(usernames ...string) (unsaved []string) {
 	if len(usernames) == 0 {
-		return
+		return nil
 	}
 	// Password-login sessions go first, so that they are gone before any
 	// external hook runs.
@@ -177,13 +212,18 @@ func (s *UserStore) notifyRevoked(usernames ...string) {
 	hook := s.onRevoked
 	s.mu.RUnlock()
 	if hook == nil {
-		return
+		return nil
 	}
 	for _, username := range usernames {
-		if username != "" {
-			hook(username)
+		if username == "" {
+			continue
+		}
+		if err := hook(username); err != nil {
+			log.Printf("[AUTH] Failed to save the revocation of OAuth access for %q: %v", username, err)
+			unsaved = append(unsaved, username)
 		}
 	}
+	return unsaved
 }
 
 // IsActive reports whether username names a user that exists and is
@@ -313,8 +353,7 @@ func (s *UserStore) Reload() error {
 	s.Users = newStore.Users
 	s.mu.Unlock()
 
-	s.notifyRevoked(revoked...)
-	s.recordFingerprints()
+	s.recordFingerprints(s.notifyRevoked(revoked...)...)
 	return nil
 }
 
@@ -397,8 +436,7 @@ func (s *UserStore) UpdateUser(username, newPassword, newAnnotation string) erro
 	s.mu.Unlock()
 
 	if newPassword != "" {
-		s.notifyRevoked(username)
-		s.recordFingerprints()
+		s.recordFingerprints(s.notifyRevoked(username)...)
 	}
 	return nil
 }
@@ -422,8 +460,7 @@ func (s *UserStore) RemoveUser(username string) error {
 
 	// A deleted user keeps nothing: any OAuth token standing in its
 	// name is revoked now rather than at its own expiry.
-	s.notifyRevoked(username)
-	s.recordFingerprints()
+	s.recordFingerprints(s.notifyRevoked(username)...)
 	return nil
 }
 
@@ -568,6 +605,7 @@ func (s *UserStore) ValidateSessionToken(token string) (string, error) {
 
 	s.mu.RLock()
 	user, exists := s.Users[session.Username]
+	_, unrevoked := s.unrevokedSessions[session.Username]
 	var (
 		enabled     bool
 		fingerprint string
@@ -580,7 +618,7 @@ func (s *UserStore) ValidateSessionToken(token string) (string, error) {
 
 	var reject error
 	switch {
-	case !exists:
+	case !exists, unrevoked:
 		reject = fmt.Errorf("invalid session token")
 	case !enabled:
 		reject = fmt.Errorf("user account is disabled")
