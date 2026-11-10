@@ -14,6 +14,7 @@ project.
    - /mcp/v1 → JSON-RPC handler
    - /api/llm/* → LLM proxy handler
    - /api/user/info → User info handler
+   - /api/user/logout → Logout handler (ends the password session)
 5. Response → nginx → Browser
 ```
 

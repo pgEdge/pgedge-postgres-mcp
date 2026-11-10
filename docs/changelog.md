@@ -39,7 +39,10 @@ and this project adheres to
   hold up to 10 at once, for example on several devices. The server
   stores them in `auth.db` in the data directory, and refuses to start
   if it cannot open that file. A session ends when its user is disabled,
-  deleted, locked out or given a new password. Fixes #289.
+  deleted, locked out or given a new password. Logging out of the web
+  client now ends the session on the server at once. When HTTP
+  authentication is enabled, the server needs a writable data directory,
+  even if you use only API tokens. Fixes #289.
 
 ### Changed
 

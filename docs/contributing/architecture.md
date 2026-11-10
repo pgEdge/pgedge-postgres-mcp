@@ -152,7 +152,8 @@ The Natural Language Agent consists of three main components:
 - **Communication**:
     - JSON-RPC 2.0 to MCP server for tools (`/mcp/v1`)
     - REST API to MCP server for LLM proxy (`/api/llm/*`)
-    - REST API for user info (`/api/user/info`)
+    - REST API for user info and logout (`/api/user/info`,
+      `/api/user/logout`)
 
 - **Features**:
     - Client-side agentic loop (matches CLI architecture)

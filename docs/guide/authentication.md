@@ -171,7 +171,8 @@ automatically reloads the credentials:
 - **No downtime**: Server continues running during reload
 - **Thread-safe**: Uses read-write locks to prevent race conditions
 - **Editor-friendly**: Handles file deletion/recreation during saves
-- **Session preservation**: Active user sessions remain valid during reload
+- **Session preservation**: Sessions of users whose accounts are unchanged
+  remain valid during reload
 - **Debouncing**: Batches rapid file changes to avoid excessive reloads
 
 The server watches the directory containing the auth files (not the files
@@ -318,6 +319,10 @@ beside `conversations.db`. Set the data directory with the `data_dir`
 configuration option or the `PGEDGE_DATA_DIR` environment variable; the
 default is the `data` directory next to the server binary.
 
+When HTTP authentication is enabled, the server needs a writable data
+directory, even if you use only API tokens. Without one, the server
+cannot create `auth.db` and refuses to start.
+
 The following points describe how the server manages `auth.db`:
 
 - The server creates the file on first start, with mode `0600`.
@@ -325,6 +330,12 @@ The following points describe how the server manages `auth.db`:
 - The server opens the file when HTTP and authentication are both enabled.
 - The server refuses to start if it cannot open or create the file.
 - Deleting the file whilst the server is stopped signs every user out.
+- Two servers must never share one data directory; this is unsupported.
+
+To reset the file, stop the server, and then delete `auth.db` along with
+any `auth.db-wal` and `auth.db-shm` files beside it. Do not run a second
+server against the same data directory, because the two servers would
+overwrite each other's changes and could restore revoked OAuth tokens.
 
 If the server cannot open `auth.db`, it exits with an error naming the
 file, in the form `ERROR: Failed to open auth database <path>: <reason>`.
@@ -337,7 +348,12 @@ The server also ends all of a user's sessions in the following cases:
 - An administrator disables the user.
 - An administrator deletes the user.
 - The user is locked out after too many failed login attempts.
-- The user's password changes.
+- The user's password changes, whether by `-update-user` or by an edit to
+  the users file.
+
+A password change also ends the user's OAuth grants, and so does deleting
+and re-adding a user. The server detects either change whilst it runs, or
+at the next start-up if the change was made whilst the server was stopped.
 
 The server deletes expired sessions every minute, and once at start-up.
 
@@ -346,13 +362,15 @@ The server deletes expired sessions every minute, and once at start-up.
     user who is not present and enabled in the users file. It deletes
     sessions at start-up and on each sweep, which runs every minute. It
     deletes OAuth grants at start-up and whenever it reloads the users
-    file. If the users file is missing or emptied, even temporarily (for
-    example, because of a mis-mounted volume), the server signs everyone
-    out, and every user must log in again.
+    file. If the users file is missing at start-up, or emptied whilst the
+    server runs, even temporarily (for example, because of a mis-mounted
+    volume), the server signs everyone out. Every user must then log in
+    again.
 
 When the server runs in a container, keep the data directory on a
 persistent volume. Otherwise, the sessions are lost when the container is
-replaced. For Helm deployments, see
+replaced. The current Helm chart does not place the data directory on its
+mounted volume; for details, see
 [Distributed Deployment](../advanced/distributed-deployment.md#helm-persistence-and-authdb).
 
 ## Authorization: Database Access Control
@@ -672,13 +690,14 @@ The following responses may occur as a result of authentication errors:
 
 ## Endpoints That Skip Authentication
 
-Three endpoints are **always accessible** without a token, even when
+Four endpoints are **always accessible** without a token, even when
 authentication is enabled:
 
 | Endpoint | Why it skips authentication |
 |----------|------------------------------|
 | `/health` | Load balancers and orchestrators need to probe liveness before they hold any credential. |
 | `/api/user/info` | The web client calls this to discover whether authentication is enabled at all, which it must do before it can know to ask for a token. |
+| `/api/user/logout` | A client ending its session may hold a token that has already expired, and the endpoint reveals nothing about the token it receives. |
 | `/api/openapi.json` | The API specification is published for discoverability, so that a client can be written against it before credentials are issued. |
 
 In the following example, each endpoint responds without a token.
@@ -687,10 +706,18 @@ In the following example, each endpoint responds without a token.
 # No token required
 curl http://localhost:8080/health
 curl http://localhost:8080/api/user/info
+curl -X POST http://localhost:8080/api/user/logout
 curl http://localhost:8080/api/openapi.json
 ```
 
-None of the three exposes database contents or accepts a query, so the
+The logout endpoint ends only the password-login session named by the
+bearer token in the `Authorization` header. It answers `204 No Content`
+whether or not the token was a live session, and `405 Method Not Allowed`
+for any method other than `POST`. It leaves API tokens and OAuth tokens
+alone. The web client calls it on logout, so the session ends on the
+server at once rather than lasting up to 24 hours.
+
+None of the four exposes database contents or accepts a query, so the
 data they return is limited to the server's own status, whether
 authentication is switched on, and the shape of the API. Treat the
 specification as public information when deciding what network to

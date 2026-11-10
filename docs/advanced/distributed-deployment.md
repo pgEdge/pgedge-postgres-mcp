@@ -288,11 +288,14 @@ which lives in the data directory. The Helm chart mounts a `data` volume at
 that volume is a PersistentVolumeClaim; otherwise, it is an `emptyDir`
 volume that Kubernetes deletes when the pod is replaced.
 
-The chart does not set the data directory. The server then defaults to the
-`data` directory beside its binary, which is not on the mounted volume.
-Set `PGEDGE_DATA_DIR` to `/var/lib/pgedge/mcp-server` so that `auth.db`
-survives pod replacement. Without persistence, every pod replacement signs
-all users out and forces OAuth clients to register again.
+The current chart does not place the data directory on that volume. The
+server uses the `data` directory beside its binary instead, so `auth.db`
+does not survive pod replacement, even with persistence enabled. Every pod
+replacement therefore signs all users out and forces OAuth clients to
+register again.
+
+Do not point several replicas at one shared data directory. Each replica
+needs its own `auth.db`, because sharing the file is unsupported.
 
 ### Horizontal Pod Autoscaler
 
@@ -362,8 +365,11 @@ authentication:
 - API tokens work identically across all instances.
 - The auto-reload feature propagates credential changes
   without a restart.
-- Active sessions remain valid during a credential reload.
+- Sessions remain valid during a credential reload, except those of users
+  who were removed, disabled or given a new password.
+- A password change also ends the user's OAuth grants.
 - Each instance keeps sessions and OAuth state in its own `auth.db` file.
+- Two instances must never share one data directory; this is unsupported.
 
 ### Rate Limiting Considerations
 

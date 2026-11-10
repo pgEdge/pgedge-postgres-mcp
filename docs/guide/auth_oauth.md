@@ -156,17 +156,33 @@ tokens. It survives a server restart, so signed-in clients stay signed in.
 
 The following points describe how OAuth uses `auth.db`:
 
-- The server stores only hashes of codes and tokens, never the values.
+- The server stores only hashes of authorisation codes, device codes and
+  tokens, never the values.
+- The short-lived user code shown during device sign-in is the exception.
 - The server creates the file on first start, with mode `0600`.
 - The server refuses to start if it cannot open or create the file.
 - Deleting the file whilst the server is stopped signs every client out.
 - After the file is deleted, each client must register again.
+- Two servers must never share one data directory; this is unsupported.
+- With HTTP authentication enabled, the data directory must be writable.
+
+To reset the file, stop the server, and then delete `auth.db` along with
+any `auth.db-wal` and `auth.db-shm` files beside it. If the server cannot
+load the stored OAuth state, it exits with the following error, which
+names the file.
+
+```text
+ERROR: OAuth state in auth database <path> could not be loaded: <reason> (delete the file whilst the server is stopped to reset it)
+```
 
 At start-up, the server deletes the OAuth tokens and codes of every user
 who is not present and enabled in the users file. This covers users that
-an administrator disabled or deleted whilst the server was stopped. If the
-users file is missing or emptied, even temporarily, every OAuth client is
-signed out. For the full behaviour and the data directory settings, see
+an administrator disabled or deleted whilst the server was stopped. The
+same applies to a user who was deleted and re-added, or whose password
+changed, whilst the server was stopped. The log reports each such user
+with a line beginning `Revoked`. If the users file is missing at
+start-up, or emptied whilst the server runs, even temporarily, every
+OAuth client is signed out. For the full behaviour and the data directory settings, see
 [Persistent Sessions and the auth.db File](authentication.md#persistent-sessions-and-the-authdb-file).
 
 ## Claude Desktop and Claude Mobile
@@ -355,12 +371,10 @@ worth planning for:
   deployment warrants rather than relying on the limiter alone.
 
 Disabling, deleting or locking out a user revokes that user's OAuth
-tokens at once. Changing a password with `-update-user` does not; the
-existing refresh token stays valid until it expires. To end those
-sessions as well, run `-disable-user` and then `-enable-user` for the
-account after changing the password. Pause for a second or two between
-the commands; the server must reload the user file whilst the account
-is disabled for the revocation to take effect.
+tokens at once. Changing a password, whether with `-update-user` or by
+editing the users file, also revokes them. The server notices the change
+when it reloads the users file, or at the next start-up if the change was
+made whilst the server was stopped.
 
 ## Troubleshooting
 
