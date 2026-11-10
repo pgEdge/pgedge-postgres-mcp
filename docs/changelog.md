@@ -60,6 +60,15 @@ and this project adheres to
 - Pressing Ctrl+D at the CLI prompt now echoes `^D` rather than `exit`
   before the goodbye message, so that the same key reads sensibly when
   used to finish a `/paste`.
+- The LLM library moves to `pgedge-go-llm-lib` v1.0.0, its first
+  stable release. The library no longer follows HTTP redirects from a
+  provider endpoint, so an `ollama_url` or other base URL that relies
+  on one (`http://` redirecting to `https://`, say) must now name the
+  final URL. OpenAI `o1`, `o3` and `gpt-5` models now start on Chat
+  Completions rather than the Responses API, moving only when OpenAI
+  reports that a model needs it, so an OpenAI-compatible gateway must
+  serve `/chat/completions` beneath the configured base URL for those
+  models too.
 
 ### Fixed
 
