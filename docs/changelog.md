@@ -67,7 +67,8 @@ and this project adheres to
   final URL. OpenAI `o1`, `o3` and `gpt-5` models now start on Chat
   Completions rather than the Responses API, moving only when OpenAI
   reports that a model needs it, so an OpenAI-compatible gateway must
-  serve `/v1/chat/completions` for those models too.
+  serve `/chat/completions` beneath the configured base URL for those
+  models too.
 
 ### Fixed
 
