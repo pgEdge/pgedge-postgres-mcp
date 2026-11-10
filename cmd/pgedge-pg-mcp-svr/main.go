@@ -1085,6 +1085,9 @@ func main() {
 			mux.HandleFunc("/api/chat/compact",
 				authWrapper(compactor.HandleCompact))
 
+			// Logout endpoint - ends the presented password-login session
+			mux.HandleFunc(auth.LogoutPath, logoutHandler(userStore))
+
 			// User info endpoint - returns auth status (no error if not logged in)
 			mux.HandleFunc("/api/user/info", func(w http.ResponseWriter, r *http.Request) {
 				w.Header().Set("Content-Type", "application/json")

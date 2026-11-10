@@ -593,6 +593,19 @@ func (s *UserStore) ValidateSessionToken(token string) (string, error) {
 	return session.Username, nil
 }
 
+// EndSession deletes the password-login session token stands for, if
+// any. It looks the session up by the hash of token, exactly as
+// ValidateSessionToken does, so it can end only the session of whoever
+// holds the token; any other token, an API or OAuth token included, is
+// not a session and is left alone. Ending an absent session is not an
+// error.
+func (s *UserStore) EndSession(token string) error {
+	if token == "" {
+		return nil
+	}
+	return s.sessionStore().Delete(HashToken(token))
+}
+
 // ListUsers returns all users with their metadata
 func (s *UserStore) ListUsers() []*UserInfo {
 	s.mu.RLock()
