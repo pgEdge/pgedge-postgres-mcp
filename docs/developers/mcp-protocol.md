@@ -4,25 +4,32 @@ This document describes how the Natural Language Agent implements the Model Cont
 
 ## Protocol Version
 
-This server is **dual-era**: it implements both `2024-11-05` (a
+This server is **dual-era**: it implements the handshake-based
+revisions `2024-11-05`, `2025-03-26`, `2025-06-18` and `2025-11-25` (a
 connection-scoped `initialize` handshake) and the current revision,
 `2026-07-28` (stateless, per-request negotiation), on both transports at
 the same time.
 
 A request whose `params._meta` carries
 `io.modelcontextprotocol/protocolVersion` is served under the modern,
-`2026-07-28` model: see [MCP Specification
+`2026-07-28` model. Over HTTP, so is a request whose
+`MCP-Protocol-Version` header names anything other than a supported
+legacy revision, such as `2026-07-28`; without usable body `_meta`,
+such a request fails with `-32602 Invalid params` rather than falling
+back to legacy behavior. See [MCP Specification
 Compliance](mcp-spec-compliance.md) for the full negotiation rules,
 required Streamable HTTP headers, and what was deliberately not adopted
 from that revision.
 
-Every other request, including every `initialize` handshake, is served
-under this server's original, legacy behavior, unchanged: the server
+Every other request, including an `initialize` handshake without such
+a header, is served under the legacy behavior: the server
 negotiates the version during the handshake and never simply echoes the
 version a client requests. A client that asks for a revision the server
-does not implement receives `2024-11-05` in the `initialize` response,
-and it should then decide whether to continue or disconnect. A client
-that omits `protocolVersion` also receives `2024-11-05`. An `initialize`
+does not implement receives the newest supported revision older than
+the one it asked for, or `2024-11-05` if it asked for something older
+than every supported revision, and it should then decide whether to
+continue or disconnect. A client that omits `protocolVersion` receives
+`2025-11-25`, the server's newest handshake-based revision. An `initialize`
 request whose parameters are malformed, such as a `protocolVersion` that
 is not a string, fails with a `-32602 Invalid params` error on both
 transports.
