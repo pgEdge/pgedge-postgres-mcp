@@ -8,7 +8,7 @@ require (
 	github.com/fsnotify/fsnotify v1.10.1
 	github.com/google/uuid v1.6.0
 	github.com/jackc/pgx/v5 v5.10.0
-	github.com/pgEdge/pgedge-go-llm-lib v0.3.1
+	github.com/pgEdge/pgedge-go-llm-lib v1.0.0
 	golang.org/x/crypto v0.58.0
 	golang.org/x/term v0.47.0
 	gopkg.in/yaml.v3 v3.0.1

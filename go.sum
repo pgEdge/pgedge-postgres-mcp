@@ -83,8 +83,8 @@ github.com/muesli/termenv v0.16.0 h1:S5AlUN9dENB57rsbnkPyfdGuWIlkmzJjbFf0Tf5FWUc
 github.com/muesli/termenv v0.16.0/go.mod h1:ZRfOIKPFDYQoDFF4Olj7/QJbW60Ol/kL1pU3VfY/Cnk=
 github.com/ncruces/go-strftime v1.0.0 h1:HMFp8mLCTPp341M/ZnA4qaf7ZlsbTc+miZjCLOFAw7w=
 github.com/ncruces/go-strftime v1.0.0/go.mod h1:Fwc5htZGVVkseilnfgOVb9mKy6w1naJmn9CehxcKcls=
-github.com/pgEdge/pgedge-go-llm-lib v0.3.1 h1:/RkBnV2lCyi/u/81tKOEGU+9bgLoQ6oqViMAu2OoDn0=
-github.com/pgEdge/pgedge-go-llm-lib v0.3.1/go.mod h1:NBvb+aXY/ImYuIUjpQnZ/R4l6RvdK9xm7h6hv2c2HSs=
+github.com/pgEdge/pgedge-go-llm-lib v1.0.0 h1:ouDvKFy2U+gjDMIvl0I5bsffD0OmTb2k1fJHAK9FUpE=
+github.com/pgEdge/pgedge-go-llm-lib v1.0.0/go.mod h1:j0ezF1uuqgLLh19UsFROwOWyk8+toJefhc8lq3uyYBA=
 github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZbAQM=
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
 github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec h1:W09IVJc94icq4NjY3clb7Lk8O1qJ8BdBEF8z0ibU0rE=
