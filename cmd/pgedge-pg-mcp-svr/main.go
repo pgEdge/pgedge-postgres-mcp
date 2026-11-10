@@ -12,6 +12,7 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -29,6 +30,7 @@ import (
 
 	"pgedge-postgres-mcp/internal/api"
 	"pgedge-postgres-mcp/internal/auth"
+	"pgedge-postgres-mcp/internal/authdb"
 	"pgedge-postgres-mcp/internal/compactor"
 	"pgedge-postgres-mcp/internal/config"
 	"pgedge-postgres-mcp/internal/conversations"
@@ -490,6 +492,16 @@ func main() {
 	var tokenStore *auth.TokenStore
 	var userStore *auth.UserStore
 	userFilePathForTools := ""
+
+	// The data directory holds the conversation store and, when HTTP
+	// authentication is on, the auth database. Default to a directory next
+	// to the executable.
+	dataDir := cfg.DataDir
+	if dataDir == "" {
+		dataDir = filepath.Join(filepath.Dir(execPath), "data")
+	}
+	var authDB *sql.DB
+
 	if cfg.HTTP.Enabled && cfg.HTTP.Auth.Enabled {
 		if _, err := os.Stat(cfg.HTTP.Auth.TokenFile); os.IsNotExist(err) {
 			// Token file doesn't exist - create empty store
@@ -521,9 +533,11 @@ func main() {
 			userFilePathForTools = auth.GetDefaultUserPath(execPath)
 		}
 
+		userFileExists := true
 		if _, err := os.Stat(userFilePathForTools); os.IsNotExist(err) {
 			// User file doesn't exist - create empty store
 			// Users can be added via CLI commands
+			userFileExists = false
 			userStore = auth.InitializeUserStore()
 			fmt.Fprintf(os.Stderr, "User file not found, initialized empty user store\n")
 		} else {
@@ -533,7 +547,42 @@ func main() {
 				os.Exit(1)
 			}
 			fmt.Fprintf(os.Stderr, "Loaded %d user(s) from %s\n", len(userStore.Users), userFilePathForTools)
+		}
 
+		// Open the auth database, which holds password sessions and OAuth
+		// state across restarts. The server refuses to start without it,
+		// rather than silently running with sessions that vanish on
+		// restart. The close is registered here, before the OAuth server's
+		// own deferred Close, so that it runs after it.
+		if userStore != nil || cfg.HTTP.Auth.OAuthActive() {
+			db, dbPath, dbErr := authdb.Open(dataDir)
+			if dbErr != nil {
+				if dbPath == "" {
+					dbPath = filepath.Join(dataDir, authdb.FileName)
+				}
+				// authdb's errors already name the path; add it only if
+				// a future one does not, so it always appears once.
+				if strings.Contains(dbErr.Error(), dbPath) {
+					fmt.Fprintf(os.Stderr, "ERROR: Failed to open %v\n", dbErr)
+				} else {
+					fmt.Fprintf(os.Stderr, "ERROR: Failed to open auth database %s: %v\n", dbPath, dbErr)
+				}
+				os.Exit(1)
+			}
+			authDB = db
+			defer authDB.Close()
+			fmt.Fprintf(os.Stderr, "Auth database: %s\n", dbPath)
+		}
+
+		if userStore != nil && authDB != nil {
+			// Attach the session store before the file watcher starts, so
+			// that the reload hook sees it.
+			userStore.SetSessionStore(auth.NewSQLiteSessionStore(authDB))
+			stopSessionSweeper := userStore.StartSessionSweeper(time.Minute)
+			defer stopSessionSweeper()
+		}
+
+		if userFileExists {
 			// Start watching the user file for changes
 			if err := userStore.StartWatching(); err != nil {
 				fmt.Fprintf(os.Stderr, "WARNING: Failed to start watching user file: %v\n", err)
@@ -828,11 +877,6 @@ func main() {
 	// Initialize conversation store for HTTP mode with auth
 	var convStore *conversations.Store
 	if cfg.HTTP.Enabled && cfg.HTTP.Auth.Enabled && userStore != nil {
-		// Use configured data directory, or default to a directory next to the executable
-		dataDir := cfg.DataDir
-		if dataDir == "" {
-			dataDir = filepath.Join(filepath.Dir(execPath), "data")
-		}
 		var err error
 		convStore, err = conversations.NewStore(dataDir)
 		if err != nil {
@@ -935,6 +979,7 @@ func main() {
 						}
 					}()
 				},
+				DB:     authDB,
 				Logger: func(f string, a ...any) { fmt.Fprintf(os.Stderr, f+"\n", a...) },
 			})
 			if oauthErr != nil {
@@ -948,6 +993,18 @@ func main() {
 			// user file is reloaded with an account removed or
 			// disabled.
 			if userStore != nil {
+				// A user disabled or deleted in the users file whilst the
+				// server was stopped never triggered the hook below, so
+				// sweep the restored OAuth state once now. With no user
+				// store this block is skipped, leaving the state alone.
+				for _, subject := range oauthServer.Subjects() {
+					if userStore.IsActive(subject) {
+						continue
+					}
+					if revoked := oauthServer.RevokeSubject(subject); len(revoked) > 0 {
+						fmt.Fprintf(os.Stderr, "Revoked %d OAuth token(s) for inactive user %q at start-up\n", len(revoked), subject)
+					}
+				}
 				userStore.SetRevocationHook(func(username string) {
 					if revoked := oauthServer.RevokeSubject(username); len(revoked) > 0 {
 						fmt.Fprintf(os.Stderr, "Revoked %d OAuth token(s) for user %q\n", len(revoked), username)
