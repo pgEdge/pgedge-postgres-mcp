@@ -156,8 +156,14 @@ type Store struct {
 	// s.mu, before the in-memory change; a method returning an error
 	// returns the persister's error and leaves memory unchanged, whilst
 	// one without an error return changes memory regardless and logs
-	// the failure, so a database fault can never keep a credential alive.
+	// the failure, so a database fault cannot keep a credential alive in
+	// this process. A failed deletion is kept in retryDeletes until a
+	// later write succeeds; a restart before then restores the row.
 	p persister
+
+	// retryDeletes holds row deletions whose write failed, retried
+	// before each later write; see commitLocked.
+	retryDeletes []func(persister) error
 
 	// logf reports persistence failures; never nil.
 	logf func(format string, args ...any)
@@ -379,7 +385,7 @@ func (s *Store) MarkRefreshRotated(hash, family string, until time.Time) {
 	r := rotatedRefresh{Family: family, Until: until}
 	w.add(func(p persister) error { return p.putRotated(hash, r) })
 	s.rotated[hash] = &r
-	s.commitLocked(w, "persist rotated refresh token")
+	_ = s.commitLocked(w, "persist rotated refresh token")
 }
 
 // evictOldestRotatedLocked removes the rotation record whose retention
@@ -397,7 +403,7 @@ func (s *Store) evictOldestRotatedLocked(w *pendingWrites) {
 		}
 	}
 	if found {
-		w.add(func(p persister) error { return p.deleteRotated(oldestHash) })
+		w.addDelete(func(p persister) error { return p.deleteRotated(oldestHash) })
 		delete(s.rotated, oldestHash)
 	}
 }
@@ -435,7 +441,7 @@ func (s *Store) DeleteFamily(family string) []string {
 			s.removeTokenLocked(hash, w)
 		}
 	}
-	s.commitLocked(w, "delete token family")
+	_ = s.commitLocked(w, "delete token family")
 	s.mu.Unlock()
 
 	s.notifyRevoked(revoked)
@@ -491,7 +497,7 @@ func (s *Store) DeleteBySubject(subject string) []string {
 		for hash, c := range s.codes {
 			if c.Subject == subject {
 				h := hash
-				w.add(func(p persister) error { return p.deleteCode(h) })
+				w.addDelete(func(p persister) error { return p.deleteCode(h) })
 				delete(s.codes, hash)
 			}
 		}
@@ -501,7 +507,7 @@ func (s *Store) DeleteBySubject(subject string) []string {
 			}
 		}
 	}
-	s.commitLocked(w, "delete tokens, codes and devices of subject")
+	_ = s.commitLocked(w, "delete tokens, codes and devices of subject")
 	s.mu.Unlock()
 
 	s.notifyRevoked(revoked)
@@ -546,9 +552,8 @@ func (s *Store) TakeCode(hash string) (*AuthCode, bool) {
 	if !ok {
 		return nil, false
 	}
-	if err := s.p.deleteCode(hash); err != nil {
-		s.logError("oauth: delete authorisation code: %v", err)
-	}
+	s.deleteNowLocked(func(p persister) error { return p.deleteCode(hash) },
+		"delete authorisation code")
 	delete(s.codes, hash)
 	return cloneAuthCode(c), true
 }
@@ -586,9 +591,8 @@ func (s *Store) TakeUsedCode(codeHash string) (refreshHash, family string, ok bo
 	if !found {
 		return "", "", false
 	}
-	if err := s.p.deleteUsedCode(codeHash); err != nil {
-		s.logError("oauth: delete used authorisation code: %v", err)
-	}
+	s.deleteNowLocked(func(p persister) error { return p.deleteUsedCode(codeHash) },
+		"delete used authorisation code")
 	delete(s.usedCodes, codeHash)
 	return u.RefreshHash, u.Family, true
 }
@@ -727,7 +731,7 @@ func (s *Store) DeleteDevice(hash string) {
 
 	w := &pendingWrites{}
 	s.deleteDeviceLocked(hash, w)
-	s.commitLocked(w, "delete device code")
+	_ = s.commitLocked(w, "delete device code")
 }
 
 // deleteDeviceLocked removes the device code from memory and queues its
@@ -735,7 +739,7 @@ func (s *Store) DeleteDevice(hash string) {
 // change is made even if the write later fails, so a device code that
 // could not be removed from disk is still unusable now.
 func (s *Store) deleteDeviceLocked(hash string, w *pendingWrites) {
-	w.add(func(p persister) error { return p.deleteDevice(hash) })
+	w.addDelete(func(p persister) error { return p.deleteDevice(hash) })
 	if d, ok := s.devices[hash]; ok {
 		delete(s.userCodes, d.UserCode)
 	}
@@ -793,7 +797,7 @@ func (s *Store) TakeDeviceIfApproved(hash string) (d *DeviceCode, ok bool) {
 	cp := cloneDeviceCode(dev)
 	w := &pendingWrites{}
 	s.deleteDeviceLocked(hash, w)
-	s.commitLocked(w, "delete device code")
+	_ = s.commitLocked(w, "delete device code")
 	return cp, true
 }
 
@@ -832,14 +836,22 @@ func (s *Store) GetToken(hash string) (*Token, bool) {
 // It returns the hashes of the access tokens removed, and reports them
 // to the revocation hook.
 func (s *Store) DeleteToken(hash string) []string {
+	revoked, _ := s.deleteToken(hash)
+	return revoked
+}
+
+// deleteToken is DeleteToken, also returning the error from writing the
+// deletion. The token is gone from memory either way, and a failed
+// deletion is kept for retry.
+func (s *Store) deleteToken(hash string) ([]string, error) {
 	s.mu.Lock()
 	w := &pendingWrites{}
 	revoked := s.deleteTokenLocked(hash, w)
-	s.commitLocked(w, "delete token")
+	err := s.commitLocked(w, "delete token")
 	s.mu.Unlock()
 
 	s.notifyRevoked(revoked)
-	return revoked
+	return revoked, err
 }
 
 // TakeToken atomically looks up and removes the token stored under hash,
@@ -860,7 +872,7 @@ func (s *Store) TakeToken(hash string) (*Token, bool) {
 	cp := cloneToken(t)
 	w := &pendingWrites{}
 	revoked := s.deleteTokenLocked(hash, w)
-	s.commitLocked(w, "delete token")
+	_ = s.commitLocked(w, "delete token")
 	s.mu.Unlock()
 
 	s.notifyRevoked(revoked)
@@ -870,7 +882,7 @@ func (s *Store) TakeToken(hash string) (*Token, bool) {
 // removeTokenLocked deletes one token from memory and queues the
 // deletion of its row on w. Callers must hold s.mu.
 func (s *Store) removeTokenLocked(hash string, w *pendingWrites) {
-	w.add(func(p persister) error { return p.deleteToken(hash) })
+	w.addDelete(func(p persister) error { return p.deleteToken(hash) })
 	delete(s.tokens, hash)
 }
 
@@ -941,7 +953,7 @@ func (s *Store) Sweep(now time.Time) []string {
 	for hash, c := range s.codes {
 		if c.ExpiresAt.Before(now) {
 			h := hash
-			w.add(func(p persister) error { return p.deleteCode(h) })
+			w.addDelete(func(p persister) error { return p.deleteCode(h) })
 			delete(s.codes, hash)
 		}
 	}
@@ -959,14 +971,14 @@ func (s *Store) Sweep(now time.Time) []string {
 	for hash, u := range s.usedCodes {
 		if u.Until.Before(now) {
 			h := hash
-			w.add(func(p persister) error { return p.deleteUsedCode(h) })
+			w.addDelete(func(p persister) error { return p.deleteUsedCode(h) })
 			delete(s.usedCodes, hash)
 		}
 	}
 	for hash, r := range s.rotated {
 		if r.Until.Before(now) {
 			h := hash
-			w.add(func(p persister) error { return p.deleteRotated(h) })
+			w.addDelete(func(p persister) error { return p.deleteRotated(h) })
 			delete(s.rotated, hash)
 		}
 	}
@@ -979,12 +991,12 @@ func (s *Store) Sweep(now time.Time) []string {
 	for id, c := range s.clients {
 		if c.LastUsed.Before(cutoff) && !live[id] {
 			cid := id
-			w.add(func(p persister) error { return p.deleteClient(cid) })
+			w.addDelete(func(p persister) error { return p.deleteClient(cid) })
 			delete(s.clients, id)
 		}
 	}
 	// One transaction for the whole pass.
-	s.commitLocked(w, "sweep")
+	_ = s.commitLocked(w, "sweep")
 	s.mu.Unlock()
 
 	s.notifyRevoked(revoked)

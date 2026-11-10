@@ -19,8 +19,9 @@ import "net/http"
 const maxRevokeBodyBytes = 64 * 1024
 
 // handleRevoke implements RFC 7009 token revocation. Per the RFC, the
-// endpoint always responds 200 with an empty body, whether or not the
-// presented token existed, so as not to leak which tokens are valid.
+// endpoint responds 200 with an empty body whether or not the presented
+// token existed, so as not to leak which tokens are valid, and 503 only
+// when the deletion could not be saved.
 func (s *Server) handleRevoke(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-store")
 
@@ -67,7 +68,15 @@ func (s *Server) handleRevoke(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.store.DeleteToken(hashToken(token))
+	// RFC 7009 has a client treat a 503 as the token still existing, so
+	// a deletion that did not reach the database is reported rather than
+	// confirmed. The token no longer works in this process, and the
+	// deletion is retried with the store's next write.
+	if _, err := s.store.deleteToken(hashToken(token)); err != nil {
+		w.Header().Set("Retry-After", "60")
+		writeJSONError(w, newError("server_error", "revocation not saved", http.StatusServiceUnavailable))
+		return
+	}
 
 	w.WriteHeader(http.StatusOK)
 }

@@ -52,29 +52,94 @@ func (nopPersister) putRotated(string, rotatedRefresh) error { return nil }
 func (nopPersister) deleteRotated(string) error              { return nil }
 func (n nopPersister) tx(fn func(persister) error) error     { return fn(n) }
 
+// maxRetryDeletes bounds the row deletions kept for retry after a failed
+// write, so that a database that stays unwritable cannot grow the queue
+// without limit.
+const maxRetryDeletes = 10000
+
 // pendingWrites collects the row deletions and updates that go with an
 // in-memory change spanning several rows, so that commitLocked can run
 // them in a single transaction. Memory is changed as the writes are
 // queued, which is what keeps a deletion effective when the write fails.
-type pendingWrites struct{ fns []func(persister) error }
+type pendingWrites struct {
+	fns     []func(persister) error
+	deletes []func(persister) error
+}
 
+// add queues an upsert. A failed upsert is not retried: replaying a stale
+// snapshot later could restore a row that has been deleted since.
 func (w *pendingWrites) add(fn func(persister) error) { w.fns = append(w.fns, fn) }
 
-// commitLocked runs w in one transaction, logging what on failure. The
-// in-memory change has already been made, so a failure here costs only
-// durability. Callers must hold s.mu.
-func (s *Store) commitLocked(w *pendingWrites, what string) {
-	if len(w.fns) == 0 {
-		return
-	}
-	if err := s.p.tx(func(p persister) error {
-		for _, fn := range w.fns {
+// addDelete queues a row deletion. Every key the store deletes by is
+// random and never reused, so a deletion is safe to repeat at any later
+// time, and one whose transaction fails is kept for retry.
+func (w *pendingWrites) addDelete(fn func(persister) error) {
+	w.fns = append(w.fns, fn)
+	w.deletes = append(w.deletes, fn)
+}
+
+// runAll returns a transaction body that runs each of fns in turn.
+func runAll(fns []func(persister) error) func(persister) error {
+	return func(p persister) error {
+		for _, fn := range fns {
 			if err := fn(p); err != nil {
 				return err
 			}
 		}
 		return nil
-	}); err != nil {
+	}
+}
+
+// commitLocked runs w in one transaction, logging what on failure and
+// keeping its deletions for retry. The in-memory change has already been
+// made, so a failure here costs durability until a retry succeeds: a
+// revoked credential the database still holds would be restored by a
+// restart before then. Deletions kept from earlier failures are retried
+// first. Callers must hold s.mu.
+func (s *Store) commitLocked(w *pendingWrites, what string) error {
+	s.retryDeletesLocked()
+	if len(w.fns) == 0 {
+		return nil
+	}
+	err := s.p.tx(runAll(w.fns))
+	if err != nil {
 		s.logError("oauth: %s: %v", what, err)
+		s.queueRetryLocked(w.deletes)
+	}
+	return err
+}
+
+// deleteNowLocked runs one row deletion outside a transaction, logging
+// what and keeping the deletion for retry on failure. Callers must hold
+// s.mu.
+func (s *Store) deleteNowLocked(fn func(persister) error, what string) {
+	s.retryDeletesLocked()
+	if err := fn(s.p); err != nil {
+		s.logError("oauth: %s: %v", what, err)
+		s.queueRetryLocked([]func(persister) error{fn})
+	}
+}
+
+// queueRetryLocked keeps fns for retry, dropping the oldest kept
+// deletions once there are more than maxRetryDeletes. Callers must hold
+// s.mu.
+func (s *Store) queueRetryLocked(fns []func(persister) error) {
+	s.retryDeletes = append(s.retryDeletes, fns...)
+	if over := len(s.retryDeletes) - maxRetryDeletes; over > 0 {
+		s.retryDeletes = append([]func(persister) error(nil), s.retryDeletes[over:]...)
+		s.logError("oauth: dropped %d deletions kept for retry; their rows may be restored at the next start", over)
+	}
+}
+
+// retryDeletesLocked runs the deletions kept from earlier failures in one
+// transaction, forgetting them once it commits. A failure was logged when
+// each was first kept, so another is not logged here. Callers must hold
+// s.mu.
+func (s *Store) retryDeletesLocked() {
+	if len(s.retryDeletes) == 0 {
+		return
+	}
+	if s.p.tx(runAll(s.retryDeletes)) == nil {
+		s.retryDeletes = nil
 	}
 }

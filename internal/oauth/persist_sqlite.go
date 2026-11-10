@@ -213,7 +213,7 @@ func (p *sqlitePersister) dropReplayedLive(s *Store) error {
 	for hash := range s.usedCodes {
 		if _, live := s.codes[hash]; live {
 			h := hash
-			w.add(func(tp persister) error { return tp.deleteCode(h) })
+			w.addDelete(func(tp persister) error { return tp.deleteCode(h) })
 			delete(s.codes, hash)
 		}
 	}
