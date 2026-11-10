@@ -12,6 +12,7 @@ package oauth
 
 import (
 	"database/sql"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -458,4 +459,39 @@ func TestPersist_DeviceWriteFailures(t *testing.T) {
 	if logged == before {
 		t.Fatal("poll write failure not logged")
 	}
+}
+
+func TestPersist_DeviceUserCodeCollision(t *testing.T) {
+	dir := t.TempDir()
+	s, db := openPersistent(t, dir, DefaultLimits)
+	exp := time.Now().Add(time.Hour)
+	_ = s.PutDeviceCode(newTestDevice("a", "AAAA-AAAA", exp))
+	_ = s.PutDeviceCode(newTestDevice("b", "BBBB-BBBB", exp))
+
+	if err := s.PutDeviceCode(newTestDevice("c", "AAAA-AAAA", exp)); !errors.Is(err, ErrUserCodeInUse) {
+		t.Fatalf("PutDeviceCode collision: got %v, want ErrUserCodeInUse", err)
+	}
+	if err := s.UpdateDevice(newTestDevice("b", "AAAA-AAAA", exp)); !errors.Is(err, ErrUserCodeInUse) {
+		t.Fatalf("UpdateDevice collision: got %v, want ErrUserCodeInUse", err)
+	}
+	// Re-putting a device under its own code is not a collision.
+	if err := s.PutDeviceCode(newTestDevice("a", "AAAA-AAAA", exp)); err != nil {
+		t.Fatalf("same-hash put: %v", err)
+	}
+
+	check := func(st *Store) {
+		t.Helper()
+		if d, ok := st.GetDeviceByUserCode("AAAA-AAAA"); !ok || d.DeviceHash != "a" {
+			t.Fatalf("AAAA-AAAA no longer maps to a: %+v", d)
+		}
+		if d, ok := st.GetDeviceByHash("b"); !ok || d.UserCode != "BBBB-BBBB" {
+			t.Fatalf("b changed: %+v", d)
+		}
+		if _, ok := st.GetDeviceByHash("c"); ok {
+			t.Fatal("c stored")
+		}
+	}
+	check(s)
+	s2, _ := reopen(t, dir, db)
+	check(s2)
 }

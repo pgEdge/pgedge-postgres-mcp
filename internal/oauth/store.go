@@ -22,6 +22,11 @@ import (
 // reached its configured limit.
 var ErrStoreFull = errors.New("oauth: store limit reached")
 
+// ErrUserCodeInUse is returned by PutDeviceCode and UpdateDevice when
+// the device code's user code already belongs to a different device
+// code.
+var ErrUserCodeInUse = errors.New("oauth: device user code already in use")
+
 // Client is a registered OAuth client.
 type Client struct {
 	ID           string
@@ -547,6 +552,9 @@ func (s *Store) PutDeviceCode(d *DeviceCode) error {
 	if _, exists := s.devices[d.DeviceHash]; !exists && len(s.devices) >= s.limits.DeviceCodes {
 		return ErrStoreFull
 	}
+	if h, taken := s.userCodes[d.UserCode]; taken && h != d.DeviceHash {
+		return ErrUserCodeInUse
+	}
 	// A hash already present may be replaced under a new user code; the
 	// old mapping must go with it so the index never goes stale.
 	old, replacing := s.devices[d.DeviceHash]
@@ -602,6 +610,9 @@ func (s *Store) UpdateDevice(d *DeviceCode) error {
 	old, ok := s.devices[d.DeviceHash]
 	if !ok {
 		return nil
+	}
+	if h, taken := s.userCodes[d.UserCode]; taken && h != d.DeviceHash {
+		return ErrUserCodeInUse
 	}
 	if err := s.p.putDevice(d); err != nil {
 		return err
