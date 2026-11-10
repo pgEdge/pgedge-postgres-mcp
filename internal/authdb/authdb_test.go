@@ -13,6 +13,7 @@ package authdb
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -206,5 +207,51 @@ func TestOpen_ConcurrentOpenSameFile(t *testing.T) {
 	close(errs)
 	for err := range errs {
 		t.Error(err)
+	}
+}
+
+func TestOpen_TwoHandlesWriteConcurrently(t *testing.T) {
+	dir := t.TempDir()
+	a, _, err := Open(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer a.Close()
+	b, _, err := Open(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer b.Close()
+
+	const perHandle = 50
+	var wg sync.WaitGroup
+	errs := make(chan error, 2*perHandle)
+	for name, db := range map[string]*sql.DB{"a": a, "b": b} {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for i := 0; i < perHandle; i++ {
+				_, err := db.Exec(
+					`INSERT INTO sessions (token_hash, username, password_fingerprint, created_at, expires_at)
+					 VALUES (?, 'test-user', 'fp', 1, 2)`,
+					fmt.Sprintf("%s-%d", name, i))
+				if err != nil {
+					errs <- err
+				}
+			}
+		}()
+	}
+	wg.Wait()
+	close(errs)
+	for err := range errs {
+		t.Errorf("insert failed: %v", err)
+	}
+
+	var n int
+	if err := a.QueryRow("SELECT COUNT(*) FROM sessions").Scan(&n); err != nil {
+		t.Fatal(err)
+	}
+	if n != 2*perHandle {
+		t.Errorf("row count = %d, want %d", n, 2*perHandle)
 	}
 }
