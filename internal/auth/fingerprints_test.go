@@ -106,16 +106,16 @@ func TestFingerprints_RecordedAndUpdated(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// No store installed: nothing is recorded, and that is not an error.
-	if got, err := us.RecordedFingerprints(); err != nil || len(got) != 0 {
-		t.Fatalf("RecordedFingerprints with no store = %v, %v", got, err)
+	// No store installed: recording does nothing, and is not an error.
+	if err := us.RecordFingerprints(); err != nil {
+		t.Fatalf("RecordFingerprints with no store: %v", err)
 	}
 
 	us.SetFingerprintStore(NewSQLiteFingerprintStore(db))
 	if err := us.RecordFingerprints(); err != nil {
 		t.Fatal(err)
 	}
-	got, err := us.RecordedFingerprints()
+	got, err := NewSQLiteFingerprintStore(db).All()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -173,7 +173,7 @@ func TestFingerprints_UpdateAndRemoveUserRecord(t *testing.T) {
 	if err := us.RemoveUser("bob"); err != nil {
 		t.Fatal(err)
 	}
-	got, err := us.RecordedFingerprints()
+	got, err := NewSQLiteFingerprintStore(db).All()
 	if err != nil {
 		t.Fatal(err)
 	}

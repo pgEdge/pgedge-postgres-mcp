@@ -103,19 +103,6 @@ func (s *UserStore) currentFingerprints() map[string]string {
 	return out
 }
 
-// RecordedFingerprints returns the fingerprints last recorded, or none
-// when no fingerprint store is installed.
-func (s *UserStore) RecordedFingerprints() (map[string]string, error) {
-	s.mu.RLock()
-	fs := s.fingerprints
-	s.mu.RUnlock()
-
-	if fs == nil {
-		return map[string]string{}, nil
-	}
-	return fs.All()
-}
-
 // RecordFingerprints records the current fingerprint of every user,
 // dropping the records of users no longer present. It does nothing when
 // no fingerprint store is installed. Callers must not hold s.mu, and
