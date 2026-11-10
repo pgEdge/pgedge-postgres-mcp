@@ -77,8 +77,9 @@ and this project adheres to
   it. The web client image is based on
   `nginxinc/nginx-unprivileged:stable-alpine-slim` and runs nginx as
   UID 101 rather than 1001. The CLI image is also based on Alpine.
-  The web client health check in `docker-compose.yml` now uses `wget`,
-  since the new image does not include `curl`.
+  The web client health checks in `docker-compose.yml` and the
+  quickstart and Codespaces demo compose files now use `wget`, since
+  the new image does not include `curl`.
 
 ### Fixed
 
