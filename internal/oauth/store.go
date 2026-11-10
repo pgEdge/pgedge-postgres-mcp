@@ -437,6 +437,32 @@ func (s *Store) DeleteFamily(family string) []string {
 	return revoked
 }
 
+// Subjects returns the distinct, non-empty subjects that hold tokens,
+// authorisation codes or approved device grants. The server uses it at
+// start-up to find state belonging to users who are no longer active.
+func (s *Store) Subjects() []string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	seen := map[string]bool{}
+	var out []string
+	add := func(subject string) {
+		if subject != "" && !seen[subject] {
+			seen[subject] = true
+			out = append(out, subject)
+		}
+	}
+	for _, t := range s.tokens {
+		add(t.Subject)
+	}
+	for _, c := range s.codes {
+		add(c.Subject)
+	}
+	for _, d := range s.devices {
+		add(d.Subject)
+	}
+	return out
+}
+
 // DeleteBySubject removes every token issued to subject, along with any
 // authorisation code or device code standing in its name, and returns
 // the hashes of the access tokens it revoked. It is how the

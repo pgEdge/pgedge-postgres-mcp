@@ -216,6 +216,12 @@ func (s *Server) RevokeSubject(subject string) []string {
 	return s.store.DeleteBySubject(subject)
 }
 
+// Subjects returns the subjects that hold OAuth state, so a caller can
+// revoke those whose accounts are no longer active.
+func (s *Server) Subjects() []string {
+	return s.store.Subjects()
+}
+
 // now returns the current time, honouring opts.Now when set.
 func (s *Server) now() time.Time {
 	if s.opts.Now != nil {
