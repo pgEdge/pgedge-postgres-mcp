@@ -13,9 +13,9 @@ package authdb
 import (
 	"context"
 	"database/sql"
-	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -252,17 +252,12 @@ func TestOpen_NewFileIsInWALMode(t *testing.T) {
 	}
 }
 
-// insertSessionSQL adds one session row; the arguments are the token hash
-// and the expiry.
-const insertSessionSQL = `INSERT INTO sessions (token_hash, username,
-    password_fingerprint, created_at, expires_at)
-    VALUES (?, 'test-user', 'fp', 1, ?)`
-
 // insertSessions writes n session rows through db, sending failures to errs.
 func insertSessions(db *sql.DB, name string, n int, errs chan<- error) {
 	for i := 0; i < n; i++ {
-		hash := fmt.Sprintf("%s-%d", name, i)
-		if _, err := db.Exec(insertSessionSQL, hash, 2); err != nil {
+		if _, err := db.Exec(`INSERT INTO sessions (token_hash, username,
+		    password_fingerprint, created_at, expires_at)
+		    VALUES (?, 'test-user', 'fp', 1, 2)`, name+"-"+strconv.Itoa(i)); err != nil {
 			errs <- err
 		}
 	}
@@ -312,10 +307,13 @@ func TestOpen_TwoHandlesWriteConcurrently(t *testing.T) {
 	}
 }
 
-// execOnConn runs a statement on conn, failing the test on error.
-func execOnConn(t *testing.T, conn *sql.Conn, query string, args ...any) {
+// insertSessionOnConn adds one long-lived session row through conn,
+// failing the test on error.
+func insertSessionOnConn(t *testing.T, conn *sql.Conn, hash string) {
 	t.Helper()
-	if _, err := conn.ExecContext(context.Background(), query, args...); err != nil {
+	if _, err := conn.ExecContext(context.Background(), `INSERT INTO sessions
+	    (token_hash, username, password_fingerprint, created_at, expires_at)
+	    VALUES (?, 'test-user', 'fp', 1, 4102444800)`, hash); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -338,9 +336,12 @@ func writeUnflushedSessions(t *testing.T, dir string) (string, []byte) {
 	if _, err := db.Exec("PRAGMA wal_autocheckpoint(0)"); err != nil {
 		t.Fatal(err)
 	}
-	execOnConn(t, conn, "PRAGMA wal_autocheckpoint(0)")
+	if _, err := conn.ExecContext(context.Background(),
+		"PRAGMA wal_autocheckpoint(0)"); err != nil {
+		t.Fatal(err)
+	}
 	for i := 0; i < 50; i++ {
-		execOnConn(t, conn, insertSessionSQL, fmt.Sprintf("hash-%d", i), 4102444800)
+		insertSessionOnConn(t, conn, "hash-"+strconv.Itoa(i))
 	}
 	// Copy the WAL whilst the connection is open: an unclean stop.
 	wal, err := os.ReadFile(path + "-wal")
