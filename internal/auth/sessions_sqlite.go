@@ -13,6 +13,7 @@ package auth
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"time"
 )
@@ -95,8 +96,19 @@ func (q *sqliteSessionStore) DeleteUser(username string) error {
 	return err
 }
 
-func (q *sqliteSessionStore) Sweep(now time.Time) error {
-	_, err := q.db.ExecContext(context.Background(),
-		`DELETE FROM sessions WHERE expires_at <= ?`, now.UnixNano())
+func (q *sqliteSessionStore) Sweep(now time.Time, activeUsers []string) error {
+	if activeUsers == nil {
+		activeUsers = []string{}
+	}
+	// The names travel as one JSON array, which avoids a bound-parameter
+	// limit on large user files.
+	names, err := json.Marshal(activeUsers)
+	if err != nil {
+		return err
+	}
+	_, err = q.db.ExecContext(context.Background(),
+		`DELETE FROM sessions WHERE expires_at <= ?
+            OR username NOT IN (SELECT value FROM json_each(?))`,
+		now.UnixNano(), string(names))
 	return err
 }

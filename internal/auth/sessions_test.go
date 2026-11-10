@@ -218,7 +218,7 @@ func TestSessions_ExpiredRejectedAndSwept(t *testing.T) {
 		_ = ss.Create(Session{TokenHash: HashToken("old2"), Username: "bob",
 			CreatedAt: now.Add(-2 * time.Hour), ExpiresAt: now.Add(-time.Hour)})
 		live := login(t, us, "alice")
-		if err := ss.Sweep(time.Now()); err != nil {
+		if err := ss.Sweep(time.Now(), []string{"alice", "bob"}); err != nil {
 			t.Fatal(err)
 		}
 		if _, ok, _ := ss.Get(HashToken("old2")); ok {
@@ -372,18 +372,108 @@ func TestSessions_TokenNotOnDisk(t *testing.T) {
 	mustAdd(t, us, "alice")
 	tok := login(t, us, "alice")
 
+	// The row may still be in the write-ahead log or already in the main
+	// file, so look at both together.
+	var all []byte
 	for _, p := range []string{path, path + "-wal"} {
 		data, err := os.ReadFile(p)
-		if err != nil {
-			continue
+		if err != nil && !os.IsNotExist(err) {
+			t.Fatal(err)
 		}
-		if bytes.Contains(data, []byte(tok)) {
-			t.Errorf("raw token found in %s", p)
-		}
-		if !bytes.Contains(data, []byte(HashToken(tok))) && p == path+"-wal" {
-			t.Logf("hash not in %s (may be checkpointed)", p)
-		}
+		all = append(all, data...)
 	}
+	if !bytes.Contains(all, []byte(HashToken(tok))) {
+		t.Fatal("session row (token hash) never reached disk; test would be vacuous")
+	}
+	if bytes.Contains(all, []byte(tok)) {
+		t.Error("raw token found on disk")
+	}
+}
+
+// startedWhileStopped sets up alice and bob with live sessions in auth.db,
+// closes the database, lets change edit the users file as an offline
+// command would, then reopens everything and starts the sweeper.
+func startedWhileStopped(t *testing.T, change func(offline *UserStore)) (us *UserStore, aliceTok, bobTok string) {
+	t.Helper()
+	dir := t.TempDir()
+	usersPath := filepath.Join(dir, "users.yaml")
+
+	db, _, err := authdb.Open(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	first := InitializeUserStore()
+	first.SetSessionStore(NewSQLiteSessionStore(db))
+	mustAdd(t, first, "alice")
+	mustAdd(t, first, "bob")
+	if err := SaveUserStore(usersPath, first); err != nil {
+		t.Fatal(err)
+	}
+	aliceTok, bobTok = login(t, first, "alice"), login(t, first, "bob")
+	if err := db.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	offline, err := LoadUserStore(usersPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	change(offline)
+	if err := SaveUserStore(usersPath, offline); err != nil {
+		t.Fatal(err)
+	}
+
+	us, _ = reopen(t, dir, usersPath)
+	stop := us.StartSessionSweeper(time.Hour)
+	t.Cleanup(stop)
+	return us, aliceTok, bobTok
+}
+
+func TestSessions_DisabledWhileClosedStaysRevoked(t *testing.T) {
+	us, aliceTok, bobTok := startedWhileStopped(t, func(o *UserStore) {
+		if err := o.DisableUser("alice"); err != nil {
+			t.Fatal(err)
+		}
+	})
+
+	if _, ok, _ := us.sessionStore().Get(HashToken(aliceTok)); ok {
+		t.Error("disabled user's session row survived startup")
+	}
+	if err := us.EnableUser("alice"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := us.ValidateSessionToken(aliceTok); err == nil {
+		t.Fatal("re-enabling revived a session from before the disable")
+	}
+	if u, err := us.ValidateSessionToken(bobTok); err != nil || u != "bob" {
+		t.Fatalf("live user's session lost: %q %v", u, err)
+	}
+}
+
+func TestSessions_DeletedWhileClosedRowRemoved(t *testing.T) {
+	us, aliceTok, bobTok := startedWhileStopped(t, func(o *UserStore) {
+		if err := o.RemoveUser("alice"); err != nil {
+			t.Fatal(err)
+		}
+	})
+
+	if _, ok, _ := us.sessionStore().Get(HashToken(aliceTok)); ok {
+		t.Error("deleted user's session row survived startup")
+	}
+	if u, err := us.ValidateSessionToken(bobTok); err != nil || u != "bob" {
+		t.Fatalf("live user's session lost: %q %v", u, err)
+	}
+}
+
+func TestSessions_SweepKeepsLiveUsers(t *testing.T) {
+	forEachBackend(t, func(t *testing.T, us *UserStore, ss SessionStore) {
+		tok := login(t, us, "alice")
+		stop := us.StartSessionSweeper(time.Hour)
+		defer stop()
+		if u, err := us.ValidateSessionToken(tok); err != nil || u != "alice" {
+			t.Fatalf("live session swept: %q %v", u, err)
+		}
+	})
 }
 
 // countingStore counts Create calls.

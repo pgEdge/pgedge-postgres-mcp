@@ -110,6 +110,28 @@ func (s *UserStore) StartSessionSweeper(interval time.Duration) (stop func()) {
 	done := make(chan struct{})
 	var once sync.Once
 	ss := s.sessionStore()
+	sweep := func(now time.Time) {
+		// Take the list of enabled users under the lock, then release
+		// it before the database call.
+		s.mu.RLock()
+		active := make([]string, 0, len(s.Users))
+		for name, u := range s.Users {
+			if u.Enabled {
+				active = append(active, name)
+			}
+		}
+		s.mu.RUnlock()
+
+		if err := ss.Sweep(now, active); err != nil {
+			log.Printf("[AUTH] Failed to sweep sessions: %v", err)
+		}
+	}
+
+	// Sweep once before returning, so sessions of users disabled or
+	// deleted whilst the server was stopped are gone before it serves
+	// anything and cannot return when the user is enabled again.
+	sweep(time.Now())
+
 	go func() {
 		ticker := time.NewTicker(interval)
 		defer ticker.Stop()
@@ -118,9 +140,7 @@ func (s *UserStore) StartSessionSweeper(interval time.Duration) (stop func()) {
 			case <-done:
 				return
 			case now := <-ticker.C:
-				if err := ss.Sweep(now); err != nil {
-					log.Printf("[AUTH] Failed to sweep sessions: %v", err)
-				}
+				sweep(now)
 			}
 		}
 	}()

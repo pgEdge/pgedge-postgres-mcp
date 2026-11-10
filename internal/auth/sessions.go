@@ -45,8 +45,9 @@ type SessionStore interface {
 	Delete(tokenHash string) error
 	// DeleteUser removes every session belonging to username.
 	DeleteUser(username string) error
-	// Sweep removes every session that had expired by now.
-	Sweep(now time.Time) error
+	// Sweep removes, in one step, every session that had expired by now
+	// and every session whose user is not in activeUsers.
+	Sweep(now time.Time, activeUsers []string) error
 }
 
 // passwordFingerprint returns the hex SHA-256 of a stored bcrypt hash.
@@ -127,11 +128,15 @@ func (m *memorySessionStore) DeleteUser(username string) error {
 	return nil
 }
 
-func (m *memorySessionStore) Sweep(now time.Time) error {
+func (m *memorySessionStore) Sweep(now time.Time, activeUsers []string) error {
+	active := make(map[string]struct{}, len(activeUsers))
+	for _, u := range activeUsers {
+		active[u] = struct{}{}
+	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	for h, s := range m.sessions {
-		if !s.ExpiresAt.After(now) {
+		if _, ok := active[s.Username]; !ok || !s.ExpiresAt.After(now) {
 			delete(m.sessions, h)
 		}
 	}
