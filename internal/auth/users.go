@@ -15,6 +15,7 @@ import (
 	"crypto/subtle"
 	"encoding/base64"
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 	"sync"
@@ -38,8 +39,6 @@ type User struct {
 	Enabled        bool       `yaml:"enabled"`         // Whether the user is enabled
 	Annotation     string     `yaml:"annotation"`      // User note/description
 	FailedAttempts int        `yaml:"failed_attempts"` // Count of consecutive failed login attempts
-	SessionToken   string     `yaml:"-"`               // Current session token (not persisted)
-	SessionExpires *time.Time `yaml:"-"`               // Session expiration (not persisted)
 }
 
 // UserStore manages user accounts
@@ -58,6 +57,74 @@ type UserStore struct {
 	// remaining usable until they expire. It is always called with no
 	// lock held.
 	onRevoked func(username string)
+
+	// sessions holds password-login sessions. It is a memory store,
+	// created on first use, unless SetSessionStore installed another.
+	// Guarded by mu.
+	sessions SessionStore
+}
+
+// SetSessionStore installs the store password-login sessions live in.
+// Call it before the store is used; a UserStore with none set keeps
+// sessions in memory.
+func (s *UserStore) SetSessionStore(ss SessionStore) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	s.sessions = ss
+}
+
+// sessionStore returns the session store, creating the in-memory default
+// on first use.
+func (s *UserStore) sessionStore() SessionStore {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if s.sessions == nil {
+		s.sessions = NewMemorySessionStore()
+	}
+	return s.sessions
+}
+
+// deleteSessions removes every session of the named users. Failures are
+// logged rather than returned, since the callers are revocation paths
+// that must carry on. Callers must not hold s.mu.
+func (s *UserStore) deleteSessions(usernames ...string) {
+	ss := s.sessionStore()
+	for _, username := range usernames {
+		if username == "" {
+			continue
+		}
+		if err := ss.DeleteUser(username); err != nil {
+			log.Printf("[AUTH] Failed to delete sessions for %q: %v", username, err)
+		}
+	}
+}
+
+// StartSessionSweeper removes expired sessions every interval until the
+// returned function is called, which is safe to call more than once.
+func (s *UserStore) StartSessionSweeper(interval time.Duration) (stop func()) {
+	if interval <= 0 {
+		return func() {}
+	}
+	done := make(chan struct{})
+	var once sync.Once
+	ss := s.sessionStore()
+	go func() {
+		ticker := time.NewTicker(interval)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-done:
+				return
+			case now := <-ticker.C:
+				if err := ss.Sweep(now); err != nil {
+					log.Printf("[AUTH] Failed to sweep sessions: %v", err)
+				}
+			}
+		}
+	}()
+	return func() { once.Do(func() { close(done) }) }
 }
 
 // SetRevocationHook installs the callback described on
@@ -77,6 +144,9 @@ func (s *UserStore) notifyRevoked(usernames ...string) {
 	if len(usernames) == 0 {
 		return
 	}
+	// Password-login sessions go first, so that they are gone before any
+	// external hook runs.
+	s.deleteSessions(usernames...)
 	s.mu.RLock()
 	hook := s.onRevoked
 	s.mu.RUnlock()
@@ -187,25 +257,11 @@ func (s *UserStore) Reload() error {
 		newStore.Users = make(map[string]*User)
 	}
 
-	// Update the store with new data (with write lock)
-	// But preserve session tokens from the current in-memory users.
-	// The lock is released explicitly at the end, rather than by defer,
-	// because the revocation hook must not run under it.
+	// Update the store with new data (with write lock). The lock is
+	// released explicitly at the end, rather than by defer, because the
+	// revocation hook must not run under it. Sessions live in their own
+	// store and are checked against the new users at validation.
 	s.mu.Lock()
-
-	// Save current session tokens
-	sessionTokens := make(map[string]struct {
-		token   string
-		expires *time.Time
-	})
-	for username, user := range s.Users {
-		if user.SessionToken != "" {
-			sessionTokens[username] = struct {
-				token   string
-				expires *time.Time
-			}{user.SessionToken, user.SessionExpires}
-		}
-	}
 
 	// Note which users the reload has withdrawn access from, either by
 	// removing them from the file or by disabling them there, so their
@@ -220,16 +276,7 @@ func (s *UserStore) Reload() error {
 		}
 	}
 
-	// Update users
 	s.Users = newStore.Users
-
-	// Restore session tokens for users that still exist
-	for username, session := range sessionTokens {
-		if user, exists := s.Users[username]; exists {
-			user.SessionToken = session.token
-			user.SessionExpires = session.expires
-		}
-	}
 	s.mu.Unlock()
 
 	s.notifyRevoked(revoked...)
@@ -288,19 +335,21 @@ func (s *UserStore) AddUser(username, password, annotation string) error {
 	return nil
 }
 
-// UpdateUser updates an existing user's password and/or annotation
+// UpdateUser updates an existing user's password and/or annotation. A
+// changed password ends the user's password-login sessions.
 func (s *UserStore) UpdateUser(username, newPassword, newAnnotation string) error {
 	s.mu.Lock()
-	defer s.mu.Unlock()
 
 	user, exists := s.Users[username]
 	if !exists {
+		s.mu.Unlock()
 		return fmt.Errorf("user '%s' not found", username)
 	}
 
 	if newPassword != "" {
 		passwordHash, err := HashPassword(newPassword)
 		if err != nil {
+			s.mu.Unlock()
 			return err
 		}
 		user.PasswordHash = passwordHash
@@ -309,7 +358,11 @@ func (s *UserStore) UpdateUser(username, newPassword, newAnnotation string) erro
 	if newAnnotation != "" {
 		user.Annotation = newAnnotation
 	}
+	s.mu.Unlock()
 
+	if newPassword != "" {
+		s.deleteSessions(username)
+	}
 	return nil
 }
 
@@ -336,21 +389,31 @@ func (s *UserStore) RemoveUser(username string) error {
 	return nil
 }
 
-// AuthenticateUser verifies credentials and returns a session token
-// Returns the token and expiration time on success
-// maxFailedAttempts: if > 0, will disable account after N consecutive failed attempts
-func (s *UserStore) AuthenticateUser(username, password string, maxFailedAttempts int) (string, time.Time, error) {
+// VerifyCredentials checks the username and password, counting failures
+// and locking the account out after maxFailedAttempts (when > 0), and on
+// success records the login time and resets the failure counter. It
+// issues no session, which is what callers that mint their own
+// credentials, such as the OAuth login page, need.
+func (s *UserStore) VerifyCredentials(username, password string, maxFailedAttempts int) error {
+	_, err := s.verifyCredentials(username, password, maxFailedAttempts)
+	return err
+}
+
+// verifyCredentials is VerifyCredentials, additionally returning the
+// fingerprint of the password hash that was verified, so a session issued
+// afterwards is bound to that hash even if the password changes meanwhile.
+func (s *UserStore) verifyCredentials(username, password string, maxFailedAttempts int) (string, error) {
 	s.mu.Lock()
 
 	user, exists := s.Users[username]
 	if !exists {
 		s.mu.Unlock()
-		return "", time.Time{}, fmt.Errorf("invalid username or password")
+		return "", fmt.Errorf("invalid username or password")
 	}
 
 	if !user.Enabled {
 		s.mu.Unlock()
-		return "", time.Time{}, fmt.Errorf("user account is disabled")
+		return "", fmt.Errorf("user account is disabled")
 	}
 
 	// Verify password
@@ -366,26 +429,13 @@ func (s *UserStore) AuthenticateUser(username, password string, maxFailedAttempt
 		s.mu.Unlock()
 
 		// An automatic lockout withdraws access just as a manual
-		// disable does, so it revokes the account's tokens too.
+		// disable does, so it revokes the account's tokens and
+		// sessions too.
 		if lockedOut {
 			s.notifyRevoked(username)
 		}
-		return "", time.Time{}, fmt.Errorf("invalid username or password")
+		return "", fmt.Errorf("invalid username or password")
 	}
-
-	// Generate session token
-	token, err := GenerateSessionToken()
-	if err != nil {
-		s.mu.Unlock()
-		return "", time.Time{}, err
-	}
-
-	// Session valid for the default duration
-	expiration := time.Now().Add(DefaultSessionExpiration)
-
-	// Update user's session info (in memory only, not persisted)
-	user.SessionToken = token
-	user.SessionExpires = &expiration
 
 	// Update last login time (this will be persisted)
 	now := time.Now()
@@ -393,7 +443,40 @@ func (s *UserStore) AuthenticateUser(username, password string, maxFailedAttempt
 
 	// Reset failed attempts counter on successful login
 	user.FailedAttempts = 0
+	fingerprint := passwordFingerprint(user.PasswordHash)
 	s.mu.Unlock()
+
+	return fingerprint, nil
+}
+
+// AuthenticateUser verifies credentials and returns a session token
+// Returns the token and expiration time on success
+// maxFailedAttempts: if > 0, will disable account after N consecutive failed attempts
+func (s *UserStore) AuthenticateUser(username, password string, maxFailedAttempts int) (string, time.Time, error) {
+	fingerprint, err := s.verifyCredentials(username, password, maxFailedAttempts)
+	if err != nil {
+		return "", time.Time{}, err
+	}
+
+	token, err := GenerateSessionToken()
+	if err != nil {
+		return "", time.Time{}, err
+	}
+
+	// Session valid for the default duration
+	now := time.Now()
+	expiration := now.Add(DefaultSessionExpiration)
+
+	if err := s.sessionStore().Create(Session{
+		TokenHash:           HashToken(token),
+		Username:            username,
+		PasswordFingerprint: fingerprint,
+		CreatedAt:           now,
+		ExpiresAt:           expiration,
+	}); err != nil {
+		log.Printf("[AUTH] Failed to store session for %q: %v", username, err)
+		return "", time.Time{}, fmt.Errorf("failed to create session")
+	}
 
 	return token, expiration, nil
 }
@@ -425,34 +508,55 @@ func (s *UserStore) GetFailedAttempts(username string) (int, error) {
 	return user.FailedAttempts, nil
 }
 
-// ValidateSessionToken checks if a session token is valid for a user
+// ValidateSessionToken checks if a session token is valid for a user. A
+// session whose user is gone or disabled, or whose password has changed
+// since it was issued, is deleted as well as rejected.
 func (s *UserStore) ValidateSessionToken(token string) (string, error) {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
+	ss := s.sessionStore()
+	hash := HashToken(token)
 
-	if s.Users == nil {
+	session, found, err := ss.Get(hash)
+	if err != nil {
+		log.Printf("[AUTH] Failed to look up session: %v", err)
+		return "", fmt.Errorf("invalid session token")
+	}
+	if !found {
 		return "", fmt.Errorf("invalid session token")
 	}
 
-	// Find user with this session token using constant-time comparison
-	// to prevent timing attacks
-	for username, user := range s.Users {
-		if user.SessionToken != "" &&
-			subtle.ConstantTimeCompare([]byte(user.SessionToken), []byte(token)) == 1 {
-			// Check if token has expired
-			if user.SessionExpires == nil || user.SessionExpires.Before(time.Now()) {
-				return "", fmt.Errorf("session has expired")
-			}
-
-			if !user.Enabled {
-				return "", fmt.Errorf("user account is disabled")
-			}
-
-			return username, nil
-		}
+	if !session.ExpiresAt.After(time.Now()) {
+		return "", fmt.Errorf("session has expired")
 	}
 
-	return "", fmt.Errorf("invalid session token")
+	s.mu.RLock()
+	user, exists := s.Users[session.Username]
+	var (
+		enabled     bool
+		fingerprint string
+	)
+	if exists {
+		enabled = user.Enabled
+		fingerprint = passwordFingerprint(user.PasswordHash)
+	}
+	s.mu.RUnlock()
+
+	var reject error
+	switch {
+	case !exists:
+		reject = fmt.Errorf("invalid session token")
+	case !enabled:
+		reject = fmt.Errorf("user account is disabled")
+	case subtle.ConstantTimeCompare([]byte(fingerprint), []byte(session.PasswordFingerprint)) != 1:
+		reject = fmt.Errorf("invalid session token")
+	}
+	if reject != nil {
+		if err := ss.Delete(hash); err != nil {
+			log.Printf("[AUTH] Failed to delete session: %v", err)
+		}
+		return "", reject
+	}
+
+	return session.Username, nil
 }
 
 // ListUsers returns all users with their metadata

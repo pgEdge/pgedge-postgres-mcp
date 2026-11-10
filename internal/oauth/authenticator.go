@@ -51,7 +51,7 @@ type UserStoreAuthenticator struct {
 	// is applied.
 	RateLimiter *auth.RateLimiter
 
-	// MaxFailedAttempts is passed through to Users.AuthenticateUser; if
+	// MaxFailedAttempts is passed through to Users.VerifyCredentials; if
 	// greater than zero the account is disabled after that many
 	// consecutive failed attempts.
 	MaxFailedAttempts int
@@ -99,7 +99,7 @@ func (a *UserStoreAuthenticator) Authenticate(ctx context.Context, username, pas
 	// lockout threshold and so changes the answer.
 	verified := a.Users.CanVerifyPassword(username)
 
-	_, _, err := a.Users.AuthenticateUser(username, password, a.MaxFailedAttempts)
+	err := a.Users.VerifyCredentials(username, password, a.MaxFailedAttempts)
 	if err != nil {
 		if !verified {
 			equaliseFailedLogin(password)

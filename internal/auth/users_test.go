@@ -372,15 +372,12 @@ func TestAuthenticateUser(t *testing.T) {
 			t.Errorf("Expiration time not within expected range: %v", diff)
 		}
 
-		// Verify user's session info was updated
-		user := store.Users["testuser"]
-		if user.SessionToken != token {
-			t.Error("Session token not stored in user")
+		// Verify the session was stored
+		if _, ok, _ := store.sessionStore().Get(HashToken(token)); !ok {
+			t.Error("Session not stored")
 		}
 
-		if user.SessionExpires == nil {
-			t.Error("Session expiration not stored in user")
-		}
+		user := store.Users["testuser"]
 
 		if user.LastLogin == nil {
 			t.Error("Last login time not updated")
@@ -457,9 +454,10 @@ func TestValidateSessionToken(t *testing.T) {
 		token, _, _ := store.AuthenticateUser("testuser", "password123", 0)
 
 		// Manually set expiration to past
-		user := store.Users["testuser"]
-		pastTime := time.Now().Add(-1 * time.Hour)
-		user.SessionExpires = &pastTime
+		ss := store.sessionStore()
+		sess, _, _ := ss.Get(HashToken(token))
+		sess.ExpiresAt = time.Now().Add(-1 * time.Hour)
+		_ = ss.Create(sess)
 
 		_, err := store.ValidateSessionToken(token)
 		if err == nil {
