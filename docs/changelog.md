@@ -64,7 +64,10 @@ and this project adheres to
   stable release. The library no longer follows HTTP redirects from a
   provider endpoint, so an `ollama_url` or other base URL that relies
   on one (`http://` redirecting to `https://`, say) must now name the
-  final URL.
+  final URL. OpenAI `o1`, `o3` and `gpt-5` models now start on Chat
+  Completions rather than the Responses API, moving only when OpenAI
+  reports that a model needs it, so an OpenAI-compatible gateway must
+  serve `/v1/chat/completions` for those models too.
 
 ### Fixed
 
