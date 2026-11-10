@@ -286,6 +286,7 @@ The returned token is:
 - strongly random, cryptographically secure
 
 After 24 hours, the user is required to re-authenticate to get a new session token.
+A user may hold up to 10 sessions at once, for example on several devices.
 
 **Step 2: Use a Session Token to Authenticate**
 
@@ -308,6 +309,51 @@ curl -X POST http://localhost:8080/mcp/v1 \
   }'
 ```
 
+
+## Persistent Sessions and the auth.db File
+
+Password-login sessions survive a server restart. The server stores them
+in a SQLite database named `auth.db`, which sits in the data directory
+beside `conversations.db`. Set the data directory with the `data_dir`
+configuration option or the `PGEDGE_DATA_DIR` environment variable; the
+default is the `data` directory next to the server binary.
+
+The following points describe how the server manages `auth.db`:
+
+- The server creates the file on first start, with mode `0600`.
+- The file holds only the hashes of session tokens, never the tokens.
+- The server opens the file when HTTP and authentication are both enabled.
+- The server refuses to start if it cannot open or create the file.
+- Deleting the file whilst the server is stopped signs every user out.
+
+If the server cannot open `auth.db`, it exits with an error naming the
+file, in the form `ERROR: Failed to open auth database <path>: <reason>`.
+Check that the data directory exists and that the server can write to it.
+
+Each user may hold up to 10 sessions at once, and each lasts 24 hours.
+When a user logs in an eleventh time, the server ends the oldest session.
+The server also ends all of a user's sessions in the following cases:
+
+- An administrator disables the user.
+- An administrator deletes the user.
+- The user is locked out after too many failed login attempts.
+- The user's password changes.
+
+The server deletes expired sessions every minute, and once at start-up.
+
+!!! warning
+    The server permanently deletes the sessions and OAuth grants of any
+    user who is not present and enabled in the users file. It deletes
+    sessions at start-up and on each sweep, which runs every minute. It
+    deletes OAuth grants at start-up and whenever it reloads the users
+    file. If the users file is missing or emptied, even temporarily (for
+    example, because of a mis-mounted volume), the server signs everyone
+    out, and every user must log in again.
+
+When the server runs in a container, keep the data directory on a
+persistent volume. Otherwise, the sessions are lost when the container is
+replaced. For Helm deployments, see
+[Distributed Deployment](../advanced/distributed-deployment.md#helm-persistence-and-authdb).
 
 ## Authorization: Database Access Control
 
@@ -596,7 +642,7 @@ You can use the following command to update a user password:
   -password "NewSecurePassword456!"
 
 # Server reloads user file
-# Alice's active session remains valid
+# Alice's active sessions end
 # New password required for next login
 ```
 

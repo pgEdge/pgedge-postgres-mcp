@@ -35,6 +35,11 @@ and this project adheres to
   returns to the normal prompt. The collected lines are not added to the
   command history. This needs nothing from the terminal, so it behaves
   the same in every terminal emulator and on every platform. Fixes #57.
+- Password-login sessions now survive a server restart, and a user may
+  hold up to 10 at once, for example on several devices. The server
+  stores them in `auth.db` in the data directory, and refuses to start
+  if it cannot open that file. A session ends when its user is disabled,
+  deleted, locked out or given a new password. Fixes #289.
 
 ### Changed
 

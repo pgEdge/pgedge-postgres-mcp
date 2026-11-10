@@ -226,7 +226,8 @@ preferences:
 - **`PGEDGE_SECRET_FILE`**: Path to encryption secret file
 - **`PGEDGE_CUSTOM_DEFINITIONS_PATH`**: Path to custom prompts and
   resources definition file
-- **`PGEDGE_DATA_DIR`**: Data directory for conversation history
+- **`PGEDGE_DATA_DIR`**: Data directory for conversation history and
+  `auth.db`, which stores sessions and OAuth state
 
 If you run into issues with your environment variable settings, check:
 

@@ -280,6 +280,20 @@ that require durable storage. The init container writes the
 knowledge base file to the persistent volume on first
 deployment.
 
+### Helm Persistence and auth.db
+
+The server stores password-login sessions and OAuth state in `auth.db`,
+which lives in the data directory. The Helm chart mounts a `data` volume at
+`/var/lib/pgedge/mcp-server`. When `server.persistence.enabled` is `true`,
+that volume is a PersistentVolumeClaim; otherwise, it is an `emptyDir`
+volume that Kubernetes deletes when the pod is replaced.
+
+The chart does not set the data directory. The server then defaults to the
+`data` directory beside its binary, which is not on the mounted volume.
+Set `PGEDGE_DATA_DIR` to `/var/lib/pgedge/mcp-server` so that `auth.db`
+survives pod replacement. Without persistence, every pod replacement signs
+all users out and forces OAuth clients to register again.
+
 ### Horizontal Pod Autoscaler
 
 A Horizontal Pod Autoscaler scales the number of MCP server
@@ -349,6 +363,7 @@ authentication:
 - The auto-reload feature propagates credential changes
   without a restart.
 - Active sessions remain valid during a credential reload.
+- Each instance keeps sessions and OAuth state in its own `auth.db` file.
 
 ### Rate Limiting Considerations
 

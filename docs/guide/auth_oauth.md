@@ -147,6 +147,28 @@ points the client at the protected resource metadata:
 WWW-Authenticate: Bearer resource_metadata="http://localhost:8099/.well-known/oauth-protected-resource"
 ```
 
+## Persistent State
+
+The authorisation server keeps its state in `auth.db`, a SQLite database in
+the data directory beside `conversations.db`. The state includes client
+registrations, authorisation codes, device codes and access and refresh
+tokens. It survives a server restart, so signed-in clients stay signed in.
+
+The following points describe how OAuth uses `auth.db`:
+
+- The server stores only hashes of codes and tokens, never the values.
+- The server creates the file on first start, with mode `0600`.
+- The server refuses to start if it cannot open or create the file.
+- Deleting the file whilst the server is stopped signs every client out.
+- After the file is deleted, each client must register again.
+
+At start-up, the server deletes the OAuth tokens and codes of every user
+who is not present and enabled in the users file. This covers users that
+an administrator disabled or deleted whilst the server was stopped. If the
+users file is missing or emptied, even temporarily, every OAuth client is
+signed out. For the full behaviour and the data directory settings, see
+[Persistent Sessions and the auth.db File](authentication.md#persistent-sessions-and-the-authdb-file).
+
 ## Claude Desktop and Claude Mobile
 
 Add the server as a remote connector rather than a local `stdio`
