@@ -15,6 +15,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"sort"
 	"time"
 )
 
@@ -66,10 +67,19 @@ func (p *sqlitePersister) tx(fn func(persister) error) error {
 	if err != nil {
 		return err
 	}
+	// Roll back on any exit but a successful commit, a panic in fn
+	// included, so the connection is never returned with a transaction
+	// still open.
+	done := false
+	defer func() {
+		if !done {
+			_ = tx.Rollback()
+		}
+	}()
 	if err := fn(&sqlitePersister{x: tx}); err != nil {
-		_ = tx.Rollback()
 		return err
 	}
+	done = true
 	return tx.Commit()
 }
 
@@ -125,6 +135,34 @@ func (p *sqlitePersister) deleteDevice(hash string) error {
 	return p.exec(`DELETE FROM oauth_devices WHERE device_hash = ?`, hash)
 }
 
+func (p *sqlitePersister) putToken(t *Token) error {
+	issued, err := json.Marshal(t.Issued)
+	if err != nil {
+		return err
+	}
+	if t.Issued == nil {
+		issued = []byte("[]")
+	}
+	return p.exec(`INSERT OR REPLACE INTO oauth_tokens
+        (hash, client_id, subject, scope, expires_at, refresh_hash, is_refresh,
+         issued, family) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		t.Hash, t.ClientID, t.Subject, t.Scope, toNanos(t.ExpiresAt),
+		t.RefreshHash, boolToInt(t.IsRefresh), string(issued), t.Family)
+}
+
+func (p *sqlitePersister) deleteToken(hash string) error {
+	return p.exec(`DELETE FROM oauth_tokens WHERE hash = ?`, hash)
+}
+
+func (p *sqlitePersister) putRotated(hash string, r rotatedRefresh) error {
+	return p.exec(`INSERT OR REPLACE INTO oauth_rotated (hash, family, until)
+        VALUES (?, ?, ?)`, hash, r.Family, toNanos(r.Until))
+}
+
+func (p *sqlitePersister) deleteRotated(hash string) error {
+	return p.exec(`DELETE FROM oauth_rotated WHERE hash = ?`, hash)
+}
+
 func boolToInt(b bool) int {
 	if b {
 		return 1
@@ -136,7 +174,7 @@ func boolToInt(b bool) int {
 // deleted, and a table holding more rows than its limit is cut back to
 // the newest rows, the count being logged.
 func (p *sqlitePersister) load(s *Store, now time.Time) error {
-	if err := p.loadClients(s); err != nil {
+	if err := p.loadClients(s, now); err != nil {
 		return fmt.Errorf("load oauth_clients: %w", err)
 	}
 	if err := p.loadCodes(s, now); err != nil {
@@ -148,13 +186,31 @@ func (p *sqlitePersister) load(s *Store, now time.Time) error {
 	if err := p.loadDevices(s, now); err != nil {
 		return fmt.Errorf("load oauth_devices: %w", err)
 	}
+	if err := p.loadTokens(s, now); err != nil {
+		return fmt.Errorf("load oauth_tokens: %w", err)
+	}
+	if err := p.loadRotated(s, now); err != nil {
+		return fmt.Errorf("load oauth_rotated: %w", err)
+	}
 	return nil
 }
 
-func (p *sqlitePersister) loadClients(s *Store) error {
+// loadClients applies the idle-client expiry Sweep would, then reads the
+// rest. Clients holding a live token sort first, so that trimming to the
+// limit never takes one before a client with none, matching PutClient's
+// eviction rule; tokens of a client that had to go anyway are deleted by
+// loadTokens, so no live token outlasts its client.
+func (p *sqlitePersister) loadClients(s *Store, now time.Time) error {
+	const live = `EXISTS (SELECT 1 FROM oauth_tokens t
+        WHERE t.client_id = oauth_clients.id AND t.expires_at > ?)`
+	cutoff := now.Add(-(s.clientRetention + clientIdleGrace))
+	if err := p.exec(`DELETE FROM oauth_clients WHERE last_used < ? AND NOT `+live,
+		cutoff.UnixNano(), now.UnixNano()); err != nil {
+		return err
+	}
 	rows, err := p.x.QueryContext(context.Background(),
 		`SELECT id, name, redirect_uris, created_at, last_used FROM oauth_clients
-         ORDER BY last_used DESC, id`)
+         ORDER BY `+live+` DESC, last_used DESC, id`, now.UnixNano())
 	if err != nil {
 		return err
 	}
@@ -172,6 +228,7 @@ func (p *sqlitePersister) loadClients(s *Store) error {
 		}
 		if len(s.clients) >= s.limits.Clients {
 			drop = append(drop, c.ID)
+			s.trimmedClients[c.ID] = true
 			continue
 		}
 		if err := json.Unmarshal([]byte(uris), &c.RedirectURIs); err != nil {
@@ -308,11 +365,129 @@ func (p *sqlitePersister) dropOverLimit(table, col string, keys []string, s *Sto
 	if len(keys) == 0 {
 		return nil
 	}
-	for _, k := range keys {
-		if err := p.exec(`DELETE FROM `+table+` WHERE `+col+` = ?`, k); err != nil {
-			return err
+	if err := p.tx(func(tp persister) error {
+		for _, k := range keys {
+			if err := tp.(*sqlitePersister).exec(
+				`DELETE FROM `+table+` WHERE `+col+` = ?`, k); err != nil {
+				return err
+			}
 		}
+		return nil
+	}); err != nil {
+		return err
 	}
 	s.logError("oauth: %s held more rows than its limit; dropped the %d oldest", table, len(keys))
 	return nil
+}
+
+// loadTokens reads every token, then applies to them what Sweep would
+// (expiry, with its cascade) and the Tokens limit (keeping those that
+// expire last), so expired rows are neither usable nor counted. Tokens
+// whose client loadClients had to trim are removed too. The deletions go
+// to disk in one transaction. The revocation hook is deliberately not
+// called: nothing was usable before the store existed.
+func (p *sqlitePersister) loadTokens(s *Store, now time.Time) error {
+	rows, err := p.x.QueryContext(context.Background(),
+		`SELECT hash, client_id, subject, scope, expires_at, refresh_hash,
+                is_refresh, issued, family FROM oauth_tokens`)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var (
+			t         Token
+			expires   int64
+			isRefresh int
+			issued    string
+		)
+		if err := rows.Scan(&t.Hash, &t.ClientID, &t.Subject, &t.Scope, &expires,
+			&t.RefreshHash, &isRefresh, &issued, &t.Family); err != nil {
+			return err
+		}
+		if err := json.Unmarshal([]byte(issued), &t.Issued); err != nil {
+			return fmt.Errorf("token issued: %w", err)
+		}
+		if len(t.Issued) == 0 {
+			t.Issued = nil
+		}
+		t.ExpiresAt, t.IsRefresh = fromNanos(expires), isRefresh != 0
+		s.tokens[t.Hash] = &t
+	}
+	if err := rows.Err(); err != nil {
+		return err
+	}
+	_ = rows.Close()
+
+	w := &pendingWrites{}
+	for hash, t := range s.tokens {
+		if t.ExpiresAt.Before(now) || s.trimmedClients[t.ClientID] {
+			s.deleteTokenLocked(hash, w)
+		}
+	}
+	if over := len(s.tokens) - s.limits.Tokens; over > 0 {
+		keep := make([]*Token, 0, len(s.tokens))
+		for _, t := range s.tokens {
+			keep = append(keep, t)
+		}
+		sort.Slice(keep, func(i, j int) bool {
+			if !keep[i].ExpiresAt.Equal(keep[j].ExpiresAt) {
+				return keep[i].ExpiresAt.After(keep[j].ExpiresAt)
+			}
+			return keep[i].Hash < keep[j].Hash
+		})
+		for _, t := range keep[s.limits.Tokens:] {
+			s.deleteTokenLocked(t.Hash, w)
+		}
+		s.logError("oauth: oauth_tokens held more rows than its limit; dropped the %d oldest", over)
+	}
+	if len(w.fns) > 0 {
+		if err := p.tx(func(tp persister) error {
+			for _, fn := range w.fns {
+				if err := fn(tp); err != nil {
+					return err
+				}
+			}
+			return nil
+		}); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (p *sqlitePersister) loadRotated(s *Store, now time.Time) error {
+	if err := p.exec(`DELETE FROM oauth_rotated WHERE until < ?`, now.UnixNano()); err != nil {
+		return err
+	}
+	rows, err := p.x.QueryContext(context.Background(),
+		`SELECT hash, family, until FROM oauth_rotated ORDER BY until DESC, hash`)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	var drop []string
+	for rows.Next() {
+		var (
+			hash  string
+			r     rotatedRefresh
+			until int64
+		)
+		if err := rows.Scan(&hash, &r.Family, &until); err != nil {
+			return err
+		}
+		if len(s.rotated) >= s.limits.Tokens {
+			drop = append(drop, hash)
+			continue
+		}
+		r.Until = fromNanos(until)
+		s.rotated[hash] = &r
+	}
+	if err := rows.Err(); err != nil {
+		return err
+	}
+	_ = rows.Close()
+	return p.dropOverLimit("oauth_rotated", "hash", drop, s)
 }

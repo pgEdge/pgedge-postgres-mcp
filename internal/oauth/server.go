@@ -14,6 +14,7 @@
 package oauth
 
 import (
+	"database/sql"
 	"errors"
 	"net/http"
 	"time"
@@ -74,6 +75,12 @@ type Options struct {
 	// "/oauth/callback", added by main.
 	ExtraRedirects []string
 
+	// DB, when set, is an auth.db opened with authdb.Open; the OAuth
+	// store then persists its state to it and starts from what it
+	// holds. May be nil, giving a purely in-memory store. The caller
+	// owns it: Close does not close it.
+	DB *sql.DB
+
 	// Logger receives diagnostic messages, in the style of log.Printf.
 	// May be nil, in which case messages are discarded.
 	Logger func(format string, args ...any)
@@ -118,9 +125,20 @@ func New(opts Options) (*Server, error) {
 		return nil, err
 	}
 
+	var store *Store
+	if opts.DB != nil {
+		store, err = NewPersistentStore(opts.DB, DefaultLimits,
+			opts.Config.RefreshTokenLifetime, opts.Logger)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		store = NewStore(DefaultLimits, opts.Config.RefreshTokenLifetime)
+	}
+
 	s := &Server{
 		opts:  opts,
-		store: NewStore(DefaultLimits, opts.Config.RefreshTokenLifetime),
+		store: store,
 		csrf:  signer,
 		page:  page,
 	}

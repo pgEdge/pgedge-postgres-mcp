@@ -136,6 +136,11 @@ type Store struct {
 	usedCodes map[string]*usedCode
 	rotated   map[string]*rotatedRefresh
 
+	// trimmedClients holds the ids of clients load dropped for being
+	// over the limit, so that loadTokens can drop their tokens too. It
+	// is only used during load.
+	trimmedClients map[string]bool
+
 	// onRevoke, when set, is called with the access token hashes that a
 	// deletion, revocation or sweep has just made unusable, so that the
 	// per-token resources keyed on those hashes (database connection
@@ -204,6 +209,7 @@ func newStore(limits Limits, clientRetention time.Duration, p persister,
 		tokens:          make(map[string]*Token),
 		usedCodes:       make(map[string]*usedCode),
 		rotated:         make(map[string]*rotatedRefresh),
+		trimmedClients:  make(map[string]bool),
 	}
 }
 
@@ -359,16 +365,22 @@ func (s *Store) MarkRefreshRotated(hash, family string, until time.Time) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
+	// The record applies in memory even when it cannot be written: it
+	// guards against replay, so it is never dropped for want of a disk.
+	w := &pendingWrites{}
 	if _, exists := s.rotated[hash]; !exists && len(s.rotated) >= s.limits.Tokens {
-		s.evictOldestRotatedLocked()
+		s.evictOldestRotatedLocked(w)
 	}
-	s.rotated[hash] = &rotatedRefresh{Family: family, Until: until}
+	r := rotatedRefresh{Family: family, Until: until}
+	w.add(func(p persister) error { return p.putRotated(hash, r) })
+	s.rotated[hash] = &r
+	s.commitLocked(w, "persist rotated refresh token")
 }
 
 // evictOldestRotatedLocked removes the rotation record whose retention
 // ends soonest, which is the one closest to being swept anyway.
 // Callers must hold s.mu.
-func (s *Store) evictOldestRotatedLocked() {
+func (s *Store) evictOldestRotatedLocked(w *pendingWrites) {
 	var (
 		oldestHash string
 		oldest     time.Time
@@ -380,6 +392,7 @@ func (s *Store) evictOldestRotatedLocked() {
 		}
 	}
 	if found {
+		w.add(func(p persister) error { return p.deleteRotated(oldestHash) })
 		delete(s.rotated, oldestHash)
 	}
 }
@@ -405,6 +418,7 @@ func (s *Store) RotatedRefreshFamily(hash string) (family string, ok bool) {
 func (s *Store) DeleteFamily(family string) []string {
 	s.mu.Lock()
 	var revoked []string
+	w := &pendingWrites{}
 	if family != "" {
 		for hash, t := range s.tokens {
 			if t.Family != family {
@@ -413,9 +427,10 @@ func (s *Store) DeleteFamily(family string) []string {
 			if !t.IsRefresh {
 				revoked = append(revoked, hash)
 			}
-			delete(s.tokens, hash)
+			s.removeTokenLocked(hash, w)
 		}
 	}
+	s.commitLocked(w, "delete token family")
 	s.mu.Unlock()
 
 	s.notifyRevoked(revoked)
@@ -431,6 +446,7 @@ func (s *Store) DeleteFamily(family string) []string {
 func (s *Store) DeleteBySubject(subject string) []string {
 	s.mu.Lock()
 	var revoked []string
+	w := &pendingWrites{}
 	if subject != "" {
 		for hash, t := range s.tokens {
 			if t.Subject != subject {
@@ -439,19 +455,22 @@ func (s *Store) DeleteBySubject(subject string) []string {
 			if !t.IsRefresh {
 				revoked = append(revoked, hash)
 			}
-			delete(s.tokens, hash)
+			s.removeTokenLocked(hash, w)
 		}
 		for hash, c := range s.codes {
 			if c.Subject == subject {
+				h := hash
+				w.add(func(p persister) error { return p.deleteCode(h) })
 				delete(s.codes, hash)
 			}
 		}
 		for hash, d := range s.devices {
 			if d.Subject == subject {
-				s.deleteDeviceLocked(hash)
+				s.deleteDeviceLocked(hash, w)
 			}
 		}
 	}
+	s.commitLocked(w, "delete tokens, codes and devices of subject")
 	s.mu.Unlock()
 
 	s.notifyRevoked(revoked)
@@ -675,16 +694,17 @@ func (s *Store) DeleteDevice(hash string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	s.deleteDeviceLocked(hash)
+	w := &pendingWrites{}
+	s.deleteDeviceLocked(hash, w)
+	s.commitLocked(w, "delete device code")
 }
 
-// deleteDeviceLocked implements DeleteDevice; callers must hold s.mu.
-// The memory change is made even if the write fails, so a device code
-// that could not be removed from disk is still unusable now.
-func (s *Store) deleteDeviceLocked(hash string) {
-	if err := s.p.deleteDevice(hash); err != nil {
-		s.logError("oauth: delete device code: %v", err)
-	}
+// deleteDeviceLocked removes the device code from memory and queues its
+// row deletion on w; callers must hold s.mu and commit w. The memory
+// change is made even if the write later fails, so a device code that
+// could not be removed from disk is still unusable now.
+func (s *Store) deleteDeviceLocked(hash string, w *pendingWrites) {
+	w.add(func(p persister) error { return p.deleteDevice(hash) })
 	if d, ok := s.devices[hash]; ok {
 		delete(s.userCodes, d.UserCode)
 	}
@@ -740,7 +760,9 @@ func (s *Store) TakeDeviceIfApproved(hash string) (d *DeviceCode, ok bool) {
 		return nil, false
 	}
 	cp := cloneDeviceCode(dev)
-	s.deleteDeviceLocked(hash)
+	w := &pendingWrites{}
+	s.deleteDeviceLocked(hash, w)
+	s.commitLocked(w, "delete device code")
 	return cp, true
 }
 
@@ -753,6 +775,9 @@ func (s *Store) PutToken(t *Token) error {
 
 	if _, exists := s.tokens[t.Hash]; !exists && len(s.tokens) >= s.limits.Tokens {
 		return ErrStoreFull
+	}
+	if err := s.p.putToken(t); err != nil {
+		return err
 	}
 	s.tokens[t.Hash] = cloneToken(t)
 	return nil
@@ -777,7 +802,9 @@ func (s *Store) GetToken(hash string) (*Token, bool) {
 // to the revocation hook.
 func (s *Store) DeleteToken(hash string) []string {
 	s.mu.Lock()
-	revoked := s.deleteTokenLocked(hash)
+	w := &pendingWrites{}
+	revoked := s.deleteTokenLocked(hash, w)
+	s.commitLocked(w, "delete token")
 	s.mu.Unlock()
 
 	s.notifyRevoked(revoked)
@@ -800,31 +827,41 @@ func (s *Store) TakeToken(hash string) (*Token, bool) {
 		return nil, false
 	}
 	cp := cloneToken(t)
-	revoked := s.deleteTokenLocked(hash)
+	w := &pendingWrites{}
+	revoked := s.deleteTokenLocked(hash, w)
+	s.commitLocked(w, "delete token")
 	s.mu.Unlock()
 
 	s.notifyRevoked(revoked)
 	return cp, true
 }
 
+// removeTokenLocked deletes one token from memory and queues the
+// deletion of its row on w. Callers must hold s.mu.
+func (s *Store) removeTokenLocked(hash string, w *pendingWrites) {
+	w.add(func(p persister) error { return p.deleteToken(hash) })
+	delete(s.tokens, hash)
+}
+
 // deleteTokenLocked implements DeleteToken, returning the hashes of the
 // access tokens it removed (the token itself when it is an access
-// token, or every access token cascaded from a refresh token); callers
-// must hold s.mu.
-func (s *Store) deleteTokenLocked(hash string) []string {
+// token, or every access token cascaded from a refresh token). The
+// memory change is made at once and the row changes queued on w, which
+// the caller commits as one transaction. Callers must hold s.mu.
+func (s *Store) deleteTokenLocked(hash string, w *pendingWrites) []string {
 	t, ok := s.tokens[hash]
 	if !ok {
 		return nil
 	}
-	delete(s.tokens, hash)
+	s.removeTokenLocked(hash, w)
 
 	if t.IsRefresh {
 		var revoked []string
 		for _, issued := range t.Issued {
 			if _, present := s.tokens[issued]; present {
 				revoked = append(revoked, issued)
+				s.removeTokenLocked(issued, w)
 			}
-			delete(s.tokens, issued)
 		}
 		return revoked
 	}
@@ -836,6 +873,8 @@ func (s *Store) deleteTokenLocked(hash string) []string {
 		for i, h := range parent.Issued {
 			if h == hash {
 				parent.Issued = append(parent.Issued[:i], parent.Issued[i+1:]...)
+				snapshot := cloneToken(parent)
+				w.add(func(p persister) error { return p.putToken(snapshot) })
 				break
 			}
 		}
@@ -853,35 +892,36 @@ func (s *Store) deleteTokenLocked(hash string) []string {
 func (s *Store) Sweep(now time.Time) []string {
 	s.mu.Lock()
 
+	w := &pendingWrites{}
 	for hash, c := range s.codes {
 		if c.ExpiresAt.Before(now) {
-			if err := s.p.deleteCode(hash); err != nil {
-				s.logError("oauth: sweep authorisation code: %v", err)
-			}
+			h := hash
+			w.add(func(p persister) error { return p.deleteCode(h) })
 			delete(s.codes, hash)
 		}
 	}
 	for hash, d := range s.devices {
 		if d.ExpiresAt.Before(now) {
-			s.deleteDeviceLocked(hash)
+			s.deleteDeviceLocked(hash, w)
 		}
 	}
 	var revoked []string
 	for hash, t := range s.tokens {
 		if t.ExpiresAt.Before(now) {
-			revoked = append(revoked, s.deleteTokenLocked(hash)...)
+			revoked = append(revoked, s.deleteTokenLocked(hash, w)...)
 		}
 	}
 	for hash, u := range s.usedCodes {
 		if u.Until.Before(now) {
-			if err := s.p.deleteUsedCode(hash); err != nil {
-				s.logError("oauth: sweep used authorisation code: %v", err)
-			}
+			h := hash
+			w.add(func(p persister) error { return p.deleteUsedCode(h) })
 			delete(s.usedCodes, hash)
 		}
 	}
 	for hash, r := range s.rotated {
 		if r.Until.Before(now) {
+			h := hash
+			w.add(func(p persister) error { return p.deleteRotated(h) })
 			delete(s.rotated, hash)
 		}
 	}
@@ -893,12 +933,13 @@ func (s *Store) Sweep(now time.Time) []string {
 	live := s.clientsWithLiveTokensLocked(now)
 	for id, c := range s.clients {
 		if c.LastUsed.Before(cutoff) && !live[id] {
-			if err := s.p.deleteClient(id); err != nil {
-				s.logError("oauth: sweep client: %v", err)
-			}
+			cid := id
+			w.add(func(p persister) error { return p.deleteClient(cid) })
 			delete(s.clients, id)
 		}
 	}
+	// One transaction for the whole pass.
+	s.commitLocked(w, "sweep")
 	s.mu.Unlock()
 
 	s.notifyRevoked(revoked)
