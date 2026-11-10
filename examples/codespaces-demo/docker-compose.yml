@@ -80,7 +80,7 @@ services:
             - pgedge-quickstart
         restart: unless-stopped
         healthcheck:
-            test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+            test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:8080/health"]
             interval: 10s
             timeout: 5s
             retries: 5
@@ -99,7 +99,7 @@ services:
             - pgedge-quickstart
         restart: unless-stopped
         healthcheck:
-            test: ["CMD", "curl", "-f", "http://localhost:8081/health"]
+            test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:8081/health"]
             interval: 10s
             timeout: 5s
             retries: 5

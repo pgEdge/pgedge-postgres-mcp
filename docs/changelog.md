@@ -69,6 +69,17 @@ and this project adheres to
   reports that a model needs it, so an OpenAI-compatible gateway must
   serve `/chat/completions` beneath the configured base URL for those
   models too.
+- The container images now use smaller runtime bases, which clears the
+  operating system CVEs that Red Hat UBI carried with no fix available.
+  The server image is based on Alpine, and switches to user 1001 with
+  `su-exec` rather than `runuser`; the optional knowledgebase is still
+  provisioned in a UBI build stage, but only `kb.db` is copied out of
+  it. The web client image is based on
+  `nginxinc/nginx-unprivileged:stable-alpine-slim` and runs nginx as
+  UID 101 rather than 1001. The CLI image is also based on Alpine.
+  The web client health checks in `docker-compose.yml` and the
+  quickstart and Codespaces demo compose files now use `wget`, since
+  the new image does not include `curl`.
 
 ### Fixed
 
