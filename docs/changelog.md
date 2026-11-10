@@ -79,11 +79,6 @@ and this project adheres to
   UID 101 rather than 1001. The CLI image is also based on Alpine.
   The web client health check in `docker-compose.yml` now uses `wget`,
   since the new image does not include `curl`.
-- Updated `golang.org/x/net` to v0.62.0 and `golang.org/x/crypto` to
-  v0.58.0, along with the `golang.org/x` modules they depend on, the
-  documentation build's `urllib3` to 2.8.0, and the minimum `mcp`
-  version for the Anthropic chatbot example to 1.30.0, to pick up
-  security fixes.
 
 ### Fixed
 
