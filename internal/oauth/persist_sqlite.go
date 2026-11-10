@@ -112,6 +112,26 @@ func (p *sqlitePersister) deleteUsedCode(codeHash string) error {
 	return p.exec(`DELETE FROM oauth_used_codes WHERE code_hash = ?`, codeHash)
 }
 
+func (p *sqlitePersister) putDevice(d *DeviceCode) error {
+	return p.exec(`INSERT OR REPLACE INTO oauth_devices
+        (device_hash, user_code, client_id, scope, subject, approved, denied,
+         expires_at, last_polled, interval_ns) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		d.DeviceHash, d.UserCode, d.ClientID, d.Scope, d.Subject,
+		boolToInt(d.Approved), boolToInt(d.Denied),
+		toNanos(d.ExpiresAt), toNanos(d.LastPolled), int64(d.Interval))
+}
+
+func (p *sqlitePersister) deleteDevice(hash string) error {
+	return p.exec(`DELETE FROM oauth_devices WHERE device_hash = ?`, hash)
+}
+
+func boolToInt(b bool) int {
+	if b {
+		return 1
+	}
+	return 0
+}
+
 // load reads every table into s's maps. Rows already expired at now are
 // deleted, and a table holding more rows than its limit is cut back to
 // the newest rows, the count being logged.
@@ -124,6 +144,9 @@ func (p *sqlitePersister) load(s *Store, now time.Time) error {
 	}
 	if err := p.loadUsedCodes(s, now); err != nil {
 		return fmt.Errorf("load oauth_used_codes: %w", err)
+	}
+	if err := p.loadDevices(s, now); err != nil {
+		return fmt.Errorf("load oauth_devices: %w", err)
 	}
 	return nil
 }
@@ -234,6 +257,48 @@ func (p *sqlitePersister) loadUsedCodes(s *Store, now time.Time) error {
 	}
 	_ = rows.Close()
 	return p.dropOverLimit("oauth_used_codes", "code_hash", drop, s)
+}
+
+// loadDevices also rebuilds s.userCodes, which is not stored.
+func (p *sqlitePersister) loadDevices(s *Store, now time.Time) error {
+	if err := p.exec(`DELETE FROM oauth_devices WHERE expires_at < ?`, now.UnixNano()); err != nil {
+		return err
+	}
+	rows, err := p.x.QueryContext(context.Background(),
+		`SELECT device_hash, user_code, client_id, scope, subject, approved, denied,
+                expires_at, last_polled, interval_ns
+         FROM oauth_devices ORDER BY expires_at DESC, device_hash`)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	var drop []string
+	for rows.Next() {
+		var (
+			d                         DeviceCode
+			approved, denied          int
+			expires, polled, interval int64
+		)
+		if err := rows.Scan(&d.DeviceHash, &d.UserCode, &d.ClientID, &d.Scope,
+			&d.Subject, &approved, &denied, &expires, &polled, &interval); err != nil {
+			return err
+		}
+		if len(s.devices) >= s.limits.DeviceCodes {
+			drop = append(drop, d.DeviceHash)
+			continue
+		}
+		d.Approved, d.Denied = approved != 0, denied != 0
+		d.ExpiresAt, d.LastPolled = fromNanos(expires), fromNanos(polled)
+		d.Interval = time.Duration(interval)
+		s.devices[d.DeviceHash] = &d
+		s.userCodes[d.UserCode] = d.DeviceHash
+	}
+	if err := rows.Err(); err != nil {
+		return err
+	}
+	_ = rows.Close()
+	return p.dropOverLimit("oauth_devices", "device_hash", drop, s)
 }
 
 // dropOverLimit deletes the rows in keys, which load found beyond the

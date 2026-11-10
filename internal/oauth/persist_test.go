@@ -267,3 +267,195 @@ func TestPersist_PlaintextNeverOnDisk(t *testing.T) {
 		t.Fatal("hash not found on disk; test is not looking at the data")
 	}
 }
+
+func newTestDevice(hash, userCode string, expires time.Time) *DeviceCode {
+	return &DeviceCode{
+		DeviceHash: hash, UserCode: userCode, ClientID: "client-a",
+		Scope: "mcp", ExpiresAt: expires, Interval: 5 * time.Second,
+	}
+}
+
+func TestPersist_DeviceRoundTrip(t *testing.T) {
+	dir := t.TempDir()
+	s, db := openPersistent(t, dir, DefaultLimits)
+	exp := time.Now().Add(10 * time.Minute).UTC()
+	if err := s.PutDeviceCode(newTestDevice("dh1", "ABCD-EFGH", exp)); err != nil {
+		t.Fatal(err)
+	}
+
+	s2, _ := reopen(t, dir, db)
+	d, ok := s2.GetDeviceByHash("dh1")
+	if !ok {
+		t.Fatal("device not found by hash after reopen")
+	}
+	if d.UserCode != "ABCD-EFGH" || d.ClientID != "client-a" || d.Scope != "mcp" ||
+		!d.ExpiresAt.Equal(exp) || d.Interval != 5*time.Second {
+		t.Fatalf("device changed across reopen: %+v", d)
+	}
+	if _, ok := s2.GetDeviceByUserCode("ABCD-EFGH"); !ok {
+		t.Fatal("device not found by user code after reopen")
+	}
+}
+
+func TestPersist_DeviceApprovalSurvivesReopen(t *testing.T) {
+	dir := t.TempDir()
+	s, db := openPersistent(t, dir, DefaultLimits)
+	_ = s.PutDeviceCode(newTestDevice("dh1", "ABCD-EFGH", time.Now().Add(time.Minute)))
+	if !s.ApproveDevice("dh1", "alice") {
+		t.Fatal("approve failed")
+	}
+
+	s2, _ := reopen(t, dir, db)
+	d, ok := s2.TakeDeviceIfApproved("dh1")
+	if !ok || d.Subject != "alice" || !d.Approved {
+		t.Fatalf("approved device lost across reopen: %+v ok=%v", d, ok)
+	}
+}
+
+func TestPersist_DeviceDenialSurvivesReopen(t *testing.T) {
+	dir := t.TempDir()
+	s, db := openPersistent(t, dir, DefaultLimits)
+	_ = s.PutDeviceCode(newTestDevice("dh1", "ABCD-EFGH", time.Now().Add(time.Minute)))
+	if !s.DenyDevice("dh1") {
+		t.Fatal("deny failed")
+	}
+
+	s2, _ := reopen(t, dir, db)
+	d, ok := s2.GetDeviceByHash("dh1")
+	if !ok || !d.Denied {
+		t.Fatalf("denial lost across reopen: %+v ok=%v", d, ok)
+	}
+	if _, ok := s2.TakeDeviceIfApproved("dh1"); ok {
+		t.Fatal("denied device was taken")
+	}
+}
+
+func TestPersist_DeviceTakenOnce(t *testing.T) {
+	dir := t.TempDir()
+	s, db := openPersistent(t, dir, DefaultLimits)
+	_ = s.PutDeviceCode(newTestDevice("dh1", "ABCD-EFGH", time.Now().Add(time.Minute)))
+	s.ApproveDevice("dh1", "alice")
+	if _, ok := s.TakeDeviceIfApproved("dh1"); !ok {
+		t.Fatal("first take failed")
+	}
+
+	s2, _ := reopen(t, dir, db)
+	if _, ok := s2.TakeDeviceIfApproved("dh1"); ok {
+		t.Fatal("device taken twice across reopen")
+	}
+	if _, ok := s2.GetDeviceByUserCode("ABCD-EFGH"); ok {
+		t.Fatal("user code survived the take")
+	}
+}
+
+func TestPersist_DeviceExpiredAtLoad(t *testing.T) {
+	dir := t.TempDir()
+	s, db := openPersistent(t, dir, DefaultLimits)
+	_ = s.PutDeviceCode(newTestDevice("old", "OLD1-OLD1", time.Now().Add(-time.Minute)))
+	_ = s.PutDeviceCode(newTestDevice("new", "NEW1-NEW1", time.Now().Add(time.Minute)))
+
+	s2, _ := reopen(t, dir, db)
+	if _, ok := s2.GetDeviceByHash("old"); ok {
+		t.Fatal("expired device usable after load")
+	}
+	if _, ok := s2.GetDeviceByUserCode("OLD1-OLD1"); ok {
+		t.Fatal("expired user code usable after load")
+	}
+	if _, ok := s2.GetDeviceByHash("new"); !ok {
+		t.Fatal("live device missing after load")
+	}
+}
+
+func TestPersist_DeviceUpdateAndPollPersist(t *testing.T) {
+	dir := t.TempDir()
+	s, db := openPersistent(t, dir, DefaultLimits)
+	exp := time.Now().Add(time.Minute)
+	_ = s.PutDeviceCode(newTestDevice("dh1", "ABCD-EFGH", exp))
+	upd := newTestDevice("dh1", "WXYZ-WXYZ", exp)
+	upd.Approved, upd.Subject = true, "alice"
+	if err := s.UpdateDevice(upd); err != nil {
+		t.Fatal(err)
+	}
+	polled := time.Now().Add(time.Hour).UTC()
+	if _, tooSoon, ok := s.TouchDevicePoll("dh1", polled); !ok || tooSoon {
+		t.Fatal("poll rejected")
+	}
+
+	s2, _ := reopen(t, dir, db)
+	d, ok := s2.GetDeviceByHash("dh1")
+	if !ok || d.UserCode != "WXYZ-WXYZ" || d.Subject != "alice" || !d.LastPolled.Equal(polled) {
+		t.Fatalf("update or poll lost: %+v ok=%v", d, ok)
+	}
+	if _, ok := s2.GetDeviceByUserCode("ABCD-EFGH"); ok {
+		t.Fatal("stale user code survived")
+	}
+}
+
+func TestPersist_DeviceSweepAndDeleteFromDisk(t *testing.T) {
+	dir := t.TempDir()
+	s, db := openPersistent(t, dir, DefaultLimits)
+	_ = s.PutDeviceCode(newTestDevice("old", "OLD1-OLD1", time.Now().Add(-time.Minute)))
+	_ = s.PutDeviceCode(newTestDevice("gone", "GONE-GONE", time.Now().Add(time.Hour)))
+	s.Sweep(time.Now())
+	s.DeleteDevice("gone")
+
+	var n int
+	if err := db.QueryRow(`SELECT COUNT(*) FROM oauth_devices`).Scan(&n); err != nil || n != 0 {
+		t.Fatalf("device rows left on disk: n=%d err=%v", n, err)
+	}
+}
+
+func TestPersist_DeviceWriteFailures(t *testing.T) {
+	dir := t.TempDir()
+	var logged int
+	db, _, err := authdb.Open(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s, err := NewPersistentStore(db, DefaultLimits, time.Hour,
+		func(string, ...any) { logged++ })
+	if err != nil {
+		t.Fatal(err)
+	}
+	exp := time.Now().Add(time.Hour)
+	_ = s.PutDeviceCode(newTestDevice("a", "AAAA-AAAA", exp))
+	_ = s.PutDeviceCode(newTestDevice("b", "BBBB-BBBB", exp))
+	_ = s.PutDeviceCode(newTestDevice("c", "CCCC-CCCC", exp))
+	_ = db.Close()
+
+	if err := s.PutDeviceCode(newTestDevice("n", "NNNN-NNNN", exp)); err == nil {
+		t.Fatal("PutDeviceCode should fail on closed database")
+	}
+	if _, ok := s.GetDeviceByHash("n"); ok {
+		t.Fatal("failed PutDeviceCode left the device in memory")
+	}
+	if err := s.UpdateDevice(newTestDevice("a", "ZZZZ-ZZZZ", exp)); err == nil {
+		t.Fatal("UpdateDevice should fail on closed database")
+	}
+	if d, _ := s.GetDeviceByHash("a"); d.UserCode != "AAAA-AAAA" {
+		t.Fatal("failed UpdateDevice changed memory")
+	}
+	if !s.ApproveDevice("a", "alice") {
+		t.Fatal("approve must apply in memory despite write failure")
+	}
+	if !s.DenyDevice("b") {
+		t.Fatal("deny must apply in memory despite write failure")
+	}
+	if _, ok := s.TakeDeviceIfApproved("a"); !ok {
+		t.Fatal("take should still succeed")
+	}
+	if _, ok := s.GetDeviceByHash("a"); ok {
+		t.Fatal("taken device still in memory after failed delete")
+	}
+	s.DeleteDevice("b")
+	if _, ok := s.GetDeviceByUserCode("BBBB-BBBB"); ok {
+		t.Fatal("deleted device still in memory after failed delete")
+	}
+	before := logged
+	if _, _, ok := s.TouchDevicePoll("c", time.Now().Add(time.Hour)); !ok {
+		t.Fatal("poll failed")
+	}
+	if logged == before {
+		t.Fatal("poll write failure not logged")
+	}
+}

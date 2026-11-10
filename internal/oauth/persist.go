@@ -22,6 +22,8 @@ type persister interface {
 	deleteCode(hash string) error
 	putUsedCode(codeHash string, u usedCode) error
 	deleteUsedCode(codeHash string) error
+	putDevice(d *DeviceCode) error
+	deleteDevice(hash string) error
 
 	// tx runs fn with a persister whose changes commit together, or are
 	// all rolled back when fn returns an error.
@@ -38,4 +40,6 @@ func (nopPersister) putCode(*AuthCode) error             { return nil }
 func (nopPersister) deleteCode(string) error             { return nil }
 func (nopPersister) putUsedCode(string, usedCode) error  { return nil }
 func (nopPersister) deleteUsedCode(string) error         { return nil }
+func (nopPersister) putDevice(*DeviceCode) error         { return nil }
+func (nopPersister) deleteDevice(string) error           { return nil }
 func (n nopPersister) tx(fn func(persister) error) error { return fn(n) }

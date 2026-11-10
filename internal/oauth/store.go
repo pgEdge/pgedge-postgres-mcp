@@ -547,6 +547,15 @@ func (s *Store) PutDeviceCode(d *DeviceCode) error {
 	if _, exists := s.devices[d.DeviceHash]; !exists && len(s.devices) >= s.limits.DeviceCodes {
 		return ErrStoreFull
 	}
+	// A hash already present may be replaced under a new user code; the
+	// old mapping must go with it so the index never goes stale.
+	old, replacing := s.devices[d.DeviceHash]
+	if err := s.p.putDevice(d); err != nil {
+		return err
+	}
+	if replacing && old.UserCode != d.UserCode {
+		delete(s.userCodes, old.UserCode)
+	}
 	s.devices[d.DeviceHash] = cloneDeviceCode(d)
 	s.userCodes[d.UserCode] = d.DeviceHash
 	return nil
@@ -584,20 +593,25 @@ func (s *Store) GetDeviceByUserCode(code string) (*DeviceCode, bool) {
 // UpdateDevice replaces the stored device code sharing d's DeviceHash. It
 // is a no-op if that hash is not present. If d.UserCode differs from the
 // stored record's, the userCodes index is re-keyed so it never goes
-// stale.
-func (s *Store) UpdateDevice(d *DeviceCode) {
+// stale. It returns an error, leaving memory unchanged, if the write to
+// durable storage fails.
+func (s *Store) UpdateDevice(d *DeviceCode) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	old, ok := s.devices[d.DeviceHash]
 	if !ok {
-		return
+		return nil
+	}
+	if err := s.p.putDevice(d); err != nil {
+		return err
 	}
 	if old.UserCode != d.UserCode {
 		delete(s.userCodes, old.UserCode)
 		s.userCodes[d.UserCode] = d.DeviceHash
 	}
 	s.devices[d.DeviceHash] = cloneDeviceCode(d)
+	return nil
 }
 
 // ApproveDevice marks the device code stored under hash as approved by
@@ -618,6 +632,9 @@ func (s *Store) ApproveDevice(hash, subject string) (ok bool) {
 	}
 	dev.Subject = subject
 	dev.Approved = true
+	if err := s.p.putDevice(dev); err != nil {
+		s.logError("oauth: persist device approval: %v", err)
+	}
 	return true
 }
 
@@ -635,6 +652,9 @@ func (s *Store) DenyDevice(hash string) (ok bool) {
 		return false
 	}
 	dev.Denied = true
+	if err := s.p.putDevice(dev); err != nil {
+		s.logError("oauth: persist device denial: %v", err)
+	}
 	return true
 }
 
@@ -648,7 +668,12 @@ func (s *Store) DeleteDevice(hash string) {
 }
 
 // deleteDeviceLocked implements DeleteDevice; callers must hold s.mu.
+// The memory change is made even if the write fails, so a device code
+// that could not be removed from disk is still unusable now.
 func (s *Store) deleteDeviceLocked(hash string) {
+	if err := s.p.deleteDevice(hash); err != nil {
+		s.logError("oauth: delete device code: %v", err)
+	}
 	if d, ok := s.devices[hash]; ok {
 		delete(s.userCodes, d.UserCode)
 	}
@@ -680,6 +705,11 @@ func (s *Store) TouchDevicePoll(hash string, now time.Time) (d *DeviceCode, tooS
 		// period shorter than Interval push the deadline out on every
 		// attempt, so it would be told to slow down for ever.
 		dev.LastPolled = now
+		// LastPolled is bookkeeping; losing it only lets one poll
+		// through early after a restart.
+		if err := s.p.putDevice(dev); err != nil {
+			s.logError("oauth: persist device poll time: %v", err)
+		}
 	}
 	return cloneDeviceCode(dev), tooSoon, true
 }
@@ -822,8 +852,7 @@ func (s *Store) Sweep(now time.Time) []string {
 	}
 	for hash, d := range s.devices {
 		if d.ExpiresAt.Before(now) {
-			delete(s.userCodes, d.UserCode)
-			delete(s.devices, hash)
+			s.deleteDeviceLocked(hash)
 		}
 	}
 	var revoked []string
