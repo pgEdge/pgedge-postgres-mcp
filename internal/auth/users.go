@@ -203,6 +203,11 @@ func (s *UserStore) IsActive(username string) bool {
 // OAuth authenticator runs for an unknown user, can match it.
 const BcryptCost = 12
 
+// hashCost is the cost HashPassword uses. It is BcryptCost except in this
+// package's tests, which lower it so that the race detector, which slows
+// bcrypt by an order of magnitude, does not push them past the timeout.
+var hashCost = BcryptCost
+
 // CanVerifyPassword reports whether AuthenticateUser would reach the
 // bcrypt comparison for username, which it does only for a user that
 // exists and is enabled. A caller that has just been told the
@@ -214,10 +219,9 @@ func (s *UserStore) CanVerifyPassword(username string) bool {
 	return s.IsActive(username)
 }
 
-// HashPassword creates a bcrypt hash of the password
-// Uses bcrypt cost of 12 for strong security
+// HashPassword creates a bcrypt hash of the password at BcryptCost.
 func HashPassword(password string) (string, error) {
-	hash, err := bcrypt.GenerateFromPassword([]byte(password), BcryptCost)
+	hash, err := bcrypt.GenerateFromPassword([]byte(password), hashCost)
 	if err != nil {
 		return "", fmt.Errorf("failed to hash password: %w", err)
 	}

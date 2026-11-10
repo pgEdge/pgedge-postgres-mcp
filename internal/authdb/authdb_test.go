@@ -252,12 +252,13 @@ func TestOpen_NewFileIsInWALMode(t *testing.T) {
 	}
 }
 
-// insertSessions writes n session rows through db, sending failures to errs.
-func insertSessions(db *sql.DB, name string, n int, errs chan<- error) {
-	for i := 0; i < n; i++ {
-		if _, err := db.Exec(`INSERT INTO sessions (token_hash, username,
-		    password_fingerprint, created_at, expires_at)
-		    VALUES (?, 'test-user', 'fp', 1, 2)`, name+"-"+strconv.Itoa(i)); err != nil {
+// insertSessions writes n session rows through db, hashed base to
+// base+n-1, sending failures to errs.
+func insertSessions(db *sql.DB, base, n int, errs chan<- error) {
+	for i := base; i < base+n; i++ {
+		hash := strconv.Itoa(i)
+		_, err := db.Exec("INSERT INTO sessions (token_hash, username, password_fingerprint, created_at, expires_at) VALUES (?, 'test-user', 'fp', 1, 2)", hash)
+		if err != nil {
 			errs <- err
 		}
 	}
@@ -289,11 +290,11 @@ func TestOpen_TwoHandlesWriteConcurrently(t *testing.T) {
 	const perHandle = 50
 	var wg sync.WaitGroup
 	errs := make(chan error, 2*perHandle)
-	for name, db := range map[string]*sql.DB{"a": a, "b": b} {
+	for i, db := range []*sql.DB{a, b} {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			insertSessions(db, name, perHandle, errs)
+			insertSessions(db, i*perHandle, perHandle, errs)
 		}()
 	}
 	wg.Wait()
@@ -307,13 +308,13 @@ func TestOpen_TwoHandlesWriteConcurrently(t *testing.T) {
 	}
 }
 
-// insertSessionOnConn adds one long-lived session row through conn,
-// failing the test on error.
-func insertSessionOnConn(t *testing.T, conn *sql.Conn, hash string) {
+// insertSessionOnConn adds one long-lived session row, hashed i, through
+// conn, failing the test on error.
+func insertSessionOnConn(t *testing.T, conn *sql.Conn, i int) {
 	t.Helper()
-	if _, err := conn.ExecContext(context.Background(), `INSERT INTO sessions
-	    (token_hash, username, password_fingerprint, created_at, expires_at)
-	    VALUES (?, 'test-user', 'fp', 1, 4102444800)`, hash); err != nil {
+	hash := strconv.Itoa(i)
+	_, err := conn.ExecContext(context.Background(), "INSERT INTO sessions (token_hash, username, password_fingerprint, created_at, expires_at) VALUES (?, 'test-user', 'fp', 1, 4102444800)", hash)
+	if err != nil {
 		t.Fatal(err)
 	}
 }
@@ -341,7 +342,7 @@ func writeUnflushedSessions(t *testing.T, dir string) (string, []byte) {
 		t.Fatal(err)
 	}
 	for i := 0; i < 50; i++ {
-		insertSessionOnConn(t, conn, "hash-"+strconv.Itoa(i))
+		insertSessionOnConn(t, conn, i)
 	}
 	// Copy the WAL whilst the connection is open: an unclean stop.
 	wal, err := os.ReadFile(path + "-wal")
