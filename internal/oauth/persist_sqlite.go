@@ -192,7 +192,42 @@ func (p *sqlitePersister) load(s *Store, now time.Time) error {
 	if err := p.loadRotated(s, now); err != nil {
 		return fmt.Errorf("load oauth_rotated: %w", err)
 	}
-	return nil
+	s.trimmedClients = nil
+	return p.dropReplayedLive(s)
+}
+
+// dropReplayedLive removes what a failed delete can leave beside its
+// replay record: a token whose hash is on the rotation list, and an
+// authorisation code whose hash is on the used-code list. Neither can be
+// legitimately live, and loading it so would let a stolen, already
+// spent credential through ahead of reuse detection. The records stay,
+// so presenting the credential is still recognised as reuse. A token's
+// cascade removes the access tokens it issued, as it did at runtime.
+func (p *sqlitePersister) dropReplayedLive(s *Store) error {
+	w := &pendingWrites{}
+	for hash := range s.rotated {
+		if _, live := s.tokens[hash]; live {
+			s.deleteTokenLocked(hash, w)
+		}
+	}
+	for hash := range s.usedCodes {
+		if _, live := s.codes[hash]; live {
+			h := hash
+			w.add(func(tp persister) error { return tp.deleteCode(h) })
+			delete(s.codes, hash)
+		}
+	}
+	if len(w.fns) == 0 {
+		return nil
+	}
+	return p.tx(func(tp persister) error {
+		for _, fn := range w.fns {
+			if err := fn(tp); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
 }
 
 // loadClients applies the idle-client expiry Sweep would, then reads the

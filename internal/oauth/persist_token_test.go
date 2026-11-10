@@ -101,8 +101,12 @@ func TestPersist_RotatedRefreshReplayAfterReopen(t *testing.T) {
 		t.Fatal("take")
 	}
 	s.MarkRefreshRotated("r-fam-1", "fam-1", exp)
-	// A rotated descendant of the same family, still live.
-	putFamily(t, s, "fam-1", "c", exp)
+	// A descendant of the same family, still live. It has its own hash:
+	// a hash on the rotation list is never live, and load drops it.
+	if err := s.PutToken(&Token{Hash: "a-fam-1", ClientID: "c", Subject: "alice",
+		ExpiresAt: exp, Family: "fam-1"}); err != nil {
+		t.Fatal(err)
+	}
 
 	s2, db2 := reopen(t, dir, db)
 	fam, ok := s2.RotatedRefreshFamily("r-fam-1")
