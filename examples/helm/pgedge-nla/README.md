@@ -4,7 +4,8 @@ This Helm chart deploys the pgEdge Natural Language Agent on Kubernetes.
 
 ## Prerequisites
 
-- Kubernetes 1.19+
+- Kubernetes 1.21+, which labels each namespace with
+  `kubernetes.io/metadata.name` for the network policies to select
 - Helm 3.0+
 - PostgreSQL database (external or in-cluster)
 - Optional: cert-manager for TLS certificates
@@ -115,8 +116,9 @@ login against that pod's address. One person failing to log in
 repeatedly can then lock everyone out of the web client for the rate limit
 window.
 
-Both proxies append to `X-Forwarded-For`, which the chart has the server
-read once `trustedProxies` is set. The server reads the header from the
+The ingress controller sets `X-Forwarded-For` to the caller's address, and
+the web pod's nginx appends the controller's, which the chart has the
+server read once `trustedProxies` is set. The server reads the header from the
 right, skipping each address in a trusted network, and uses the first
 address it does not trust as the caller. Set `trustedProxies` to the
 network both proxies connect from, which is usually the cluster's pod
@@ -134,6 +136,13 @@ it then connects from those rather than from the pod network. Keep the
 network policies below enabled whilst you trust the pod network, so that
 no other pod can reach the server with a forged header.
 
+If a load balancer that terminates HTTP sits in front of the ingress
+controller, the controller sees the load balancer rather than the caller,
+and ignores the load balancer's `X-Forwarded-For` by default. For
+ingress-nginx, set `use-forwarded-headers: "true"` and `proxy-real-ip-cidr`
+to the load balancer's addresses in the controller's ConfigMap, so that it
+passes the caller's address on.
+
 ### Network Policies
 
 With `networkPolicy.enabled`, the chart admits traffic to the web pods only
@@ -141,8 +150,24 @@ from the ingress controller, and to the server only from the web pods.
 `networkPolicy.ingressController` selects the controller's pods; its
 default matches an `ingress-nginx` install in the `ingress-nginx`
 namespace, so change it for any other controller. A controller with host
-networking matches no pod selector, so allow its nodes with an `ipBlock`
-instead.
+networking matches no pod selector, so replace both selectors with an
+`ipBlock` covering its nodes; Helm merges your values into the defaults, so
+set the selectors to `null` to remove them:
+
+```yaml
+networkPolicy:
+  ingressController:
+    namespaceSelector: null
+    podSelector: null
+    ipBlock:
+      cidr: 192.0.2.0/24
+```
+
+Network policies do not reliably govern traffic from pods that use host
+networking, which most plugins treat as traffic from the node itself. Once
+`trustedProxies` includes node addresses, any host-network pod on those
+nodes could reach the server with a forged `X-Forwarded-For`, so restrict
+who can run host-network pods in the cluster.
 
 The policies need a network plugin that enforces them, and have no effect
 otherwise. `kubectl exec` and `kubectl port-forward` still work, because
