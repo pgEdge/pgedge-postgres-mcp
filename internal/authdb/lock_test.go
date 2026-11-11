@@ -14,6 +14,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 )
 
@@ -57,8 +58,11 @@ func TestLockCreatesDirectoryAndFile(t *testing.T) {
 	if err != nil {
 		t.Fatalf("stat lock file: %v", err)
 	}
-	if perm := info.Mode().Perm(); perm&0077 != 0 {
-		t.Errorf("lock file mode %o is accessible to others", perm)
+	// Windows reports only a read-only bit, not POSIX permissions.
+	if runtime.GOOS != "windows" {
+		if perm := info.Mode().Perm(); perm&0077 != 0 {
+			t.Errorf("lock file mode %o is accessible to others", perm)
+		}
 	}
 }
 
