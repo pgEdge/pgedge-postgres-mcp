@@ -1006,18 +1006,30 @@ and this project adheres to
 
 ### Security
 
-- Eleven of the entries below link to one of five published security
-  advisories: [GHSA-j7mp-839j-jrm7] (read-only mode bypassed by SQL statement
-  smuggling), [GHSA-6hg5-9f3w-c886] (the `Origin` header was not validated,
-  allowing DNS rebinding), [GHSA-v44x-hxg7-5cgc] (custom tools wrote without
-  the user confirming), [GHSA-v347-v3w7-7fq9] (login rate limiting evaded
-  through a caller-supplied header), and [GHSA-fhv3-x3jh-grj7] (SQL injection
-  in the `count_rows` `where` parameter). Each advisory carries the current
-  identifiers for the issue it describes, including a CVE once one is assigned;
-  none had been assigned at the time of writing. All five are fixed from this
-  release onwards, so upgrading to 1.1.0 or later covers every one of them, but
-  three ask for something beyond the upgrade itself, which is noted on the
-  entries below.
+- Eleven of the entries below link to one of seven published security
+  advisories:
+
+    - [GHSA-j7mp-839j-jrm7] (CVE-PENDING): read-only mode bypassed by SQL
+      statement smuggling through `query_database`.
+    - [GHSA-r5pp-jx86-r6r9] (CVE-PENDING): SQL injection through custom
+      `pl-do` tool parameters.
+    - [GHSA-6hg5-9f3w-c886] (CVE-2026-125320): the `Origin` header was not
+      validated, allowing DNS rebinding.
+    - [GHSA-v44x-hxg7-5cgc] (CVE-PENDING): custom tools wrote without the user
+      confirming.
+    - [GHSA-5gmh-9683-hhq9] (CVE-PENDING): write confirmation was skipped for
+      writes that begin with a reading keyword.
+    - [GHSA-v347-v3w7-7fq9] (CVE-2026-125321): login rate limiting evaded
+      through a caller-supplied header.
+    - [GHSA-fhv3-x3jh-grj7] (CVE-2026-125322): SQL injection in the
+      `count_rows` `where` parameter.
+
+  [GHSA-r5pp-jx86-r6r9] and [GHSA-5gmh-9683-hhq9] were split out of
+  [GHSA-j7mp-839j-jrm7] and [GHSA-v44x-hxg7-5cgc] respectively, so that each
+  advisory describes a single vulnerability. All seven are fixed from this
+  release onwards, so upgrading to 1.1.0 or later covers every one of them,
+  but all except [GHSA-fhv3-x3jh-grj7] ask for something beyond the upgrade
+  itself, which is noted on the entries below.
 
 - `release.yml`'s `build-web`, `build-amd64`, and `build-arm64` jobs run on
   every `workflow_dispatch`, not just tag pushes, so a manual test run on
@@ -1095,7 +1107,10 @@ and this project adheres to
   nothing textual could tell otherwise. What prevents a write on a read-only
   connection remains the transaction access mode set by the server.
 
-  Part of the fix covered by advisory [GHSA-v44x-hxg7-5cgc].
+  Covered by advisory [GHSA-5gmh-9683-hhq9], which asks operators to review
+  their database audit logs for writes made through `query_database` that
+  they did not expect, in particular statements beginning with `WITH`,
+  `SELECT ... INTO` or `EXPLAIN ANALYZE`.
 
 - Raised the `go.mod` floor from 1.26.1 to 1.26.5. Building this server
   with the actual go1.26.3 toolchain and running `govulncheck` in binary
@@ -1231,9 +1246,11 @@ and this project adheres to
   read-only safety instructions.
 
   Covered by advisory [GHSA-v44x-hxg7-5cgc], which asks operators to review
-  their own custom tool definitions for statements that write behind a leading
-  `SELECT`, `WITH` or `EXPLAIN`, since that identifies which of their tools ran
-  unprompted on an affected version.
+  their own custom tool definitions for tools that write, since that
+  identifies which of their tools ran unprompted on an affected version, and
+  to review their database audit logs for writes those tools made. Writes
+  through `query_database` that the prompt misclassified as reads are covered
+  separately by [GHSA-5gmh-9683-hhq9].
 
 - Provider API keys are no longer disclosed in error output. When an LLM or
   embedding provider rejects a credential it commonly quotes that credential
@@ -1347,13 +1364,18 @@ and this project adheres to
   dollar-quote delimiters. The wrapper used `$mcp_custom_tool$` and
   `$mcp_args$`, and JSON encoding does not escape a dollar sign, so an
   argument value containing either delimiter closed the quoting early
-  and had the remainder of the value parsed as SQL. Combined with the
-  simple query protocol used for these statements, that was a complete
-  bypass of read-only mode that the statement guard never saw.
-  Delimiters are now generated per invocation, for `pl-func` tools as
-  well, and an argument that carries one is refused.
+  and had the remainder of the value parsed as SQL, or as PL/pgSQL inside
+  `$mcp_args$`. Combined with the simple query protocol used for these
+  statements, that let a caller run SQL of their own choosing on any
+  connection, and on a read-only connection it was a complete bypass of
+  read-only mode that the statement guard never saw. Delimiters are now
+  generated per invocation, for `pl-func` tools as well, and an argument
+  that carries one is refused.
 
-  Part of the fix covered by advisory [GHSA-j7mp-839j-jrm7].
+  Covered by advisory [GHSA-r5pp-jx86-r6r9], which needs action beyond
+  upgrading: review your database audit logs for unexpected statements issued
+  through the MCP connection, in particular anything executed alongside a `DO`
+  block.
 
 - Read-only transactions now request their access mode as part of
   `BEGIN` rather than issuing `SET TRANSACTION READ ONLY` as a
@@ -2330,5 +2352,7 @@ software is now feature-complete and ready for broader testing.
 [GHSA-j7mp-839j-jrm7]: https://github.com/pgEdge/pgedge-postgres-mcp/security/advisories/GHSA-j7mp-839j-jrm7
 [GHSA-6hg5-9f3w-c886]: https://github.com/pgEdge/pgedge-postgres-mcp/security/advisories/GHSA-6hg5-9f3w-c886
 [GHSA-v44x-hxg7-5cgc]: https://github.com/pgEdge/pgedge-postgres-mcp/security/advisories/GHSA-v44x-hxg7-5cgc
+[GHSA-r5pp-jx86-r6r9]: https://github.com/pgEdge/pgedge-postgres-mcp/security/advisories/GHSA-r5pp-jx86-r6r9
+[GHSA-5gmh-9683-hhq9]: https://github.com/pgEdge/pgedge-postgres-mcp/security/advisories/GHSA-5gmh-9683-hhq9
 [GHSA-v347-v3w7-7fq9]: https://github.com/pgEdge/pgedge-postgres-mcp/security/advisories/GHSA-v347-v3w7-7fq9
 [GHSA-fhv3-x3jh-grj7]: https://github.com/pgEdge/pgedge-postgres-mcp/security/advisories/GHSA-fhv3-x3jh-grj7
