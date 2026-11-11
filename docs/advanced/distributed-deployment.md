@@ -81,18 +81,28 @@ The following steps describe the object storage workflow:
 
 ## Load Balancer Configuration
 
-Bearer token authentication in the MCP server is stateless. Any
-instance can validate a token independently; sticky sessions are
-not required. A standard round-robin or least-connections load
-balancer distributes traffic across all instances.
+API token authentication is stateless when every instance reads the
+same tokens file; any instance can validate an API token. Password
+logins and OAuth are different, because each instance keeps its
+sessions, OAuth clients and OAuth tokens in its own `auth.db` file. A
+session or OAuth token works only on the instance that issued it, and a
+client registered on one instance is unknown to the others.
+
+If clients use password login or OAuth, the load balancer must send
+each client to the same instance every time. If that instance goes
+away, its users are signed out and its OAuth clients must register
+again on another instance. A round-robin or least-connections load
+balancer suits deployments that use only API tokens.
 
 ### nginx Configuration
 
 The following `nginx` configuration distributes requests across
-three MCP server instances:
+three MCP server instances; the `ip_hash` directive sends each client
+address to the same instance:
 
 ```nginx
 upstream mcp_backend {
+    ip_hash;
     server mcp-1:8080;
     server mcp-2:8080;
     server mcp-3:8080;
@@ -119,7 +129,8 @@ server {
 }
 ```
 
-The `upstream` block defines the pool of backend servers. The
+The `upstream` block defines the pool of backend servers. Remove the
+`ip_hash` directive only if clients use API tokens alone. The
 `/health` endpoint enables load balancer health checks without
 authentication.
 
@@ -288,19 +299,22 @@ which lives in the data directory. The Helm chart mounts a `data` volume at
 that volume is a PersistentVolumeClaim; otherwise, it is an `emptyDir`
 volume that Kubernetes deletes when the pod is replaced.
 
-The current chart does not place the data directory on that volume. With
-the chart defaults, the image entrypoint cannot create `/app/data` on the
-read-only root filesystem, so the server does not start.
+The chart sets the server's data directory to that mount point, so
+`auth.db`, `users.json` and `tokens.json` all live on the data volume.
+With persistence enabled, users, API tokens, sessions and OAuth clients
+survive pod replacement. With an `emptyDir` volume, every pod
+replacement deletes all users and API tokens, as well as sessions and
+OAuth clients. Nobody can log in until you add the users and tokens
+again.
 
-If a pod runs with a writable `/app/data` outside the data volume, then
-`auth.db` does not survive pod replacement, even with persistence enabled.
-Every pod replacement then signs all users out and forces dynamically
-registered OAuth clients to register again.
-
-Do not point several replicas at one shared data directory. Each replica
-needs its own `auth.db`, because sharing the file is unsupported. A
-second server on the same data directory refuses to start, because the
-first holds a lock on the directory.
+The chart always runs the server as a single replica, with the
+`Recreate` update strategy, because two servers must never share a data
+directory. A second server on the same data directory refuses to start,
+because the first holds a lock on the directory. On a filesystem without
+file-lock support, the server logs a warning and starts without the
+lock, so nothing stops a second server from sharing the directory. Scale
+the web client
+with `web.replicaCount` instead.
 
 ### Horizontal Pod Autoscaler
 
@@ -331,7 +345,13 @@ spec:
 
 The autoscaler adds pods when average CPU utilization exceeds
 70 percent. Set `minReplicas` to at least two for high
-availability.
+availability. Each server pod needs its own data directory, and
+sessions and OAuth state do not move between pods. If clients use
+password login or OAuth, requests from each client must reach the same
+pod every time; for details, see
+[Load Balancer Configuration](#load-balancer-configuration). When a pod
+goes away, the users signed in on it are signed out. Do not attach an
+autoscaler to the Helm chart's server, which runs a single replica.
 
 ## Knowledge Base Synchronization
 
@@ -355,8 +375,8 @@ updated file and reloads the knowledge base automatically.
 ## Authentication in a Distributed Context
 
 All instances must read the same token and user YAML files.
-Consistent authentication data ensures that a token validated
-on one instance works on every other instance.
+Consistent authentication data ensures that an API token
+validated on one instance works on every other instance.
 
 The MCP server uses `fsnotify` to monitor authentication files.
 When files change on shared storage, all instances detect the
@@ -366,7 +386,9 @@ happens within 100 milliseconds of the file change.
 The following considerations apply to distributed
 authentication:
 
-- User session tokens validate against the shared user store.
+- A password session works only on the instance that issued it.
+- OAuth clients and OAuth tokens work only on the instance that issued
+  them.
 - API tokens work identically across all instances.
 - The auto-reload feature propagates credential changes
   without a restart.
@@ -375,7 +397,8 @@ authentication:
 - A password change also ends the user's OAuth grants.
 - Each instance keeps sessions and OAuth state in its own `auth.db` file.
 - Two instances must never share one data directory; this is unsupported.
-- A second instance on the same data directory refuses to start.
+- A second instance on the same data directory refuses to start,
+  unless the filesystem does not support file locks.
 
 ### Rate Limiting Considerations
 
