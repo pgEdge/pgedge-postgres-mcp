@@ -1,9 +1,12 @@
 # Production configuration example
 # Usage: helm install pgedge-nla ./pgedge-nla -f values-production.yaml
+#
+# The server runs as a single replica whatever these values say; see the
+# chart's README for why. Supply the secrets at install time rather than
+# keeping them in this file, for example with --set or a values file held
+# in your secrets manager.
 
 server:
-  replicaCount: 3
-
   resources:
     limits:
       cpu: 2000m
@@ -12,38 +15,13 @@ server:
       cpu: 1000m
       memory: 1Gi
 
-  autoscaling:
-    enabled: true
-    minReplicas: 3
-    maxReplicas: 10
-    targetCPUUtilizationPercentage: 70
-    targetMemoryUtilizationPercentage: 80
-
   persistence:
     enabled: true
     size: 5Gi
     storageClass: fast-ssd
 
-  affinity:
-    podAntiAffinity:
-      preferredDuringSchedulingIgnoredDuringExecution:
-      - weight: 100
-        podAffinityTerm:
-          labelSelector:
-            matchExpressions:
-            - key: app.kubernetes.io/component
-              operator: In
-              values:
-              - server
-          topologyKey: kubernetes.io/hostname
-
 web:
   replicaCount: 3
-
-  autoscaling:
-    enabled: true
-    minReplicas: 2
-    maxReplicas: 8
 
   affinity:
     podAntiAffinity:
@@ -77,8 +55,3 @@ ingress:
     - secretName: pgedge-nla-production-tls
       hosts:
         - nla.production.example.com
-
-secrets:
-  postgresPassword: "production-secure-password"
-  anthropicApiKey: "sk-ant-..."
-  openaiApiKey: "sk-..."

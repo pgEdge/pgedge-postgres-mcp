@@ -58,3 +58,10 @@ Create the name of the service account to use
 {{- default "default" .Values.serviceAccount.name }}
 {{- end }}
 {{- end }}
+
+{{/*
+The server's data directory, which is the mount point of the data volume.
+*/}}
+{{- define "pgedge-nla.dataDir" -}}
+/var/lib/pgedge/mcp-server
+{{- end }}

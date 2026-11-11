@@ -113,6 +113,21 @@ and this project adheres to
   archives have been renamed in place, so only somebody who downloaded
   them in the first hours after release saw the wrong names.
 
+- The example Helm chart now deploys a working server and web client
+  (#307). The server pulls the published `ghcr.io/pgedge/postgres-mcp`
+  image, runs as the image's own non-root user, reads its configuration
+  from the right file in the right format, takes the database password
+  from the chart's secret, and keeps its data directory, users and
+  tokens on the data volume. The web client listens on the port its
+  image uses and gets a writable `/tmp`, and the server's Service is
+  named `postgres-mcp` so the web client's proxy can reach it. The
+  server now runs as a single replica with the `Recreate` strategy,
+  because its state cannot be shared between instances. Values that
+  did nothing (`autoscaling`, `externalDatabase`, `rbac`,
+  `secrets.tokens` and `server.config.logLevel`) are removed, and
+  `secrets.postgresPassword` no longer defaults to a placeholder. The
+  chart's README explains how to add users and tokens.
+
 ### Security
 
 - Raised the minimum Go version to 1.26.10, which adds eight

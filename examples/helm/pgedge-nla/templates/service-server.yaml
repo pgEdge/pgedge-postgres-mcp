@@ -1,7 +1,9 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "pgedge-nla.fullname" . }}-server
+  # The web image's nginx proxies to postgres-mcp:8080, so the name and port
+  # are fixed, which also limits the chart to one release per namespace.
+  name: postgres-mcp
   labels:
     {{- include "pgedge-nla.labels" . | nindent 4 }}
     app.kubernetes.io/component: server
@@ -12,7 +14,7 @@ metadata:
 spec:
   type: {{ .Values.server.service.type }}
   ports:
-  - port: {{ .Values.server.service.port }}
+  - port: 8080
     targetPort: http
     protocol: TCP
     name: http

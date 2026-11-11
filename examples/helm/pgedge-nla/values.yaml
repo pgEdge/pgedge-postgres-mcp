@@ -1,23 +1,20 @@
-# Global settings
-global:
-  imagePullPolicy: IfNotPresent
-
 # Server configuration
 server:
   image:
-    repository: ghcr.io/pgedge/mcp-server
+    repository: ghcr.io/pgedge/postgres-mcp
     # Image tag options:
-    #   - "latest"         Base image without knowledgebase (~50MB)
-    #   - "latest-with-kb" Image with pre-built knowledgebase (~300-500MB)
+    #   - "latest"         Base image without knowledgebase
+    #   - "latest-with-kb" Image with pre-built knowledgebase
     # Use "latest-with-kb" and set knowledgebase.useBuiltIn=true for easiest setup
     tag: latest-with-kb
     pullPolicy: IfNotPresent
 
-  replicaCount: 2
+  # The server always runs as a single replica; see the chart's README.
 
+  # The Service is always named postgres-mcp on port 8080, because the web
+  # image's nginx proxies to that address.
   service:
     type: ClusterIP
-    port: 8080
     annotations: {}
 
   resources:
@@ -27,9 +24,6 @@ server:
     requests:
       cpu: 500m
       memory: 512Mi
-
-  config:
-    logLevel: info
 
   # Client address resolution, used for login rate limiting and logging.
   # Requests arrive through a Service or Ingress, so the connection's peer is
@@ -41,13 +35,24 @@ server:
     header: X-Real-IP
     trustedProxies: []
 
-  # PostgreSQL connection
+  # PostgreSQL connection; the password comes from secrets.postgresPassword.
   database:
+    name: default
     host: postgres-postgresql
     port: 5432
     database: postgres
     user: postgres
-    # password via secret
+    sslmode: prefer
+    allowWrites: false
+
+  # LLM proxy for the web client's chat. The API key for the provider comes
+  # from secrets.anthropicApiKey or secrets.openaiApiKey.
+  llm:
+    enabled: false
+    # "anthropic", "openai", "ollama" or "gemini"
+    provider: anthropic
+    # Leave empty to use the provider's default model.
+    model: ""
 
   # Knowledgebase configuration
   # Options:
@@ -61,23 +66,21 @@ server:
     # Only used when useBuiltIn=false - name of existing PVC containing kb.db
     existingPvc: pgedge-nla-kb
 
+  # The data volume holds users.json, tokens.json, the authentication
+  # database and conversation history. Without persistence they are lost
+  # whenever the pod is replaced.
   persistence:
     enabled: true
     size: 1Gi
     storageClass: ""
 
-  autoscaling:
-    enabled: false
-    minReplicas: 2
-    maxReplicas: 10
-    targetCPUUtilizationPercentage: 80
-    targetMemoryUtilizationPercentage: 80
-
   podAnnotations: {}
+  # The image's mcp user; fsGroup makes the data volume writable by it.
   podSecurityContext:
     runAsNonRoot: true
-    runAsUser: 1000
-    fsGroup: 1000
+    runAsUser: 1001
+    runAsGroup: 1001
+    fsGroup: 1001
 
   securityContext:
     allowPrivilegeEscalation: false
@@ -97,6 +100,7 @@ web:
     tag: latest
     pullPolicy: IfNotPresent
 
+  # The web client is stateless, so it can run several replicas.
   replicaCount: 2
 
   service:
@@ -111,12 +115,6 @@ web:
     requests:
       cpu: 100m
       memory: 128Mi
-
-  autoscaling:
-    enabled: false
-    minReplicas: 2
-    maxReplicas: 5
-    targetCPUUtilizationPercentage: 80
 
   podAnnotations: {}
   podSecurityContext:
@@ -151,36 +149,17 @@ ingress:
       hosts:
         - nla.example.com
 
-# External PostgreSQL (if using external database)
-externalDatabase:
-  enabled: false
-  host: external-postgres.example.com
-  port: 5432
-  database: postgres
-  user: postgres
-  existingSecret: postgres-credentials
-  existingSecretPasswordKey: password
-
 # Secrets
 secrets:
-  # PostgreSQL password
-  postgresPassword: "changeme"
+  # PostgreSQL password (required)
+  postgresPassword: ""
 
   # LLM API keys
   anthropicApiKey: ""
   openaiApiKey: ""
-
-  # Authentication tokens
-  tokens:
-    - token: "admin-token-change-me"
-      annotation: "Admin token"
 
 # Service Account
 serviceAccount:
   create: true
   annotations: {}
   name: ""
-
-# RBAC
-rbac:
-  create: true

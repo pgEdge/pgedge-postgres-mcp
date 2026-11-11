@@ -6,9 +6,12 @@ metadata:
     {{- include "pgedge-nla.labels" . | nindent 4 }}
     app.kubernetes.io/component: server
 spec:
-  {{- if not .Values.server.autoscaling.enabled }}
-  replicas: {{ .Values.server.replicaCount }}
-  {{- end }}
+  # One replica only: the server keeps its users, tokens and sessions in its
+  # data directory, which no two instances may share, and the volume is
+  # ReadWriteOnce. Recreate stops the old pod before the new one mounts it.
+  replicas: 1
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       {{- include "pgedge-nla.selectorLabels" . | nindent 6 }}
@@ -25,27 +28,28 @@ spec:
         {{- include "pgedge-nla.selectorLabels" . | nindent 8 }}
         app.kubernetes.io/component: server
     spec:
-      {{- if .Values.serviceAccount.create }}
       serviceAccountName: {{ include "pgedge-nla.serviceAccountName" . }}
-      {{- end }}
+      automountServiceAccountToken: false
       securityContext:
         {{- toYaml .Values.server.podSecurityContext | nindent 8 }}
       containers:
       - name: server
         image: "{{ .Values.server.image.repository }}:{{ .Values.server.image.tag }}"
         imagePullPolicy: {{ .Values.server.image.pullPolicy }}
+        # Run the server directly, because the image's entrypoint script
+        # needs root.
+        command: ["/app/pgedge-postgres-mcp"]
+        args: ["-config", "/etc/pgedge/postgres-mcp.yaml"]
         ports:
         - name: http
           containerPort: 8080
           protocol: TCP
         env:
-        - name: PGEDGE_POSTGRES_CONNECTION_STRING
+        - name: PGEDGE_DB_PASSWORD
           valueFrom:
             secretKeyRef:
               name: {{ include "pgedge-nla.fullname" . }}-secret
-              key: postgres-connection-string
-        - name: PGEDGE_MCP_LOG_LEVEL
-          value: {{ .Values.server.config.logLevel }}
+              key: postgres-password
         - name: ANTHROPIC_API_KEY
           valueFrom:
             secretKeyRef:
@@ -63,7 +67,7 @@ spec:
           mountPath: /etc/pgedge
           readOnly: true
         - name: data
-          mountPath: /var/lib/pgedge/mcp-server
+          mountPath: {{ include "pgedge-nla.dataDir" . }}
         - name: tmp
           mountPath: /tmp
         {{- if and .Values.server.knowledgebase.enabled (not .Values.server.knowledgebase.useBuiltIn) }}
