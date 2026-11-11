@@ -11,7 +11,12 @@
 package tools
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
+	"os"
+	"os/exec"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -453,6 +458,7 @@ func TestWrapPLDOCode(t *testing.T) {
 		if !strings.Contains(wrapped, "set_config") {
 			t.Error("should use set_config for result")
 		}
+		assertPerlArgsLiteral(t, executor, "plperl", "my $args_json = ")
 	})
 
 	t.Run("plperlu untrusted wrapping", func(t *testing.T) {
@@ -471,6 +477,7 @@ func TestWrapPLDOCode(t *testing.T) {
 		if !strings.Contains(wrapped, "set_config") {
 			t.Error("should use set_config for result")
 		}
+		assertPerlArgsLiteral(t, executor, "plperlu", "my $args = decode_json(")
 	})
 
 	t.Run("unknown language fallback", func(t *testing.T) {
@@ -1034,4 +1041,128 @@ func TestCreateToolAnnotations(t *testing.T) {
 	if !*tool.Definition.Annotations.ReadOnlyHint {
 		t.Error("a tool on a connection that cannot write should be advertised read-only")
 	}
+}
+
+// perlHostilePayload is an argument value that runs Perl if it is ever
+// embedded in a double-quoted (interpolating) Perl string. It deliberately
+// has no backslash or double quote, so that JSON encoding leaves it intact
+// and it can be searched for verbatim in the generated code.
+const perlHostilePayload = `@{[ print STDERR qq(INJECTED) ]} $0 @ARGV $ENV{HOME}`
+
+// assertPerlArgsLiteral checks that the Perl DO wrapper for language embeds
+// the argument JSON as a single-quoted literal immediately after prefix, and
+// that a hostile payload appears in the generated code only inside it.
+func assertPerlArgsLiteral(t *testing.T, executor *CustomToolExecutor, language, prefix string) {
+	t.Helper()
+
+	args := map[string]interface{}{"key": perlHostilePayload}
+	argsJSON, err := json.Marshal(args)
+	if err != nil {
+		t.Fatalf("failed to marshal args: %v", err)
+	}
+	literal := perlSingleQuote(string(argsJSON))
+
+	wrapped := executor.wrapPLDOCode(language, "mcp_return($args->{'key'});", args, "$mcp_args_test$")
+
+	if !strings.Contains(wrapped, prefix+literal) {
+		t.Errorf("%s args should be embedded as single-quoted literal %s", language, literal)
+	}
+	if strings.Contains(wrapped, prefix+`"`) {
+		t.Errorf("%s args must not be embedded as a double-quoted Perl string", language)
+	}
+	if n := strings.Count(wrapped, perlHostilePayload); n != 1 {
+		t.Errorf("payload should appear exactly once (inside the literal), found %d", n)
+	}
+	if !strings.Contains(literal, perlHostilePayload) {
+		t.Error("payload should appear verbatim inside the single-quoted literal")
+	}
+}
+
+func TestPerlSingleQuote(t *testing.T) {
+	tests := []struct {
+		name string
+		in   string
+		want string
+	}{
+		{"empty", "", `''`},
+		{"plain", "hello world", `'hello world'`},
+		{"single quote", "it's", `'it\'s'`},
+		{"backslash", `a\b`, `'a\\b'`},
+		{"escaped quote", `\'`, `'\\\''`},
+		{"trailing backslash", `abc\`, `'abc\\'`},
+		{"dollar", "$0 $ENV{HOME}", `'$0 $ENV{HOME}'`},
+		{"array interpolation", "@{[ system('id') ]}", `'@{[ system(\'id\') ]}'`},
+		{"newline", "a\nb", "'a\nb'"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := perlSingleQuote(tt.in); got != tt.want {
+				t.Errorf("perlSingleQuote(%q) = %s, want %s", tt.in, got, tt.want)
+			}
+		})
+	}
+}
+
+// TestPerlSingleQuoteRoundTrip has a real Perl interpreter parse the literal
+// generated for hostile argument values, and checks that the value comes back
+// byte for byte with nothing interpolated or executed.
+func TestPerlSingleQuoteRoundTrip(t *testing.T) {
+	perl, err := exec.LookPath("perl")
+	if err != nil {
+		t.Skip("perl not found on PATH; skipping Perl literal round-trip test")
+	}
+
+	values := []string{
+		"@{[ print STDERR qq(INJECTED) ]}",
+		"${\\ print STDERR qq(INJECTED) }",
+		"$0",
+		"@ARGV",
+		`it's a \'quoted\' value with \\ backslashes\`,
+		"unicode: caf\u00e9 \u65e5\u672c \U0001F600",
+		"line one\nline two\ttabbed",
+	}
+
+	dir := t.TempDir()
+	script := filepath.Join(dir, "roundtrip.pl")
+	for i, v := range values {
+		// Build the JSON the same way wrapPLDOCode does.
+		argsJSON, err := json.Marshal(map[string]interface{}{"value": v})
+		if err != nil {
+			t.Fatalf("failed to marshal args: %v", err)
+		}
+
+		// The JSON form is what the wrappers embed; the raw value checks
+		// the literal also survives characters JSON would have escaped.
+		for _, want := range []string{string(argsJSON), v} {
+			got, stderr := runPerlLiteral(t, perl, script, perlSingleQuote(want))
+			if got != want {
+				t.Errorf("value %d: round trip mismatch:\n got: %s\nwant: %s", i, got, want)
+			}
+			if strings.Contains(stderr, "INJECTED") {
+				t.Errorf("value %d: payload was executed by Perl (stderr: %s)", i, stderr)
+			}
+		}
+	}
+}
+
+// runPerlLiteral writes a script that assigns literal to a variable and
+// prints it, runs it with perl (no shell involved), and returns stdout and
+// stderr.
+func runPerlLiteral(t *testing.T, perl, script, literal string) (string, string) {
+	t.Helper()
+
+	src := "my $s = " + literal + ";\nprint $s;\n"
+	if err := os.WriteFile(script, []byte(src), 0o600); err != nil {
+		t.Fatalf("failed to write script: %v", err)
+	}
+
+	var stdout, stderr bytes.Buffer
+	cmd := exec.Command(perl, script) // #nosec G204 -- fixed interpreter and test-owned script
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("perl failed: %v (stderr: %s)", err, stderr.String())
+	}
+	return stdout.String(), stderr.String()
 }

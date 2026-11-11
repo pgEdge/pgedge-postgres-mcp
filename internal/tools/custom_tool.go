@@ -645,9 +645,23 @@ function mcp_return(result) {
 `, argsJSON, mcpResultConfigKey, code)
 }
 
+// perlSingleQuote returns s as a Perl single-quoted string literal. Inside
+// single quotes Perl gives meaning only to \\ and \', so escaping those two
+// is exact and nothing else in the value is interpolated or evaluated. This
+// matters because the tool arguments are caller supplied: Go's %q produces a
+// double-quoted literal, in which Perl interpolates $ and @ and so would run
+// an expression such as @{[ ... ]} hidden in an argument value.
+func perlSingleQuote(s string) string {
+	s = strings.ReplaceAll(s, `\`, `\\`)
+	s = strings.ReplaceAll(s, `'`, `\'`)
+	return "'" + s + "'"
+}
+
 func wrapPLDOPerl(argsJSON, code string) string {
+	// The arguments are embedded as a single-quoted literal so that a value
+	// can never be interpolated or evaluated as Perl; see perlSingleQuote.
 	return fmt.Sprintf(`
-my $args_json = %q;
+my $args_json = %s;
 my $rv = spi_exec_query("SELECT key, value FROM jsonb_each_text(" . quote_literal($args_json) . "::jsonb)");
 my $args = {};
 foreach my $row (@{$rv->{rows}}) {
@@ -689,13 +703,15 @@ sub mcp_return {
 }
 
 %s
-`, argsJSON, mcpResultConfigKey, code)
+`, perlSingleQuote(argsJSON), mcpResultConfigKey, code)
 }
 
 func wrapPLDOPerlu(argsJSON, code string) string {
+	// As for plperl, a single-quoted literal keeps argument values from
+	// being interpolated; here that would otherwise mean OS command execution.
 	return fmt.Sprintf(`
 use JSON;
-my $args = decode_json(%q);
+my $args = decode_json(%s);
 
 sub mcp_return {
     my ($result) = @_;
@@ -704,7 +720,7 @@ sub mcp_return {
 }
 
 %s
-`, argsJSON, mcpResultConfigKey, code)
+`, perlSingleQuote(argsJSON), mcpResultConfigKey, code)
 }
 
 // wrapPLFuncCode wraps user code for function creation
