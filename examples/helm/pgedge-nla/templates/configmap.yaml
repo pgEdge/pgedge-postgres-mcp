@@ -5,28 +5,39 @@ metadata:
   labels:
     {{- include "pgedge-nla.labels" . | nindent 4 }}
 data:
-  mcp-server.yaml: |
+  # The server reads this file through -config; the deployment passes the
+  # path explicitly. The database password is not here: it comes from the
+  # chart's secret through PGEDGE_DB_PASSWORD.
+  postgres-mcp.yaml: |
     # pgEdge Natural Language Agent - Server Configuration
-    database:
-      host: {{ .Values.server.database.host }}
-      port: {{ .Values.server.database.port }}
-      database: {{ .Values.server.database.database }}
-      user: {{ .Values.server.database.user }}
-      sslmode: prefer
+    databases:
+      - name: {{ .Values.server.database.name | quote }}
+        host: {{ .Values.server.database.host | quote }}
+        port: {{ .Values.server.database.port }}
+        database: {{ .Values.server.database.database | quote }}
+        user: {{ .Values.server.database.user | quote }}
+        sslmode: {{ .Values.server.database.sslmode | quote }}
+        allow_writes: {{ .Values.server.database.allowWrites }}
+
+    # Conversation history and the authentication database live here, on
+    # the chart's data volume.
+    data_dir: {{ include "pgedge-nla.dataDir" . }}
 
     http:
       enabled: true
-      address: "0.0.0.0:8080"
+      address: ":8080"
       auth:
         enabled: true
-        token_file: /var/lib/pgedge/mcp-server/tokens.json
+        token_file: {{ include "pgedge-nla.dataDir" . }}/tokens.json
+        user_file: {{ include "pgedge-nla.dataDir" . }}/users.json
         max_failed_attempts_before_lockout: 5
         rate_limit_window_minutes: 15
         rate_limit_max_attempts: 10
-      # Requests reach the pod through a Service or Ingress, which becomes the
-      # peer on every connection. Populate server.clientIp.trustedProxies with
-      # the ingress controller's addresses to have login rate limiting count
-      # against real client addresses rather than against the proxy.
+      # Browser requests reach the server through the ingress controller and
+      # a web pod, which is the peer on every connection. With
+      # server.clientIp.trustedProxies covering both, the server reads
+      # X-Forwarded-For from the right, skipping trusted hops, so login rate
+      # limiting counts against the caller rather than against a web pod.
       client_ip:
       {{- if .Values.server.clientIp.trustedProxies }}
         source: header
@@ -36,12 +47,58 @@ data:
       {{- else }}
         source: socket
       {{- end }}
+      # Browsers send an Origin header, and the server refuses any origin
+      # other than loopback unless it is listed here. The chart lists each
+      # ingress host, as https when the ingress has TLS for it, plus any
+      # extra origins in server.allowedOrigins.
+      {{- $origins := list }}
+      {{- if .Values.ingress.enabled }}
+      {{- $tlsHosts := list }}
+      {{- range .Values.ingress.tls }}
+      {{- $tlsHosts = concat $tlsHosts (.hosts | default list) }}
+      {{- end }}
+      {{- range .Values.ingress.hosts }}
+      {{- $origins = append $origins (printf "%s://%s" (ternary "https" "http" (has .host $tlsHosts)) .host) }}
+      {{- end }}
+      {{- end }}
+      {{- $origins = concat $origins (.Values.server.allowedOrigins | default list) | uniq }}
+      {{- with $origins }}
+      allowed_origins:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
 
     llm:
-      enabled: false
+      enabled: {{ .Values.server.llm.enabled }}
+      {{- if .Values.server.llm.enabled }}
+      provider: {{ .Values.server.llm.provider | quote }}
+      {{- /* The server's default model is an Anthropic one, so any other
+             provider needs its model named. */}}
+      {{- if and (not .Values.server.llm.model) (ne .Values.server.llm.provider "anthropic") }}
+      {{- fail "server.llm.model is required when server.llm.provider is not anthropic" }}
+      {{- end }}
+      {{- with .Values.server.llm.model }}
+      model: {{ . | quote }}
+      {{- end }}
+      {{- with .Values.server.llm.ollamaUrl }}
+      ollama_url: {{ . | quote }}
+      {{- end }}
+      {{- end }}
 
     {{- if .Values.server.knowledgebase.enabled }}
+
     knowledgebase:
       enabled: true
       database_path: /usr/share/pgedge/nla-kb/kb.db
+      {{- /* Searches must embed queries with the provider and model that
+             built the knowledgebase; the server's own default is Ollama on
+             localhost, which no pod provides. */}}
+      {{- with .Values.server.knowledgebase.embedding }}
+      embedding_provider: {{ required "server.knowledgebase.embedding.provider is required when the knowledgebase is enabled" .provider | quote }}
+      {{- with .model }}
+      embedding_model: {{ . | quote }}
+      {{- end }}
+      {{- with .ollamaUrl }}
+      embedding_ollama_url: {{ . | quote }}
+      {{- end }}
+      {{- end }}
     {{- end }}

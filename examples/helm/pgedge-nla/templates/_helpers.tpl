@@ -58,3 +58,39 @@ Create the name of the service account to use
 {{- default "default" .Values.serviceAccount.name }}
 {{- end }}
 {{- end }}
+
+{{/*
+The server's data directory, which is the mount point of the data volume.
+*/}}
+{{- define "pgedge-nla.dataDir" -}}
+/var/lib/pgedge/mcp-server
+{{- end }}
+
+{{/*
+Whether the server uses the knowledgebase built into its image.
+*/}}
+{{- define "pgedge-nla.builtInKnowledgebase" -}}
+{{- if and .Values.server.knowledgebase.enabled .Values.server.knowledgebase.useBuiltIn }}true{{ end }}
+{{- end }}
+
+{{/*
+The server image. An empty tag means the chart's appVersion, with the
+-with-kb suffix when the built-in knowledgebase is in use.
+*/}}
+{{- define "pgedge-nla.serverImage" -}}
+{{- $tag := .Values.server.image.tag }}
+{{- if not $tag }}
+{{- $tag = .Chart.AppVersion }}
+{{- if include "pgedge-nla.builtInKnowledgebase" . }}
+{{- $tag = printf "%s-with-kb" $tag }}
+{{- end }}
+{{- end }}
+{{- printf "%s:%s" .Values.server.image.repository $tag }}
+{{- end }}
+
+{{/*
+The web client image. An empty tag means the chart's appVersion.
+*/}}
+{{- define "pgedge-nla.webImage" -}}
+{{- printf "%s:%s" .Values.web.image.repository (.Values.web.image.tag | default .Chart.AppVersion) }}
+{{- end }}

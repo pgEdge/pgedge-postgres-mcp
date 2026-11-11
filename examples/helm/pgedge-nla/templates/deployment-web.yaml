@@ -6,32 +6,33 @@ metadata:
     {{- include "pgedge-nla.labels" . | nindent 4 }}
     app.kubernetes.io/component: web
 spec:
-  {{- if not .Values.web.autoscaling.enabled }}
   replicas: {{ .Values.web.replicaCount }}
-  {{- end }}
   selector:
     matchLabels:
       {{- include "pgedge-nla.selectorLabels" . | nindent 6 }}
       app.kubernetes.io/component: web
   template:
     metadata:
+      {{- with .Values.web.podAnnotations }}
       annotations:
-        {{- with .Values.web.podAnnotations }}
         {{- toYaml . | nindent 8 }}
-        {{- end }}
+      {{- end }}
       labels:
         {{- include "pgedge-nla.selectorLabels" . | nindent 8 }}
         app.kubernetes.io/component: web
     spec:
+      serviceAccountName: {{ include "pgedge-nla.serviceAccountName" . }}
+      automountServiceAccountToken: false
       securityContext:
         {{- toYaml .Values.web.podSecurityContext | nindent 8 }}
       containers:
       - name: web
-        image: "{{ .Values.web.image.repository }}:{{ .Values.web.image.tag }}"
+        image: {{ include "pgedge-nla.webImage" . | quote }}
         imagePullPolicy: {{ .Values.web.image.pullPolicy }}
         ports:
+        # The image's nginx runs unprivileged, so it listens on 8081.
         - name: http
-          containerPort: 80
+          containerPort: 8081
           protocol: TCP
         livenessProbe:
           httpGet:
@@ -49,6 +50,14 @@ spec:
           {{- toYaml .Values.web.resources | nindent 10 }}
         securityContext:
           {{- toYaml .Values.web.securityContext | nindent 10 }}
+        # nginx keeps its pid file and temporary files in /tmp, which the
+        # read-only root filesystem would otherwise refuse.
+        volumeMounts:
+        - name: tmp
+          mountPath: /tmp
+      volumes:
+      - name: tmp
+        emptyDir: {}
       {{- with .Values.web.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}

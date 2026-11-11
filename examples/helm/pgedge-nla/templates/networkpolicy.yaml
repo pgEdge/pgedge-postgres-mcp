@@ -1,0 +1,50 @@
+{{- if .Values.networkPolicy.enabled }}
+# Only the ingress controller may reach the web pods. This also stops
+# anything else in the cluster from setting X-Forwarded-For on a request the
+# server would then trust.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "pgedge-nla.fullname" . }}-web
+  labels:
+    {{- include "pgedge-nla.labels" . | nindent 4 }}
+    app.kubernetes.io/component: web
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "pgedge-nla.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: web
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - {{ toYaml .Values.networkPolicy.ingressController | indent 6 | trim }}
+    ports:
+    - protocol: TCP
+      port: 8081
+---
+# Only the web pods may reach the server.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "pgedge-nla.fullname" . }}-server
+  labels:
+    {{- include "pgedge-nla.labels" . | nindent 4 }}
+    app.kubernetes.io/component: server
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "pgedge-nla.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: server
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          {{- include "pgedge-nla.selectorLabels" . | nindent 10 }}
+          app.kubernetes.io/component: web
+    ports:
+    - protocol: TCP
+      port: 8080
+{{- end }}

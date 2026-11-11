@@ -6,6 +6,10 @@ metadata:
   labels:
     {{- include "pgedge-nla.labels" . | nindent 4 }}
     app.kubernetes.io/component: server
+  # Keep users, tokens and history through helm uninstall; delete the claim
+  # by hand to discard them.
+  annotations:
+    helm.sh/resource-policy: keep
 spec:
   accessModes:
     - ReadWriteOnce
