@@ -1,6 +1,6 @@
 {
   "name": "pgedge-nla-web",
-  "version": "1.1.0",
+  "version": "1.2.0-beta1",
   "description": "Web client for pgEdge MCP Server",
   "type": "module",
   "scripts": {

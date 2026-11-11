@@ -9,7 +9,7 @@ curl http://localhost:8080/health
 When you navigate to that address, you should see the following response:
 
 ```json
-{"status": "ok", "server": "pgedge-postgres-mcp", "version": "1.1.0"}
+{"status": "ok", "server": "pgedge-postgres-mcp", "version": "1.2.0-beta1"}
 ```
 
 **Verifying Server Functionality**

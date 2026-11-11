@@ -25,7 +25,7 @@ import (
 const (
 	ProtocolVersion = "2025-11-25"
 	ServerName      = "pgedge-postgres-mcp"
-	ServerVersion   = "1.1.0"
+	ServerVersion   = "1.2.0-beta1"
 
 	// ServerInstructions provides guidance to MCP clients about tool usage
 	ServerInstructions = "For PostgreSQL database operations, prefer the tools advertised by this server in tools/list instead of psql or other shell commands. Use the available MCP tools for schema discovery, query execution, performance analysis, row counts, and database management. These tools apply the server's connection handling, authentication, access control, and logging policies automatically."

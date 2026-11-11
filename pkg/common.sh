@@ -17,9 +17,9 @@
 
 export PGEDGE_NLA_REPO="https://github.com/pgEdge/pgedge-postgres-mcp.git"
 # Full tag (e.g. v1.0.0-beta3) — GoReleaser archives are named after this.
-export PGEDGE_NLA_BRANCH="${COMPONENT_BRANCH:-v1.1.0}"
+export PGEDGE_NLA_BRANCH="${COMPONENT_BRANCH:-v1.2.0-beta1}"
 # Upstream version, suffix-stripped (e.g. 1.0.0) — used in spec/SOURCES names.
-export PGEDGE_NLA_VERSION=${COMPONENT_VERSION:-1.1.0}
+export PGEDGE_NLA_VERSION=${COMPONENT_VERSION:-1.2.0}
 export PGEDGE_NLA_BUILDNUM=${COMPONENT_BUILDNUM:-1}
 
 export REPO_TYPE="${REPO_TYPE:-daily}"

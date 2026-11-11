@@ -63,7 +63,7 @@ FROM alpine:3
 # Add labels for container metadata
 LABEL name="pgedge-postgres-mcp" \
       vendor="pgEdge" \
-      version="1.0" \
+      version="1.2" \
       summary="The pgEdge MCP Server" \
       description="Model Context Protocol server for PostgreSQL database interaction" \
       io.modelcontextprotocol.server.name="io.github.pgEdge/postgres-mcp"

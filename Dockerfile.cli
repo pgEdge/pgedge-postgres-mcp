@@ -25,7 +25,7 @@ FROM alpine:3
 # Add labels for container metadata
 LABEL name="pgedge-nla-cli" \
       vendor="pgEdge" \
-      version="1.0" \
+      version="1.2" \
       summary="pgEdge NAtural LAnguage Agent CLI" \
       description="Command-line chat interface for pgEdge Natural Language Agent" \
       io.naturallanguageagent.cli.name="io.github.pgEdge/nla-cli"

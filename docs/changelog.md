@@ -9,6 +9,8 @@ and this project adheres to
 
 ## [Unreleased]
 
+## [1.2.0-beta1] - 2026-11-11
+
 ### Added
 
 - OAuth 2.0 authorisation server with authorisation code (PKCE) and
@@ -16,7 +18,13 @@ and this project adheres to
   and the web client can sign in through a brandable login page
   (#287). The page carries the pgEdge favicon by default, replaceable
   with `http.auth.oauth.login_page.favicon_file`, alongside the title,
-  subtitle, message, footer, logo and colours.
+  subtitle, message, footer, logo and colours. Listing anything in
+  `http.auth.oauth.allowed_redirect_uris` replaces the three built-in
+  defaults (`https://claude.ai/api/mcp/auth_callback`,
+  `http://127.0.0.1/callback` and `http://localhost/callback`) rather
+  than adding to them.
+- Authentication methods (API tokens, password login, OAuth) can be
+  enabled individually under `http.auth.methods`.
 - The CLI chat client now authenticates via OAuth automatically when
   the server advertises it, using a loopback browser redirect where
   possible and falling back to the device authorisation flow on
@@ -54,8 +62,6 @@ and this project adheres to
   passwords alone. Previously it rewrote the file on every start; use
   `-update-user` to change a user, and to remove one, delete it from
   `INIT_USERS` and run `-delete-user`.
-- Authentication methods (API tokens, password login, OAuth) can be
-  enabled individually under `http.auth.methods`.
 - Enabling OAuth adds the issuer's own origin to the browser origins
   the server accepts, so that the login form can post back to it.
   Because listing any origin replaces the loopback default rather than
@@ -64,11 +70,6 @@ and this project adheres to
   accepts loopback origins on other ports; name the origins you intend
   to serve the web client from explicitly. The startup log now
   describes the policy actually in effect.
-- Listing anything in `http.auth.oauth.allowed_redirect_uris` replaces
-  the three built-in defaults rather than adding to them. Repeat any of
-  `https://claude.ai/api/mcp/auth_callback`,
-  `http://127.0.0.1/callback` or `http://localhost/callback` that you
-  still need.
 - `/api/user/info` now reports an API token as authenticated, with
   `auth_method: "api"`, rather than the "invalid or expired session"
   error it previously returned for that credential kind, and now
@@ -107,16 +108,6 @@ and this project adheres to
   finished; for example, selecting another database mid-query stalled
   other users for as long as the query ran. Fixes #292.
 
-- The Jinja2 raw block markers that shield three code blocks from the
-  documentation site's macro processing are now separated from their
-  fences by blank lines. Without the separation the closing fence and
-  the marker after it parse as a single paragraph, so a renderer with
-  the `attr_list` markdown extension enabled treats the marker as an
-  attribute list for that paragraph and swallows it, emitting bogus
-  attributes on the wrapping tag instead. The affected pages are
-  `docs/reference/tools.md`, `docs/guide/cli-client.md` and
-  `docs/contributing/ci-cd.md`.
-
 - The release workflow now names its archives after the tag that
   triggered it. GoReleaser was left to work the version out for itself,
   which it does by asking git which tags point at the commit and taking
@@ -151,9 +142,18 @@ and this project adheres to
 
 ### Security
 
-- Raised the minimum Go version to 1.26.10, which adds eight
+- Custom `pl-do` tools no longer let a caller inject Perl code through
+  the tool's parameters (GHSA-jf8q-vh2f-mhq4, high severity).
+- Updated `pgx` to v5.12.0. Earlier versions could accept a server
+  impersonating PostgreSQL that skipped authentication when a
+  connection string relied on `require_auth` or
+  `channel_binding=require` without verifying the server's certificate
+  (GHSA-95fj-3fxw-g62g). The release also fixes GHSA-j38q-h3ph-jjpq,
+  which affects simple-protocol batches that the server does not use.
+- Raised the minimum Go version to 1.26.11. Go 1.26.10 adds eight
   compromised eMudhra intermediate CAs to the `crypto/x509` denylist
-  (CVE-2026-111943).
+  (CVE-2026-111943), and 1.26.11 fixes security issues in cgo, the go
+  command, the compiler, the linker and `net/http`.
 - Updated `golang.org/x/net` from v0.58.0 to v0.62.0, fixing several
   HTTP/2 denial of service and response smuggling issues and two
   `x/net/html` issues reached through the CLI's Markdown renderer.

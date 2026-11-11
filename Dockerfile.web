@@ -28,7 +28,7 @@ FROM nginxinc/nginx-unprivileged:stable-alpine-slim
 # Add labels for container metadata
 LABEL name="pgedge-nla-web" \
       vendor="pgEdge" \
-      version="1.0" \
+      version="1.2" \
       summary="pgEdge Natural Language Agent Web Client" \
       description="Web-based chat interface for pgEdge Natural Language Agent" \
       io.naturallanguageagent.web.name="io.github.pgEdge/nla-web"
