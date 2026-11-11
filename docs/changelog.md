@@ -42,10 +42,15 @@ and this project adheres to
   deleted, locked out or given a new password. Logging out of the web
   client now also asks the server to end the session. When HTTP
   authentication is enabled, the server needs a writable data directory,
-  even if you use only API tokens. Fixes #289.
+  even if you use only API tokens. A second server cannot start on a
+  data directory that one is already using. Fixes #289.
 
 ### Changed
 
+- The Docker image's `INIT_USERS` variable now only adds users that are
+  missing from the users file, and leaves existing users and their
+  passwords alone. Previously it rewrote the file on every start; use
+  `-update-user` or `-delete-user` to change or remove a user.
 - Authentication methods (API tokens, password login, OAuth) can be
   enabled individually under `http.auth.methods`.
 - Enabling OAuth adds the issuer's own origin to the browser origins

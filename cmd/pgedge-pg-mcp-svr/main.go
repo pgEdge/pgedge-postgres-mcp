@@ -558,6 +558,23 @@ func main() {
 		// restart. The close is registered here, before the OAuth server's
 		// own deferred Close, so that it runs after it.
 		if userStore != nil || cfg.HTTP.Auth.OAuthActive() {
+			// Hold the data directory's lock for the life of the
+			// process, so that a second server on the same auth.db
+			// refuses to start rather than honouring tokens that this
+			// one has revoked. A file system without locks gets a
+			// warning, since refusing there would break deployments
+			// that worked before the lock existed.
+			dirLock, lockErr := authdb.Lock(dataDir)
+			switch {
+			case lockErr == nil:
+				defer func() { _ = dirLock.Release() }()
+			case errors.Is(lockErr, authdb.ErrLockUnsupported):
+				fmt.Fprintf(os.Stderr, "WARNING: Cannot lock the data directory (%v); make sure no other server uses %s\n", lockErr, dataDir)
+			default:
+				fmt.Fprintf(os.Stderr, "ERROR: Cannot lock the data directory: %v (run one server per data directory)\n", lockErr)
+				os.Exit(1)
+			}
+
 			db, dbPath, dbErr := authdb.Open(dataDir)
 			if dbErr != nil {
 				if dbPath == "" {

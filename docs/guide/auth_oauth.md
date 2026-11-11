@@ -165,6 +165,7 @@ The following points describe how OAuth uses `auth.db`:
   the server is stopped signs every client out.
 - After the file is deleted, each client must register again.
 - Two servers must never share one data directory; this is unsupported.
+- A second server on the same data directory refuses to start.
 - With HTTP authentication enabled, the data directory must be writable.
 
 To reset the file, stop the server, and then delete `auth.db` along with

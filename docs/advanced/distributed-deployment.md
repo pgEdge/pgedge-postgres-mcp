@@ -298,7 +298,9 @@ Every pod replacement then signs all users out and forces dynamically
 registered OAuth clients to register again.
 
 Do not point several replicas at one shared data directory. Each replica
-needs its own `auth.db`, because sharing the file is unsupported.
+needs its own `auth.db`, because sharing the file is unsupported. A
+second server on the same data directory refuses to start, because the
+first holds a lock on the directory.
 
 ### Horizontal Pod Autoscaler
 
@@ -373,6 +375,7 @@ authentication:
 - A password change also ends the user's OAuth grants.
 - Each instance keeps sessions and OAuth state in its own `auth.db` file.
 - Two instances must never share one data directory; this is unsupported.
+- A second instance on the same data directory refuses to start.
 
 ### Rate Limiting Considerations
 

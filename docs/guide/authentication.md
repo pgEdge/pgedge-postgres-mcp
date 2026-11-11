@@ -332,11 +332,16 @@ The following points describe how the server manages `auth.db`:
 - Deleting the file, with its `auth.db-wal` and `auth.db-shm` files, whilst
   the server is stopped signs every user out.
 - Two servers must never share one data directory; this is unsupported.
+- A second server on the same data directory refuses to start.
 
 To reset the file, stop the server, and then delete `auth.db` along with
 any `auth.db-wal` and `auth.db-shm` files beside it. Do not run a second
 server against the same data directory, because the two servers would
 overwrite each other's changes and could restore revoked OAuth tokens.
+The running server holds a lock on `auth.db.lock` in the data directory,
+and a second server exits with `ERROR: Cannot lock the data directory`.
+On a file system without file locks, the server logs a warning instead,
+and you must ensure that only one server uses the directory.
 
 If the server cannot open `auth.db`, it exits with an error naming the
 file, in the form `ERROR: Failed to open auth database <path>: <reason>`.
