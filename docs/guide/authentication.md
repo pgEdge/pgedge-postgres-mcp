@@ -375,8 +375,8 @@ The server deletes expired sessions every minute, and once at start-up.
 
 When the server runs in a container, keep the data directory on a
 persistent volume. Otherwise, the sessions are lost when the container is
-replaced. The current Helm chart does not place the data directory on its
-mounted volume; for details, see
+replaced. The Helm chart keeps the data directory on its data volume; for
+details, see
 [Distributed Deployment](../advanced/distributed-deployment.md#helm-persistence-and-authdb).
 
 ## Authorization: Database Access Control

@@ -288,19 +288,18 @@ which lives in the data directory. The Helm chart mounts a `data` volume at
 that volume is a PersistentVolumeClaim; otherwise, it is an `emptyDir`
 volume that Kubernetes deletes when the pod is replaced.
 
-The current chart does not place the data directory on that volume. With
-the chart defaults, the image entrypoint cannot create `/app/data` on the
-read-only root filesystem, so the server does not start.
+The chart sets the server's data directory to that mount point, so
+`auth.db`, `users.json` and `tokens.json` all live on the data volume.
+With persistence enabled, sessions and OAuth clients survive pod
+replacement; with an `emptyDir` volume, every pod replacement signs all
+users out and forces dynamically registered OAuth clients to register
+again.
 
-If a pod runs with a writable `/app/data` outside the data volume, then
-`auth.db` does not survive pod replacement, even with persistence enabled.
-Every pod replacement then signs all users out and forces dynamically
-registered OAuth clients to register again.
-
-Do not point several replicas at one shared data directory. Each replica
-needs its own `auth.db`, because sharing the file is unsupported. A
-second server on the same data directory refuses to start, because the
-first holds a lock on the directory.
+The chart always runs the server as a single replica, with the
+`Recreate` update strategy, because two servers must never share a data
+directory. A second server on the same data directory refuses to start,
+because the first holds a lock on the directory. Scale the web client
+with `web.replicaCount` instead.
 
 ### Horizontal Pod Autoscaler
 
@@ -331,7 +330,9 @@ spec:
 
 The autoscaler adds pods when average CPU utilization exceeds
 70 percent. Set `minReplicas` to at least two for high
-availability.
+availability. Each server pod needs its own data directory, and
+sessions and OAuth state do not move between pods; do not attach an
+autoscaler to the Helm chart's server, which runs a single replica.
 
 ## Knowledge Base Synchronization
 
