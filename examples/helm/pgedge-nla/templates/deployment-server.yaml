@@ -32,6 +32,28 @@ spec:
       automountServiceAccountToken: false
       securityContext:
         {{- toYaml .Values.server.podSecurityContext | nindent 8 }}
+      # The server watches users.json and tokens.json for changes only when
+      # they exist at startup, so create empty ones on first install; users
+      # and tokens added later with kubectl exec then load without a restart.
+      # Existing files are left alone.
+      initContainers:
+      - name: init-auth-files
+        image: "{{ .Values.server.image.repository }}:{{ .Values.server.image.tag }}"
+        imagePullPolicy: {{ .Values.server.image.pullPolicy }}
+        command:
+        - /bin/sh
+        - -c
+        - |
+          cd {{ include "pgedge-nla.dataDir" . }}
+          [ -e tokens.json ] || printf 'tokens: {}\n' > tokens.json
+          [ -e users.json ] || printf 'users: {}\n' > users.json
+        resources:
+          {{- toYaml .Values.server.resources | nindent 10 }}
+        securityContext:
+          {{- toYaml .Values.server.securityContext | nindent 10 }}
+        volumeMounts:
+        - name: data
+          mountPath: {{ include "pgedge-nla.dataDir" . }}
       containers:
       - name: server
         image: "{{ .Values.server.image.repository }}:{{ .Values.server.image.tag }}"
@@ -61,6 +83,12 @@ spec:
             secretKeyRef:
               name: {{ include "pgedge-nla.fullname" . }}-secret
               key: openai-api-key
+              optional: true
+        - name: GEMINI_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "pgedge-nla.fullname" . }}-secret
+              key: gemini-api-key
               optional: true
         volumeMounts:
         - name: config

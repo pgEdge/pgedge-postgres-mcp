@@ -45,14 +45,24 @@ server:
     sslmode: prefer
     allowWrites: false
 
+  # Extra web origins (scheme://host[:port]) the server accepts from
+  # browsers. Each ingress host is already allowed; add any other address
+  # the web client is published under.
+  allowedOrigins: []
+
   # LLM proxy for the web client's chat. The API key for the provider comes
-  # from secrets.anthropicApiKey or secrets.openaiApiKey.
+  # from secrets.anthropicApiKey, secrets.openaiApiKey or
+  # secrets.geminiApiKey; Ollama needs none.
   llm:
     enabled: false
     # "anthropic", "openai", "ollama" or "gemini"
     provider: anthropic
-    # Leave empty to use the provider's default model.
+    # Required for any provider other than anthropic; empty uses the
+    # server's default Anthropic model.
     model: ""
+    # The Ollama service's URL, when provider is "ollama"; empty uses
+    # http://localhost:11434.
+    ollamaUrl: ""
 
   # Knowledgebase configuration
   # Options:
@@ -157,6 +167,7 @@ secrets:
   # LLM API keys
   anthropicApiKey: ""
   openaiApiKey: ""
+  geminiApiKey: ""
 
 # Service Account
 serviceAccount:

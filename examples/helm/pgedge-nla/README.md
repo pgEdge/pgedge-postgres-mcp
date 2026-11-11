@@ -49,7 +49,11 @@ See [values.yaml](values.yaml) for all configuration options.
 - `secrets.postgresPassword`: PostgreSQL password (required)
 - `server.database`: PostgreSQL host, port, database, user and SSL mode
 - `server.llm`: Enable the LLM proxy for the web client's chat, with the
-  API key in `secrets.anthropicApiKey` or `secrets.openaiApiKey`
+  API key in `secrets.anthropicApiKey`, `secrets.openaiApiKey` or
+  `secrets.geminiApiKey`; any provider other than Anthropic needs
+  `server.llm.model`, and Ollama takes `server.llm.ollamaUrl`
+- `server.allowedOrigins`: Extra browser origins to accept; each ingress
+  host is allowed already, and any other origin except loopback gets 403
 - `server.persistence`: The data volume for users, tokens and sessions
 - `server.clientIp.trustedProxies`: Your ingress controller's addresses,
   so that login rate limiting sees real client addresses
@@ -59,8 +63,9 @@ See [values.yaml](values.yaml) for all configuration options.
 ### Users and Tokens
 
 The server starts with no users and no API tokens, and keeps both in
-`users.json` and `tokens.json` on its data volume, watching the files for
-changes. Add them with the server binary inside the running pod; `-it` lets
+`users.json` and `tokens.json` on its data volume. An init container
+creates both files empty on first install, so the server watches them and
+loads changes without a restart. Add users and tokens with the server binary inside the running pod; `-it` lets
 it prompt for the password:
 
 ```bash

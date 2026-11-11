@@ -46,13 +46,40 @@ data:
       {{- else }}
         source: socket
       {{- end }}
+      # Browsers send an Origin header, and the server refuses any origin
+      # other than loopback unless it is listed here. The chart lists each
+      # ingress host, as https when the ingress has TLS for it, plus any
+      # extra origins in server.allowedOrigins.
+      {{- $origins := list }}
+      {{- if .Values.ingress.enabled }}
+      {{- $tlsHosts := list }}
+      {{- range .Values.ingress.tls }}
+      {{- $tlsHosts = concat $tlsHosts (.hosts | default list) }}
+      {{- end }}
+      {{- range .Values.ingress.hosts }}
+      {{- $origins = append $origins (printf "%s://%s" (ternary "https" "http" (has .host $tlsHosts)) .host) }}
+      {{- end }}
+      {{- end }}
+      {{- $origins = concat $origins (.Values.server.allowedOrigins | default list) | uniq }}
+      {{- with $origins }}
+      allowed_origins:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
 
     llm:
       enabled: {{ .Values.server.llm.enabled }}
       {{- if .Values.server.llm.enabled }}
       provider: {{ .Values.server.llm.provider | quote }}
+      {{- /* The server's default model is an Anthropic one, so any other
+             provider needs its model named. */}}
+      {{- if and (not .Values.server.llm.model) (ne .Values.server.llm.provider "anthropic") }}
+      {{- fail "server.llm.model is required when server.llm.provider is not anthropic" }}
+      {{- end }}
       {{- with .Values.server.llm.model }}
       model: {{ . | quote }}
+      {{- end }}
+      {{- with .Values.server.llm.ollamaUrl }}
+      ollama_url: {{ . | quote }}
       {{- end }}
       {{- end }}
 
