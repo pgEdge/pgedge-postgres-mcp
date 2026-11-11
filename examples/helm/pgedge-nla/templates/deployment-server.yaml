@@ -38,7 +38,7 @@ spec:
       # Existing files are left alone.
       initContainers:
       - name: init-auth-files
-        image: "{{ .Values.server.image.repository }}:{{ .Values.server.image.tag }}"
+        image: {{ include "pgedge-nla.serverImage" . | quote }}
         imagePullPolicy: {{ .Values.server.image.pullPolicy }}
         command:
         - /bin/sh
@@ -57,7 +57,7 @@ spec:
           mountPath: {{ include "pgedge-nla.dataDir" . }}
       containers:
       - name: server
-        image: "{{ .Values.server.image.repository }}:{{ .Values.server.image.tag }}"
+        image: {{ include "pgedge-nla.serverImage" . | quote }}
         imagePullPolicy: {{ .Values.server.image.pullPolicy }}
         # Run the server directly, because the image's entrypoint script
         # needs root.
@@ -90,6 +90,14 @@ spec:
             secretKeyRef:
               name: {{ include "pgedge-nla.fullname" . }}-secret
               key: gemini-api-key
+              optional: true
+        # The knowledgebase's embedding keys fall back to the three above,
+        # so only Voyage AI needs one of its own.
+        - name: VOYAGE_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "pgedge-nla.fullname" . }}-secret
+              key: voyage-api-key
               optional: true
         volumeMounts:
         - name: config

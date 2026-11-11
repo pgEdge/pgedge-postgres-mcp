@@ -33,10 +33,11 @@ data:
         max_failed_attempts_before_lockout: 5
         rate_limit_window_minutes: 15
         rate_limit_max_attempts: 10
-      # Requests reach the pod through a Service or Ingress, which becomes the
-      # peer on every connection. Populate server.clientIp.trustedProxies with
-      # the ingress controller's addresses to have login rate limiting count
-      # against real client addresses rather than against the proxy.
+      # Browser requests reach the server through the ingress controller and
+      # a web pod, which is the peer on every connection. With
+      # server.clientIp.trustedProxies covering both, the server reads
+      # X-Forwarded-For from the right, skipping trusted hops, so login rate
+      # limiting counts against the caller rather than against a web pod.
       client_ip:
       {{- if .Values.server.clientIp.trustedProxies }}
         source: header
@@ -88,4 +89,16 @@ data:
     knowledgebase:
       enabled: true
       database_path: /usr/share/pgedge/nla-kb/kb.db
+      {{- /* Searches must embed queries with the provider and model that
+             built the knowledgebase; the server's own default is Ollama on
+             localhost, which no pod provides. */}}
+      {{- with .Values.server.knowledgebase.embedding }}
+      embedding_provider: {{ required "server.knowledgebase.embedding.provider is required when the knowledgebase is enabled" .provider | quote }}
+      {{- with .model }}
+      embedding_model: {{ . | quote }}
+      {{- end }}
+      {{- with .ollamaUrl }}
+      embedding_ollama_url: {{ . | quote }}
+      {{- end }}
+      {{- end }}
     {{- end }}

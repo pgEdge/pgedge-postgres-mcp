@@ -127,6 +127,11 @@ and this project adheres to
   `secrets.tokens` and `server.config.logLevel`) are removed, and
   `secrets.postgresPassword` no longer defaults to a placeholder. The
   chart's README explains how to add users and tokens.
+  Images now default to the chart's own version rather than `latest`,
+  network policies restrict which pods can reach the web client and
+  the server, and the data volume survives `helm uninstall`. The
+  knowledgebase is off by default and takes its embedding provider
+  from the chart when enabled.
 
 ### Security
 

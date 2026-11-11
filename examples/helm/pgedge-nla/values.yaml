@@ -2,11 +2,9 @@
 server:
   image:
     repository: ghcr.io/pgedge/postgres-mcp
-    # Image tag options:
-    #   - "latest"         Base image without knowledgebase
-    #   - "latest-with-kb" Image with pre-built knowledgebase
-    # Use "latest-with-kb" and set knowledgebase.useBuiltIn=true for easiest setup
-    tag: latest-with-kb
+    # Empty means the chart's appVersion, with the -with-kb suffix when the
+    # built-in knowledgebase is enabled; set a tag only to pin another one.
+    tag: ""
     pullPolicy: IfNotPresent
 
   # The server always runs as a single replica; see the chart's README.
@@ -26,13 +24,15 @@ server:
       memory: 512Mi
 
   # Client address resolution, used for login rate limiting and logging.
-  # Requests arrive through a Service or Ingress, so the connection's peer is
-  # the proxy rather than the caller. List the addresses or CIDR blocks your
-  # ingress controller connects from to have the server read the real client
-  # address from the header below; whilst trustedProxies is empty the server
-  # uses the connection's peer, which no caller can influence.
+  # Browser requests pass through two proxies, the ingress controller and a
+  # web pod, so the connection's peer is a web pod rather than the caller.
+  # Whilst trustedProxies is empty the server uses that peer, so every
+  # browser login shares one rate limit per web pod. List the CIDR blocks
+  # both proxies connect from (usually the cluster's pod network) to have
+  # the server read the caller's address from X-Forwarded-For instead; see
+  # the chart's README.
   clientIp:
-    header: X-Real-IP
+    header: X-Forwarded-For
     trustedProxies: []
 
   # PostgreSQL connection; the password comes from secrets.postgresPassword.
@@ -64,21 +64,29 @@ server:
     # http://localhost:11434.
     ollamaUrl: ""
 
-  # Knowledgebase configuration
-  # Options:
-  #   1. Use -with-kb image variant (easiest): set useBuiltIn=true
-  #   2. Use base image with external PVC: set useBuiltIn=false, provide existingPvc
+  # The documentation knowledgebase. Searching it embeds each query, so it
+  # needs the embedding provider and model the knowledgebase was built
+  # with; the API key comes from secrets.voyageApiKey, secrets.openaiApiKey
+  # or secrets.geminiApiKey, and Ollama needs none.
   knowledgebase:
-    enabled: true
-    # Set to true when using the -with-kb image variant (KB built into image)
-    # Set to false when using base image and mounting KB from a PVC
+    enabled: false
+    # true uses the knowledgebase built into the -with-kb image; false
+    # mounts kb.db from the PVC named in existingPvc.
     useBuiltIn: true
-    # Only used when useBuiltIn=false - name of existing PVC containing kb.db
     existingPvc: pgedge-nla-kb
+    embedding:
+      # "voyage", "openai", "gemini" or "ollama"; required when enabled.
+      provider: ""
+      # Empty uses the provider's default model.
+      model: ""
+      # The Ollama service's URL, when provider is "ollama"; empty uses
+      # http://localhost:11434.
+      ollamaUrl: ""
 
   # The data volume holds users.json, tokens.json, the authentication
   # database and conversation history. Without persistence they are lost
-  # whenever the pod is replaced.
+  # whenever the pod is replaced. helm uninstall keeps the claim; delete it
+  # by hand to discard the data.
   persistence:
     enabled: true
     size: 1Gi
@@ -107,7 +115,8 @@ server:
 web:
   image:
     repository: ghcr.io/pgedge/nla-web
-    tag: latest
+    # Empty means the chart's appVersion.
+    tag: ""
     pullPolicy: IfNotPresent
 
   # The web client is stateless, so it can run several replicas.
@@ -159,6 +168,21 @@ ingress:
       hosts:
         - nla.example.com
 
+# NetworkPolicies that admit traffic to the web pods only from the ingress
+# controller, and to the server only from the web pods. They take effect
+# only with a network plugin that enforces them.
+networkPolicy:
+  enabled: true
+  # Selects the ingress controller's pods; the default matches the
+  # ingress-nginx project's own install.
+  ingressController:
+    namespaceSelector:
+      matchLabels:
+        kubernetes.io/metadata.name: ingress-nginx
+    podSelector:
+      matchLabels:
+        app.kubernetes.io/name: ingress-nginx
+
 # Secrets
 secrets:
   # PostgreSQL password (required)
@@ -168,6 +192,8 @@ secrets:
   anthropicApiKey: ""
   openaiApiKey: ""
   geminiApiKey: ""
+  # Knowledgebase embedding key for Voyage AI
+  voyageApiKey: ""
 
 # Service Account
 serviceAccount:

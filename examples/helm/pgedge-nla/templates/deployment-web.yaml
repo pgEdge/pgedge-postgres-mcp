@@ -27,7 +27,7 @@ spec:
         {{- toYaml .Values.web.podSecurityContext | nindent 8 }}
       containers:
       - name: web
-        image: "{{ .Values.web.image.repository }}:{{ .Values.web.image.tag }}"
+        image: {{ include "pgedge-nla.webImage" . | quote }}
         imagePullPolicy: {{ .Values.web.image.pullPolicy }}
         ports:
         # The image's nginx runs unprivileged, so it listens on 8081.
