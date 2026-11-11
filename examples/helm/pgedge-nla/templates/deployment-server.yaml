@@ -44,6 +44,7 @@ spec:
         - /bin/sh
         - -c
         - |
+          umask 077
           cd {{ include "pgedge-nla.dataDir" . }}
           [ -e tokens.json ] || printf 'tokens: {}\n' > tokens.json
           [ -e users.json ] || printf 'users: {}\n' > users.json
