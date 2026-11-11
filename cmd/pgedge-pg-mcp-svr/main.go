@@ -12,7 +12,9 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"net/http"
@@ -29,6 +31,7 @@ import (
 
 	"pgedge-postgres-mcp/internal/api"
 	"pgedge-postgres-mcp/internal/auth"
+	"pgedge-postgres-mcp/internal/authdb"
 	"pgedge-postgres-mcp/internal/compactor"
 	"pgedge-postgres-mcp/internal/config"
 	"pgedge-postgres-mcp/internal/conversations"
@@ -490,6 +493,18 @@ func main() {
 	var tokenStore *auth.TokenStore
 	var userStore *auth.UserStore
 	userFilePathForTools := ""
+
+	// The data directory holds the conversation store and, when HTTP
+	// authentication is on, the auth database. Default to a directory next
+	// to the executable.
+	dataDir := cfg.DataDir
+	if dataDir == "" {
+		dataDir = filepath.Join(filepath.Dir(execPath), "data")
+	}
+	var authDB *sql.DB
+	// The full path of auth.db, for error messages about its contents.
+	authDBPath := filepath.Join(dataDir, authdb.FileName)
+
 	if cfg.HTTP.Enabled && cfg.HTTP.Auth.Enabled {
 		if _, err := os.Stat(cfg.HTTP.Auth.TokenFile); os.IsNotExist(err) {
 			// Token file doesn't exist - create empty store
@@ -521,9 +536,11 @@ func main() {
 			userFilePathForTools = auth.GetDefaultUserPath(execPath)
 		}
 
+		userFileExists := true
 		if _, err := os.Stat(userFilePathForTools); os.IsNotExist(err) {
 			// User file doesn't exist - create empty store
 			// Users can be added via CLI commands
+			userFileExists = false
 			userStore = auth.InitializeUserStore()
 			fmt.Fprintf(os.Stderr, "User file not found, initialized empty user store\n")
 		} else {
@@ -533,7 +550,60 @@ func main() {
 				os.Exit(1)
 			}
 			fmt.Fprintf(os.Stderr, "Loaded %d user(s) from %s\n", len(userStore.Users), userFilePathForTools)
+		}
 
+		// Open the auth database, which holds password sessions and OAuth
+		// state across restarts. The server refuses to start without it,
+		// rather than silently running with sessions that vanish on
+		// restart. The close is registered here, before the OAuth server's
+		// own deferred Close, so that it runs after it.
+		if userStore != nil || cfg.HTTP.Auth.OAuthActive() {
+			// Hold the data directory's lock for the life of the
+			// process, so that a second server on the same auth.db
+			// refuses to start rather than honouring tokens that this
+			// one has revoked. A file system without locks gets a
+			// warning, since refusing there would break deployments
+			// that worked before the lock existed.
+			dirLock, lockErr := authdb.Lock(dataDir)
+			switch {
+			case lockErr == nil:
+				defer func() { _ = dirLock.Release() }()
+			case errors.Is(lockErr, authdb.ErrLockUnsupported):
+				fmt.Fprintf(os.Stderr, "WARNING: Cannot lock the data directory (%v); make sure no other server uses %s\n", lockErr, dataDir)
+			default:
+				fmt.Fprintf(os.Stderr, "ERROR: Cannot lock the data directory: %v (run one server per data directory)\n", lockErr)
+				os.Exit(1)
+			}
+
+			db, dbPath, dbErr := authdb.Open(dataDir)
+			if dbErr != nil {
+				if dbPath == "" {
+					dbPath = filepath.Join(dataDir, authdb.FileName)
+				}
+				// authdb's errors already name the path; add it only if
+				// a future one does not, so it always appears once.
+				if strings.Contains(dbErr.Error(), dbPath) {
+					fmt.Fprintf(os.Stderr, "ERROR: Failed to open %v\n", dbErr)
+				} else {
+					fmt.Fprintf(os.Stderr, "ERROR: Failed to open auth database %s: %v\n", dbPath, dbErr)
+				}
+				os.Exit(1)
+			}
+			authDB = db
+			authDBPath = dbPath
+			defer authDB.Close()
+			fmt.Fprintf(os.Stderr, "Auth database: %s\n", dbPath)
+		}
+
+		if userStore != nil && authDB != nil {
+			// Attach the session store before the file watcher starts, so
+			// that the reload hook sees it.
+			userStore.SetSessionStore(auth.NewSQLiteSessionStore(authDB))
+			stopSessionSweeper := userStore.StartSessionSweeper(time.Minute)
+			defer stopSessionSweeper()
+		}
+
+		if userFileExists {
 			// Start watching the user file for changes
 			if err := userStore.StartWatching(); err != nil {
 				fmt.Fprintf(os.Stderr, "WARNING: Failed to start watching user file: %v\n", err)
@@ -828,11 +898,6 @@ func main() {
 	// Initialize conversation store for HTTP mode with auth
 	var convStore *conversations.Store
 	if cfg.HTTP.Enabled && cfg.HTTP.Auth.Enabled && userStore != nil {
-		// Use configured data directory, or default to a directory next to the executable
-		dataDir := cfg.DataDir
-		if dataDir == "" {
-			dataDir = filepath.Join(filepath.Dir(execPath), "data")
-		}
 		var err error
 		convStore, err = conversations.NewStore(dataDir)
 		if err != nil {
@@ -935,24 +1000,67 @@ func main() {
 						}
 					}()
 				},
+				DB:     authDB,
 				Logger: func(f string, a ...any) { fmt.Fprintf(os.Stderr, f+"\n", a...) },
 			})
 			if oauthErr != nil {
-				fmt.Fprintf(os.Stderr, "ERROR: OAuth: %v\n", oauthErr)
+				if errors.Is(oauthErr, oauth.ErrStoreLoad) {
+					fmt.Fprintf(os.Stderr, "ERROR: OAuth state in auth database %s could not be loaded: %v (stop the server and delete auth.db, auth.db-wal and auth.db-shm to reset it)\n", authDBPath, oauthErr)
+				} else {
+					fmt.Fprintf(os.Stderr, "ERROR: OAuth: %v\n", oauthErr)
+				}
 				os.Exit(1)
 			}
 			defer oauthServer.Close()
-			// Disabling, deleting or locking out a user now revokes its
-			// OAuth tokens outright, rather than leaving them usable
-			// until they expire; the same hook fires when the watched
-			// user file is reloaded with an account removed or
-			// disabled.
+			// Disabling, deleting or locking out a user, or changing its
+			// password, revokes its OAuth tokens outright, rather than
+			// leaving them usable until they expire; the same hook fires
+			// when the watched user file is reloaded with an account
+			// removed, disabled or given a new password.
 			if userStore != nil {
-				userStore.SetRevocationHook(func(username string) {
-					if revoked := oauthServer.RevokeSubject(username); len(revoked) > 0 {
+				// The hook and the fingerprint store go in before the
+				// start-up sweep, so a reload racing with the sweep is
+				// revoked and recorded by the hook rather than missed.
+				userStore.SetRevocationHook(func(username string) error {
+					revoked, err := oauthServer.RevokeSubject(username)
+					if len(revoked) > 0 {
 						fmt.Fprintf(os.Stderr, "Revoked %d OAuth token(s) for user %q\n", len(revoked), username)
 					}
+					return err
 				})
+				// Read the recorded fingerprints before installing the
+				// store, so a reload in this window cannot record a new
+				// password before the sweep compares against the old one.
+				recorded := map[string]string{}
+				if authDB != nil {
+					fps := auth.NewSQLiteFingerprintStore(authDB)
+					var fpErr error
+					if recorded, fpErr = fps.All(); fpErr != nil {
+						fmt.Fprintf(os.Stderr, "ERROR: Failed to read password fingerprints from auth database %s: %v\n", authDBPath, fpErr)
+						os.Exit(1)
+					}
+					userStore.SetFingerprintStore(fps)
+				}
+
+				// A user disabled, deleted, given a new password, or
+				// deleted and re-added in the users file whilst the server
+				// was stopped never triggered the hook, so sweep the
+				// restored OAuth state once now, then record the
+				// passwords it was checked against. With no user store
+				// this block is skipped, leaving the state alone.
+				// RevokeOAuth goes through the hook above, and leaves any
+				// user whose revocation fails unrecorded and queued for
+				// the session sweeper to retry.
+				stale := userStore.StaleSubjects(oauthServer.Subjects(), recorded)
+				if len(stale) > 0 {
+					fmt.Fprintf(os.Stderr, "Revoking OAuth access at start-up for %d user(s) inactive, or given a new password, whilst stopped\n", len(stale))
+				}
+				for _, subject := range userStore.RevokeOAuth(stale...) {
+					fmt.Fprintf(os.Stderr, "WARNING: Failed to save the revocation of OAuth access for user %q in auth database %s; it will be retried\n", subject, authDBPath)
+				}
+				if err := userStore.RecordFingerprints(); err != nil {
+					fmt.Fprintf(os.Stderr, "WARNING: Failed to record password fingerprints in auth database %s: %v\n", authDBPath, err)
+				}
 			}
 			validator.OAuth = oauthServer
 			validator.ExtraPublicPaths = oauth.PublicPaths()
@@ -1010,6 +1118,9 @@ func main() {
 			// Chat history compaction endpoint - requires auth when enabled
 			mux.HandleFunc("/api/chat/compact",
 				authWrapper(compactor.HandleCompact))
+
+			// Logout endpoint - ends the presented password-login session
+			mux.HandleFunc(auth.LogoutPath, logoutHandler(userStore))
 
 			// User info endpoint - returns auth status (no error if not logged in)
 			mux.HandleFunc("/api/user/info", func(w http.ResponseWriter, r *http.Request) {

@@ -24,10 +24,11 @@ type revocations struct {
 	names []string
 }
 
-func (r *revocations) record(username string) {
+func (r *revocations) record(username string) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.names = append(r.names, username)
+	return nil
 }
 
 func (r *revocations) contains(username string) bool {

@@ -14,6 +14,7 @@
 package oauth
 
 import (
+	"database/sql"
 	"errors"
 	"net/http"
 	"time"
@@ -74,6 +75,12 @@ type Options struct {
 	// "/oauth/callback", added by main.
 	ExtraRedirects []string
 
+	// DB, when set, is an auth.db opened with authdb.Open; the OAuth
+	// store then persists its state to it and starts from what it
+	// holds. May be nil, giving a purely in-memory store. The caller
+	// owns it: Close does not close it.
+	DB *sql.DB
+
 	// Logger receives diagnostic messages, in the style of log.Printf.
 	// May be nil, in which case messages are discarded.
 	Logger func(format string, args ...any)
@@ -118,9 +125,20 @@ func New(opts Options) (*Server, error) {
 		return nil, err
 	}
 
+	var store *Store
+	if opts.DB != nil {
+		store, err = NewPersistentStore(opts.DB, DefaultLimits,
+			opts.Config.RefreshTokenLifetime, opts.Logger)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		store = NewStore(DefaultLimits, opts.Config.RefreshTokenLifetime)
+	}
+
 	s := &Server{
 		opts:  opts,
-		store: NewStore(DefaultLimits, opts.Config.RefreshTokenLifetime),
+		store: store,
 		csrf:  signer,
 		page:  page,
 	}
@@ -171,7 +189,7 @@ func (s *Server) ValidateAccessToken(token string) (subject, clientID string, ok
 	}
 	if !s.subjectActive(t.Subject) {
 		s.logf("oauth: subject=%q is no longer active, revoking its tokens", t.Subject)
-		s.RevokeSubject(t.Subject)
+		_, _ = s.RevokeSubject(t.Subject)
 		return "", "", false
 	}
 	return t.Subject, t.ClientID, true
@@ -193,9 +211,16 @@ func (s *Server) subjectActive(subject string) bool {
 // device code standing in subject's name, returning the hashes of the
 // access tokens revoked. It is called when a user account is disabled,
 // deleted or locked out, and whenever a token is presented by a subject
-// that is no longer active.
-func (s *Server) RevokeSubject(subject string) []string {
+// that is no longer active. The error reports that the revocation is not
+// yet saved, so a restart before a retry succeeds would restore it.
+func (s *Server) RevokeSubject(subject string) ([]string, error) {
 	return s.store.DeleteBySubject(subject)
+}
+
+// Subjects returns the subjects that hold OAuth state, so a caller can
+// revoke those whose accounts are no longer active.
+func (s *Server) Subjects() []string {
+	return s.store.Subjects()
 }
 
 // now returns the current time, honouring opts.Now when set.

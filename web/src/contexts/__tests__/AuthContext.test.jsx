@@ -136,12 +136,44 @@ describe('AuthContext', () => {
       });
     });
 
-    // Logout with no OAuth session in play is local only, no fetch call
+    // Logout clears local state at once, and ends the server-side
+    // session with a fire-and-forget call to the logout endpoint.
+    global.fetch.mockResolvedValueOnce({ ok: true, status: 204 });
     await result.current.logout();
 
     await waitFor(() => {
       expect(result.current.user).toBe(null);
     });
     expect(localStorage.getItem('mcp-session-token')).toBe(null);
+    expect(global.fetch).toHaveBeenCalledWith('/api/user/logout', expect.objectContaining({
+      method: 'POST',
+      headers: { Authorization: 'Bearer test-token' },
+      signal: expect.any(AbortSignal),
+    }));
+  });
+
+  it('logs out locally even when the logout call never answers', async () => {
+    localStorage.setItem('mcp-session-token', 'test-token');
+    global.fetch.mockResolvedValueOnce(mockOAuthAbsent());
+    global.fetch.mockResolvedValueOnce(mockDiscover(1));
+    global.fetch.mockResolvedValueOnce(mockListTools(2));
+    global.fetch.mockResolvedValueOnce(mockUserInfo('testuser'));
+
+    const { result } = renderHook(() => useAuth(), {
+      wrapper: AuthProvider,
+    });
+    await waitFor(() => {
+      expect(result.current.user).not.toBe(null);
+    });
+
+    // A hung server: the promise never settles.
+    global.fetch.mockReturnValueOnce(new Promise(() => {}));
+    await result.current.logout();
+
+    await waitFor(() => {
+      expect(result.current.user).toBe(null);
+    });
+    expect(localStorage.getItem('mcp-session-token')).toBe(null);
+    expect(global.fetch).toHaveBeenLastCalledWith('/api/user/logout', expect.anything());
   });
 });

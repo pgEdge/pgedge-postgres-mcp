@@ -281,7 +281,7 @@ for details.
 | `trace_metadata_only` | `-trace-metadata-only` | `PGEDGE_TRACE_METADATA_ONLY` | Omit call parameters and results from trace entries, keeping only metadata (default: false) |
 | `secret_file` | N/A | `PGEDGE_SECRET_FILE` | Path to encryption secret file (auto-generated if not present) |
 | `custom_definitions_path` | N/A | `PGEDGE_CUSTOM_DEFINITIONS_PATH` | Path to custom prompts and resources definition file |
-| `data_dir` | N/A | `PGEDGE_DATA_DIR` | Data directory for conversation history (default: `{binary_dir}/data`) |
+| `data_dir` | N/A | `PGEDGE_DATA_DIR` | Data directory for conversation history and `auth.db`, which stores sessions and OAuth state; must be writable when HTTP authentication is enabled (default: `{binary_dir}/data`) |
 
 
 ## Configuration Priority Examples

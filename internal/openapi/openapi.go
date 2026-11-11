@@ -190,6 +190,7 @@ func buildPaths() M {
 		"/api/databases":          buildDatabasesPath(),
 		"/api/databases/select":   buildDatabasesSelectPath(),
 		"/api/user/info":          buildUserInfoPath(),
+		"/api/user/logout":        buildUserLogoutPath(),
 		"/api/chat/compact":       buildChatCompactPath(),
 		"/api/llm/v1/providers":   buildLLMProvidersPath(),
 		"/api/llm/v1/models":      buildLLMModelsPath(),
@@ -331,6 +332,26 @@ func buildUserInfoPath() M {
 				"200": M{
 					"description": "User information.",
 					"content":     jsonContent(ref("UserInfoResponse")),
+				},
+			},
+		},
+	}
+}
+
+func buildUserLogoutPath() M {
+	return M{
+		"post": M{
+			"tags":        A{"User"},
+			"summary":     "End the current password-login session",
+			"description": "Ends the password-login session named by the bearer token, so that the token can no longer be used. Always responds 204, whether or not the token was a live session, so as not to leak which tokens are valid. API tokens and OAuth tokens are not affected; OAuth tokens are revoked through the OAuth revocation endpoint. This endpoint does not require authentication.",
+			"operationId": "postUserLogout",
+			"responses": M{
+				"204": M{
+					"description": "The session was ended, or there was no such session.",
+				},
+				"405": M{
+					"description": "The request did not use POST.",
+					"content":     jsonContent(ref("ErrorResponse")),
 				},
 			},
 		},

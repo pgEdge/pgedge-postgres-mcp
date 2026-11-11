@@ -353,35 +353,40 @@ if is_http_enabled; then
         fi
     fi
 
-    # Initialize users file if INIT_USERS is provided
+    # Add INIT_USERS users that are not in the users file yet. Users who
+    # already exist keep their stored password hash: re-adding them would
+    # give each a fresh hash on every start, which the server treats as a
+    # password change and so revokes that user's sessions and OAuth grants.
+    # Change an existing user's password with -update-user instead.
     USERS_FILE="${PGEDGE_USERS_FILE:-${DATA_DIR}/users.json}"
     if [ -n "$INIT_USERS" ]; then
         echo "Initializing users from INIT_USERS environment variable..."
 
-        if [ -f "$USERS_FILE" ]; then
-            echo "Warning: Overwriting existing users file: $USERS_FILE"
-        fi
-
-        # Create empty users file first
-        echo "{}" > "$USERS_FILE"
-        chown 1001:1001 "$USERS_FILE"
-
-        # Use the server's -add-user command to properly hash passwords
         # Expected format: username1:password1,username2:password2
         OLD_IFS="$IFS"
         IFS=','
         USER_COUNT=0
+        SKIP_COUNT=0
         for user_entry in $INIT_USERS; do
             username=$(echo "$user_entry" | cut -d: -f1)
             password=$(echo "$user_entry" | cut -d: -f2-)
 
-            # Add user using the server's built-in command (which hashes the password)
-            /app/pgedge-postgres-mcp -add-user -username "$username" -password "$password" -user-file "$USERS_FILE" -user-note "Auto-generated user"
-            USER_COUNT=$((USER_COUNT + 1))
+            # The server's -add-user command hashes the password, creates
+            # the file if it is missing, and refuses a user that exists.
+            if add_output=$(/app/pgedge-postgres-mcp -add-user -username "$username" -password "$password" -user-file "$USERS_FILE" -user-note "Auto-generated user" 2>&1); then
+                echo "$add_output"
+                USER_COUNT=$((USER_COUNT + 1))
+            elif echo "$add_output" | grep -q "already exists"; then
+                echo "User '$username' already exists; keeping its stored password"
+                SKIP_COUNT=$((SKIP_COUNT + 1))
+            else
+                echo "$add_output"
+                exit 1
+            fi
         done
         IFS="$OLD_IFS"
 
-        echo "Created users file with $USER_COUNT user(s)"
+        echo "Added $USER_COUNT user(s), kept $SKIP_COUNT existing user(s)"
     fi
 
     # Only fix ownership for files this script created or replaced.

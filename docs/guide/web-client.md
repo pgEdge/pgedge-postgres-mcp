@@ -300,6 +300,12 @@ Or via environment variable:
 export PGEDGE_DATA_DIR="/var/lib/pgedge/data"
 ```
 
+When HTTP authentication is enabled, the same directory also holds
+`auth.db`, which stores password-login sessions and OAuth state across
+restarts. With HTTP authentication enabled, the data directory must be
+writable, even if you use only API tokens. For details, see the
+[Authentication Guide](authentication.md#persistent-sessions-and-the-authdb-file).
+
 **Preserving Conversation Privacy and Security**
 
 - Each user can only see their own conversations

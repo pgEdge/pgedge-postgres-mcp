@@ -1862,6 +1862,31 @@
         ]
       }
     },
+    "/api/user/logout": {
+      "post": {
+        "description": "Ends the password-login session named by the bearer token, so that the token can no longer be used. Always responds 204, whether or not the token was a live session, so as not to leak which tokens are valid. API tokens and OAuth tokens are not affected; OAuth tokens are revoked through the OAuth revocation endpoint. This endpoint does not require authentication.",
+        "operationId": "postUserLogout",
+        "responses": {
+          "204": {
+            "description": "The session was ended, or there was no such session."
+          },
+          "405": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The request did not use POST."
+          }
+        },
+        "summary": "End the current password-login session",
+        "tags": [
+          "User"
+        ]
+      }
+    },
     "/health": {
       "get": {
         "description": "Returns the current health status, server name, and version. No authentication is required.",

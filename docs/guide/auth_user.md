@@ -28,7 +28,8 @@ sudo chown $USER:$USER /etc/pgedge
 The user file uses bcrypt-hashed passwords (cost factor 12), and requires that
 permissions are set to `0600` (owner read/write only). Each session token
 generated as a result of user authentication is 32 bytes and valid for 24
-hours.
+hours. The server stores sessions in `auth.db`, so they survive a restart,
+and a user may hold up to 10 at once; the oldest is ended first.
 
 When configuring user authentication, you should keep the following best practices in mind:
 
@@ -44,7 +45,8 @@ When configuring user authentication, you should keep the following best practic
 - Store session tokens securely (not in localStorage for web apps)
 - Users should re-authenticate before a token expires.
 - Implement proper logout processing, with client-side token deletion.
-- Consider implementing per-user session limits for the concurrent session count.
+- The server limits each user to 10 concurrent sessions, ending the oldest
+  session first.
 
 **Account Security**
 

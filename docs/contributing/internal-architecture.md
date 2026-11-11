@@ -14,6 +14,7 @@ project.
    - /mcp/v1 → JSON-RPC handler
    - /api/llm/* → LLM proxy handler
    - /api/user/info → User info handler
+   - /api/user/logout → Logout handler (ends the password session)
 5. Response → nginx → Browser
 ```
 
@@ -22,7 +23,8 @@ project.
 **Server-side:**
 
 - User accounts stored in `postgres-mcp-users.yaml`
-- Session tokens stored in memory only (not persisted to disk)
+- Session token hashes stored in `auth.db`, a SQLite file in the data
+  directory, so sessions survive a restart
 - Each authenticated user receives a session token with 24-hour expiration
 - Tokens validated on every request via `Authorization: Bearer <token>` header
 

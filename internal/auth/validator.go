@@ -111,12 +111,12 @@ func (v *Validator) ContextWithIdentity(ctx context.Context, id Identity) contex
 }
 
 // PublicPaths returns the request paths that bypass authentication: the
-// built-in health, user info and OpenAPI endpoints, the two OAuth
+// built-in health, user info, logout and OpenAPI endpoints, the two OAuth
 // discovery documents (public whether or not OAuth is switched on, so a
 // client discovering the server gets a 404 rather than a 401), plus any
 // paths OAuth registered via ExtraPublicPaths.
 func (v *Validator) PublicPaths() []string {
-	paths := []string{HealthCheckPath, UserInfoPath, OpenAPIPath, OAuthMetadataPath, OAuthProtectedResourcePath}
+	paths := []string{HealthCheckPath, UserInfoPath, LogoutPath, OpenAPIPath, OAuthMetadataPath, OAuthProtectedResourcePath}
 	if v.OAuthEnabled() {
 		paths = append(paths, v.ExtraPublicPaths...)
 	}

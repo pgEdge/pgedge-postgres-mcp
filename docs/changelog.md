@@ -35,9 +35,25 @@ and this project adheres to
   returns to the normal prompt. The collected lines are not added to the
   command history. This needs nothing from the terminal, so it behaves
   the same in every terminal emulator and on every platform. Fixes #57.
+- Password-login sessions now survive a server restart, and a user may
+  hold up to 10 at once, for example on several devices. The server
+  stores them in `auth.db` in the data directory, and refuses to start
+  if it cannot open that file. A session ends when its user is disabled,
+  deleted, locked out or given a new password. Logging out of the web
+  client now also asks the server to end the session. When HTTP
+  authentication is enabled, the server needs a writable data directory,
+  even if you use only API tokens. A second server cannot start on a
+  data directory that one is already using, unless the filesystem does
+  not support file locks; the server then logs a warning and starts
+  anyway. Fixes #289.
 
 ### Changed
 
+- The Docker image's `INIT_USERS` variable now only adds users that are
+  missing from the users file, and leaves existing users and their
+  passwords alone. Previously it rewrote the file on every start; use
+  `-update-user` to change a user, and to remove one, delete it from
+  `INIT_USERS` and run `-delete-user`.
 - Authentication methods (API tokens, password login, OAuth) can be
   enabled individually under `http.auth.methods`.
 - Enabling OAuth adds the issuer's own origin to the browser origins

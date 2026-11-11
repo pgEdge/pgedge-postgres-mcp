@@ -40,6 +40,11 @@ const (
 	// UserInfoPath is the path for the user info endpoint (bypasses auth to return auth status)
 	UserInfoPath = "/api/user/info"
 
+	// LogoutPath is the path that ends the presented password-login
+	// session. It bypasses auth so that it answers 204 whether or not
+	// the token is still live, which gives no oracle for its validity.
+	LogoutPath = "/api/user/logout"
+
 	// OpenAPIPath is the path for the OpenAPI specification endpoint (public for API discoverability)
 	OpenAPIPath = "/api/openapi.json"
 

@@ -280,6 +280,28 @@ that require durable storage. The init container writes the
 knowledge base file to the persistent volume on first
 deployment.
 
+### Helm Persistence and auth.db
+
+The server stores password-login sessions and OAuth state in `auth.db`,
+which lives in the data directory. The Helm chart mounts a `data` volume at
+`/var/lib/pgedge/mcp-server`. When `server.persistence.enabled` is `true`,
+that volume is a PersistentVolumeClaim; otherwise, it is an `emptyDir`
+volume that Kubernetes deletes when the pod is replaced.
+
+The current chart does not place the data directory on that volume. With
+the chart defaults, the image entrypoint cannot create `/app/data` on the
+read-only root filesystem, so the server does not start.
+
+If a pod runs with a writable `/app/data` outside the data volume, then
+`auth.db` does not survive pod replacement, even with persistence enabled.
+Every pod replacement then signs all users out and forces dynamically
+registered OAuth clients to register again.
+
+Do not point several replicas at one shared data directory. Each replica
+needs its own `auth.db`, because sharing the file is unsupported. A
+second server on the same data directory refuses to start, because the
+first holds a lock on the directory.
+
 ### Horizontal Pod Autoscaler
 
 A Horizontal Pod Autoscaler scales the number of MCP server
@@ -348,7 +370,12 @@ authentication:
 - API tokens work identically across all instances.
 - The auto-reload feature propagates credential changes
   without a restart.
-- Active sessions remain valid during a credential reload.
+- Sessions remain valid during a credential reload, except those of users
+  who were removed, disabled or given a new password.
+- A password change also ends the user's OAuth grants.
+- Each instance keeps sessions and OAuth state in its own `auth.db` file.
+- Two instances must never share one data directory; this is unsupported.
+- A second instance on the same data directory refuses to start.
 
 ### Rate Limiting Considerations
 

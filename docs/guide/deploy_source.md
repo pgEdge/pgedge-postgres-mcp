@@ -138,6 +138,15 @@ INIT_USERS=
 MCP_CLIENT_TOKEN=
 ```
 
+`INIT_USERS` only adds users that are not in the users file yet; a user
+who already exists keeps the password stored for them. To change a
+password later, run the server's `-update-user` command against the
+users file in the data volume. To remove a user, delete the entry from
+`INIT_USERS` and run the `-delete-user` command; otherwise, the next
+start adds the user again. The server watches the users file and ends
+the sessions of a changed or removed user. If the server logs a warning
+that it cannot watch the users file, restart it after each change.
+
 You also need to specify the LLM provider information in the
 `LLM CONFIGURATION FOR CLIENTS` section:
 

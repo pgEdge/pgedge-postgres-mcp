@@ -59,6 +59,7 @@ func TestBuildSpec_RequiredPaths(t *testing.T) {
 		"/api/databases",
 		"/api/databases/select",
 		"/api/user/info",
+		"/api/user/logout",
 		"/api/chat/compact",
 		"/api/llm/v1/providers",
 		"/api/llm/v1/models",

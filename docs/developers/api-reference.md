@@ -272,6 +272,26 @@ Authorization: Bearer <session-token>
 
 **Implementation:** [cmd/pgedge-pg-mcp-svr/main.go:454-511](https://github.com/pgEdge/pgedge-postgres-mcp/blob/main/cmd/pgedge-pg-mcp-svr/main.go#L454-L511)
 
+### POST /api/user/logout
+
+Ends the password-login session named by the bearer token, so that the
+token can no longer be used. The endpoint requires no authentication. It
+leaves API tokens and OAuth tokens alone; the web client calls it on logout.
+
+**Request:**
+```http
+POST /api/user/logout HTTP/1.1
+Authorization: Bearer <session-token>
+```
+
+**Response:**
+
+The server answers `204 No Content` whether or not the token was a live
+session, which reveals nothing about the token. A request that uses any
+method other than `POST` receives `405 Method Not Allowed`.
+
+**Implementation:** [cmd/pgedge-pg-mcp-svr/logout.go](https://github.com/pgEdge/pgedge-postgres-mcp/blob/main/cmd/pgedge-pg-mcp-svr/logout.go)
+
 ### POST /api/chat/compact
 
 Smart chat history compaction endpoint. Intelligently compresses message

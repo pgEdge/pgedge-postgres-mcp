@@ -39,6 +39,30 @@ const LEGACY_TOKEN_KEY = 'mcp-session-token';
 // How long before expiry the access token is proactively refreshed.
 const REFRESH_MARGIN_MS = 60 * 1000;
 
+// Server endpoint that ends a legacy username/password session, and how
+// long a logout waits on it before giving up.
+const LOGOUT_URL = '/api/user/logout';
+const LOGOUT_TIMEOUT_MS = 5000;
+
+// endLegacySession asks the server to end a legacy session token. It is
+// best-effort and bounded by LOGOUT_TIMEOUT_MS; the server answers 204
+// whether or not the session was still live.
+const endLegacySession = async (token) => {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), LOGOUT_TIMEOUT_MS);
+    try {
+        await fetch(LOGOUT_URL, {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${token}` },
+            signal: controller.signal,
+        });
+    } catch {
+        // Best-effort: the local session is cleared regardless.
+    } finally {
+        clearTimeout(timeoutId);
+    }
+};
+
 export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);
     const [legacyToken, setLegacyToken] = useState(() => localStorage.getItem(LEGACY_TOKEN_KEY));
@@ -384,6 +408,7 @@ export const AuthProvider = ({ children }) => {
 
         const sessionToRevoke = oauth.enabled ? oauthSession : null;
         const metaForRevoke = oauth.meta;
+        const legacyTokenToEnd = legacyToken;
 
         // Clear all local state and storage first, unconditionally: the
         // user must see themselves logged out immediately, regardless of
@@ -405,8 +430,12 @@ export const AuthProvider = ({ children }) => {
             revokeOAuthSession(metaForRevoke, sessionToRevoke).catch(() => {});
         }
 
-        // Note: for the legacy flow, we don't need to call a logout API -
-        // the session token simply expires on the server after its TTL.
+        if (legacyTokenToEnd) {
+            // The server keeps a legacy session for its full lifetime,
+            // across restarts, unless told to end it. Fire-and-forget,
+            // as for OAuth revocation above.
+            endLegacySession(legacyTokenToEnd).catch(() => {});
+        }
     };
 
     // Force logout without any cleanup (used when a session is invalidated,
