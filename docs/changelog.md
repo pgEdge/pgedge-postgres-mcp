@@ -1247,10 +1247,10 @@ and this project adheres to
 
   Covered by advisory [GHSA-v44x-hxg7-5cgc], which asks operators to review
   their own custom tool definitions for tools that write, since that
-  identifies which of their tools ran unprompted on an affected version, and
-  to review their database audit logs for writes those tools made. Writes
-  through `query_database` that the prompt misclassified as reads are covered
-  separately by [GHSA-5gmh-9683-hhq9].
+  identifies which of their tools could run unprompted on an affected
+  version, and to review their database audit logs for writes those tools
+  actually made. Writes through `query_database` that the prompt misclassified
+  as reads are covered separately by [GHSA-5gmh-9683-hhq9].
 
 - Provider API keys are no longer disclosed in error output. When an LLM or
   embedding provider rejects a credential it commonly quotes that credential
