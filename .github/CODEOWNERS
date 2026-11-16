@@ -1,0 +1,25 @@
+# Code owners under the Code Review and Commit Policy v2.0.
+# pgedge-postgres-mcp is Tier 2. The last matching line wins.
+
+# Workflows, release, packaging and signing: a code owner or build-packaging.
+/.github/workflows/  @dpage @pgEdge/build-packaging
+/.github/actions/  @dpage @pgEdge/build-packaging
+action.yml  @dpage @pgEdge/build-packaging
+action.yaml  @dpage @pgEdge/build-packaging
+.goreleaser*.yml  @dpage @pgEdge/build-packaging
+.goreleaser*.yaml  @dpage @pgEdge/build-packaging
+*.spec  @dpage @pgEdge/build-packaging
+debian/  @dpage @pgEdge/build-packaging
+rpm/  @dpage @pgEdge/build-packaging
+packaging/  @dpage @pgEdge/build-packaging
+release*.sh  @dpage @pgEdge/build-packaging
+sign*.sh  @dpage @pgEdge/build-packaging
+sign*.py  @dpage @pgEdge/build-packaging
+Dockerfile*  @dpage @pgEdge/build-packaging
+
+# Ownership and AI review configuration: code owners only.
+/CODEOWNERS  @dpage
+/.github/CODEOWNERS  @dpage
+/docs/CODEOWNERS  @dpage
+/REVIEW.md  @dpage
+/.coderabbit.yaml  @dpage
