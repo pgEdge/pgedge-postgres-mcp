@@ -201,7 +201,7 @@ mcp:
 
 llm:
     provider: anthropic  # Options: anthropic, openai, gemini, or ollama
-    model: claude-sonnet-4-20250514
+    model: claude-sonnet-5-5
 
     # API keys (priority: env vars > key files > direct config values)
     # Option 1: Environment variables (recommended for development)
@@ -277,14 +277,14 @@ export PGEDGE_OPENAI_API_KEY="your-api-key-here"
 # Run the chat client with OpenAI
 ./bin/pgedge-nla-cli \
   -llm-provider openai \
-  -llm-model gpt-4o
+  -llm-model gpt-6-luna
 ```
 
 Supported OpenAI models:
 
 - `gpt-5-main` - Latest GPT-5 fast model (recommended)
 - `gpt-5-thinking` - GPT-5 reasoning model
-- `gpt-4o` - GPT-4 Omni
+- `gpt-6-luna` - GPT-6 Luna
 - `gpt-4-turbo` - GPT-4 Turbo
 - `gpt-3.5-turbo` - GPT-3.5 Turbo
 
@@ -413,7 +413,7 @@ mcp:
 
 llm:
   provider: anthropic
-  model: claude-sonnet-4-20250514
+  model: claude-sonnet-5-5
   anthropic_api_key: sk-ant-...
 EOF
 
@@ -620,10 +620,10 @@ providers: `anthropic`, `openai`, `gemini`, `ollama`.
 
 ```
 You: /set provider openai
-System: LLM provider set to: openai (model: gpt-4o)
+System: LLM provider set to: openai (model: gpt-6-luna)
 
 You: /set provider anthropic
-System: LLM provider set to: anthropic (model: claude-sonnet-4-20250514)
+System: LLM provider set to: anthropic (model: claude-sonnet-5-5)
 ```
 
 ### Change LLM Model
@@ -679,7 +679,7 @@ curated list. For OpenAI and Ollama, queries the provider's API.
 ```
 You: /list models
 System: Available models from anthropic (7):
-  * claude-sonnet-4-20250514 (current)
+  * claude-sonnet-5-5 (current)
     claude-3-7-sonnet-20250219
     claude-3-5-sonnet-20241022
     claude-3-5-sonnet-20240620
@@ -761,7 +761,7 @@ UI:
 
 LLM:
   Provider:         anthropic
-  Model:            claude-sonnet-4-20250514
+  Model:            claude-sonnet-5-5
   Max Tokens:       4096
 
 MCP:
@@ -852,7 +852,7 @@ Load a previous conversation to continue it:
 ```
 You: /history load conv_1765197705551269000
 System: Loaded conversation: What tables exist?
-System: Messages: 4, Provider: anthropic, Model: claude-sonnet-4-20250514
+System: Messages: 4, Provider: anthropic, Model: claude-sonnet-5-5
 System: Database: production
 
 ────────────────────────────── Conversation History ──────────────────────────────
@@ -935,7 +935,7 @@ This shows the client's elephant-themed UI in action, including the thinking ani
  |_||  |_||
 
 System: Connected to MCP server
-System: Using LLM: anthropic (claude-sonnet-4-20250514)
+System: Using LLM: anthropic (claude-sonnet-5-5)
 ────────────────────────────────────────────────────────────────────────────────
 You: What tables are in my database?
 

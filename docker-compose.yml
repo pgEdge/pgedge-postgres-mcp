@@ -118,7 +118,7 @@ services:
             # LLM proxy configuration (for web client chat)
             - PGEDGE_LLM_ENABLED=${PGEDGE_LLM_ENABLED:-true}
             - PGEDGE_LLM_PROVIDER=${PGEDGE_LLM_PROVIDER:-anthropic}
-            - PGEDGE_LLM_MODEL=${PGEDGE_LLM_MODEL:-claude-sonnet-4-5}
+            - PGEDGE_LLM_MODEL=${PGEDGE_LLM_MODEL:-claude-sonnet-5-5}
             - PGEDGE_LLM_MAX_TOKENS=${PGEDGE_LLM_MAX_TOKENS:-4096}
             - PGEDGE_LLM_TEMPERATURE=${PGEDGE_LLM_TEMPERATURE:-0.7}
             # Knowledgebase configuration

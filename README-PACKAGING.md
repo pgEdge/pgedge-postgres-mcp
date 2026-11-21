@@ -248,7 +248,7 @@ mcp_server:
 # LLM provider settings
 llm:
   provider: anthropic  # anthropic, openai, or ollama
-  model: claude-sonnet-4-20250514
+  model: claude-sonnet-5-5
   # API keys set via environment:
   # ANTHROPIC_API_KEY or OPENAI_API_KEY
 

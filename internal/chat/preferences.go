@@ -126,8 +126,8 @@ func getDefaultPreferences() *Preferences {
 			Color:                 true,
 		},
 		ProviderModels: map[string]string{
-			"anthropic": "claude-sonnet-4-5-20250929",
-			"openai":    "gpt-4o",
+			"anthropic": "claude-sonnet-5-5",
+			"openai":    "gpt-6-luna",
 			"gemini":    "gemini-2.5-flash",
 			"ollama":    "qwen3-coder:latest",
 		},

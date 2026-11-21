@@ -9,6 +9,16 @@ and this project adheres to
 
 ## [Unreleased]
 
+### Changed
+
+- The default Anthropic model is now `claude-sonnet-5-5`, replacing
+  `claude-sonnet-4-5`, which Anthropic retires on November 30, 2026,
+  and the examples and docs that still named `claude-sonnet-4-20250514`,
+  retired on June 15, 2026.
+- The default OpenAI model for the CLI chat client is now
+  `gpt-6-luna`, replacing `gpt-4o`, which OpenAI shuts down on
+  January 14, 2027.
+
 ## [1.2.0-beta1] - 2026-11-11
 
 ### Added

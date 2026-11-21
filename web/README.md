@@ -128,7 +128,7 @@ http:
 llm:
     enabled: true
     provider: "anthropic"  # Options: "anthropic", "openai", "ollama"
-    model: "claude-sonnet-4-5"
+    model: "claude-sonnet-5-5"
 
     # Option 1: Environment variables (RECOMMENDED)
     # Set PGEDGE_ANTHROPIC_API_KEY or PGEDGE_OPENAI_API_KEY

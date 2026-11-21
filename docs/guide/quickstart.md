@@ -162,7 +162,7 @@ databases:
 # llm:
 #     enabled: false
 #     provider: "anthropic"
-#     model: "claude-sonnet-4-5"
+#     model: "claude-sonnet-5-5"
 #     anthropic_api_key_file: "~/.anthropic-api-key"
 #     # anthropic_base_url: ""
 #     # openai_api_key_file: "~/.openai-api-key"

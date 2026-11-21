@@ -125,7 +125,7 @@ Authorization: Bearer <session-token>
     {
       "name": "anthropic",
       "display_name": "Anthropic",
-      "model": "claude-sonnet-4-5",
+      "model": "claude-sonnet-5-5",
       "default": true
     },
     {
@@ -217,7 +217,7 @@ In the following example, the request sends a chat message with tools to the LLM
     }
   ],
   "provider": "anthropic",
-  "model": "claude-sonnet-4-5"
+  "model": "claude-sonnet-5-5"
 }
 ```
 
@@ -315,7 +315,7 @@ In the following example, the configuration file specifies the LLM provider, mod
 llm:
     enabled: true
     provider: "anthropic"  # anthropic, openai, gemini, or ollama
-    model: "claude-sonnet-4-5"
+    model: "claude-sonnet-5-5"
 
     # API key configuration (priority: env vars > key files > direct values)
     # Option 1: Environment variables (recommended for development)

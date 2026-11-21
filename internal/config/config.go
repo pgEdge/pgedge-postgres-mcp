@@ -824,7 +824,7 @@ func defaultConfig() *Config {
 		LLM: LLMConfig{
 			Enabled:           false,                    // Disabled by default (opt-in)
 			Provider:          "anthropic",              // Default provider
-			Model:             "claude-sonnet-4-5",      // Default Anthropic model
+			Model:             "claude-sonnet-5-5",      // Default Anthropic model
 			AnthropicAPIKey:   "",                       // Must be provided if using Anthropic
 			OpenAIAPIKey:      "",                       // Must be provided if using OpenAI
 			OllamaURL:         "http://localhost:11434", // Default Ollama URL

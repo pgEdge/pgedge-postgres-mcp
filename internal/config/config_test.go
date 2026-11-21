@@ -53,6 +53,9 @@ func TestDefaultConfig(t *testing.T) {
 	if cfg.LLM.MaxTokens != 4096 {
 		t.Errorf("Expected default max tokens 4096, got %d", cfg.LLM.MaxTokens)
 	}
+	if cfg.LLM.Model != "claude-sonnet-5-5" {
+		t.Errorf("Expected default LLM model claude-sonnet-5-5, got %s", cfg.LLM.Model)
+	}
 
 	// Test knowledgebase defaults
 	if cfg.Knowledgebase.Enabled {

@@ -182,8 +182,8 @@ func TestGetDefaultModelForProvider(t *testing.T) {
 		provider string
 		want     string
 	}{
-		{"anthropic", "anthropic", "claude-sonnet-4-5-20250929"},
-		{"openai", "openai", "gpt-4o"},
+		{"anthropic", "anthropic", "claude-sonnet-5-5"},
+		{"openai", "openai", "gpt-6-luna"},
 		{"gemini", "gemini", "gemini-2.5-flash"},
 		{"ollama", "ollama", "qwen3-coder:latest"},
 		{"unknown", "unknown", ""},
@@ -296,8 +296,8 @@ func TestIsChatCapableModel(t *testing.T) {
 		model string
 		want  bool
 	}{
-		{"anthropic chat model", "claude-sonnet-4-5-20250929", true},
-		{"openai chat model", "gpt-4o", true},
+		{"anthropic chat model", "claude-sonnet-5-5", true},
+		{"openai chat model", "gpt-6-luna", true},
 		{"gemini chat model", "gemini-2.5-flash", true},
 		{"ollama chat model", "llama3.2:latest", true},
 		{"ollama embedding model", "nomic-embed-text:latest", false},
