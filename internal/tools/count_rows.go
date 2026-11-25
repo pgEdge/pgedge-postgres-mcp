@@ -27,7 +27,8 @@ import (
 func CountRowsTool(dbClient *database.Client) Tool {
 	return Tool{
 		Definition: mcp.Tool{
-			Name: "count_rows",
+			Name:        "count_rows",
+			Annotations: readOnlyAnnotations(false),
 			Description: `Get the row count of a table with optional filtering. Use this tool instead of running SELECT COUNT(*) through psql or shell commands — it provides efficient counting with proper access control.
 
 <usecase>

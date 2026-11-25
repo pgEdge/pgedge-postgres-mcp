@@ -26,7 +26,8 @@ import (
 func SimilaritySearchTool(dbClient *database.Client, cfg *config.Config) Tool {
 	return Tool{
 		Definition: mcp.Tool{
-			Name: "similarity_search",
+			Name:        "similarity_search",
+			Annotations: readOnlyAnnotations(true),
 			Description: `⚠️  IMPORTANT: Use this tool to retrieve database content BEFORE answering questions about it. Do NOT answer from memory!
 
 Semantic search for NATURAL LANGUAGE and CONCEPT-BASED queries. Use this tool instead of manual text search queries through psql — it combines vector similarity with lexical ranking for superior results.

@@ -9,6 +9,14 @@ and this project adheres to
 
 ## [Unreleased]
 
+### Changed
+
+- All built-in tools now advertise MCP tool annotations; previously
+  only `query_database` did. The remaining built-in tools declare
+  `readOnlyHint`, and those that call an external embedding provider
+  (`generate_embedding`, `similarity_search` and
+  `search_knowledgebase`) also declare `openWorldHint`.
+
 ## [1.2.0-beta1] - 2026-11-11
 
 ### Added

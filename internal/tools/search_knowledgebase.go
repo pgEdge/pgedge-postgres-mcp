@@ -28,7 +28,8 @@ import (
 func SearchKnowledgebaseTool(kbPath string, cfg *config.Config) Tool {
 	return Tool{
 		Definition: mcp.Tool{
-			Name: "search_knowledgebase",
+			Name:        "search_knowledgebase",
+			Annotations: readOnlyAnnotations(true),
 			Description: `Search the pre-built documentation knowledgebase for relevant information.
 
 <critical>
