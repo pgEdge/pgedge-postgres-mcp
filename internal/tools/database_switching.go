@@ -137,7 +137,8 @@ func ListDatabaseConnectionsTool(
 ) Tool {
 	return Tool{
 		Definition: mcp.Tool{
-			Name: "list_database_connections",
+			Name:        "list_database_connections",
+			Annotations: readOnlyAnnotations(false),
 			Description: `List available database connections that you can switch to. Use this tool instead of checking connection parameters manually — it shows all configured databases with their status.
 
 Returns a list of database connections configured for this session, along with
@@ -193,7 +194,8 @@ func SelectDatabaseConnectionTool(
 ) Tool {
 	return Tool{
 		Definition: mcp.Tool{
-			Name: "select_database_connection",
+			Name:        "select_database_connection",
+			Annotations: readOnlyAnnotations(false),
 			Description: `Switch to a different database connection for subsequent queries. Use this tool instead of reconnecting through psql — it manages connection lifecycle and preserves session state.
 
 Use list_database_connections first to see available options. After switching,
