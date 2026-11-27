@@ -182,11 +182,11 @@ You also need to specify the LLM provider information in the `LLM CONFIGURATION 
 PGEDGE_LLM_PROVIDER=anthropic
 
 # Default LLM model for chat clients
-# Anthropic: claude-sonnet-4-20250514, claude-opus-4-20250514, etc.
-# OpenAI: gpt-4o, gpt-4-turbo, gpt-4o-mini, etc.
+# Anthropic: claude-sonnet-5-5, claude-opus-4-8, etc.
+# OpenAI: gpt-6-luna, gpt-4-turbo, etc.
 # Gemini: gemini-2.5-flash, gemini-2.5-pro, etc.
 # Ollama: llama3, mistral, etc.
-PGEDGE_LLM_MODEL=claude-sonnet-4-20250514
+PGEDGE_LLM_MODEL=claude-sonnet-5-5
 ```
 
 **Deploy the Server**
@@ -323,7 +323,7 @@ PGEDGE_OLLAMA_URL=http://localhost:11434
 # LLM CONFIGURATION FOR CLIENTS
 # ============================================================
 PGEDGE_LLM_PROVIDER=anthropic
-PGEDGE_LLM_MODEL=claude-sonnet-4-20250514
+PGEDGE_LLM_MODEL=claude-sonnet-5-5
 
 # ============================================================
 # AUTHENTICATION CONFIGURATION

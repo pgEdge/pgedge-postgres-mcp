@@ -129,7 +129,7 @@ class PostgresChatbot:
         # Interact with Claude
         while True:
             response = self.anthropic.messages.create(
-                model="claude-sonnet-4-20250514",
+                model="claude-sonnet-5-5",
                 max_tokens=4096,
                 messages=messages,
                 tools=available_tools

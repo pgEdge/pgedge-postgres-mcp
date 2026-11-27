@@ -1720,9 +1720,9 @@ func isModelAvailable(model string, availableModels []string) bool {
 func getDefaultModelForProvider(provider string) string {
 	switch provider {
 	case "anthropic":
-		return "claude-sonnet-4-5-20250929"
+		return "claude-sonnet-5-5"
 	case "openai":
-		return "gpt-4o"
+		return "gpt-6-luna"
 	case "gemini":
 		return "gemini-2.5-flash"
 	case "ollama":

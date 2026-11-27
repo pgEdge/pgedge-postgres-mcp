@@ -381,13 +381,13 @@ llm:
     provider: "anthropic"
 
     # Model name (provider-specific)
-    # Anthropic: claude-sonnet-4-5, claude-opus-4-5
-    # OpenAI: gpt-5, gpt-4o, gpt-4-turbo
+    # Anthropic: claude-sonnet-5-5, claude-opus-4-5
+    # OpenAI: gpt-5, gpt-6-luna, gpt-4-turbo
     # Gemini: gemini-2.5-flash, gemini-2.5-pro
     # Ollama: llama3, llama3.1, mistral
-    # Default: claude-sonnet-4-5 (anthropic), gpt-5 (openai),
+    # Default: claude-sonnet-5-5 (anthropic), gpt-5 (openai),
     #          gemini-2.5-flash (gemini), llama3 (ollama)
-    model: "claude-sonnet-4-5"
+    model: "claude-sonnet-5-5"
 
     # API key configuration (see notes below for priority)
     # For Anthropic

@@ -53,7 +53,7 @@ services:
             # LLM configuration (user must provide keys)
             PGEDGE_LLM_ENABLED: ${PGEDGE_LLM_ENABLED:-true}
             PGEDGE_LLM_PROVIDER: ${PGEDGE_LLM_PROVIDER:-anthropic}
-            PGEDGE_LLM_MODEL: ${PGEDGE_LLM_MODEL:-claude-sonnet-4-5}
+            PGEDGE_LLM_MODEL: ${PGEDGE_LLM_MODEL:-claude-sonnet-5-5}
             PGEDGE_LLM_MAX_TOKENS: ${PGEDGE_LLM_MAX_TOKENS:-4096}
             PGEDGE_ANTHROPIC_API_KEY: ${PGEDGE_ANTHROPIC_API_KEY}
             PGEDGE_OPENAI_API_KEY: ${PGEDGE_OPENAI_API_KEY}

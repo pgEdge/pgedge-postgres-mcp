@@ -286,7 +286,7 @@ func TestHandleSetLLMProvider(t *testing.T) {
 			cfg := &Config{
 				LLM: LLMConfig{
 					Provider:        "anthropic",
-					Model:           "claude-sonnet-4-5-20250929",
+					Model:           "claude-sonnet-5-5",
 					AnthropicAPIKey: "test-key",
 					OpenAIAPIKey:    "test-key",
 					GeminiAPIKey:    "test-key",
@@ -376,7 +376,7 @@ func TestHandleSetLLMModel(t *testing.T) {
 	cfg := &Config{
 		LLM: LLMConfig{
 			Provider:        "anthropic",
-			Model:           "claude-sonnet-4-5-20250929",
+			Model:           "claude-sonnet-5-5",
 			AnthropicAPIKey: "test-key",
 		},
 		UI: UIConfig{

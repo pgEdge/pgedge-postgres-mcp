@@ -415,7 +415,7 @@ func TestLoadConfig_EnvironmentBeatsTheFile(t *testing.T) {
 		"  mode: http\n" +
 		"llm:\n" +
 		"  provider: openai\n" +
-		"  model: gpt-4o\n" +
+		"  model: gpt-6-luna\n" +
 		"  gemini_base_url: https://file.example.com\n" +
 		"  ollama_url: http://file.example.com:11434\n"
 	if err := os.WriteFile(configPath, []byte(configContent), 0644); err != nil {
@@ -467,7 +467,7 @@ func TestLoadConfig_FileSurvivesAnAbsentEnvironment(t *testing.T) {
 	configContent := "" +
 		"llm:\n" +
 		"  provider: openai\n" +
-		"  model: gpt-4o\n" +
+		"  model: gpt-6-luna\n" +
 		"  gemini_base_url: https://file.example.com\n"
 	if err := os.WriteFile(configPath, []byte(configContent), 0644); err != nil {
 		t.Fatalf("Failed to write config file: %v", err)
@@ -481,7 +481,7 @@ func TestLoadConfig_FileSurvivesAnAbsentEnvironment(t *testing.T) {
 	if cfg.LLM.Provider != "openai" {
 		t.Errorf("LLM.Provider = %q, want the file value", cfg.LLM.Provider)
 	}
-	if cfg.LLM.Model != "gpt-4o" {
+	if cfg.LLM.Model != "gpt-6-luna" {
 		t.Errorf("LLM.Model = %q, want the file value", cfg.LLM.Model)
 	}
 	if cfg.LLM.GeminiBaseURL != "https://file.example.com" {
@@ -590,5 +590,14 @@ func TestAuthModeRejectsUnknown(t *testing.T) {
 
 	if err := cfg.Validate(); err == nil {
 		t.Error("Validate should reject an unknown auth mode")
+	}
+}
+
+// TestDefaultConfigLLMModel checks the built-in default model, which is used
+// when neither a config file nor PGEDGE_LLM_MODEL names one.
+func TestDefaultConfigLLMModel(t *testing.T) {
+	cfg := defaultConfig()
+	if cfg.LLM.Model != "claude-sonnet-5-5" {
+		t.Errorf("Expected default LLM model 'claude-sonnet-5-5', got '%s'", cfg.LLM.Model)
 	}
 }

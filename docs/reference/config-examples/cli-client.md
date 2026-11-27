@@ -39,7 +39,7 @@ All configuration options can be overridden with command line flags:
     -mcp-auth-mode token \
     -mcp-token your-mcp-token \
     -llm-provider anthropic \
-    -llm-model claude-opus-4-20250514 \
+    -llm-model claude-opus-4-8 \
     -anthropic-api-key your-anthropic-key \
     -no-color
 ```
@@ -90,7 +90,7 @@ mcp:
 
 llm:
     provider: anthropic
-    model: claude-sonnet-4-20250514
+    model: claude-sonnet-5-5
     # Set PGEDGE_ANTHROPIC_API_KEY environment variable
 ```
 
@@ -141,7 +141,7 @@ mcp:
 
 llm:
     provider: anthropic
-    model: claude-sonnet-4-20250514
+    model: claude-sonnet-5-5
 ```
 
 Then run:
@@ -164,7 +164,7 @@ mcp:
 
 llm:
     provider: anthropic
-    model: claude-sonnet-4-20250514
+    model: claude-sonnet-5-5
 ```
 
 Then run:
@@ -313,15 +313,15 @@ llm:
     provider: anthropic
 
     # Model to use
-    # Anthropic models: claude-sonnet-4-20250514, claude-opus-4-20250514, etc.
-    # OpenAI models: gpt-5-main, gpt-5-thinking, gpt-4o, gpt-4-turbo, gpt-3.5-turbo, etc.
+    # Anthropic models: claude-sonnet-5-5, claude-opus-4-8, etc.
+    # OpenAI models: gpt-5-main, gpt-5-thinking, gpt-6-luna, gpt-4-turbo, gpt-3.5-turbo, etc.
     # Gemini models: gemini-2.5-flash, gemini-2.5-pro, etc.
     # Ollama models: llama3, llama3.1, mistral, gpt-oss:20b, etc.
-    # Default: claude-sonnet-4-5-20250929 (anthropic), gpt-4o (openai),
+    # Default: claude-sonnet-5-5 (anthropic), gpt-6-luna (openai),
     # gemini-2.5-flash (gemini), or qwen3-coder:latest (ollama)
     # Environment variable: PGEDGE_LLM_MODEL
     # Command line flag: -llm-model
-    model: claude-sonnet-4-20250514
+    model: claude-sonnet-5-5
 
     # -------------------------
     # Anthropic Configuration

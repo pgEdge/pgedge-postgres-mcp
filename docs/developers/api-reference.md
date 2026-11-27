@@ -433,7 +433,7 @@ Authorization: Bearer <session-token>
 
 {
     "provider": "anthropic",
-    "model": "claude-sonnet-4-20250514",
+    "model": "claude-sonnet-5-5",
     "connection": "production",
     "messages": [
         {
@@ -455,7 +455,7 @@ Authorization: Bearer <session-token>
     "username": "alice",
     "title": "Show me the users table",
     "provider": "anthropic",
-    "model": "claude-sonnet-4-20250514",
+    "model": "claude-sonnet-5-5",
     "connection": "production",
     "messages": [...],
     "created_at": "2025-01-15T10:30:00Z",
@@ -480,7 +480,7 @@ Authorization: Bearer <session-token>
     "username": "alice",
     "title": "Database schema exploration",
     "provider": "anthropic",
-    "model": "claude-sonnet-4-20250514",
+    "model": "claude-sonnet-5-5",
     "connection": "production",
     "messages": [
         {
@@ -493,7 +493,7 @@ Authorization: Bearer <session-token>
             "content": "Here's the schema...",
             "timestamp": "2025-01-15T10:30:05Z",
             "provider": "anthropic",
-            "model": "claude-sonnet-4-20250514"
+            "model": "claude-sonnet-5-5"
         }
     ],
     "created_at": "2025-01-15T10:30:00Z",
@@ -513,7 +513,7 @@ Authorization: Bearer <session-token>
 
 {
     "provider": "anthropic",
-    "model": "claude-sonnet-4-20250514",
+    "model": "claude-sonnet-5-5",
     "connection": "production",
     "messages": [...]
 }

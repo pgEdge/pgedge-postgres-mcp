@@ -89,7 +89,7 @@ func defaultConfig() *Config {
 		},
 		LLM: LLMConfig{
 			Provider:  "anthropic",
-			Model:     "claude-sonnet-4-5-20250929",
+			Model:     "claude-sonnet-5-5",
 			OllamaURL: "http://localhost:11434",
 			MaxTokens: 4096,
 		},
@@ -289,14 +289,14 @@ func (c *Config) Validate() error {
 			return fmt.Errorf("PGEDGE_ANTHROPIC_API_KEY environment variable or anthropic_api_key config is required for Anthropic")
 		}
 		if c.LLM.Model == "" {
-			c.LLM.Model = "claude-sonnet-4-5-20250929"
+			c.LLM.Model = "claude-sonnet-5-5"
 		}
 	case "openai":
 		if c.LLM.OpenAIAPIKey == "" {
 			return fmt.Errorf("PGEDGE_OPENAI_API_KEY environment variable or openai_api_key config is required for OpenAI")
 		}
 		if c.LLM.Model == "" {
-			c.LLM.Model = "gpt-4o"
+			c.LLM.Model = "gpt-6-luna"
 		}
 	case "gemini":
 		if c.LLM.GeminiAPIKey == "" {

@@ -159,12 +159,12 @@ You also need to specify the LLM provider information in the
 PGEDGE_LLM_PROVIDER=anthropic
 
 # Default LLM model for chat clients
-# Anthropic: claude-sonnet-4-20250514, claude-opus-4-20250514,
+# Anthropic: claude-sonnet-5-5, claude-opus-4-8,
 #             etc.
-# OpenAI: gpt-5-main, gpt-4o, gpt-4-turbo, etc.
+# OpenAI: gpt-5-main, gpt-6-luna, gpt-4-turbo, etc.
 # Gemini: gemini-2.5-flash, gemini-2.5-pro, etc.
 # Ollama: llama3, mistral, etc.
-PGEDGE_LLM_MODEL=claude-sonnet-4-20250514
+PGEDGE_LLM_MODEL=claude-sonnet-5-5
 ```
 
 **Use the Command Line to Create a User**
